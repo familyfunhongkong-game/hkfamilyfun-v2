@@ -9,7 +9,7 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '**.vercel-storage.com',
+        hostname: 'images.unsplash.com',
       },
     ],
     unoptimized: process.env.NODE_ENV === 'development',
