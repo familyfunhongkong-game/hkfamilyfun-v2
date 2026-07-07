@@ -1,4 +1,4 @@
-export type PriceType = "free" | "paid";
+export type PriceType = "free" | "paid" | "mixed";
 
 export interface Event {
   id: string;
