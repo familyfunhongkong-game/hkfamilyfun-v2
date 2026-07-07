@@ -40,7 +40,7 @@ export default async function EventsPage({
           </p>
         </div>
 
-        <SearchFilterPanel />
+        <SearchFilterPanel initialFilters={filters} />
 
         <section className="mt-10">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-3">

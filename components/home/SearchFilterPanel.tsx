@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
 import { Search } from "lucide-react";
+
 import {
   AGE_GROUPS,
   CATEGORIES,
@@ -33,10 +34,19 @@ export function SearchFilterPanel({
   compact = false,
 }: SearchFilterPanelProps) {
   const router = useRouter();
+
   const [filters, setFilters] = useState<EventFilters>({
     ...emptyFilters,
     ...initialFilters,
   });
+
+  // 當網址 query string 改變時，同步更新下拉選單及 SEN checkbox。
+  useEffect(() => {
+    setFilters({
+      ...emptyFilters,
+      ...initialFilters,
+    });
+  }, [initialFilters]);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -48,28 +58,34 @@ export function SearchFilterPanel({
     router.push("/events");
   };
 
-  const update = <K extends keyof EventFilters>(key: K, value: EventFilters[K]) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+  const update = <K extends keyof EventFilters>(
+    key: K,
+    value: EventFilters[K]
+  ) => {
+    setFilters((previous) => ({
+      ...previous,
+      [key]: value,
+    }));
   };
 
   return (
     <section
       className={
-        compact
-          ? ""
-          : "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+        compact ? "" : "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
       }
     >
       <form
         onSubmit={handleSubmit}
         className="rounded-2xl border border-gray-100 bg-white p-5 card-shadow sm:p-6"
       >
-        {!compact && (
+        {!compact ? (
           <div className="mb-5">
             <h2 className="text-lg font-bold text-gray-900">搜尋活動</h2>
-            <p className="text-sm text-gray-500">按關鍵字、日期、地區等條件篩選</p>
+            <p className="text-sm text-gray-500">
+              按關鍵字、日期、地區等條件篩選
+            </p>
           </div>
-        )}
+        ) : null}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <label className="block sm:col-span-2 lg:col-span-4">
@@ -79,17 +95,19 @@ export function SearchFilterPanel({
             <input
               type="text"
               value={filters.keyword || ""}
-              onChange={(e) => update("keyword", e.target.value)}
+              onChange={(event) => update("keyword", event.target.value)}
               placeholder="搜尋活動名稱、主辦機構..."
               className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-gray-700">日期</span>
+            <span className="mb-1.5 block text-sm font-medium text-gray-700">
+              日期
+            </span>
             <select
               value={filters.date || ""}
-              onChange={(e) => update("date", e.target.value)}
+              onChange={(event) => update("date", event.target.value)}
               className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
             >
               <option value="">全部日期</option>
@@ -99,10 +117,12 @@ export function SearchFilterPanel({
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-gray-700">地區</span>
+            <span className="mb-1.5 block text-sm font-medium text-gray-700">
+              地區
+            </span>
             <select
               value={filters.district || ""}
-              onChange={(e) => update("district", e.target.value)}
+              onChange={(event) => update("district", event.target.value)}
               className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
             >
               <option value="">全部地區</option>
@@ -120,7 +140,7 @@ export function SearchFilterPanel({
             </span>
             <select
               value={filters.mtrStation || ""}
-              onChange={(e) => update("mtrStation", e.target.value)}
+              onChange={(event) => update("mtrStation", event.target.value)}
               className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
             >
               <option value="">全部港鐵站</option>
@@ -138,7 +158,7 @@ export function SearchFilterPanel({
             </span>
             <select
               value={filters.ageGroup || ""}
-              onChange={(e) => update("ageGroup", e.target.value)}
+              onChange={(event) => update("ageGroup", event.target.value)}
               className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
             >
               <option value="">全部年齡</option>
@@ -156,22 +176,28 @@ export function SearchFilterPanel({
             </span>
             <select
               value={filters.priceType || ""}
-              onChange={(e) =>
-                update("priceType", e.target.value as EventFilters["priceType"])
+              onChange={(event) =>
+                update(
+                  "priceType",
+                  event.target.value as EventFilters["priceType"]
+                )
               }
               className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
             >
               <option value="">全部</option>
               <option value="free">免費</option>
               <option value="paid">收費</option>
+              <option value="mixed">免費／收費</option>
             </select>
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-gray-700">類別</span>
+            <span className="mb-1.5 block text-sm font-medium text-gray-700">
+              類別
+            </span>
             <select
               value={filters.category || ""}
-              onChange={(e) => update("category", e.target.value)}
+              onChange={(event) => update("category", event.target.value)}
               className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
             >
               <option value="">全部類別</option>
@@ -186,11 +212,15 @@ export function SearchFilterPanel({
           <label className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-2.5 sm:col-span-2 lg:col-span-1">
             <input
               type="checkbox"
-              checked={filters.senFriendly || false}
-              onChange={(e) => update("senFriendly", e.target.checked)}
+              checked={Boolean(filters.senFriendly)}
+              onChange={(event) =>
+                update("senFriendly", event.target.checked)
+              }
               className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
-            <span className="text-sm font-medium text-gray-700">SEN 友善活動</span>
+            <span className="text-sm font-medium text-gray-700">
+              SEN 友善活動
+            </span>
           </label>
         </div>
 
@@ -202,6 +232,7 @@ export function SearchFilterPanel({
             <Search size={16} />
             搜尋活動
           </button>
+
           <button
             type="button"
             onClick={handleReset}
