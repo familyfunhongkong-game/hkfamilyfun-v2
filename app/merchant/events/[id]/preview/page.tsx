@@ -48,6 +48,7 @@ type PreviewEvent = {
   ai_extraction_status: string | null;
   ai_extracted_json: Record<string, unknown> | null;
   status: string | null;
+  admin_review_note: string | null;
 };
 
 const FALLBACK_COVER_IMAGE =
@@ -60,7 +61,7 @@ function getStatusLabel(status: string | null) {
     case "submitted":
       return "已提交審批";
     case "rejected":
-      return "需修改後再提交";
+      return "已退回修改";
     case "published":
       return "已發布";
     case "approved":
@@ -218,6 +219,7 @@ export default function MerchantEventPreviewPage() {
             "ai_extraction_status",
             "ai_extracted_json",
             "status",
+            "admin_review_note",
           ].join(", ")
         )
         .eq("id", eventId)
@@ -299,6 +301,7 @@ export default function MerchantEventPreviewPage() {
         .update({
           status: "submitted",
           cover_image_url: coverImage,
+          admin_review_note: null,
           merchant_confirmed_at: new Date().toISOString(),
           submitted_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -311,11 +314,12 @@ export default function MerchantEventPreviewPage() {
         return;
       }
 
-      setSuccessMessage("活動已提交 HK Family Fun 審批。");
+      setSuccessMessage("活動已重新提交 HK Family Fun 審批。");
       setEvent({
         ...event,
         status: "submitted",
         cover_image_url: coverImage,
+        admin_review_note: null,
       });
       setIsSubmitting(false);
     } catch (error) {
@@ -400,6 +404,19 @@ export default function MerchantEventPreviewPage() {
                   : "資料已鎖定"}
             </div>
           </div>
+
+          {isRejected && event.admin_review_note ? (
+            <div className="mb-5 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+              <div>
+                <div className="font-bold">HK Family Fun 退回原因</div>
+                <div className="mt-1 leading-6">{event.admin_review_note}</div>
+                <div className="mt-2 text-xs text-red-600">
+                  請根據以上原因修改活動資料，儲存後再重新提交審批。
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {successMessage ? (
             <div className="mb-5 flex gap-2 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
