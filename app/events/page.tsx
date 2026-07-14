@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import {
-  CalendarDays,
-  MapPin,
-  Search,
-  Ticket,
-} from "lucide-react";
+import { CalendarDays, MapPin, Search, Ticket } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
 type PublicEvent = {
@@ -161,40 +156,6 @@ export default function PublicEventsPage() {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-500 text-lg font-bold text-white">
-              親
-            </div>
-            <div>
-              <div className="font-bold text-slate-950">HK Family Fun</div>
-              <div className="text-xs text-slate-500">
-                香港親子活動搜尋平台
-              </div>
-            </div>
-          </Link>
-
-          <nav className="flex items-center gap-5 text-sm font-semibold text-slate-700">
-            <Link href="/" className="hover:text-primary-600">
-              首頁
-            </Link>
-            <Link href="/events" className="text-primary-600">
-              搜尋活動
-            </Link>
-            <Link href="/merchant-join" className="hover:text-primary-600">
-              商戶加入
-            </Link>
-            <Link
-              href="/merchant/register"
-              className="rounded-full bg-primary-500 px-4 py-2 text-white hover:bg-primary-600"
-            >
-              商戶免費登記
-            </Link>
-          </nav>
-        </div>
-      </section>
-
       <section className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <p className="text-sm font-semibold text-primary-600">
@@ -206,7 +167,8 @@ export default function PublicEventsPage() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            以下只顯示已經由 HK Family Fun 審批及發布的活動。草稿、審批中、已退回活動不會公開顯示。
+            以下只顯示已經由 HK Family Fun
+            審批及發布的活動。草稿、審批中、已退回活動不會公開顯示。
           </p>
 
           <div className="mt-6 flex items-center gap-3 rounded-2xl border border-slate-300 bg-white px-4 py-3">

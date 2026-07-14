@@ -43,6 +43,9 @@ type PublicEvent = {
 const FALLBACK_COVER_IMAGE =
   "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80";
 
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function formatDateRange(event: PublicEvent) {
   if (!event.start_date && !event.end_date) return "日期待確認";
 
@@ -79,8 +82,6 @@ export default function PublicEventDetailPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = String(params.id || "");
-  const uuidRegex =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i; 
 
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,13 +90,13 @@ export default function PublicEventDetailPage() {
   async function loadPublicEvent() {
     setIsLoading(true);
     setErrorMessage("");
-  
+
     if (!uuidRegex.test(eventId)) {
       setEvent(null);
       setIsLoading(false);
       return;
     }
-  
+
     try {
       if (!supabase) {
         setErrorMessage(
@@ -104,8 +105,6 @@ export default function PublicEventDetailPage() {
         setIsLoading(false);
         return;
       }
-  
-      // existing Supabase query...
 
       const { data, error } = await supabase
         .from("events")
@@ -186,6 +185,7 @@ export default function PublicEventDetailPage() {
         <div className="mx-auto max-w-5xl rounded-3xl border border-red-200 bg-red-50 p-8">
           <h1 className="text-xl font-bold text-red-900">載入失敗</h1>
           <p className="mt-2 text-sm text-red-700">{errorMessage}</p>
+
           <button
             type="button"
             onClick={() => router.push("/events")}
@@ -205,9 +205,11 @@ export default function PublicEventDetailPage() {
           <h1 className="text-2xl font-bold text-slate-950">
             找不到公開活動
           </h1>
+
           <p className="mt-2 text-sm text-slate-600">
             此活動可能仍在審批中、已被退回、或尚未公開發布。
           </p>
+
           <Link
             href="/events"
             className="mt-6 inline-flex rounded-xl bg-primary-500 px-5 py-3 text-sm font-semibold text-white hover:bg-primary-600"
@@ -221,40 +223,6 @@ export default function PublicEventDetailPage() {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-500 text-lg font-bold text-white">
-              親
-            </div>
-            <div>
-              <div className="font-bold text-slate-950">HK Family Fun</div>
-              <div className="text-xs text-slate-500">
-                香港親子活動搜尋平台
-              </div>
-            </div>
-          </Link>
-
-          <nav className="flex items-center gap-5 text-sm font-semibold text-slate-700">
-            <Link href="/" className="hover:text-primary-600">
-              首頁
-            </Link>
-            <Link href="/events" className="text-primary-600">
-              搜尋活動
-            </Link>
-            <Link href="/merchant-join" className="hover:text-primary-600">
-              商戶加入
-            </Link>
-            <Link
-              href="/merchant/register"
-              className="rounded-full bg-primary-500 px-4 py-2 text-white hover:bg-primary-600"
-            >
-              商戶免費登記
-            </Link>
-          </nav>
-        </div>
-      </section>
-
       <section className="mx-auto max-w-6xl px-4 py-8">
         <button
           type="button"
@@ -342,6 +310,7 @@ export default function PublicEventDetailPage() {
                         {event.district || "地區待確認"} ·{" "}
                         {event.mtr_station || "港鐵站待確認"}
                       </div>
+
                       {event.address ? (
                         <div className="mt-1 text-xs text-slate-500">
                           {event.address}
@@ -361,7 +330,9 @@ export default function PublicEventDetailPage() {
                   <div className="flex gap-3">
                     <Tag className="mt-0.5 h-4 w-4 shrink-0 text-primary-500" />
                     <div>
-                      <div className="font-semibold text-slate-900">主辦單位</div>
+                      <div className="font-semibold text-slate-900">
+                        主辦單位
+                      </div>
                       <div>{event.organizer_name || "待確認"}</div>
                     </div>
                   </div>
