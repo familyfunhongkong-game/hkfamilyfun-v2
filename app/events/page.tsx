@@ -6,7 +6,6 @@ import {
   CalendarDays,
   MapPin,
   Search,
-  Tag,
   Ticket,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
