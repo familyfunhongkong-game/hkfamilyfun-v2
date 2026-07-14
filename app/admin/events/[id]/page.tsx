@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -142,12 +143,15 @@ function getMissingFields(event: ReviewEvent) {
   if (!event.short_description_tc?.trim()) missing.push("活動簡介");
   if (!event.description_tc?.trim()) missing.push("活動詳情");
   if (!event.start_date) missing.push("開始日期");
+
   if (!event.venue_name?.trim() || event.venue_name.includes("待")) {
     missing.push("場地名稱");
   }
+
   if (!event.district?.trim() || event.district.includes("待")) {
     missing.push("地區");
   }
+
   if (!event.price_type || event.price_type === "unknown") {
     missing.push("收費資料");
   }
@@ -346,6 +350,7 @@ export default function AdminEventDetailPage() {
         published_at: now,
         admin_review_note: null,
       });
+
       setSuccessMessage("活動已批准並公開發布。");
       setIsUpdating(false);
     } catch (error) {
@@ -403,6 +408,7 @@ export default function AdminEventDetailPage() {
         rejected_at: now,
         admin_review_note: cleanReason,
       });
+
       setSuccessMessage("活動已退回商戶修改。");
       setIsUpdating(false);
     } catch (error) {
@@ -437,6 +443,7 @@ export default function AdminEventDetailPage() {
           <p className="mt-2 text-sm text-red-700">
             {errorMessage || "找不到活動資料。"}
           </p>
+
           <button
             type="button"
             onClick={() => router.push("/admin/events")}
@@ -528,7 +535,7 @@ export default function AdminEventDetailPage() {
         </section>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          <section className="lg:col-span-2 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
             <div className="overflow-hidden rounded-3xl border border-slate-200">
               <div className="relative h-72 bg-slate-100">
                 <img
@@ -704,7 +711,9 @@ export default function AdminEventDetailPage() {
 
                 <textarea
                   value={rejectReason}
-                  onChange={(event) => setRejectReason(event.target.value)}
+                  onChange={(textareaEvent) =>
+                    setRejectReason(textareaEvent.target.value)
+                  }
                   rows={4}
                   className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
                   placeholder="輸入退回原因，商戶會看到此訊息。"
@@ -733,7 +742,7 @@ function InfoItem({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {

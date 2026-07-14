@@ -136,7 +136,7 @@ export default function PublicEventsPage() {
     if (!keyword) return events;
 
     return events.filter((event) => {
-      const text = [
+      const searchableText = [
         event.title_tc,
         event.short_description_tc,
         event.organizer_name,
@@ -150,7 +150,7 @@ export default function PublicEventsPage() {
         .join(" ")
         .toLowerCase();
 
-      return text.includes(keyword);
+      return searchableText.includes(keyword);
     });
   }, [events, searchText]);
 
@@ -168,7 +168,7 @@ export default function PublicEventsPage() {
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
             以下只顯示已經由 HK Family Fun
-            審批及發布的活動。草稿、審批中、已退回活動不會公開顯示。
+            審批及發布的活動。草稿、審批中、已退回或已封存活動不會公開顯示。
           </p>
 
           <div className="mt-6 flex items-center gap-3 rounded-2xl border border-slate-300 bg-white px-4 py-3">
