@@ -1,13 +1,19 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
+  CalendarDays,
   CheckCircle2,
+  Clock,
+  DollarSign,
+  FileText,
+  LinkIcon,
+  MapPin,
   Save,
-  Eye,
+  Ticket,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
@@ -30,15 +36,28 @@ type EditableEvent = {
   price_min: number | null;
   price_max: number | null;
   category: string | null;
+  tags: string[] | null;
+  cover_image_url: string | null;
   registration_required: boolean | null;
   registration_url: string | null;
   is_sen_friendly: boolean | null;
   is_indoor: boolean | null;
   status: string | null;
+  source_type: string | null;
+  source_url: string | null;
+  source_file_url: string | null;
+  admin_review_note: string | null;
+};
+
+type MerchantProfile = {
+  id: string;
+  business_name: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  status: string | null;
 };
 
 const DISTRICTS = [
-  "待確認",
   "中西區",
   "灣仔",
   "東區",
@@ -48,7 +67,6 @@ const DISTRICTS = [
   "九龍城",
   "黃大仙",
   "觀塘",
-  "葵青",
   "荃灣",
   "屯門",
   "元朗",
@@ -56,29 +74,16 @@ const DISTRICTS = [
   "大埔",
   "沙田",
   "西貢",
+  "葵青",
   "離島",
-];
-
-const CATEGORIES = [
-  "親子活動",
-  "室內活動",
-  "戶外活動",
-  "展覽",
-  "工作坊",
-  "運動",
-  "STEM",
-  "藝術",
-  "音樂",
-  "免費活動",
-  "商場活動",
-  "其他",
+  "待確認",
 ];
 
 const PRICE_TYPES = [
-  { value: "unknown", label: "待確認" },
   { value: "free", label: "免費" },
   { value: "paid", label: "收費" },
-  { value: "mixed", label: "免費 + 收費" },
+  { value: "mixed", label: "免費及收費" },
+  { value: "unknown", label: "收費待確認" },
 ];
 
 function toInputDate(value: string | null) {
@@ -91,20 +96,90 @@ function toInputTime(value: string | null) {
   return value.slice(0, 5);
 }
 
+function splitTags(value: string) {
+  return value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function joinTags(tags: string[] | null) {
+  return (tags || []).join(", ");
+}
+
+function getStatusLabel(status: string | null) {
+  switch (status) {
+    case "draft":
+      return "草稿";
+    case "submitted":
+      return "審批中";
+    case "rejected":
+      return "待修改";
+    case "published":
+      return "已發布";
+    case "archived":
+      return "已封存";
+    default:
+      return "未確認";
+  }
+}
+
+function getStatusClass(status: string | null) {
+  switch (status) {
+    case "submitted":
+      return "bg-blue-100 text-blue-700";
+    case "published":
+      return "bg-green-100 text-green-700";
+    case "rejected":
+      return "bg-red-100 text-red-700";
+    case "archived":
+      return "bg-slate-100 text-slate-600";
+    case "draft":
+    default:
+      return "bg-slate-100 text-slate-700";
+  }
+}
+
 export default function MerchantEventEditPage() {
   const router = useRouter();
   const params = useParams();
   const eventId = String(params.id || "");
 
+  const [merchant, setMerchant] = useState<MerchantProfile | null>(null);
+  const [eventData, setEventData] = useState<EditableEvent | null>(null);
+
+  const [titleTc, setTitleTc] = useState("");
+  const [shortDescriptionTc, setShortDescriptionTc] = useState("");
+  const [descriptionTc, setDescriptionTc] = useState("");
+  const [organizerName, setOrganizerName] = useState("");
+  const [venueName, setVenueName] = useState("");
+  const [address, setAddress] = useState("");
+  const [district, setDistrict] = useState("待確認");
+  const [mtrStation, setMtrStation] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [priceType, setPriceType] = useState("unknown");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [category, setCategory] = useState("親子活動");
+  const [tagsText, setTagsText] = useState("親子活動");
+  const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [registrationRequired, setRegistrationRequired] = useState(false);
+  const [registrationUrl, setRegistrationUrl] = useState("");
+  const [isSenFriendly, setIsSenFriendly] = useState(false);
+  const [isIndoor, setIsIndoor] = useState(false);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [eventData, setEventData] = useState<EditableEvent | null>(null);
 
   async function loadEvent() {
     setIsLoading(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       if (!supabase) {
@@ -125,16 +200,25 @@ export default function MerchantEventEditPage() {
         return;
       }
 
-      const { data: merchant, error: merchantError } = await supabase
+      const { data: merchantData, error: merchantError } = await supabase
         .from("merchants")
-        .select("id, owner_user_id, status")
+        .select("id, business_name, contact_name, contact_email, status")
         .eq("owner_user_id", user.id)
         .maybeSingle();
 
-      if (merchantError || !merchant) {
+      if (merchantError) {
+        setErrorMessage(merchantError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!merchantData) {
         router.replace("/merchant/register");
         return;
       }
+
+      const loadedMerchant = merchantData as MerchantProfile;
+      setMerchant(loadedMerchant);
 
       const { data, error } = await supabase
         .from("events")
@@ -158,15 +242,21 @@ export default function MerchantEventEditPage() {
             "price_min",
             "price_max",
             "category",
+            "tags",
+            "cover_image_url",
             "registration_required",
             "registration_url",
             "is_sen_friendly",
             "is_indoor",
             "status",
+            "source_type",
+            "source_url",
+            "source_file_url",
+            "admin_review_note",
           ].join(", ")
         )
         .eq("id", eventId)
-        .eq("merchant_id", merchant.id)
+        .eq("merchant_id", loadedMerchant.id)
         .maybeSingle();
 
       if (error) {
@@ -176,12 +266,45 @@ export default function MerchantEventEditPage() {
       }
 
       if (!data) {
-        setErrorMessage("找不到此活動，或你沒有權限修改。");
+        setErrorMessage("找不到活動，或你沒有權限修改此活動。");
         setIsLoading(false);
         return;
       }
 
-      setEventData(data as unknown as EditableEvent);
+      const loadedEvent = data as unknown as EditableEvent;
+      setEventData(loadedEvent);
+
+      setTitleTc(loadedEvent.title_tc || "");
+      setShortDescriptionTc(loadedEvent.short_description_tc || "");
+      setDescriptionTc(loadedEvent.description_tc || "");
+      setOrganizerName(loadedEvent.organizer_name || loadedMerchant.business_name || "");
+      setVenueName(loadedEvent.venue_name || "");
+      setAddress(loadedEvent.address || "");
+      setDistrict(loadedEvent.district || "待確認");
+      setMtrStation(loadedEvent.mtr_station || "");
+      setStartDate(toInputDate(loadedEvent.start_date));
+      setEndDate(toInputDate(loadedEvent.end_date));
+      setStartTime(toInputTime(loadedEvent.start_time));
+      setEndTime(toInputTime(loadedEvent.end_time));
+      setPriceType(loadedEvent.price_type || "unknown");
+      setPriceMin(
+        loadedEvent.price_min === null || loadedEvent.price_min === undefined
+          ? ""
+          : String(loadedEvent.price_min)
+      );
+      setPriceMax(
+        loadedEvent.price_max === null || loadedEvent.price_max === undefined
+          ? ""
+          : String(loadedEvent.price_max)
+      );
+      setCategory(loadedEvent.category || "親子活動");
+      setTagsText(joinTags(loadedEvent.tags) || "親子活動");
+      setCoverImageUrl(loadedEvent.cover_image_url || "");
+      setRegistrationRequired(Boolean(loadedEvent.registration_required));
+      setRegistrationUrl(loadedEvent.registration_url || "");
+      setIsSenFriendly(Boolean(loadedEvent.is_sen_friendly));
+      setIsIndoor(Boolean(loadedEvent.is_indoor));
+
       setIsLoading(false);
     } catch (error) {
       setErrorMessage(
@@ -196,27 +319,34 @@ export default function MerchantEventEditPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
-  function updateField<K extends keyof EditableEvent>(
-    field: K,
-    value: EditableEvent[K]
-  ) {
-    setEventData((current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        [field]: value,
-      };
-    });
+  function validateForm() {
+    const missing: string[] = [];
+
+    if (!titleTc.trim()) missing.push("活動名稱");
+    if (!shortDescriptionTc.trim()) missing.push("活動簡介");
+    if (!descriptionTc.trim()) missing.push("活動詳情");
+    if (!startDate) missing.push("開始日期");
+    if (!venueName.trim()) missing.push("場地名稱");
+    if (!district.trim() || district === "待確認") missing.push("地區");
+    if (!priceType || priceType === "unknown") missing.push("收費資料");
+
+    return missing;
   }
 
-  async function handleSave(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  async function saveEvent() {
     if (!eventData) return;
 
     setIsSaving(true);
     setErrorMessage("");
     setSuccessMessage("");
+
+    const missing = validateForm();
+
+    if (missing.length > 0) {
+      setErrorMessage(`請先補充：${missing.join("、")}`);
+      setIsSaving(false);
+      return;
+    }
 
     try {
       if (!supabase) {
@@ -227,46 +357,59 @@ export default function MerchantEventEditPage() {
         return;
       }
 
-      if (!eventData.title_tc?.trim()) {
-        setErrorMessage("請填寫活動名稱。");
+      const cleanedPriceMin =
+        priceMin.trim() === "" ? null : Number(priceMin.trim());
+      const cleanedPriceMax =
+        priceMax.trim() === "" ? null : Number(priceMax.trim());
+
+      if (
+        (cleanedPriceMin !== null && Number.isNaN(cleanedPriceMin)) ||
+        (cleanedPriceMax !== null && Number.isNaN(cleanedPriceMax))
+      ) {
+        setErrorMessage("收費金額必須是數字。");
         setIsSaving(false);
         return;
       }
 
+      const nextStatus =
+        eventData.status === "published" || eventData.status === "submitted"
+          ? eventData.status
+          : eventData.status === "rejected"
+            ? "draft"
+            : "draft";
+
       const { error } = await supabase
         .from("events")
         .update({
-          title_tc: eventData.title_tc?.trim() || null,
-          short_description_tc:
-            eventData.short_description_tc?.trim() || null,
-          description_tc: eventData.description_tc?.trim() || null,
-
-          organizer_name: eventData.organizer_name?.trim() || null,
-          venue_name: eventData.venue_name?.trim() || null,
-          address: eventData.address?.trim() || null,
-          district: eventData.district || "待確認",
-          mtr_station: eventData.mtr_station?.trim() || "待確認",
-
-          start_date: eventData.start_date || null,
-          end_date: eventData.end_date || null,
-          start_time: eventData.start_time || null,
-          end_time: eventData.end_time || null,
-
-          price_type: eventData.price_type || "unknown",
-          price_min: Number(eventData.price_min || 0),
-          price_max: Number(eventData.price_max || 0),
-
-          category: eventData.category || "親子活動",
-
-          registration_required: Boolean(eventData.registration_required),
-          registration_url: eventData.registration_url?.trim() || null,
-
-          is_sen_friendly: Boolean(eventData.is_sen_friendly),
-          is_indoor: Boolean(eventData.is_indoor),
-
+          title_tc: titleTc.trim(),
+          short_description_tc: shortDescriptionTc.trim(),
+          description_tc: descriptionTc.trim(),
+          organizer_name: organizerName.trim() || merchant?.business_name || null,
+          venue_name: venueName.trim(),
+          address: address.trim() || null,
+          district: district.trim(),
+          mtr_station: mtrStation.trim() || null,
+          start_date: startDate || null,
+          end_date: endDate || startDate || null,
+          start_time: startTime || null,
+          end_time: endTime || null,
+          price_type: priceType,
+          price_min: cleanedPriceMin,
+          price_max: cleanedPriceMax,
+          category: category.trim() || "親子活動",
+          tags: splitTags(tagsText),
+          cover_image_url: coverImageUrl.trim() || null,
+          registration_required: registrationRequired,
+          registration_url: registrationUrl.trim() || null,
+          is_sen_friendly: isSenFriendly,
+          is_indoor: isIndoor,
+          status: nextStatus,
+          admin_review_note: null,
+          rejected_at: null,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", eventData.id);
+        .eq("id", eventData.id)
+        .eq("merchant_id", eventData.merchant_id);
 
       if (error) {
         setErrorMessage(error.message);
@@ -274,12 +417,36 @@ export default function MerchantEventEditPage() {
         return;
       }
 
-      setSuccessMessage("活動資料已儲存。");
-      setIsSaving(false);
+      setEventData({
+        ...eventData,
+        title_tc: titleTc.trim(),
+        short_description_tc: shortDescriptionTc.trim(),
+        description_tc: descriptionTc.trim(),
+        organizer_name: organizerName.trim() || merchant?.business_name || null,
+        venue_name: venueName.trim(),
+        address: address.trim() || null,
+        district: district.trim(),
+        mtr_station: mtrStation.trim() || null,
+        start_date: startDate || null,
+        end_date: endDate || startDate || null,
+        start_time: startTime || null,
+        end_time: endTime || null,
+        price_type: priceType,
+        price_min: cleanedPriceMin,
+        price_max: cleanedPriceMax,
+        category: category.trim() || "親子活動",
+        tags: splitTags(tagsText),
+        cover_image_url: coverImageUrl.trim() || null,
+        registration_required: registrationRequired,
+        registration_url: registrationUrl.trim() || null,
+        is_sen_friendly: isSenFriendly,
+        is_indoor: isIndoor,
+        status: nextStatus,
+        admin_review_note: null,
+      });
 
-      setTimeout(() => {
-        router.push(`/merchant/events/${eventData.id}/preview`);
-      }, 600);
+      setSuccessMessage("活動資料已儲存。你可以返回 Preview 再提交審批。");
+      setIsSaving(false);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "儲存活動資料時發生未知錯誤。"
@@ -291,8 +458,8 @@ export default function MerchantEventEditPage() {
   if (isLoading) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <p className="text-sm text-slate-600">正在載入活動資料...</p>
+        <div className="mx-auto max-w-5xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <p className="text-sm text-slate-600">正在載入活動修改頁...</p>
         </div>
       </main>
     );
@@ -301,362 +468,357 @@ export default function MerchantEventEditPage() {
   if (!eventData) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-4xl rounded-3xl border border-red-200 bg-red-50 p-8">
-          <p className="text-sm text-red-700">
+        <div className="mx-auto max-w-5xl rounded-3xl border border-red-200 bg-red-50 p-8">
+          <h1 className="text-xl font-bold text-red-900">載入失敗</h1>
+          <p className="mt-2 text-sm text-red-700">
             {errorMessage || "找不到活動資料。"}
           </p>
+          <button
+            type="button"
+            onClick={() => router.push("/merchant/dashboard")}
+            className="mt-5 rounded-xl border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+          >
+            返回 Dashboard
+          </button>
         </div>
       </main>
     );
   }
 
-  const isSubmitted = eventData.status === "submitted";
-  const isPublished =
-    eventData.status === "published" || eventData.status === "approved";
+  const isLocked =
+    eventData.status === "submitted" || eventData.status === "published";
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-4xl">
-        <button
-          type="button"
-          onClick={() => router.push(`/merchant/events/${eventData.id}/preview`)}
-          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          返回 Preview
-        </button>
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => router.push("/merchant/dashboard")}
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            返回 Merchant Dashboard
+          </button>
 
-        <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-primary-600">
-            HK Family Fun Merchant Portal
-          </p>
+          <button
+            type="button"
+            onClick={() =>
+              router.push(`/merchant/events/${eventData.id}/preview`)
+            }
+            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            返回 Preview
+          </button>
+        </div>
 
-          <h1 className="mt-1 text-3xl font-bold text-slate-950">
-            修改活動資料
-          </h1>
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-primary-600">
+                HK Family Fun Merchant Portal
+              </p>
 
-          <p className="mt-2 text-sm text-slate-600">
-            請補充及確認活動名稱、日期、時間、地點、收費及報名資料。儲存後會返回 Preview 頁面。
-          </p>
+              <h1 className="mt-2 text-3xl font-bold text-slate-950">
+                修改活動資料
+              </h1>
+
+              <p className="mt-2 text-sm text-slate-600">
+                補充活動資料後，請返回 Preview 檢查，再提交 HK Family Fun 審批。
+              </p>
+            </div>
+
+            <span
+              className={`rounded-full px-4 py-2 text-sm font-semibold ${getStatusClass(
+                eventData.status
+              )}`}
+            >
+              {getStatusLabel(eventData.status)}
+            </span>
+          </div>
+
+          {eventData.status === "rejected" && eventData.admin_review_note ? (
+            <div className="mt-5 flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <div className="font-bold">HK Family Fun 退回原因</div>
+                <div className="mt-1">{eventData.admin_review_note}</div>
+              </div>
+            </div>
+          ) : null}
+
+          {isLocked ? (
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              此活動目前是「{getStatusLabel(eventData.status)}」，不建議直接修改。
+              如需要修改已發布活動，之後應建立「修改後重新審批」流程。
+            </div>
+          ) : null}
+
+          {successMessage ? (
+            <div className="mt-5 flex gap-2 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{successMessage}</span>
+            </div>
+          ) : null}
+
+          {errorMessage ? (
+            <div className="mt-5 flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          ) : null}
         </section>
 
-        {isSubmitted ? (
-          <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-            此活動已提交審批。如需修改，之後應加入「撤回修改」或由管理員退回功能。
-          </div>
-        ) : null}
-
-        {isPublished ? (
-          <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-            此活動已發布。正式版本應限制商戶直接修改已發布活動，避免公開資料突然改變。
-          </div>
-        ) : null}
-
-        {errorMessage ? (
-          <div className="mb-6 flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        ) : null}
-
-        {successMessage ? (
-          <div className="mb-6 flex gap-2 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{successMessage}</span>
-          </div>
-        ) : null}
-
-        <form
-          onSubmit={handleSave}
-          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <div className="grid gap-5">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-800">
-                活動名稱 *
-              </label>
-              <input
-                value={eventData.title_tc || ""}
-                onChange={(e) => updateField("title_tc", e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                placeholder="例如：暑假親子放電活動"
+        <section className="mt-6 grid gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <FormSection
+              title="基本資料"
+              icon={<FileText className="h-5 w-5" />}
+            >
+              <TextInput
+                label="活動名稱"
+                value={titleTc}
+                onChange={setTitleTc}
+                placeholder="例如：Summer Library Festival 2026 夏日圖書館節"
               />
-            </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-800">
-                活動簡介
-              </label>
-              <textarea
-                value={eventData.short_description_tc || ""}
-                onChange={(e) =>
-                  updateField("short_description_tc", e.target.value)
-                }
+              <TextArea
+                label="活動簡介"
+                value={shortDescriptionTc}
+                onChange={setShortDescriptionTc}
                 rows={3}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                placeholder="簡短描述活動重點，會顯示在活動卡。"
+                placeholder="一句至兩句介紹活動，會顯示在活動卡。"
               />
-            </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-800">
-                活動詳情
-              </label>
-              <textarea
-                value={eventData.description_tc || ""}
-                onChange={(e) => updateField("description_tc", e.target.value)}
-                rows={5}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                placeholder="詳細介紹活動內容、家長注意事項、報名方法等。"
+              <TextArea
+                label="活動詳情"
+                value={descriptionTc}
+                onChange={setDescriptionTc}
+                rows={7}
+                placeholder="詳細介紹活動內容、適合年齡、活動亮點、家長注意事項。"
               />
-            </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  主辦單位
-                </label>
-                <input
-                  value={eventData.organizer_name || ""}
-                  onChange={(e) =>
-                    updateField("organizer_name", e.target.value)
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                  placeholder="例如：奧海城"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  場地名稱
-                </label>
-                <input
-                  value={eventData.venue_name || ""}
-                  onChange={(e) => updateField("venue_name", e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                  placeholder="例如：奧海城二期"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-800">
-                地址
-              </label>
-              <input
-                value={eventData.address || ""}
-                onChange={(e) => updateField("address", e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                placeholder="完整地址"
+              <TextInput
+                label="主辦單位"
+                value={organizerName}
+                onChange={setOrganizerName}
+                placeholder="例如：Hong Kong Public Libraries"
               />
-            </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  地區
-                </label>
-                <select
-                  value={eventData.district || "待確認"}
-                  onChange={(e) => updateField("district", e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                >
-                  {DISTRICTS.map((district) => (
-                    <option key={district} value={district}>
-                      {district}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <TextInput
+                label="活動分類"
+                value={category}
+                onChange={setCategory}
+                placeholder="例如：親子活動、工作坊、展覽"
+              />
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  港鐵站
-                </label>
-                <input
-                  value={eventData.mtr_station || ""}
-                  onChange={(e) => updateField("mtr_station", e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                  placeholder="例如：奧運站"
-                />
-              </div>
-            </div>
+              <TextInput
+                label="標籤 Tags，用英文逗號分隔"
+                value={tagsText}
+                onChange={setTagsText}
+                placeholder="例如：親子活動, 閱讀, 免費活動"
+              />
+            </FormSection>
 
-            <div className="grid gap-5 md:grid-cols-4">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  開始日期
-                </label>
-                <input
+            <FormSection
+              title="日期、時間及地點"
+              icon={<CalendarDays className="h-5 w-5" />}
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <TextInput
+                  label="開始日期"
                   type="date"
-                  value={toInputDate(eventData.start_date)}
-                  onChange={(e) => updateField("start_date", e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                  value={startDate}
+                  onChange={setStartDate}
                 />
-              </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  結束日期
-                </label>
-                <input
+                <TextInput
+                  label="結束日期"
                   type="date"
-                  value={toInputDate(eventData.end_date)}
-                  onChange={(e) => updateField("end_date", e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                  value={endDate}
+                  onChange={setEndDate}
                 />
-              </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  開始時間
-                </label>
-                <input
+                <TextInput
+                  label="開始時間"
                   type="time"
-                  value={toInputTime(eventData.start_time)}
-                  onChange={(e) => updateField("start_time", e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                  value={startTime}
+                  onChange={setStartTime}
                 />
-              </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  結束時間
-                </label>
-                <input
+                <TextInput
+                  label="結束時間"
                   type="time"
-                  value={toInputTime(eventData.end_time)}
-                  onChange={(e) => updateField("end_time", e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                  value={endTime}
+                  onChange={setEndTime}
                 />
               </div>
-            </div>
 
-            <div className="grid gap-5 md:grid-cols-3">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
+              <TextInput
+                label="場地名稱"
+                value={venueName}
+                onChange={setVenueName}
+                placeholder="例如：Hong Kong Public Libraries"
+                icon={<MapPin className="h-4 w-4" />}
+              />
+
+              <TextInput
+                label="詳細地址"
+                value={address}
+                onChange={setAddress}
+                placeholder="例如：香港公共圖書館指定分館"
+              />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-semibold text-slate-700">
+                    地區
+                  </span>
+                  <select
+                    value={district}
+                    onChange={(event) => setDistrict(event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                  >
+                    {DISTRICTS.map((districtOption) => (
+                      <option key={districtOption} value={districtOption}>
+                        {districtOption}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <TextInput
+                  label="港鐵站"
+                  value={mtrStation}
+                  onChange={setMtrStation}
+                  placeholder="例如：沙田 / 尖沙咀 / 中環"
+                />
+              </div>
+            </FormSection>
+
+            <FormSection title="收費及報名" icon={<Ticket className="h-5 w-5" />}>
+              <label className="block">
+                <span className="text-sm font-semibold text-slate-700">
                   收費類型
-                </label>
+                </span>
+
                 <select
-                  value={eventData.price_type || "unknown"}
-                  onChange={(e) => updateField("price_type", e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                  value={priceType}
+                  onChange={(event) => setPriceType(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
                 >
-                  {PRICE_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
+                  {PRICE_TYPES.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  最低收費 HK$
-                </label>
-                <input
+              <div className="grid gap-4 md:grid-cols-2">
+                <TextInput
+                  label="最低收費 HK$"
                   type="number"
-                  min="0"
-                  value={eventData.price_min ?? 0}
-                  onChange={(e) =>
-                    updateField("price_min", Number(e.target.value || 0))
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                  value={priceMin}
+                  onChange={setPriceMin}
+                  placeholder="例如：0"
+                  icon={<DollarSign className="h-4 w-4" />}
                 />
-              </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  最高收費 HK$
-                </label>
-                <input
+                <TextInput
+                  label="最高收費 HK$"
                   type="number"
-                  min="0"
-                  value={eventData.price_max ?? 0}
-                  onChange={(e) =>
-                    updateField("price_max", Number(e.target.value || 0))
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                  value={priceMax}
+                  onChange={setPriceMax}
+                  placeholder="例如：120"
+                  icon={<DollarSign className="h-4 w-4" />}
                 />
               </div>
-            </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  活動分類
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={registrationRequired}
+                    onChange={(event) =>
+                      setRegistrationRequired(event.target.checked)
+                    }
+                    className="h-4 w-4 rounded border-slate-300 text-primary-600"
+                  />
+                  需要預先報名
                 </label>
-                <select
-                  value={eventData.category || "親子活動"}
-                  onChange={(e) => updateField("category", e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                >
-                  {CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-800">
-                  報名連結
+              <TextInput
+                label="報名 URL"
+                value={registrationUrl}
+                onChange={setRegistrationUrl}
+                placeholder="例如：https://..."
+                icon={<LinkIcon className="h-4 w-4" />}
+              />
+            </FormSection>
+          </div>
+
+          <aside className="space-y-6">
+            <FormSection title="圖片及屬性" icon={<Clock className="h-5 w-5" />}>
+              <TextInput
+                label="封面圖片 URL"
+                value={coverImageUrl}
+                onChange={setCoverImageUrl}
+                placeholder="例如：https://..."
+              />
+
+              {coverImageUrl ? (
+                <div className="overflow-hidden rounded-2xl border border-slate-200">
+                  <img
+                    src={coverImageUrl}
+                    alt="活動封面預覽"
+                    className="h-44 w-full object-cover"
+                  />
+                </div>
+              ) : null}
+
+              <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={isSenFriendly}
+                    onChange={(event) => setIsSenFriendly(event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-primary-600"
+                  />
+                  SEN 友善
                 </label>
-                <input
-                  value={eventData.registration_url || ""}
-                  onChange={(e) =>
-                    updateField("registration_url", e.target.value)
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                  placeholder="https://..."
-                />
+
+                <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={isIndoor}
+                    onChange={(event) => setIsIndoor(event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-primary-600"
+                  />
+                  室內活動
+                </label>
               </div>
-            </div>
+            </FormSection>
 
-            <div className="grid gap-3 md:grid-cols-3">
-              <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={Boolean(eventData.registration_required)}
-                  onChange={(e) =>
-                    updateField("registration_required", e.target.checked)
-                  }
-                />
-                需要預先報名
-              </label>
+            <FormSection title="來源資料" icon={<LinkIcon className="h-5 w-5" />}>
+              <InfoRow label="匯入方式" value={eventData.source_type || "manual"} />
+              <InfoRow label="來源網址" value={eventData.source_url || "未有"} />
+              <InfoRow
+                label="來源檔案"
+                value={eventData.source_file_url || "未有"}
+              />
+            </FormSection>
 
-              <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={Boolean(eventData.is_indoor)}
-                  onChange={(e) =>
-                    updateField("is_indoor", e.target.checked)
-                  }
-                />
-                室內活動
-              </label>
-
-              <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={Boolean(eventData.is_sen_friendly)}
-                  onChange={(e) =>
-                    updateField("is_sen_friendly", e.target.checked)
-                  }
-                />
-                SEN 友善
-              </label>
-            </div>
-
-            <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <button
-                type="submit"
-                disabled={isSaving}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-500 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={saveEvent}
+                disabled={isSaving || isLocked}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 <Save className="h-4 w-4" />
-                {isSaving ? "正在儲存..." : "儲存草稿"}
+                {isSaving ? "儲存中..." : "儲存修改"}
               </button>
 
               <button
@@ -664,15 +826,110 @@ export default function MerchantEventEditPage() {
                 onClick={() =>
                   router.push(`/merchant/events/${eventData.id}/preview`)
                 }
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
-                <Eye className="h-4 w-4" />
                 返回 Preview
               </button>
-            </div>
-          </div>
-        </form>
+
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                儲存後請返回 Preview 檢查活動卡，再提交 HK Family Fun 審批。
+              </p>
+            </section>
+          </aside>
+        </section>
       </div>
     </main>
+  );
+}
+
+function FormSection({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="mb-5 flex items-center gap-2 text-lg font-bold text-slate-950">
+        <span className="text-primary-500">{icon}</span>
+        {title}
+      </h2>
+
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
+function TextInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  icon,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold text-slate-700">{label}</span>
+
+      <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-100">
+        {icon ? <span className="text-slate-400">{icon}</span> : null}
+
+        <input
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="w-full bg-transparent text-sm outline-none"
+        />
+      </div>
+    </label>
+  );
+}
+
+function TextArea({
+  label,
+  value,
+  onChange,
+  placeholder,
+  rows = 4,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  rows?: number;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold text-slate-700">{label}</span>
+
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+      />
+    </label>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
+      <div className="font-semibold text-slate-500">{label}</div>
+      <div className="mt-1 break-all text-slate-800">{value}</div>
+    </div>
   );
 }
