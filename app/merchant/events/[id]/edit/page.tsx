@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -58,6 +59,10 @@ type MerchantProfile = {
 };
 
 const DISTRICTS = [
+  "全港",
+  "多區",
+  "網上",
+  "待確認",
   "中西區",
   "灣仔",
   "東區",
@@ -76,7 +81,6 @@ const DISTRICTS = [
   "西貢",
   "葵青",
   "離島",
-  "待確認",
 ];
 
 const PRICE_TYPES = [
@@ -138,6 +142,15 @@ function getStatusClass(status: string | null) {
     default:
       return "bg-slate-100 text-slate-700";
   }
+}
+
+function isDistrictAcceptable(value: string) {
+  const cleanedValue = value.trim();
+
+  if (!cleanedValue) return false;
+  if (cleanedValue === "待確認") return false;
+
+  return true;
 }
 
 export default function MerchantEventEditPage() {
@@ -277,7 +290,9 @@ export default function MerchantEventEditPage() {
       setTitleTc(loadedEvent.title_tc || "");
       setShortDescriptionTc(loadedEvent.short_description_tc || "");
       setDescriptionTc(loadedEvent.description_tc || "");
-      setOrganizerName(loadedEvent.organizer_name || loadedMerchant.business_name || "");
+      setOrganizerName(
+        loadedEvent.organizer_name || loadedMerchant.business_name || ""
+      );
       setVenueName(loadedEvent.venue_name || "");
       setAddress(loadedEvent.address || "");
       setDistrict(loadedEvent.district || "待確認");
@@ -327,7 +342,11 @@ export default function MerchantEventEditPage() {
     if (!descriptionTc.trim()) missing.push("活動詳情");
     if (!startDate) missing.push("開始日期");
     if (!venueName.trim()) missing.push("場地名稱");
-    if (!district.trim() || district === "待確認") missing.push("地區");
+
+    if (!isDistrictAcceptable(district)) {
+      missing.push("地區，請選全港、多區、網上或實際地區，不要保留待確認");
+    }
+
     if (!priceType || priceType === "unknown") missing.push("收費資料");
 
     return missing;
@@ -374,9 +393,7 @@ export default function MerchantEventEditPage() {
       const nextStatus =
         eventData.status === "published" || eventData.status === "submitted"
           ? eventData.status
-          : eventData.status === "rejected"
-            ? "draft"
-            : "draft";
+          : "draft";
 
       const { error } = await supabase
         .from("events")
@@ -384,7 +401,8 @@ export default function MerchantEventEditPage() {
           title_tc: titleTc.trim(),
           short_description_tc: shortDescriptionTc.trim(),
           description_tc: descriptionTc.trim(),
-          organizer_name: organizerName.trim() || merchant?.business_name || null,
+          organizer_name:
+            organizerName.trim() || merchant?.business_name || null,
           venue_name: venueName.trim(),
           address: address.trim() || null,
           district: district.trim(),
@@ -422,7 +440,8 @@ export default function MerchantEventEditPage() {
         title_tc: titleTc.trim(),
         short_description_tc: shortDescriptionTc.trim(),
         description_tc: descriptionTc.trim(),
-        organizer_name: organizerName.trim() || merchant?.business_name || null,
+        organizer_name:
+          organizerName.trim() || merchant?.business_name || null,
         venue_name: venueName.trim(),
         address: address.trim() || null,
         district: district.trim(),
@@ -658,7 +677,7 @@ export default function MerchantEventEditPage() {
                 label="場地名稱"
                 value={venueName}
                 onChange={setVenueName}
-                placeholder="例如：Hong Kong Public Libraries"
+                placeholder="例如：香港公共圖書館各分館及網上活動"
                 icon={<MapPin className="h-4 w-4" />}
               />
 
@@ -666,7 +685,7 @@ export default function MerchantEventEditPage() {
                 label="詳細地址"
                 value={address}
                 onChange={setAddress}
-                placeholder="例如：香港公共圖書館指定分館"
+                placeholder="例如：香港公共圖書館各指定分館；部分活動為網上或外展活動"
               />
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -685,13 +704,16 @@ export default function MerchantEventEditPage() {
                       </option>
                     ))}
                   </select>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    大型活動可選「全港」或「多區」；純網上活動可選「網上」。
+                  </p>
                 </label>
 
                 <TextInput
                   label="港鐵站"
                   value={mtrStation}
                   onChange={setMtrStation}
-                  placeholder="例如：沙田 / 尖沙咀 / 中環"
+                  placeholder="例如：多個港鐵站／視乎分館而定"
                 />
               </div>
             </FormSection>
@@ -848,8 +870,8 @@ function FormSection({
   children,
 }: {
   title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
+  icon: ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -876,7 +898,7 @@ function TextInput({
   onChange: (value: string) => void;
   placeholder?: string;
   type?: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
 }) {
   return (
     <label className="block">

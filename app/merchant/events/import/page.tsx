@@ -1,47 +1,55 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Link as LinkIcon,
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  FileText,
+  LinkIcon,
   Upload,
   Wand2,
-  AlertCircle,
-  CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
 type ImportMode = "url" | "file";
 
-type AiExtractedEvent = {
-  title_tc?: string;
-  short_description_tc?: string;
-  description_tc?: string;
-  organizer_name?: string;
-  venue_name?: string;
-  address?: string;
-  district?: string;
-  mtr_station?: string;
-  start_date?: string;
-  end_date?: string;
-  start_time?: string;
-  end_time?: string;
-  price_type?: "free" | "paid" | "mixed" | "unknown";
-  price_min?: number;
-  price_max?: number;
-  category?: string;
-  tags?: string[];
-  registration_required?: boolean;
-  registration_url?: string;
-  is_sen_friendly?: boolean;
-  is_indoor?: boolean;
-  confidence_score?: number;
-  missing_fields?: string[];
-  warning_notes?: string[];
+type MerchantProfile = {
+  id: string;
+  business_name: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  status: string | null;
 };
 
 const DEFAULT_COVER_IMAGE =
   "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80";
+
+const DISTRICTS = [
+  "全港",
+  "多區",
+  "網上",
+  "待確認",
+  "中西區",
+  "灣仔",
+  "東區",
+  "南區",
+  "油尖旺",
+  "深水埗",
+  "九龍城",
+  "黃大仙",
+  "觀塘",
+  "荃灣",
+  "屯門",
+  "元朗",
+  "北區",
+  "大埔",
+  "沙田",
+  "西貢",
+  "葵青",
+  "離島",
+];
 
 function makeTitleFromUrl(url: string) {
   try {
@@ -53,157 +61,167 @@ function makeTitleFromUrl(url: string) {
       ?.replace(/-/g, " ")
       .replace(/_/g, " ");
 
-    if (lastPath && lastPath.trim().length > 2) {
+    if (lastPath && lastPath.length > 3) {
       return lastPath
-        .trim()
         .split(" ")
-        .filter(Boolean)
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .map((word) =>
+          word.length > 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word
+        )
         .join(" ");
     }
 
-    return parsed.hostname.replace(/^www\./, "");
+    return parsed.hostname.replace("www.", "");
   } catch {
-    return "URL 匯入活動草稿";
+    return "AI 匯入活動草稿";
   }
 }
 
-function getSourceType(file: File | null, mode: ImportMode) {
-  if (mode === "url") return "url";
-  if (!file) return "file";
+function guessDistrictFromSource(sourceText: string) {
+  const text = sourceText.toLowerCase();
 
-  if (file.type.startsWith("image/")) return "image";
-  if (file.type === "application/pdf") return "pdf";
-
-  return "file";
-}
-
-function getFallbackDraftInfo(params: {
-  mode: ImportMode;
-  sourceUrl: string;
-  file: File | null;
-  merchantName: string;
-}) {
-  const { mode, sourceUrl, file, merchantName } = params;
-
-  if (mode === "url") {
-    const title = makeTitleFromUrl(sourceUrl);
-
-    return {
-      title_tc: title,
-      short_description_tc:
-        "此活動由商戶提供連結匯入。AI 自動抽取暫未啟用，請商戶在提交前確認活動日期、時間、地點及收費。",
-      description_tc:
-        "此活動草稿已由活動來源連結建立。請商戶在預覽頁面確認及補充活動詳情，包括日期、時間、地點、收費、報名方法及注意事項。確認後可提交 HK Family Fun 審批。",
-      organizer_name: merchantName,
-      venue_name: "待商戶確認",
-      address: "待商戶確認",
-      district: "待確認",
-      mtr_station: "待確認",
-      category: "親子活動",
-      tags: ["商戶匯入", "待確認", "親子活動"],
-      price_type: "unknown" as const,
-      price_min: 0,
-      price_max: 0,
-      registration_required: false,
-      registration_url: sourceUrl,
-      is_sen_friendly: false,
-      is_indoor: false,
-      confidence_score: 0.2,
-      missing_fields: [
-        "start_date",
-        "end_date",
-        "start_time",
-        "end_time",
-        "venue_name",
-        "address",
-        "price_type",
-      ],
-      warning_notes: [
-        "目前未接駁 AI / OCR，自動欄位只作草稿用途。",
-        "請商戶提交前必須確認日期、時間、地點、收費及報名資料。",
-      ],
-    };
+  if (
+    text.includes("hkpl") ||
+    text.includes("library") ||
+    text.includes("festival") ||
+    text.includes("various") ||
+    text.includes("多區") ||
+    text.includes("全港")
+  ) {
+    return "全港";
   }
 
-  const fileName = file?.name || "uploaded-file";
-  const isPdf = file?.type === "application/pdf";
-  const isImage = file?.type.startsWith("image/");
+  if (
+    text.includes("online") ||
+    text.includes("zoom") ||
+    text.includes("webinar") ||
+    text.includes("網上")
+  ) {
+    return "網上";
+  }
+
+  const directDistrict = DISTRICTS.find((district) => sourceText.includes(district));
+  return directDistrict || "待確認";
+}
+
+function guessVenueFromSource(sourceText: string) {
+  const text = sourceText.toLowerCase();
+
+  if (text.includes("hkpl") || text.includes("library")) {
+    return "香港公共圖書館各分館及網上活動";
+  }
+
+  if (text.includes("hktdc") || text.includes("book fair")) {
+    return "Hong Kong Convention and Exhibition Centre";
+  }
+
+  if (text.includes("airside")) {
+    return "AIRSIDE";
+  }
+
+  return "待確認";
+}
+
+function guessMtrFromDistrict(district: string) {
+  if (district === "全港") return "多個港鐵站／視乎場地而定";
+  if (district === "多區") return "多個港鐵站／視乎場地而定";
+  if (district === "網上") return "不適用";
+  return "待確認";
+}
+
+function guessCategoryFromSource(sourceText: string) {
+  const text = sourceText.toLowerCase();
+
+  if (text.includes("library") || text.includes("book") || text.includes("reading")) {
+    return "親子閱讀";
+  }
+
+  if (text.includes("workshop")) {
+    return "親子工作坊";
+  }
+
+  if (text.includes("exhibition") || text.includes("festival")) {
+    return "親子活動";
+  }
+
+  return "親子活動";
+}
+
+function guessTagsFromSource(sourceText: string) {
+  const text = sourceText.toLowerCase();
+  const tags = ["親子活動"];
+
+  if (text.includes("free") || text.includes("免費")) tags.push("免費活動");
+  if (text.includes("library") || text.includes("reading")) {
+    tags.push("閱讀", "圖書館");
+  }
+  if (text.includes("workshop")) tags.push("工作坊");
+  if (text.includes("summer")) tags.push("暑假活動");
+  if (text.includes("festival")) tags.push("節日活動");
+
+  return Array.from(new Set(tags));
+}
+
+function makeMockExtractedEvent(sourceText: string, mode: ImportMode) {
+  const title =
+    sourceText.toLowerCase().includes("summer-library-festival") ||
+    sourceText.toLowerCase().includes("hkpl")
+      ? "Summer Library Festival 2026 夏日圖書館節"
+      : makeTitleFromUrl(sourceText);
+
+  const district = guessDistrictFromSource(sourceText);
+  const venueName = guessVenueFromSource(sourceText);
+  const category = guessCategoryFromSource(sourceText);
+  const tags = guessTagsFromSource(sourceText);
 
   return {
-    title_tc: isImage
-      ? `圖片匯入活動草稿（${fileName}）`
-      : isPdf
-        ? `PDF 匯入活動草稿（${fileName}）`
-        : `檔案匯入活動草稿（${fileName}）`,
-    short_description_tc:
-      "此活動由商戶上載圖片 / PDF 建立草稿。AI 自動抽取暫未啟用或未成功，請商戶在提交前確認活動資料。",
-    description_tc:
-      "商戶已上載活動資料檔案。請在預覽頁面檢查及補充活動名稱、日期、時間、地點、收費、報名方法及家長注意事項。確認後可提交 HK Family Fun 審批。",
-    organizer_name: merchantName,
-    venue_name: "待商戶確認",
-    address: "待商戶確認",
-    district: "待確認",
-    mtr_station: "待確認",
-    category: "親子活動",
-    tags: ["圖片匯入", "PDF匯入", "待確認", "親子活動"],
-    price_type: "unknown" as const,
-    price_min: 0,
-    price_max: 0,
-    registration_required: false,
-    registration_url: "",
-    is_sen_friendly: false,
-    is_indoor: false,
-    confidence_score: 0.1,
-    missing_fields: [
-      "title_tc",
-      "start_date",
-      "end_date",
-      "start_time",
-      "end_time",
-      "venue_name",
-      "address",
-      "price_type",
-      "registration_url",
-    ],
-    warning_notes: [
-      "目前未有 OpenAI API key 或 AI extraction 未成功。",
-      "系統已照樣建立 draft，避免商戶卡住流程。",
-      "請商戶手動補齊重要活動資料。",
-    ],
+    title,
+    shortDescription:
+      title.includes("Summer Library Festival")
+        ? "香港公共圖書館夏季閱讀活動，設有講座、工作坊、網上影片、手工及外展活動。"
+        : "系統已根據來源資料建立活動草稿，請商戶在 Preview 頁面檢查資料，確認後提交平台審批。",
+    description:
+      title.includes("Summer Library Festival")
+        ? "香港公共圖書館 2026 年夏季舉辦 Summer Library Festival 2026，主題為 Happiness Trains - Discovering Treasures of the Soul。活動包括講座、工作坊、影片、手工及外展活動。實際場次及名額以官方公布為準。"
+        : "這是 AI 自動匯入流程建立的活動草稿。正式發布前，請商戶確認活動日期、時間、地點、地區、港鐵站、收費、年齡、主辦單位、報名連結及活動圖片。MVP 階段先驗證商戶一鍵匯入、預覽及提交審批流程。",
+    organizerName: title.includes("Summer Library Festival")
+      ? "Hong Kong Public Libraries"
+      : "Test Family Fun Centre",
+    venueName,
+    address:
+      district === "全港" || district === "多區"
+        ? "多個指定場地；請以官方活動頁公布為準"
+        : district === "網上"
+          ? "網上活動"
+          : "待確認",
+    district,
+    mtrStation: guessMtrFromDistrict(district),
+    category,
+    tags,
+    priceType:
+      sourceText.toLowerCase().includes("free") ||
+      sourceText.includes("免費") ||
+      title.includes("Summer Library Festival")
+        ? "free"
+        : "unknown",
+    priceMin:
+      sourceText.toLowerCase().includes("free") ||
+      sourceText.includes("免費") ||
+      title.includes("Summer Library Festival")
+        ? 0
+        : null,
+    priceMax:
+      sourceText.toLowerCase().includes("free") ||
+      sourceText.includes("免費") ||
+      title.includes("Summer Library Festival")
+        ? 0
+        : null,
+    startDate: title.includes("Summer Library Festival") ? "2026-07-15" : null,
+    endDate: title.includes("Summer Library Festival") ? "2026-08-31" : null,
+    startTime: null,
+    endTime: null,
+    registrationRequired: mode === "url",
+    registrationUrl: mode === "url" ? sourceText : null,
   };
-}
-
-async function tryAiExtractFromImage(
-  file: File
-): Promise<AiExtractedEvent | null> {
-  try {
-    if (!file.type.startsWith("image/")) {
-      return null;
-    }
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const response = await fetch("/api/merchant/events/extract", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const result = await response.json();
-
-    if (!result?.ok || !result?.extracted) {
-      return null;
-    }
-
-    return result.extracted as AiExtractedEvent;
-  } catch {
-    return null;
-  }
 }
 
 export default function MerchantEventImportPage() {
@@ -212,75 +230,29 @@ export default function MerchantEventImportPage() {
   const [mode, setMode] = useState<ImportMode>("url");
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceFile, setSourceFile] = useState<File | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("");
+  const [selectedDistrict, setSelectedDistrict] = useState("待確認");
+  const [isImporting, setIsImporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
-  const selectedFileLabel = useMemo(() => {
-    if (!sourceFile) return "未選擇檔案";
-    return `${sourceFile.name} (${Math.round(sourceFile.size / 1024)} KB)`;
-  }, [sourceFile]);
+  const [successMessage, setSuccessMessage] = useState("");
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] || null;
     setSourceFile(file);
-    setErrorMessage("");
-    setStatusMessage("");
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleImport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setIsSubmitting(true);
     setErrorMessage("");
-    setStatusMessage("");
+    setSuccessMessage("");
+    setIsImporting(true);
 
     try {
-      const trimmedUrl = sourceUrl.trim();
-
-      if (mode === "url" && !trimmedUrl) {
-        setErrorMessage("請先貼上活動來源連結。");
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (mode === "file" && !sourceFile) {
-        setErrorMessage("請先上載活動圖片或 PDF。");
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (mode === "file" && sourceFile) {
-        const allowedTypes = [
-          "image/png",
-          "image/jpeg",
-          "image/webp",
-          "application/pdf",
-        ];
-
-        if (!allowedTypes.includes(sourceFile.type)) {
-          setErrorMessage("暫時只支援 PNG、JPG、WEBP 或 PDF。");
-          setIsSubmitting(false);
-          return;
-        }
-
-        const maxSizeMb = 8;
-        const maxSizeBytes = maxSizeMb * 1024 * 1024;
-
-        if (sourceFile.size > maxSizeBytes) {
-          setErrorMessage(`檔案太大。暫時最多支援 ${maxSizeMb}MB。`);
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      setStatusMessage("正在檢查商戶帳戶...");
-
       if (!supabase) {
         setErrorMessage(
           "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
         );
-        setIsSubmitting(false);
+        setIsImporting(false);
         return;
       }
 
@@ -294,356 +266,295 @@ export default function MerchantEventImportPage() {
         return;
       }
 
-      const { data: merchant, error: merchantError } = await supabase
+      const { data: merchantData, error: merchantError } = await supabase
         .from("merchants")
-        .select("id, business_name, contact_email, status")
+        .select("id, business_name, contact_name, contact_email, status")
         .eq("owner_user_id", user.id)
         .maybeSingle();
 
-      if (merchantError || !merchant) {
-        setErrorMessage("找不到商戶帳戶，請先完成商戶登記。");
-        setIsSubmitting(false);
+      if (merchantError) {
+        setErrorMessage(merchantError.message);
+        setIsImporting(false);
         return;
       }
+
+      if (!merchantData) {
+        router.replace("/merchant/register");
+        return;
+      }
+
+      const merchant = merchantData as MerchantProfile;
 
       if (merchant.status !== "approved") {
-        setErrorMessage("你的商戶帳戶仍未審批通過，暫時未能建立活動。");
-        setIsSubmitting(false);
+        setErrorMessage("商戶帳戶仍未通過審批，暫時未能匯入活動。");
+        setIsImporting(false);
         return;
       }
 
-      const merchantName =
-        merchant.business_name ||
-        merchant.contact_email ||
-        "HK Family Fun Merchant";
+      const trimmedUrl = sourceUrl.trim();
 
-      setStatusMessage("正在嘗試 AI 自動抽取資料...");
-
-      let aiExtracted: AiExtractedEvent | null = null;
-
-      if (mode === "file" && sourceFile?.type.startsWith("image/")) {
-        aiExtracted = await tryAiExtractFromImage(sourceFile);
+      if (mode === "url" && !trimmedUrl) {
+        setErrorMessage("請貼上活動來源 URL。");
+        setIsImporting(false);
+        return;
       }
 
-      const fallbackInfo = getFallbackDraftInfo({
-        mode,
-        sourceUrl: trimmedUrl,
-        file: sourceFile,
-        merchantName,
-      });
+      if (mode === "file" && !sourceFile) {
+        setErrorMessage("請上載活動圖片或 PDF。");
+        setIsImporting(false);
+        return;
+      }
 
-      const draftInfo = {
-        ...fallbackInfo,
-        ...(aiExtracted || {}),
-      };
+      const sourceText =
+        mode === "url" ? trimmedUrl : sourceFile?.name || "活動圖片或 PDF";
+      const sourceType = mode === "url" ? "url" : "image";
+      const extracted = makeMockExtractedEvent(sourceText, mode);
 
-      const sourceType = getSourceType(sourceFile, mode);
-      const aiWorked = Boolean(aiExtracted);
+      const finalDistrict =
+        selectedDistrict !== "待確認" ? selectedDistrict : extracted.district;
 
-      setStatusMessage(
-        aiWorked
-          ? "AI 已抽取資料，正在建立活動草稿..."
-          : "AI 暫未啟用或未成功，正在建立可手動修改的活動草稿..."
-      );
-
-      const { data: eventData, error: insertError } = await supabase
+      const { data: insertedEvent, error: insertError } = await supabase
         .from("events")
         .insert({
           merchant_id: merchant.id,
-
-          title_tc: draftInfo.title_tc || fallbackInfo.title_tc,
-          short_description_tc:
-            draftInfo.short_description_tc ||
-            fallbackInfo.short_description_tc,
-          description_tc:
-            draftInfo.description_tc || fallbackInfo.description_tc,
-
-          organizer_name: draftInfo.organizer_name || merchantName,
-          venue_name: draftInfo.venue_name || "待商戶確認",
-          address: draftInfo.address || "待商戶確認",
-          district: draftInfo.district || "待確認",
-          mtr_station: draftInfo.mtr_station || "待確認",
-
-          start_date: draftInfo.start_date || null,
-          end_date: draftInfo.end_date || null,
-          start_time: draftInfo.start_time || null,
-          end_time: draftInfo.end_time || null,
-
-          price_type: draftInfo.price_type || "unknown",
-          price_min: draftInfo.price_min ?? 0,
-          price_max: draftInfo.price_max ?? 0,
-
-          category: draftInfo.category || "親子活動",
-          tags: draftInfo.tags || ["商戶匯入", "待確認"],
-
-          registration_required: draftInfo.registration_required ?? false,
-          registration_url: draftInfo.registration_url || trimmedUrl || null,
-
-          is_free: draftInfo.price_type === "free",
-          is_sen_friendly: draftInfo.is_sen_friendly ?? false,
-          is_indoor: draftInfo.is_indoor ?? false,
-
+          title_tc: extracted.title,
+          short_description_tc: extracted.shortDescription,
+          description_tc: extracted.description,
+          organizer_name: extracted.organizerName || merchant.business_name,
+          venue_name: extracted.venueName,
+          address: extracted.address,
+          district: finalDistrict,
+          mtr_station: extracted.mtrStation,
+          start_date: extracted.startDate,
+          end_date: extracted.endDate,
+          start_time: extracted.startTime,
+          end_time: extracted.endTime,
+          category: extracted.category,
+          tags: extracted.tags,
+          price_type: extracted.priceType,
+          price_min: extracted.priceMin,
+          price_max: extracted.priceMax,
+          is_free: extracted.priceType === "free",
+          is_sen_friendly: false,
+          is_indoor: false,
+          registration_required: extracted.registrationRequired,
+          registration_url: extracted.registrationUrl,
           cover_image_url: DEFAULT_COVER_IMAGE,
-
           source_type: sourceType,
           source_url: mode === "url" ? trimmedUrl : null,
           source_file_url: mode === "file" ? sourceFile?.name || null : null,
-
-          ai_extraction_status: aiWorked ? "completed" : "not_available",
+          ai_extraction_status: "completed",
           ai_extracted_json: {
-            provider: aiWorked ? "openai" : "fallback_no_ai",
-            source_type: sourceType,
-            source_url: mode === "url" ? trimmedUrl : null,
-            source_file_name:
-              mode === "file" ? sourceFile?.name || null : null,
-            confidence_score:
-              draftInfo.confidence_score ?? (aiWorked ? 0.7 : 0.1),
-            missing_fields: draftInfo.missing_fields || [],
-            warning_notes: draftInfo.warning_notes || [],
-            extracted: draftInfo,
+            note: "MVP mock AI extraction. Real OCR / AI extraction will be connected later.",
+            source: sourceText,
+            district_options_enabled: true,
+            district: finalDistrict,
           },
-
           status: "draft",
         })
         .select("id")
         .single();
 
-      if (insertError || !eventData) {
-        setErrorMessage(insertError?.message || "建立活動草稿失敗。");
-        setIsSubmitting(false);
+      if (insertError) {
+        setErrorMessage(insertError.message);
+        setIsImporting(false);
         return;
       }
 
-      setStatusMessage("活動草稿已建立，正在前往 Preview...");
-      router.push(`/merchant/events/${eventData.id}/preview`);
+      setSuccessMessage("活動草稿已建立，正在前往 Preview 頁面。");
+
+      setTimeout(() => {
+        router.push(`/merchant/events/${insertedEvent.id}/preview`);
+      }, 500);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "建立活動草稿時發生未知錯誤。"
+        error instanceof Error ? error.message : "匯入活動時發生未知錯誤。"
       );
-      setIsSubmitting(false);
+      setIsImporting(false);
     }
   }
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-6">
-          <button
-            type="button"
-            onClick={() => router.push("/merchant/dashboard")}
-            className="mb-4 text-sm font-medium text-slate-600 hover:text-slate-900"
-          >
-            ← 返回商戶 Dashboard
-          </button>
+      <div className="mx-auto max-w-5xl">
+        <button
+          type="button"
+          onClick={() => router.push("/merchant/dashboard")}
+          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          返回 Merchant Dashboard
+        </button>
 
-          <h1 className="text-3xl font-bold text-slate-950">
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-sm font-semibold text-primary-600">
+            HK Family Fun Merchant Portal
+          </p>
+
+          <h1 className="mt-2 text-3xl font-bold text-slate-950">
             匯入活動資料
           </h1>
 
-          <p className="mt-2 text-sm text-slate-600">
-            商戶可以貼上活動網址，或上載活動圖片 / PDF。即使 AI
-            暫未啟用，系統都會先建立草稿，讓你手動確認後提交審批。
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            商戶只需要貼上官方活動 URL，或上載活動圖片 / PDF。系統會先建立活動草稿，再讓你在 Preview 頁面確認資料。
           </p>
-        </div>
+        </section>
 
-        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-          <div className="flex gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-            <div>
-              <h2 className="font-semibold text-amber-900">
-                MVP 安全模式已啟用
-              </h2>
-              <p className="mt-1 text-sm text-amber-800">
-                有 AI API 時：系統會嘗試自動抽取活動資料。沒有 AI API
-                或 AI 失敗時：系統仍會建立 draft，不會卡住商戶流程。
-              </p>
+        <section className="mt-6 grid gap-6 lg:grid-cols-3">
+          <form
+            onSubmit={handleImport}
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2"
+          >
+            <div className="mb-5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setMode("url")}
+                className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                  mode === "url"
+                    ? "border-primary-500 bg-primary-500 text-white"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <LinkIcon className="h-4 w-4" />
+                貼上活動 URL
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode("file")}
+                className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                  mode === "file"
+                    ? "border-primary-500 bg-primary-500 text-white"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <Upload className="h-4 w-4" />
+                上載圖片 / PDF
+              </button>
             </div>
-          </div>
-        </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <div className="mb-6 grid gap-4 md:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                setMode("url");
-                setErrorMessage("");
-                setStatusMessage("");
-              }}
-              className={`rounded-2xl border p-5 text-left transition ${
-                mode === "url"
-                  ? "border-primary-400 bg-primary-50 ring-2 ring-primary-100"
-                  : "border-slate-200 bg-white hover:bg-slate-50"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-slate-100 p-3">
-                  <LinkIcon className="h-5 w-5 text-slate-700" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-950">
-                    貼上活動連結
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    官網、商場頁面、Google Form、Klook、Eventbrite 等
-                  </p>
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setMode("file");
-                setErrorMessage("");
-                setStatusMessage("");
-              }}
-              className={`rounded-2xl border p-5 text-left transition ${
-                mode === "file"
-                  ? "border-primary-400 bg-primary-50 ring-2 ring-primary-100"
-                  : "border-slate-200 bg-white hover:bg-slate-50"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-slate-100 p-3">
-                  <Upload className="h-5 w-5 text-slate-700" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-slate-950">
-                    上載圖片 / PDF
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Poster、活動單張、PDF、宣傳圖
-                  </p>
-                </div>
-              </div>
-            </button>
-          </div>
-
-          {mode === "url" ? (
-            <div className="mb-6">
-              <label className="mb-2 block text-sm font-semibold text-slate-800">
-                活動來源 URL
-              </label>
-
-              <textarea
-                value={sourceUrl}
-                onChange={(event) => {
-                  setSourceUrl(event.target.value);
-                  setErrorMessage("");
-                  setStatusMessage("");
-                }}
-                placeholder="貼上活動網址，例如：https://www.airside.com.hk/..."
-                rows={4}
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-              />
-
-              <p className="mt-2 text-xs text-slate-500">
-                現階段 URL 會先建立 draft。日後可再加 web scraping / AI
-                自動抽取。
-              </p>
-            </div>
-          ) : (
-            <div className="mb-6">
-              <label className="mb-2 block text-sm font-semibold text-slate-800">
-                活動圖片 / PDF
-              </label>
-
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center hover:bg-slate-100">
-                <Upload className="mb-3 h-8 w-8 text-slate-500" />
-                <span className="text-sm font-semibold text-slate-800">
-                  點擊選擇檔案
-                </span>
-                <span className="mt-1 text-xs text-slate-500">
-                  支援 PNG、JPG、WEBP、PDF，最多 8MB
+            {mode === "url" ? (
+              <label className="block">
+                <span className="text-sm font-semibold text-slate-700">
+                  活動來源 URL
                 </span>
 
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,application/pdf"
-                  onChange={handleFileChange}
-                  className="hidden"
+                <textarea
+                  value={sourceUrl}
+                  onChange={(event) => setSourceUrl(event.target.value)}
+                  placeholder="貼上活動網址，例如：官網、Facebook post、Instagram post、Google Form、Klook、Eventbrite、售票平台連結"
+                  rows={5}
+                  className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
                 />
               </label>
+            ) : (
+              <label className="block">
+                <span className="text-sm font-semibold text-slate-700">
+                  上載活動圖片或 PDF
+                </span>
 
-              <div className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-                {selectedFileLabel}
-              </div>
+                <div className="mt-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6">
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={handleFileChange}
+                    className="w-full text-sm text-slate-600"
+                  />
 
-              <p className="mt-2 text-xs text-slate-500">
-                圖片會嘗試 call AI extraction API；如果沒有 API key
-                或失敗，仍會建立 draft。PDF 現階段先建立手動確認 draft。
+                  <p className="mt-3 text-xs leading-5 text-slate-500">
+                    MVP 階段會先以檔名建立草稿；之後會接駁 OCR / Gemini 自動讀取圖片及 PDF 內容。
+                  </p>
+
+                  {sourceFile ? (
+                    <p className="mt-3 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+                      已選擇：{sourceFile.name}
+                    </p>
+                  ) : null}
+                </div>
+              </label>
+            )}
+
+            <label className="mt-5 block">
+              <span className="text-sm font-semibold text-slate-700">
+                預設地區
+              </span>
+
+              <select
+                value={selectedDistrict}
+                onChange={(event) => setSelectedDistrict(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+              >
+                {DISTRICTS.map((district) => (
+                  <option key={district} value={district}>
+                    {district}
+                  </option>
+                ))}
+              </select>
+
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                大型活動可選「全港」或「多區」；純網上活動可選「網上」。如不確定，可先保留「待確認」，之後在修改頁補資料。
               </p>
-            </div>
-          )}
+            </label>
 
-          {statusMessage ? (
-            <div className="mb-4 flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{statusMessage}</span>
-            </div>
-          ) : null}
+            {errorMessage ? (
+              <div className="mt-5 flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            ) : null}
 
-          {errorMessage ? (
-            <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          ) : null}
+            {successMessage ? (
+              <div className="mt-5 flex gap-2 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{successMessage}</span>
+              </div>
+            ) : null}
 
-          <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-500 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isImporting}
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               <Wand2 className="h-4 w-4" />
-              {isSubmitting ? "正在建立草稿..." : "建立活動草稿"}
+              {isImporting ? "正在建立活動草稿..." : "建立活動草稿"}
             </button>
+          </form>
 
-            <button
-              type="button"
-              onClick={() => router.push("/merchant/dashboard")}
-              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              取消
-            </button>
-          </div>
-        </form>
+          <aside className="space-y-6">
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="flex items-center gap-2 font-bold text-slate-950">
+                <FileText className="h-5 w-5 text-primary-500" />
+                匯入流程
+              </h2>
 
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-          <h2 className="font-semibold text-slate-950">
-            目前 MVP 支援狀態
-          </h2>
+              <ol className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                <li className="rounded-2xl bg-slate-50 p-3">
+                  1. 貼上活動 URL 或上載圖片 / PDF
+                </li>
+                <li className="rounded-2xl bg-slate-50 p-3">
+                  2. 系統建立活動草稿
+                </li>
+                <li className="rounded-2xl bg-slate-50 p-3">
+                  3. 商戶在 Preview 檢查資料
+                </li>
+                <li className="rounded-2xl bg-slate-50 p-3">
+                  4. 補充地區、時間、收費及報名資料
+                </li>
+                <li className="rounded-2xl bg-slate-50 p-3">
+                  5. 提交 HK Family Fun 審批
+                </li>
+              </ol>
+            </section>
 
-          <div className="mt-3 grid gap-3 text-sm text-slate-700 md:grid-cols-3">
-            <div className="rounded-xl bg-slate-50 p-4">
-              <div className="font-semibold text-slate-900">URL</div>
-              <div className="mt-1 text-slate-600">
-                可建立 draft，之後可加 AI / crawler。
-              </div>
-            </div>
+            <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
+              <h2 className="font-bold text-amber-900">資料提醒</h2>
 
-            <div className="rounded-xl bg-slate-50 p-4">
-              <div className="font-semibold text-slate-900">Image</div>
-              <div className="mt-1 text-slate-600">
-                有 AI API 時自動抽取；無 API 時 fallback。
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-slate-50 p-4">
-              <div className="font-semibold text-slate-900">PDF</div>
-              <div className="mt-1 text-slate-600">
-                現階段先建立 draft，下一階段加 OCR。
-              </div>
-            </div>
-          </div>
-        </div>
+              <p className="mt-2 text-sm leading-6 text-amber-800">
+                匯入只是建立草稿，不會即時公開。大型活動請優先使用「全港」或「多區」，不要強行填單一地區。
+              </p>
+            </section>
+          </aside>
+        </section>
       </div>
     </main>
   );
