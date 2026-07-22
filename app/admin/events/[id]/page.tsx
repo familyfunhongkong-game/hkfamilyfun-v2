@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -8,18 +7,17 @@ import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
-  ExternalLink,
   FileText,
-  LogOut,
+  LinkIcon,
   MapPin,
   ShieldCheck,
-  Tag,
+  Store,
   Ticket,
   XCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
-type ReviewEvent = {
+type AdminEvent = {
   id: string;
   merchant_id: string | null;
   title_tc: string | null;
@@ -44,32 +42,86 @@ type ReviewEvent = {
   registration_url: string | null;
   is_sen_friendly: boolean | null;
   is_indoor: boolean | null;
+  status: string | null;
   source_type: string | null;
   source_url: string | null;
   source_file_url: string | null;
-  ai_extraction_status: string | null;
-  ai_extracted_json: Record<string, unknown> | null;
-  status: string | null;
-  submitted_at: string | null;
-  approved_at: string | null;
-  rejected_at: string | null;
-  published_at: string | null;
   admin_review_note: string | null;
+  submitted_at: string | null;
+  published_at: string | null;
+  rejected_at: string | null;
+  updated_at: string | null;
 };
 
-type MerchantInfo = {
+type MerchantProfile = {
   id: string;
   business_name: string | null;
   contact_name: string | null;
   contact_email: string | null;
-  phone: string | null;
   status: string | null;
 };
 
-const ADMIN_EMAILS = ["fionafung27@yahoo.com.hk", "info@hkfamilyfun.com"];
-
-const FALLBACK_COVER_IMAGE =
+const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80";
+
+function formatDate(value: string | null) {
+  if (!value) return "日期待確認";
+
+  try {
+    return new Intl.DateTimeFormat("zh-HK", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+function formatTime(value: string | null) {
+  if (!value) return "";
+  return value.slice(0, 5);
+}
+
+function formatDateRange(event: AdminEvent) {
+  if (!event.start_date) return "日期待確認";
+
+  const startDate = formatDate(event.start_date);
+  const endDate = event.end_date ? formatDate(event.end_date) : "";
+
+  if (!event.end_date || event.end_date === event.start_date) {
+    return startDate;
+  }
+
+  return `${startDate} 至 ${endDate}`;
+}
+
+function formatTimeRange(event: AdminEvent) {
+  const startTime = formatTime(event.start_time);
+  const endTime = formatTime(event.end_time);
+
+  if (startTime && endTime) return `${startTime} - ${endTime}`;
+  if (startTime) return `${startTime} 開始`;
+  return "時間待確認";
+}
+
+function formatPrice(event: AdminEvent) {
+  if (event.price_type === "free") return "免費";
+  if (event.price_type === "mixed") return "免費及收費";
+  if (event.price_type === "unknown" || !event.price_type) return "收費待確認";
+
+  const min = event.price_min;
+  const max = event.price_max;
+
+  if (min !== null && max !== null && min !== max) {
+    return `HK$${min} - HK$${max}`;
+  }
+
+  if (min !== null) return `HK$${min}`;
+  if (max !== null) return `HK$${max}`;
+
+  return "收費";
+}
 
 function getStatusLabel(status: string | null) {
   switch (status) {
@@ -104,59 +156,67 @@ function getStatusClass(status: string | null) {
   }
 }
 
-function formatDateRange(event: ReviewEvent) {
-  if (!event.start_date && !event.end_date) return "日期待確認";
-
-  const start = event.start_date || "";
-  const end = event.end_date || "";
-
-  if (start && end && start !== end) return `${start} 至 ${end}`;
-  return start || end || "日期待確認";
+function hasUsefulText(value: string | null | undefined) {
+  return Boolean(value && value.trim().length > 0);
 }
 
-function formatTimeRange(event: ReviewEvent) {
-  if (!event.start_time && !event.end_time) return "時間待確認";
-
-  const start = event.start_time ? event.start_time.slice(0, 5) : "";
-  const end = event.end_time ? event.end_time.slice(0, 5) : "";
-
-  if (start && end) return `${start} - ${end}`;
-  return start || end || "時間待確認";
+function getTags(event: AdminEvent) {
+  if (event.tags && event.tags.length > 0) return event.tags.slice(0, 6);
+  if (event.category) return [event.category];
+  return ["親子活動"];
 }
 
-function formatPrice(event: ReviewEvent) {
-  if (event.price_type === "free") return "免費";
-  if (!event.price_type || event.price_type === "unknown") return "收費待確認";
+function getReviewChecklist(event: AdminEvent) {
+  const checklist = [
+    {
+      label: "活動名稱",
+      passed: hasUsefulText(event.title_tc),
+      helper: "活動必須有清楚標題。",
+    },
+    {
+      label: "活動簡介",
+      passed: hasUsefulText(event.short_description_tc),
+      helper: "活動卡需要簡短介紹。",
+    },
+    {
+      label: "活動詳情",
+      passed: hasUsefulText(event.description_tc),
+      helper: "詳情頁需要活動內容、注意事項或亮點。",
+    },
+    {
+      label: "開始日期",
+      passed: hasUsefulText(event.start_date),
+      helper: "沒有日期不應公開。",
+    },
+    {
+      label: "場地名稱",
+      passed: hasUsefulText(event.venue_name),
+      helper: "必須有場地、分館、網上或多區說明。",
+    },
+    {
+      label: "地區",
+      passed:
+        hasUsefulText(event.district) &&
+        event.district !== "待確認" &&
+        event.district !== "unknown",
+      helper: "不可保留「待確認」。大型活動可用全港／多區／網上。",
+    },
+    {
+      label: "收費資料",
+      passed:
+        hasUsefulText(event.price_type) &&
+        event.price_type !== "unknown" &&
+        formatPrice(event) !== "收費待確認",
+      helper: "免費、收費或免費及收費必須清楚。",
+    },
+    {
+      label: "封面圖片",
+      passed: hasUsefulText(event.cover_image_url),
+      helper: "公開活動必須有封面圖。",
+    },
+  ];
 
-  const min = Number(event.price_min || 0);
-  const max = Number(event.price_max || 0);
-
-  if (min === 0 && max === 0) return "收費待確認";
-  if (min === max) return `HK$${min}`;
-  return `HK$${min} - HK$${max}`;
-}
-
-function getMissingFields(event: ReviewEvent) {
-  const missing: string[] = [];
-
-  if (!event.title_tc?.trim()) missing.push("活動名稱");
-  if (!event.short_description_tc?.trim()) missing.push("活動簡介");
-  if (!event.description_tc?.trim()) missing.push("活動詳情");
-  if (!event.start_date) missing.push("開始日期");
-
-  if (!event.venue_name?.trim() || event.venue_name.includes("待")) {
-    missing.push("場地名稱");
-  }
-
-  if (!event.district?.trim() || event.district.includes("待")) {
-    missing.push("地區");
-  }
-
-  if (!event.price_type || event.price_type === "unknown") {
-    missing.push("收費資料");
-  }
-
-  return missing;
+  return checklist;
 }
 
 export default function AdminEventDetailPage() {
@@ -164,14 +224,12 @@ export default function AdminEventDetailPage() {
   const params = useParams();
   const eventId = String(params.id || "");
 
+  const [eventData, setEventData] = useState<AdminEvent | null>(null);
+  const [merchant, setMerchant] = useState<MerchantProfile | null>(null);
   const [adminEmail, setAdminEmail] = useState("");
-  const [event, setEvent] = useState<ReviewEvent | null>(null);
-  const [merchant, setMerchant] = useState<MerchantInfo | null>(null);
-  const [rejectReason, setRejectReason] = useState(
-    "請補充活動日期、地點、收費或報名資料。"
-  );
+  const [rejectReason, setRejectReason] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isWorking, setIsWorking] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -194,18 +252,12 @@ export default function AdminEventDetailPage() {
         error: userError,
       } = await supabase.auth.getUser();
 
-      if (userError || !user?.email) {
+      if (userError || !user) {
         router.replace("/merchant/login");
         return;
       }
 
-      if (!ADMIN_EMAILS.includes(user.email)) {
-        setErrorMessage("你沒有權限查看 Admin 活動詳情。");
-        setIsLoading(false);
-        return;
-      }
-
-      setAdminEmail(user.email);
+      setAdminEmail(user.email || "");
 
       const { data, error } = await supabase
         .from("events")
@@ -235,17 +287,15 @@ export default function AdminEventDetailPage() {
             "registration_url",
             "is_sen_friendly",
             "is_indoor",
+            "status",
             "source_type",
             "source_url",
             "source_file_url",
-            "ai_extraction_status",
-            "ai_extracted_json",
-            "status",
-            "submitted_at",
-            "approved_at",
-            "rejected_at",
-            "published_at",
             "admin_review_note",
+            "submitted_at",
+            "published_at",
+            "rejected_at",
+            "updated_at",
           ].join(", ")
         )
         .eq("id", eventId)
@@ -258,34 +308,31 @@ export default function AdminEventDetailPage() {
       }
 
       if (!data) {
-        setErrorMessage("找不到活動資料。");
+        setErrorMessage("找不到活動。");
         setIsLoading(false);
         return;
       }
 
-      const loadedEvent = data as unknown as ReviewEvent;
-      setEvent(loadedEvent);
-
-      if (loadedEvent.admin_review_note) {
-        setRejectReason(loadedEvent.admin_review_note);
-      }
+      const loadedEvent = data as unknown as AdminEvent;
+      setEventData(loadedEvent);
+      setRejectReason(loadedEvent.admin_review_note || "");
 
       if (loadedEvent.merchant_id) {
         const { data: merchantData } = await supabase
           .from("merchants")
-          .select("id, business_name, contact_name, contact_email, phone, status")
+          .select("id, business_name, contact_name, contact_email, status")
           .eq("id", loadedEvent.merchant_id)
           .maybeSingle();
 
-        setMerchant((merchantData || null) as MerchantInfo | null);
+        if (merchantData) {
+          setMerchant(merchantData as MerchantProfile);
+        }
       }
 
       setIsLoading(false);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "載入活動詳情時發生未知錯誤。"
+        error instanceof Error ? error.message : "載入活動資料時發生未知錯誤。"
       );
       setIsLoading(false);
     }
@@ -296,22 +343,31 @@ export default function AdminEventDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
-  const missingFields = useMemo(() => {
-    if (!event) return [];
-    return getMissingFields(event);
-  }, [event]);
+  const checklist = useMemo(() => {
+    if (!eventData) return [];
+    return getReviewChecklist(eventData);
+  }, [eventData]);
+
+  const failedItems = checklist.filter((item) => !item.passed);
+  const canApprove =
+    Boolean(eventData) &&
+    eventData?.status === "submitted" &&
+    failedItems.length === 0;
+
+  const canReject =
+    Boolean(eventData) &&
+    eventData?.status === "submitted" &&
+    rejectReason.trim().length >= 3;
 
   async function approveEvent() {
-    if (!event) return;
+    if (!eventData) return;
 
-    if (missingFields.length > 0) {
-      setErrorMessage(
-        `不可批准。請先退回商戶補充：${missingFields.join("、")}`
-      );
+    if (!canApprove) {
+      setErrorMessage("活動資料未符合公開要求，暫時不能批准發布。");
       return;
     }
 
-    setIsUpdating(true);
+    setIsWorking(true);
     setErrorMessage("");
     setSuccessMessage("");
 
@@ -320,7 +376,7 @@ export default function AdminEventDetailPage() {
         setErrorMessage(
           "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
         );
-        setIsUpdating(false);
+        setIsWorking(false);
         return;
       }
 
@@ -330,48 +386,54 @@ export default function AdminEventDetailPage() {
         .from("events")
         .update({
           status: "published",
-          approved_at: now,
           published_at: now,
           admin_review_note: null,
+          rejected_at: null,
           updated_at: now,
         })
-        .eq("id", event.id);
+        .eq("id", eventData.id);
 
       if (error) {
         setErrorMessage(error.message);
-        setIsUpdating(false);
+        setIsWorking(false);
         return;
       }
 
-      setEvent({
-        ...event,
+      setEventData({
+        ...eventData,
         status: "published",
-        approved_at: now,
         published_at: now,
         admin_review_note: null,
+        rejected_at: null,
+        updated_at: now,
       });
 
       setSuccessMessage("活動已批准並公開發布。");
-      setIsUpdating(false);
+      setIsWorking(false);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "批准活動時發生未知錯誤。"
       );
-      setIsUpdating(false);
+      setIsWorking(false);
     }
   }
 
   async function rejectEvent() {
-    if (!event) return;
+    if (!eventData) return;
 
-    const cleanReason = rejectReason.trim();
+    const cleanedReason = rejectReason.trim();
 
-    if (!cleanReason) {
-      setErrorMessage("請先輸入退回原因。");
+    if (cleanedReason.length < 3) {
+      setErrorMessage("請先填寫退回原因，最少 3 個字。");
       return;
     }
 
-    setIsUpdating(true);
+    if (eventData.status !== "submitted") {
+      setErrorMessage("只有待審批活動可以退回。");
+      return;
+    }
+
+    setIsWorking(true);
     setErrorMessage("");
     setSuccessMessage("");
 
@@ -380,7 +442,7 @@ export default function AdminEventDetailPage() {
         setErrorMessage(
           "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
         );
-        setIsUpdating(false);
+        setIsWorking(false);
         return;
       }
 
@@ -390,60 +452,54 @@ export default function AdminEventDetailPage() {
         .from("events")
         .update({
           status: "rejected",
+          admin_review_note: cleanedReason,
           rejected_at: now,
-          admin_review_note: cleanReason,
           updated_at: now,
         })
-        .eq("id", event.id);
+        .eq("id", eventData.id);
 
       if (error) {
         setErrorMessage(error.message);
-        setIsUpdating(false);
+        setIsWorking(false);
         return;
       }
 
-      setEvent({
-        ...event,
+      setEventData({
+        ...eventData,
         status: "rejected",
+        admin_review_note: cleanedReason,
         rejected_at: now,
-        admin_review_note: cleanReason,
+        updated_at: now,
       });
 
       setSuccessMessage("活動已退回商戶修改。");
-      setIsUpdating(false);
+      setIsWorking(false);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "退回活動時發生未知錯誤。"
       );
-      setIsUpdating(false);
+      setIsWorking(false);
     }
-  }
-
-  async function signOut() {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    router.replace("/merchant/login");
   }
 
   if (isLoading) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-5xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <p className="text-sm text-slate-600">正在載入活動審批詳情...</p>
+        <div className="mx-auto max-w-6xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <p className="text-sm text-slate-600">正在載入 Admin 審批頁...</p>
         </div>
       </main>
     );
   }
 
-  if (!event) {
+  if (!eventData) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-5xl rounded-3xl border border-red-200 bg-red-50 p-8">
+        <div className="mx-auto max-w-6xl rounded-3xl border border-red-200 bg-red-50 p-8">
           <h1 className="text-xl font-bold text-red-900">載入失敗</h1>
           <p className="mt-2 text-sm text-red-700">
             {errorMessage || "找不到活動資料。"}
           </p>
-
           <button
             type="button"
             onClick={() => router.push("/admin/events")}
@@ -455,9 +511,6 @@ export default function AdminEventDetailPage() {
       </main>
     );
   }
-
-  const canApprove = event.status === "submitted" && missingFields.length === 0;
-  const canReject = event.status === "submitted" || event.status === "rejected";
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8">
@@ -474,11 +527,10 @@ export default function AdminEventDetailPage() {
 
           <button
             type="button"
-            onClick={signOut}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            onClick={loadEvent}
+            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
           >
-            <LogOut className="h-4 w-4" />
-            登出
+            Refresh
           </button>
         </div>
 
@@ -491,7 +543,7 @@ export default function AdminEventDetailPage() {
               </p>
 
               <h1 className="mt-2 text-3xl font-bold text-slate-950">
-                {event.title_tc || "未命名活動"}
+                {eventData.title_tc || "未命名活動"}
               </h1>
 
               <p className="mt-2 text-sm text-slate-600">
@@ -500,11 +552,11 @@ export default function AdminEventDetailPage() {
             </div>
 
             <span
-              className={`rounded-full px-4 py-2 text-sm font-semibold ${getStatusClass(
-                event.status
+              className={`rounded-full px-4 py-2 text-sm font-bold ${getStatusClass(
+                eventData.status
               )}`}
             >
-              {getStatusLabel(event.status)}
+              {getStatusLabel(eventData.status)}
             </span>
           </div>
 
@@ -522,237 +574,273 @@ export default function AdminEventDetailPage() {
             </div>
           ) : null}
 
-          {missingFields.length > 0 ? (
-            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              <strong>不可直接批准，仍欠：</strong>
-              {missingFields.join("、")}
-            </div>
-          ) : (
-            <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-              基本資料完整，可以批准發布。
-            </div>
-          )}
+          <div
+            className={`mt-5 rounded-2xl border p-4 text-sm ${
+              failedItems.length === 0
+                ? "border-green-200 bg-green-50 text-green-800"
+                : "border-amber-200 bg-amber-50 text-amber-800"
+            }`}
+          >
+            {failedItems.length === 0
+              ? "基本資料完整，可以批准發布。"
+              : `不可批准：仍有 ${failedItems.length} 項資料需要補充。`}
+          </div>
         </section>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-            <div className="overflow-hidden rounded-3xl border border-slate-200">
+        <section className="mt-6 grid gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div className="relative h-72 bg-slate-100">
                 <img
-                  src={event.cover_image_url || FALLBACK_COVER_IMAGE}
-                  alt={event.title_tc || "Event cover"}
+                  src={eventData.cover_image_url || FALLBACK_IMAGE}
+                  alt={eventData.title_tc || "活動封面"}
                   className="h-full w-full object-cover"
                 />
 
-                <div className="absolute left-4 top-4 rounded-full bg-white px-3 py-1 text-xs font-semibold text-primary-600 shadow-sm">
-                  {event.category || "親子活動"}
+                <div className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-primary-600 shadow-sm">
+                  {eventData.category || "親子活動"}
                 </div>
               </div>
 
-              <div className="p-5">
+              <div className="p-6">
                 <h2 className="text-2xl font-bold text-slate-950">
-                  {event.title_tc || "未命名活動"}
+                  {eventData.title_tc || "未命名活動"}
                 </h2>
 
                 <p className="mt-3 text-sm leading-6 text-slate-600">
-                  {event.short_description_tc || "未有活動簡介。"}
+                  {eventData.short_description_tc || "未有活動簡介。"}
                 </p>
 
-                <div className="mt-6 rounded-2xl bg-slate-50 p-5">
+                <div className="mt-5 rounded-3xl bg-slate-50 p-5">
                   <h3 className="font-bold text-slate-950">活動詳情</h3>
-                  <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">
-                    {event.description_tc || "未有活動詳情。"}
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                    {eventData.description_tc || "未有活動詳情。"}
                   </p>
                 </div>
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  <InfoItem
+                  <InfoCard
                     icon={<CalendarDays className="h-4 w-4" />}
                     label="日期及時間"
-                    value={`${formatDateRange(event)} · ${formatTimeRange(
-                      event
+                    value={`${formatDateRange(eventData)}・${formatTimeRange(
+                      eventData
                     )}`}
                   />
 
-                  <InfoItem
+                  <InfoCard
                     icon={<MapPin className="h-4 w-4" />}
                     label="地點"
-                    value={`${event.venue_name || "場地待確認"} · ${
-                      event.district || "地區待確認"
-                    } · ${event.mtr_station || "港鐵站待確認"}`}
+                    value={`${eventData.venue_name || "地點待確認"}・${
+                      eventData.district || "地區待確認"
+                    }・${eventData.mtr_station || "港鐵站待確認"}`}
                   />
 
-                  <InfoItem
+                  <InfoCard
                     icon={<Ticket className="h-4 w-4" />}
                     label="收費"
-                    value={formatPrice(event)}
+                    value={formatPrice(eventData)}
                   />
 
-                  <InfoItem
-                    icon={<Tag className="h-4 w-4" />}
+                  <InfoCard
+                    icon={<Store className="h-4 w-4" />}
                     label="主辦單位"
-                    value={event.organizer_name || "待確認"}
+                    value={eventData.organizer_name || "主辦單位待確認"}
                   />
                 </div>
 
-                {event.address ? (
-                  <div className="mt-4 rounded-2xl border border-slate-200 p-4 text-sm text-slate-700">
-                    <div className="font-semibold text-slate-950">地址</div>
-                    <div className="mt-1">{event.address}</div>
-                  </div>
-                ) : null}
+                <InfoCard
+                  icon={<MapPin className="h-4 w-4" />}
+                  label="地址"
+                  value={eventData.address || "地址待確認"}
+                  className="mt-4"
+                />
 
                 <div className="mt-5 flex flex-wrap gap-2">
-                  {(event.tags || ["親子活動"]).map((tag) => (
+                  {getTags(eventData).map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700"
+                      className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-600"
                     >
                       #{tag}
                     </span>
                   ))}
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
 
           <aside className="space-y-6">
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-950">商戶資料</h2>
+              <h2 className="flex items-center gap-2 text-lg font-bold text-slate-950">
+                <Store className="h-5 w-5 text-primary-500" />
+                商戶資料
+              </h2>
 
-              <div className="mt-4 space-y-3 text-sm text-slate-700">
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    Business
-                  </div>
-                  <div className="font-semibold text-slate-950">
-                    {merchant?.business_name || "未有商戶名稱"}
-                  </div>
-                </div>
+              <div className="mt-4 space-y-3 text-sm">
+                <MiniRow
+                  label="Business"
+                  value={merchant?.business_name || "未有商戶名稱"}
+                />
+                <MiniRow
+                  label="Contact"
+                  value={merchant?.contact_name || "未有聯絡人"}
+                />
+                <MiniRow
+                  label="Email"
+                  value={merchant?.contact_email || "未有 email"}
+                />
+                <MiniRow
+                  label="Merchant Status"
+                  value={merchant?.status || "未確認"}
+                />
+              </div>
+            </section>
 
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    Contact
-                  </div>
-                  <div>{merchant?.contact_name || "未有聯絡人"}</div>
-                </div>
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-slate-950">
+                <LinkIcon className="h-5 w-5 text-primary-500" />
+                來源資料
+              </h2>
 
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    Email
-                  </div>
-                  <div>{merchant?.contact_email || "未有 email"}</div>
-                </div>
-
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    Merchant Status
-                  </div>
-                  <div>{merchant?.status || "未確認"}</div>
-                </div>
+              <div className="mt-4 space-y-3 text-sm">
+                <MiniRow label="匯入方式" value={eventData.source_type || "manual"} />
+                <MiniRow label="來源連結" value={eventData.source_url || "未有"} />
+                <MiniRow
+                  label="來源檔案"
+                  value={eventData.source_file_url || "未有"}
+                />
               </div>
             </section>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="flex items-center gap-2 text-lg font-bold text-slate-950">
                 <FileText className="h-5 w-5 text-primary-500" />
-                來源資料
+                審批 Checklist
               </h2>
 
-              <div className="mt-4 space-y-3 text-sm text-slate-700">
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    匯入方式
-                  </div>
-                  <div>{event.source_type || "manual"}</div>
-                </div>
+              <div className="mt-4 space-y-3">
+                {checklist.map((item) => (
+                  <div
+                    key={item.label}
+                    className={`rounded-2xl border p-3 ${
+                      item.passed
+                        ? "border-green-200 bg-green-50"
+                        : "border-red-200 bg-red-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {item.passed ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      )}
 
-                {event.source_url ? (
-                  <div>
-                    <div className="text-xs font-semibold text-slate-500">
-                      來源連結
+                      <span
+                        className={`text-sm font-bold ${
+                          item.passed ? "text-green-700" : "text-red-700"
+                        }`}
+                      >
+                        {item.label}
+                      </span>
                     </div>
-                    <a
-                      href={event.source_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 break-all text-primary-600 hover:text-primary-700"
+
+                    <p
+                      className={`mt-1 text-xs leading-5 ${
+                        item.passed ? "text-green-700" : "text-red-700"
+                      }`}
                     >
-                      {event.source_url}
-                      <ExternalLink className="h-3 w-3 shrink-0" />
-                    </a>
+                      {item.helper}
+                    </p>
                   </div>
-                ) : null}
-
-                {event.source_file_url ? (
-                  <div>
-                    <div className="text-xs font-semibold text-slate-500">
-                      來源檔案
-                    </div>
-                    <div>{event.source_file_url}</div>
-                  </div>
-                ) : null}
+                ))}
               </div>
             </section>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-slate-950">審批操作</h2>
 
-              <div className="mt-4 space-y-3">
-                <button
-                  type="button"
-                  onClick={approveEvent}
-                  disabled={!canApprove || isUpdating}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  {isUpdating ? "處理中..." : "Approve and Publish"}
-                </button>
+              <button
+                type="button"
+                onClick={approveEvent}
+                disabled={!canApprove || isWorking}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Approve and Publish
+              </button>
 
-                <textarea
-                  value={rejectReason}
-                  onChange={(textareaEvent) =>
-                    setRejectReason(textareaEvent.target.value)
-                  }
-                  rows={4}
-                  className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                  placeholder="輸入退回原因，商戶會看到此訊息。"
-                />
+              {!canApprove && eventData.status === "submitted" ? (
+                <p className="mt-2 text-xs leading-5 text-amber-700">
+                  活動仍有資料未符合要求，請先退回商戶補充。
+                </p>
+              ) : null}
 
-                <button
-                  type="button"
-                  onClick={rejectEvent}
-                  disabled={!canReject || isUpdating}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  <XCircle className="h-4 w-4" />
-                  {isUpdating ? "處理中..." : "Reject with Reason"}
-                </button>
-              </div>
+              {eventData.status !== "submitted" ? (
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  只有「待審批」活動可以批准或退回。
+                </p>
+              ) : null}
+
+              <textarea
+                value={rejectReason}
+                onChange={(event) => setRejectReason(event.target.value)}
+                rows={5}
+                placeholder="請填寫退回原因，例如：請補充正確地區、活動時間、收費或報名資料。"
+                className="mt-4 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+              />
+
+              <button
+                type="button"
+                onClick={rejectEvent}
+                disabled={!canReject || isWorking}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                <XCircle className="h-4 w-4" />
+                Reject with Reason
+              </button>
+
+              {eventData.status === "submitted" && rejectReason.trim().length < 3 ? (
+                <p className="mt-2 text-xs leading-5 text-red-600">
+                  退回前必須填寫原因。
+                </p>
+              ) : null}
             </section>
           </aside>
-        </div>
+        </section>
       </div>
     </main>
   );
 }
 
-function InfoItem({
+function InfoCard({
   icon,
   label,
   value,
+  className = "",
 }: {
-  icon: ReactNode;
+  icon: React.ReactNode;
   label: string;
   value: string;
+  className?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 p-4 text-sm">
-      <div className="flex items-center gap-2 font-semibold text-slate-950">
-        <span className="text-primary-500">{icon}</span>
+    <div className={`rounded-2xl border border-slate-200 bg-white p-4 ${className}`}>
+      <div className="flex items-center gap-2 text-xs font-bold text-primary-600">
+        {icon}
         {label}
       </div>
-      <div className="mt-2 text-slate-600">{value}</div>
+      <p className="mt-2 text-sm leading-6 text-slate-700">{value}</p>
+    </div>
+  );
+}
+
+function MiniRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="text-xs font-bold text-slate-500">{label}</div>
+      <div className="mt-1 break-all text-sm font-semibold text-slate-800">
+        {value}
+      </div>
     </div>
   );
 }
