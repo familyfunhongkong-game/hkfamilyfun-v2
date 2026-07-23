@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -11,10 +11,12 @@ import {
   Clock,
   DollarSign,
   FileText,
+  ImageIcon,
   LinkIcon,
   MapPin,
   Save,
   Ticket,
+  Upload,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
@@ -90,6 +92,10 @@ const PRICE_TYPES = [
   { value: "unknown", label: "收費待確認" },
 ];
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGE_SIZE_MB = 5;
+const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+
 function toInputDate(value: string | null) {
   if (!value) return "";
   return value.slice(0, 10);
@@ -153,6 +159,21 @@ function isDistrictAcceptable(value: string) {
   return true;
 }
 
+function getFileExtension(file: File) {
+  const nameParts = file.name.split(".");
+  const extensionFromName = nameParts.length > 1 ? nameParts.pop() : "";
+
+  if (extensionFromName) {
+    return extensionFromName.toLowerCase();
+  }
+
+  if (file.type === "image/jpeg") return "jpg";
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
+
+  return "jpg";
+}
+
 export default function MerchantEventEditPage() {
   const router = useRouter();
   const params = useParams();
@@ -186,6 +207,7 @@ export default function MerchantEventEditPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -334,6 +356,115 @@ export default function MerchantEventEditPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
+  const isLocked =
+    eventData?.status === "submitted" || eventData?.status === "published";
+
+  async function uploadCoverImage(file: File) {
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (!eventData || !merchant) {
+      setErrorMessage("活動或商戶資料未載入，暫時不能上載圖片。");
+      return;
+    }
+
+    if (isLocked) {
+      setErrorMessage("活動已提交或已發布，暫時不能直接更換封面圖。");
+      return;
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setErrorMessage("封面圖片只支援 JPG、PNG 或 WebP。");
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setErrorMessage(`封面圖片不可大於 ${MAX_IMAGE_SIZE_MB}MB。`);
+      return;
+    }
+
+    try {
+      if (!supabase) {
+        setErrorMessage(
+          "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
+        );
+        return;
+      }
+
+      setIsUploadingCover(true);
+
+      const extension = getFileExtension(file);
+      const cleanFileName = `cover-${Date.now()}.${extension}`;
+      const storagePath = `${merchant.id}/${eventData.id}/${cleanFileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("event-images")
+        .upload(storagePath, file, {
+          cacheControl: "3600",
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        setErrorMessage(uploadError.message);
+        setIsUploadingCover(false);
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("event-images")
+        .getPublicUrl(storagePath);
+
+      const publicUrl = publicUrlData.publicUrl;
+
+      if (!publicUrl) {
+        setErrorMessage("圖片已上載，但未能取得公開圖片 URL。");
+        setIsUploadingCover(false);
+        return;
+      }
+
+      setCoverImageUrl(publicUrl);
+
+      const { error: updateError } = await supabase
+        .from("events")
+        .update({
+          cover_image_url: publicUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", eventData.id)
+        .eq("merchant_id", eventData.merchant_id);
+
+      if (updateError) {
+        setErrorMessage(updateError.message);
+        setIsUploadingCover(false);
+        return;
+      }
+
+      setEventData({
+        ...eventData,
+        cover_image_url: publicUrl,
+      });
+
+      setSuccessMessage("封面圖片已上載並儲存。");
+      setIsUploadingCover(false);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "上載封面圖片時發生未知錯誤。"
+      );
+      setIsUploadingCover(false);
+    }
+  }
+
+  async function handleCoverFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    await uploadCoverImage(file);
+
+    event.target.value = "";
+  }
+
   function validateForm() {
     const missing: string[] = [];
 
@@ -348,6 +479,7 @@ export default function MerchantEventEditPage() {
     }
 
     if (!priceType || priceType === "unknown") missing.push("收費資料");
+    if (!coverImageUrl.trim()) missing.push("封面圖片");
 
     return missing;
   }
@@ -416,7 +548,7 @@ export default function MerchantEventEditPage() {
           price_max: cleanedPriceMax,
           category: category.trim() || "親子活動",
           tags: splitTags(tagsText),
-          cover_image_url: coverImageUrl.trim() || null,
+          cover_image_url: coverImageUrl.trim(),
           registration_required: registrationRequired,
           registration_url: registrationUrl.trim() || null,
           is_sen_friendly: isSenFriendly,
@@ -455,7 +587,7 @@ export default function MerchantEventEditPage() {
         price_max: cleanedPriceMax,
         category: category.trim() || "親子活動",
         tags: splitTags(tagsText),
-        cover_image_url: coverImageUrl.trim() || null,
+        cover_image_url: coverImageUrl.trim(),
         registration_required: registrationRequired,
         registration_url: registrationUrl.trim() || null,
         is_sen_friendly: isSenFriendly,
@@ -504,9 +636,6 @@ export default function MerchantEventEditPage() {
     );
   }
 
-  const isLocked =
-    eventData.status === "submitted" || eventData.status === "published";
-
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-6xl">
@@ -543,7 +672,7 @@ export default function MerchantEventEditPage() {
               </h1>
 
               <p className="mt-2 text-sm text-slate-600">
-                補充活動資料後，請返回 Preview 檢查，再提交 HK Family Fun 審批。
+                補充活動資料及封面圖片後，請返回 Preview 檢查，再提交 HK Family Fun 審批。
               </p>
             </div>
 
@@ -568,8 +697,7 @@ export default function MerchantEventEditPage() {
 
           {isLocked ? (
             <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              此活動目前是「{getStatusLabel(eventData.status)}」，不建議直接修改。
-              如需要修改已發布活動，之後應建立「修改後重新審批」流程。
+              此活動目前是「{getStatusLabel(eventData.status)}」，暫時不能直接修改。之後需要建立「修改後重新審批」流程。
             </div>
           ) : null}
 
@@ -782,7 +910,25 @@ export default function MerchantEventEditPage() {
           </div>
 
           <aside className="space-y-6">
-            <FormSection title="圖片及屬性" icon={<Clock className="h-5 w-5" />}>
+            <FormSection title="封面圖片" icon={<ImageIcon className="h-5 w-5" />}>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary-500 px-4 py-3 text-sm font-bold text-white hover:bg-primary-600">
+                  <Upload className="h-4 w-4" />
+                  {isUploadingCover ? "上載中..." : "上載封面圖片"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleCoverFileChange}
+                    disabled={isUploadingCover || isLocked}
+                    className="hidden"
+                  />
+                </label>
+
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  支援 JPG、PNG、WebP。最大 {MAX_IMAGE_SIZE_MB}MB。建議使用橫向圖片。
+                </p>
+              </div>
+
               <TextInput
                 label="封面圖片 URL"
                 value={coverImageUrl}
@@ -798,7 +944,11 @@ export default function MerchantEventEditPage() {
                     className="h-44 w-full object-cover"
                   />
                 </div>
-              ) : null}
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                  尚未有封面圖片
+                </div>
+              )}
 
               <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
@@ -836,7 +986,7 @@ export default function MerchantEventEditPage() {
               <button
                 type="button"
                 onClick={saveEvent}
-                disabled={isSaving || isLocked}
+                disabled={isSaving || isLocked || isUploadingCover}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 <Save className="h-4 w-4" />
