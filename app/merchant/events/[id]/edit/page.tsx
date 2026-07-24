@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
-  Clock,
   DollarSign,
   FileText,
   ImageIcon,
@@ -41,6 +40,9 @@ type EditableEvent = {
   category: string | null;
   tags: string[] | null;
   cover_image_url: string | null;
+  cover_image_position: string | null;
+  cover_image_focus_x: number | null;
+  cover_image_focus_y: number | null;
   registration_required: boolean | null;
   registration_url: string | null;
   is_sen_friendly: boolean | null;
@@ -152,10 +154,8 @@ function getStatusClass(status: string | null) {
 
 function isDistrictAcceptable(value: string) {
   const cleanedValue = value.trim();
-
   if (!cleanedValue) return false;
   if (cleanedValue === "待確認") return false;
-
   return true;
 }
 
@@ -163,15 +163,19 @@ function getFileExtension(file: File) {
   const nameParts = file.name.split(".");
   const extensionFromName = nameParts.length > 1 ? nameParts.pop() : "";
 
-  if (extensionFromName) {
-    return extensionFromName.toLowerCase();
-  }
-
+  if (extensionFromName) return extensionFromName.toLowerCase();
   if (file.type === "image/jpeg") return "jpg";
   if (file.type === "image/png") return "png";
   if (file.type === "image/webp") return "webp";
 
   return "jpg";
+}
+
+function clampFocus(value: number) {
+  if (Number.isNaN(value)) return 50;
+  if (value < 0) return 0;
+  if (value > 100) return 100;
+  return value;
 }
 
 export default function MerchantEventEditPage() {
@@ -200,6 +204,8 @@ export default function MerchantEventEditPage() {
   const [category, setCategory] = useState("親子活動");
   const [tagsText, setTagsText] = useState("親子活動");
   const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [coverImageFocusX, setCoverImageFocusX] = useState(50);
+  const [coverImageFocusY, setCoverImageFocusY] = useState(50);
   const [registrationRequired, setRegistrationRequired] = useState(false);
   const [registrationUrl, setRegistrationUrl] = useState("");
   const [isSenFriendly, setIsSenFriendly] = useState(false);
@@ -218,9 +224,7 @@ export default function MerchantEventEditPage() {
 
     try {
       if (!supabase) {
-        setErrorMessage(
-          "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
-        );
+        setErrorMessage("Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。");
         setIsLoading(false);
         return;
       }
@@ -279,6 +283,9 @@ export default function MerchantEventEditPage() {
             "category",
             "tags",
             "cover_image_url",
+            "cover_image_position",
+            "cover_image_focus_x",
+            "cover_image_focus_y",
             "registration_required",
             "registration_url",
             "is_sen_friendly",
@@ -312,9 +319,7 @@ export default function MerchantEventEditPage() {
       setTitleTc(loadedEvent.title_tc || "");
       setShortDescriptionTc(loadedEvent.short_description_tc || "");
       setDescriptionTc(loadedEvent.description_tc || "");
-      setOrganizerName(
-        loadedEvent.organizer_name || loadedMerchant.business_name || ""
-      );
+      setOrganizerName(loadedEvent.organizer_name || loadedMerchant.business_name || "");
       setVenueName(loadedEvent.venue_name || "");
       setAddress(loadedEvent.address || "");
       setDistrict(loadedEvent.district || "待確認");
@@ -337,6 +342,8 @@ export default function MerchantEventEditPage() {
       setCategory(loadedEvent.category || "親子活動");
       setTagsText(joinTags(loadedEvent.tags) || "親子活動");
       setCoverImageUrl(loadedEvent.cover_image_url || "");
+      setCoverImageFocusX(clampFocus(loadedEvent.cover_image_focus_x ?? 50));
+      setCoverImageFocusY(clampFocus(loadedEvent.cover_image_focus_y ?? 50));
       setRegistrationRequired(Boolean(loadedEvent.registration_required));
       setRegistrationUrl(loadedEvent.registration_url || "");
       setIsSenFriendly(Boolean(loadedEvent.is_sen_friendly));
@@ -344,9 +351,7 @@ export default function MerchantEventEditPage() {
 
       setIsLoading(false);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "載入活動資料時發生未知錯誤。"
-      );
+      setErrorMessage(error instanceof Error ? error.message : "載入活動資料時發生未知錯誤。");
       setIsLoading(false);
     }
   }
@@ -356,8 +361,7 @@ export default function MerchantEventEditPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
-  const isLocked =
-    eventData?.status === "submitted" || eventData?.status === "published";
+  const isLocked = eventData?.status === "submitted" || eventData?.status === "published";
 
   async function uploadCoverImage(file: File) {
     setErrorMessage("");
@@ -385,9 +389,7 @@ export default function MerchantEventEditPage() {
 
     try {
       if (!supabase) {
-        setErrorMessage(
-          "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
-        );
+        setErrorMessage("Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。");
         return;
       }
 
@@ -429,6 +431,9 @@ export default function MerchantEventEditPage() {
         .from("events")
         .update({
           cover_image_url: publicUrl,
+          cover_image_position: "custom",
+          cover_image_focus_x: coverImageFocusX,
+          cover_image_focus_y: coverImageFocusY,
           updated_at: new Date().toISOString(),
         })
         .eq("id", eventData.id)
@@ -443,25 +448,23 @@ export default function MerchantEventEditPage() {
       setEventData({
         ...eventData,
         cover_image_url: publicUrl,
+        cover_image_position: "custom",
+        cover_image_focus_x: coverImageFocusX,
+        cover_image_focus_y: coverImageFocusY,
       });
 
       setSuccessMessage("封面圖片已上載並儲存。");
       setIsUploadingCover(false);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "上載封面圖片時發生未知錯誤。"
-      );
+      setErrorMessage(error instanceof Error ? error.message : "上載封面圖片時發生未知錯誤。");
       setIsUploadingCover(false);
     }
   }
 
   async function handleCoverFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-
     if (!file) return;
-
     await uploadCoverImage(file);
-
     event.target.value = "";
   }
 
@@ -501,17 +504,13 @@ export default function MerchantEventEditPage() {
 
     try {
       if (!supabase) {
-        setErrorMessage(
-          "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
-        );
+        setErrorMessage("Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。");
         setIsSaving(false);
         return;
       }
 
-      const cleanedPriceMin =
-        priceMin.trim() === "" ? null : Number(priceMin.trim());
-      const cleanedPriceMax =
-        priceMax.trim() === "" ? null : Number(priceMax.trim());
+      const cleanedPriceMin = priceMin.trim() === "" ? null : Number(priceMin.trim());
+      const cleanedPriceMax = priceMax.trim() === "" ? null : Number(priceMax.trim());
 
       if (
         (cleanedPriceMin !== null && Number.isNaN(cleanedPriceMin)) ||
@@ -527,14 +526,16 @@ export default function MerchantEventEditPage() {
           ? eventData.status
           : "draft";
 
+      const safeFocusX = clampFocus(coverImageFocusX);
+      const safeFocusY = clampFocus(coverImageFocusY);
+
       const { error } = await supabase
         .from("events")
         .update({
           title_tc: titleTc.trim(),
           short_description_tc: shortDescriptionTc.trim(),
           description_tc: descriptionTc.trim(),
-          organizer_name:
-            organizerName.trim() || merchant?.business_name || null,
+          organizer_name: organizerName.trim() || merchant?.business_name || null,
           venue_name: venueName.trim(),
           address: address.trim() || null,
           district: district.trim(),
@@ -549,6 +550,9 @@ export default function MerchantEventEditPage() {
           category: category.trim() || "親子活動",
           tags: splitTags(tagsText),
           cover_image_url: coverImageUrl.trim(),
+          cover_image_position: "custom",
+          cover_image_focus_x: safeFocusX,
+          cover_image_focus_y: safeFocusY,
           registration_required: registrationRequired,
           registration_url: registrationUrl.trim() || null,
           is_sen_friendly: isSenFriendly,
@@ -572,8 +576,7 @@ export default function MerchantEventEditPage() {
         title_tc: titleTc.trim(),
         short_description_tc: shortDescriptionTc.trim(),
         description_tc: descriptionTc.trim(),
-        organizer_name:
-          organizerName.trim() || merchant?.business_name || null,
+        organizer_name: organizerName.trim() || merchant?.business_name || null,
         venue_name: venueName.trim(),
         address: address.trim() || null,
         district: district.trim(),
@@ -588,6 +591,9 @@ export default function MerchantEventEditPage() {
         category: category.trim() || "親子活動",
         tags: splitTags(tagsText),
         cover_image_url: coverImageUrl.trim(),
+        cover_image_position: "custom",
+        cover_image_focus_x: safeFocusX,
+        cover_image_focus_y: safeFocusY,
         registration_required: registrationRequired,
         registration_url: registrationUrl.trim() || null,
         is_sen_friendly: isSenFriendly,
@@ -599,11 +605,14 @@ export default function MerchantEventEditPage() {
       setSuccessMessage("活動資料已儲存。你可以返回 Preview 再提交審批。");
       setIsSaving(false);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "儲存活動資料時發生未知錯誤。"
-      );
+      setErrorMessage(error instanceof Error ? error.message : "儲存活動資料時發生未知錯誤。");
       setIsSaving(false);
     }
+  }
+
+  function resetFocusCenter() {
+    setCoverImageFocusX(50);
+    setCoverImageFocusY(50);
   }
 
   if (isLoading) {
@@ -621,9 +630,7 @@ export default function MerchantEventEditPage() {
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-5xl rounded-3xl border border-red-200 bg-red-50 p-8">
           <h1 className="text-xl font-bold text-red-900">載入失敗</h1>
-          <p className="mt-2 text-sm text-red-700">
-            {errorMessage || "找不到活動資料。"}
-          </p>
+          <p className="mt-2 text-sm text-red-700">{errorMessage || "找不到活動資料。"}</p>
           <button
             type="button"
             onClick={() => router.push("/merchant/dashboard")}
@@ -635,6 +642,8 @@ export default function MerchantEventEditPage() {
       </main>
     );
   }
+
+  const coverObjectPosition = `${coverImageFocusX}% ${coverImageFocusY}%`;
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8">
@@ -651,9 +660,7 @@ export default function MerchantEventEditPage() {
 
           <button
             type="button"
-            onClick={() =>
-              router.push(`/merchant/events/${eventData.id}/preview`)
-            }
+            onClick={() => router.push(`/merchant/events/${eventData.id}/preview`)}
             className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             返回 Preview
@@ -676,11 +683,7 @@ export default function MerchantEventEditPage() {
               </p>
             </div>
 
-            <span
-              className={`rounded-full px-4 py-2 text-sm font-semibold ${getStatusClass(
-                eventData.status
-              )}`}
-            >
+            <span className={`rounded-full px-4 py-2 text-sm font-semibold ${getStatusClass(eventData.status)}`}>
               {getStatusLabel(eventData.status)}
             </span>
           </div>
@@ -697,7 +700,7 @@ export default function MerchantEventEditPage() {
 
           {isLocked ? (
             <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              此活動目前是「{getStatusLabel(eventData.status)}」，暫時不能直接修改。之後需要建立「修改後重新審批」流程。
+              此活動目前是「{getStatusLabel(eventData.status)}」，暫時不能直接修改。
             </div>
           ) : null}
 
@@ -718,109 +721,35 @@ export default function MerchantEventEditPage() {
 
         <section className="mt-6 grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
-            <FormSection
-              title="基本資料"
-              icon={<FileText className="h-5 w-5" />}
-            >
-              <TextInput
-                label="活動名稱"
-                value={titleTc}
-                onChange={setTitleTc}
-                placeholder="例如：Summer Library Festival 2026 夏日圖書館節"
-              />
-
-              <TextArea
-                label="活動簡介"
-                value={shortDescriptionTc}
-                onChange={setShortDescriptionTc}
-                rows={3}
-                placeholder="一句至兩句介紹活動，會顯示在活動卡。"
-              />
-
-              <TextArea
-                label="活動詳情"
-                value={descriptionTc}
-                onChange={setDescriptionTc}
-                rows={7}
-                placeholder="詳細介紹活動內容、適合年齡、活動亮點、家長注意事項。"
-              />
-
-              <TextInput
-                label="主辦單位"
-                value={organizerName}
-                onChange={setOrganizerName}
-                placeholder="例如：Hong Kong Public Libraries"
-              />
-
-              <TextInput
-                label="活動分類"
-                value={category}
-                onChange={setCategory}
-                placeholder="例如：親子活動、工作坊、展覽"
-              />
-
-              <TextInput
-                label="標籤 Tags，用英文逗號分隔"
-                value={tagsText}
-                onChange={setTagsText}
-                placeholder="例如：親子活動, 閱讀, 免費活動"
-              />
+            <FormSection title="基本資料" icon={<FileText className="h-5 w-5" />}>
+              <TextInput label="活動名稱" value={titleTc} onChange={setTitleTc} />
+              <TextArea label="活動簡介" value={shortDescriptionTc} onChange={setShortDescriptionTc} rows={3} />
+              <TextArea label="活動詳情" value={descriptionTc} onChange={setDescriptionTc} rows={7} />
+              <TextInput label="主辦單位" value={organizerName} onChange={setOrganizerName} />
+              <TextInput label="活動分類" value={category} onChange={setCategory} />
+              <TextInput label="標籤 Tags，用英文逗號分隔" value={tagsText} onChange={setTagsText} />
             </FormSection>
 
-            <FormSection
-              title="日期、時間及地點"
-              icon={<CalendarDays className="h-5 w-5" />}
-            >
+            <FormSection title="日期、時間及地點" icon={<CalendarDays className="h-5 w-5" />}>
               <div className="grid gap-4 md:grid-cols-2">
-                <TextInput
-                  label="開始日期"
-                  type="date"
-                  value={startDate}
-                  onChange={setStartDate}
-                />
-
-                <TextInput
-                  label="結束日期"
-                  type="date"
-                  value={endDate}
-                  onChange={setEndDate}
-                />
-
-                <TextInput
-                  label="開始時間"
-                  type="time"
-                  value={startTime}
-                  onChange={setStartTime}
-                />
-
-                <TextInput
-                  label="結束時間"
-                  type="time"
-                  value={endTime}
-                  onChange={setEndTime}
-                />
+                <TextInput label="開始日期" type="date" value={startDate} onChange={setStartDate} />
+                <TextInput label="結束日期" type="date" value={endDate} onChange={setEndDate} />
+                <TextInput label="開始時間" type="time" value={startTime} onChange={setStartTime} />
+                <TextInput label="結束時間" type="time" value={endTime} onChange={setEndTime} />
               </div>
 
               <TextInput
                 label="場地名稱"
                 value={venueName}
                 onChange={setVenueName}
-                placeholder="例如：香港公共圖書館各分館及網上活動"
                 icon={<MapPin className="h-4 w-4" />}
               />
 
-              <TextInput
-                label="詳細地址"
-                value={address}
-                onChange={setAddress}
-                placeholder="例如：香港公共圖書館各指定分館；部分活動為網上或外展活動"
-              />
+              <TextInput label="詳細地址" value={address} onChange={setAddress} />
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-semibold text-slate-700">
-                    地區
-                  </span>
+                  <span className="text-sm font-semibold text-slate-700">地區</span>
                   <select
                     value={district}
                     onChange={(event) => setDistrict(event.target.value)}
@@ -837,21 +766,13 @@ export default function MerchantEventEditPage() {
                   </p>
                 </label>
 
-                <TextInput
-                  label="港鐵站"
-                  value={mtrStation}
-                  onChange={setMtrStation}
-                  placeholder="例如：多個港鐵站／視乎分館而定"
-                />
+                <TextInput label="港鐵站" value={mtrStation} onChange={setMtrStation} />
               </div>
             </FormSection>
 
             <FormSection title="收費及報名" icon={<Ticket className="h-5 w-5" />}>
               <label className="block">
-                <span className="text-sm font-semibold text-slate-700">
-                  收費類型
-                </span>
-
+                <span className="text-sm font-semibold text-slate-700">收費類型</span>
                 <select
                   value={priceType}
                   onChange={(event) => setPriceType(event.target.value)}
@@ -866,23 +787,8 @@ export default function MerchantEventEditPage() {
               </label>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <TextInput
-                  label="最低收費 HK$"
-                  type="number"
-                  value={priceMin}
-                  onChange={setPriceMin}
-                  placeholder="例如：0"
-                  icon={<DollarSign className="h-4 w-4" />}
-                />
-
-                <TextInput
-                  label="最高收費 HK$"
-                  type="number"
-                  value={priceMax}
-                  onChange={setPriceMax}
-                  placeholder="例如：120"
-                  icon={<DollarSign className="h-4 w-4" />}
-                />
+                <TextInput label="最低收費 HK$" type="number" value={priceMin} onChange={setPriceMin} icon={<DollarSign className="h-4 w-4" />} />
+                <TextInput label="最高收費 HK$" type="number" value={priceMax} onChange={setPriceMax} icon={<DollarSign className="h-4 w-4" />} />
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -890,22 +796,14 @@ export default function MerchantEventEditPage() {
                   <input
                     type="checkbox"
                     checked={registrationRequired}
-                    onChange={(event) =>
-                      setRegistrationRequired(event.target.checked)
-                    }
+                    onChange={(event) => setRegistrationRequired(event.target.checked)}
                     className="h-4 w-4 rounded border-slate-300 text-primary-600"
                   />
                   需要預先報名
                 </label>
               </div>
 
-              <TextInput
-                label="報名 URL"
-                value={registrationUrl}
-                onChange={setRegistrationUrl}
-                placeholder="例如：https://..."
-                icon={<LinkIcon className="h-4 w-4" />}
-              />
+              <TextInput label="報名 URL" value={registrationUrl} onChange={setRegistrationUrl} icon={<LinkIcon className="h-4 w-4" />} />
             </FormSection>
           </div>
 
@@ -929,12 +827,54 @@ export default function MerchantEventEditPage() {
                 </p>
               </div>
 
-              <TextInput
-                label="封面圖片 URL"
-                value={coverImageUrl}
-                onChange={setCoverImageUrl}
-                placeholder="例如：https://..."
-              />
+              <TextInput label="封面圖片 URL" value={coverImageUrl} onChange={setCoverImageUrl} />
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-bold text-slate-800">封面圖片裁切位置</div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      左右：{coverImageFocusX}%　上下：{coverImageFocusY}%
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={resetFocusCenter}
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    回到置中
+                  </button>
+                </div>
+
+                <label className="mt-4 block">
+                  <span className="text-xs font-semibold text-slate-600">
+                    左右位置：0 = 靠左，50 = 中間，100 = 靠右
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={coverImageFocusX}
+                    onChange={(event) => setCoverImageFocusX(Number(event.target.value))}
+                    className="mt-2 w-full"
+                  />
+                </label>
+
+                <label className="mt-4 block">
+                  <span className="text-xs font-semibold text-slate-600">
+                    上下位置：0 = 最上，50 = 中間，100 = 最下
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={coverImageFocusY}
+                    onChange={(event) => setCoverImageFocusY(Number(event.target.value))}
+                    className="mt-2 w-full"
+                  />
+                </label>
+              </div>
 
               {coverImageUrl ? (
                 <div className="overflow-hidden rounded-2xl border border-slate-200">
@@ -942,6 +882,7 @@ export default function MerchantEventEditPage() {
                     src={coverImageUrl}
                     alt="活動封面預覽"
                     className="h-44 w-full object-cover"
+                    style={{ objectPosition: coverObjectPosition }}
                   />
                 </div>
               ) : (
@@ -976,10 +917,7 @@ export default function MerchantEventEditPage() {
             <FormSection title="來源資料" icon={<LinkIcon className="h-5 w-5" />}>
               <InfoRow label="匯入方式" value={eventData.source_type || "manual"} />
               <InfoRow label="來源網址" value={eventData.source_url || "未有"} />
-              <InfoRow
-                label="來源檔案"
-                value={eventData.source_file_url || "未有"}
-              />
+              <InfoRow label="來源檔案" value={eventData.source_file_url || "未有"} />
             </FormSection>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -995,9 +933,7 @@ export default function MerchantEventEditPage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  router.push(`/merchant/events/${eventData.id}/preview`)
-                }
+                onClick={() => router.push(`/merchant/events/${eventData.id}/preview`)}
                 className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 返回 Preview
@@ -1029,7 +965,6 @@ function FormSection({
         <span className="text-primary-500">{icon}</span>
         {title}
       </h2>
-
       <div className="space-y-4">{children}</div>
     </section>
   );
@@ -1053,10 +988,8 @@ function TextInput({
   return (
     <label className="block">
       <span className="text-sm font-semibold text-slate-700">{label}</span>
-
       <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-100">
         {icon ? <span className="text-slate-400">{icon}</span> : null}
-
         <input
           type={type}
           value={value}
@@ -1085,7 +1018,6 @@ function TextArea({
   return (
     <label className="block">
       <span className="text-sm font-semibold text-slate-700">{label}</span>
-
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}

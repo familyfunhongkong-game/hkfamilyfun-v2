@@ -31,6 +31,9 @@ type PublicEvent = {
   category: string | null;
   tags: string[] | null;
   cover_image_url: string | null;
+  cover_image_position: string | null;
+  cover_image_focus_x: number | null;
+  cover_image_focus_y: number | null;
   status: string | null;
   published_at: string | null;
   updated_at: string | null;
@@ -69,6 +72,7 @@ const PRICE_FILTERS = [
   { value: "free", label: "免費" },
   { value: "paid", label: "收費" },
   { value: "mixed", label: "免費及收費" },
+  { value: "unknown", label: "收費待確認" },
 ];
 
 function formatDate(value: string | null) {
@@ -87,15 +91,14 @@ function formatDate(value: string | null) {
 
 function formatTime(value: string | null) {
   if (!value) return "";
-
   return value.slice(0, 5);
 }
 
 function formatDateRange(event: PublicEvent) {
+  if (!event.start_date) return "日期待確認";
+
   const startDate = formatDate(event.start_date);
   const endDate = event.end_date ? formatDate(event.end_date) : "";
-
-  if (!event.start_date) return "日期待確認";
 
   if (!event.end_date || event.end_date === event.start_date) {
     return startDate;
@@ -116,7 +119,9 @@ function formatTimeRange(event: PublicEvent) {
 function formatPrice(event: PublicEvent) {
   if (event.price_type === "free") return "免費";
   if (event.price_type === "mixed") return "免費及收費";
-  if (event.price_type === "unknown" || !event.price_type) return "收費待確認";
+  if (event.price_type === "unknown" || !event.price_type) {
+    return "收費待確認";
+  }
 
   const min = event.price_min;
   const max = event.price_max;
@@ -151,7 +156,6 @@ function getEventTags(event: PublicEvent) {
   const tags = event.tags || [];
 
   if (tags.length > 0) return tags.slice(0, 4);
-
   if (event.category) return [event.category];
 
   return ["親子活動"];
@@ -201,6 +205,20 @@ function isVisiblePublicEvent(event: PublicEvent) {
   return event.status === "published";
 }
 
+function clampFocus(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) return 50;
+  if (value < 0) return 0;
+  if (value > 100) return 100;
+  return value;
+}
+
+function getObjectPosition(event: PublicEvent) {
+  const x = clampFocus(event.cover_image_focus_x);
+  const y = clampFocus(event.cover_image_focus_y);
+
+  return `${x}% ${y}%`;
+}
+
 export default function PublicEventsPage() {
   const [events, setEvents] = useState<PublicEvent[]>([]);
   const [keyword, setKeyword] = useState("");
@@ -245,6 +263,9 @@ export default function PublicEventsPage() {
             "category",
             "tags",
             "cover_image_url",
+            "cover_image_position",
+            "cover_image_focus_x",
+            "cover_image_focus_y",
             "status",
             "published_at",
             "updated_at",
@@ -289,6 +310,7 @@ export default function PublicEventsPage() {
   }, [events, keyword, selectedDistrict, selectedPrice]);
 
   const totalPublished = events.length;
+
   const hasActiveFilter =
     keyword.trim() !== "" ||
     selectedDistrict !== "全部地區" ||
@@ -451,6 +473,7 @@ export default function PublicEventsPage() {
                         src={getEventImage(event)}
                         alt={event.title_tc || "HK Family Fun 活動圖片"}
                         className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                        style={{ objectPosition: getObjectPosition(event) }}
                       />
 
                       <div className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-primary-600 shadow-sm">
