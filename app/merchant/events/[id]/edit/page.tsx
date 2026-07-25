@@ -1,7 +1,12 @@
 "use client";
 
-import type { ChangeEvent, FormEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import type {
+  ChangeEvent,
+  FormEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -10,12 +15,13 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Crop,
   Eye,
   ImageIcon,
   Languages,
   Loader2,
-  Mail,
   MapPin,
+  Move,
   Phone,
   Save,
   Send,
@@ -24,6 +30,8 @@ import {
   Ticket,
   UploadCloud,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import {
@@ -54,6 +62,7 @@ type EditableEvent = {
   cover_image_position: string | null;
   cover_image_focus_x: number | null;
   cover_image_focus_y: number | null;
+  cover_image_zoom: number | null;
   gallery_image_urls: string[] | null;
 
   start_date: string | null;
@@ -112,6 +121,7 @@ type FormState = {
   cover_image_url: string;
   cover_image_focus_x: number;
   cover_image_focus_y: number;
+  cover_image_zoom: number;
   gallery_image_urls: string[];
 
   start_date: string;
@@ -152,6 +162,12 @@ type FormState = {
   language_available: string[];
 };
 
+type CropDraft = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
 const DEFAULT_COVER_IMAGE =
   "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80";
 
@@ -172,14 +188,14 @@ const CATEGORIES = [
 ];
 
 const PRICE_TYPES = [
-  { value: "unknown", label: "收費待確認", hint: "適合 URL 匯入後未確認價格" },
-  { value: "free", label: "免費", hint: "適合商場、圖書館、社區免費活動" },
-  { value: "paid", label: "收費", hint: "需要填最低及最高收費" },
-  { value: "mixed", label: "免費及收費", hint: "部分免費、部分需付費" },
+  { value: "unknown", label: "收費待確認", hint: "未確認價格" },
+  { value: "free", label: "免費", hint: "免費活動" },
+  { value: "paid", label: "收費", hint: "需要填寫收費" },
+  { value: "mixed", label: "免費及收費", hint: "部分免費、部分收費" },
 ];
 
 const BOOKING_METHODS = [
-  { value: "none", label: "無需報名", hint: "活動可直接到場或只作資訊展示" },
+  { value: "none", label: "無需報名", hint: "只作資訊展示" },
   { value: "platform", label: "本平台報名", hint: "未來可接 HK Family Fun booking" },
   { value: "external", label: "外部連結報名", hint: "Google Form / Klook / Eventbrite" },
   { value: "contact", label: "聯絡商戶報名", hint: "WhatsApp / 電話 / Email" },
@@ -207,35 +223,22 @@ const LANGUAGE_OPTIONS = [
 ];
 
 const STEPS = [
-  {
-    id: 1,
-    title: "基本資料",
-    subtitle: "活動內容、分類、圖片",
-  },
-  {
-    id: 2,
-    title: "日期地點",
-    subtitle: "時間、地址、地區",
-  },
-  {
-    id: 3,
-    title: "安全政策",
-    subtitle: "年齡、風險、退款政策",
-  },
-  {
-    id: 4,
-    title: "報名發布",
-    subtitle: "收費、報名、提交審批",
-  },
+  { id: 1, title: "基本資料", subtitle: "內容、分類、圖片" },
+  { id: 2, title: "日期地點", subtitle: "時間、地址、地區" },
+  { id: 3, title: "安全政策", subtitle: "年齡、風險、政策" },
+  { id: 4, title: "報名發布", subtitle: "收費、報名、提交" },
 ];
 
 const MAX_GALLERY_IMAGES = 7;
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function cleanString(value: unknown, fallback = "") {
-  if (typeof value !== "string") return fallback;
-  return value;
+  return typeof value === "string" ? value : fallback;
 }
 
 function toDateInput(value: string | null | undefined) {
@@ -271,7 +274,6 @@ function getFileExtension(file: File) {
   const extensionFromName = nameParts.length > 1 ? nameParts.pop() : "";
 
   if (extensionFromName) return extensionFromName.toLowerCase();
-
   if (file.type === "image/jpeg") return "jpg";
   if (file.type === "image/png") return "png";
   if (file.type === "image/webp") return "webp";
@@ -297,13 +299,13 @@ function buildInitialFormState(event: EditableEvent): FormState {
 
     cover_image_url: cleanString(event.cover_image_url, DEFAULT_COVER_IMAGE),
     cover_image_focus_x:
-      typeof event.cover_image_focus_x === "number"
-        ? event.cover_image_focus_x
-        : 50,
+      typeof event.cover_image_focus_x === "number" ? event.cover_image_focus_x : 50,
     cover_image_focus_y:
-      typeof event.cover_image_focus_y === "number"
-        ? event.cover_image_focus_y
-        : 50,
+      typeof event.cover_image_focus_y === "number" ? event.cover_image_focus_y : 50,
+    cover_image_zoom:
+      typeof event.cover_image_zoom === "number" && event.cover_image_zoom >= 1
+        ? event.cover_image_zoom
+        : 1,
     gallery_image_urls: gallery,
 
     start_date: toDateInput(event.start_date),
@@ -364,14 +366,11 @@ function getStatusClass(status: string | null | undefined) {
 
 function getPriceLabel(form: FormState) {
   if (form.price_type === "free") return "免費";
-  if (form.price_type === "paid") {
-    if (form.price_min && form.price_max) {
-      return `HK$${form.price_min} - HK$${form.price_max}`;
-    }
 
+  if (form.price_type === "paid") {
+    if (form.price_min && form.price_max) return `HK$${form.price_min} - HK$${form.price_max}`;
     if (form.price_min) return `HK$${form.price_min} 起`;
     if (form.price_max) return `最高 HK$${form.price_max}`;
-
     return "收費";
   }
 
@@ -400,10 +399,7 @@ function validateBeforeSubmit(form: FormState) {
   if (!form.district.trim() || form.district === "待確認") missing.push("地區");
   if (!form.price_type || form.price_type === "unknown") missing.push("收費類型");
 
-  if (
-    form.booking_method === "external" &&
-    !form.registration_url.trim()
-  ) {
+  if (form.booking_method === "external" && !form.registration_url.trim()) {
     missing.push("外部報名 URL");
   }
 
@@ -435,6 +431,13 @@ export default function MerchantEventEditPage() {
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [isUploadingGallery, setIsUploadingGallery] = useState(false);
 
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [cropDraft, setCropDraft] = useState<CropDraft>({
+    x: 50,
+    y: 50,
+    zoom: 1,
+  });
+
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -457,8 +460,7 @@ export default function MerchantEventEditPage() {
       Boolean(form.booking_method),
     ];
 
-    const done = checks.filter(Boolean).length;
-    return Math.round((done / checks.length) * 100);
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   }, [form]);
 
   useEffect(() => {
@@ -473,9 +475,7 @@ export default function MerchantEventEditPage() {
 
     try {
       if (!supabase) {
-        setErrorMessage(
-          "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
-        );
+        setErrorMessage("Supabase client 未能初始化。請檢查 .env.local。");
         setIsLoading(false);
         return;
       }
@@ -530,13 +530,18 @@ export default function MerchantEventEditPage() {
       }
 
       const loadedEvent = eventData as EditableEvent;
+      const initialForm = buildInitialFormState(loadedEvent);
+
       setEvent(loadedEvent);
-      setForm(buildInitialFormState(loadedEvent));
+      setForm(initialForm);
+      setCropDraft({
+        x: initialForm.cover_image_focus_x,
+        y: initialForm.cover_image_focus_y,
+        zoom: initialForm.cover_image_zoom,
+      });
       setIsLoading(false);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "載入活動資料時發生未知錯誤。"
-      );
+      setErrorMessage(error instanceof Error ? error.message : "載入活動資料時發生未知錯誤。");
       setIsLoading(false);
     }
   }
@@ -551,9 +556,36 @@ export default function MerchantEventEditPage() {
     });
   }
 
-  function handleAreaChange(nextArea: string) {
+  function openCropModal() {
     if (!form) return;
 
+    setCropDraft({
+      x: form.cover_image_focus_x,
+      y: form.cover_image_focus_y,
+      zoom: form.cover_image_zoom,
+    });
+    setIsCropModalOpen(true);
+  }
+
+  function applyCropDraft() {
+    if (!form) return;
+
+    updateForm("cover_image_focus_x", cropDraft.x);
+    updateForm("cover_image_focus_y", cropDraft.y);
+    updateForm("cover_image_zoom", cropDraft.zoom);
+    setIsCropModalOpen(false);
+    setSuccessMessage("封面位置已更新。請按「儲存草稿」保存到資料庫。");
+  }
+
+  function resetCropDraft() {
+    setCropDraft({
+      x: 50,
+      y: 50,
+      zoom: 1,
+    });
+  }
+
+  function handleAreaChange(nextArea: string) {
     updateForm("mtr_station", nextArea);
 
     if (nextArea === "待確認") {
@@ -600,18 +632,10 @@ export default function MerchantEventEditPage() {
   }
 
   async function uploadImageFile(file: File, folder: "cover" | "gallery") {
-    if (!supabase) {
-      throw new Error("Supabase client 未能初始化。");
-    }
+    if (!supabase) throw new Error("Supabase client 未能初始化。");
+    if (!merchant || !eventId) throw new Error("商戶或活動資料未載入。");
 
-    if (!merchant || !eventId) {
-      throw new Error("商戶或活動資料未載入。");
-    }
-
-    if (!isImageFile(file)) {
-      throw new Error("只支援 JPG、PNG、WebP 圖片。");
-    }
-
+    if (!isImageFile(file)) throw new Error("只支援 JPG、PNG、WebP 圖片。");
     if (file.size > MAX_FILE_SIZE_BYTES) {
       throw new Error(`圖片不可大於 ${MAX_FILE_SIZE_MB}MB。`);
     }
@@ -632,17 +656,14 @@ export default function MerchantEventEditPage() {
 
     if (error) throw error;
 
-    const { data } = supabase.storage
-      .from("event-images")
-      .getPublicUrl(storagePath);
-
+    const { data } = supabase.storage.from("event-images").getPublicUrl(storagePath);
     return data.publicUrl;
   }
 
   async function handleCoverUpload(eventInput: ChangeEvent<HTMLInputElement>) {
     const file = eventInput.target.files?.[0];
 
-    if (!file || !form) return;
+    if (!file) return;
 
     setErrorMessage("");
     setSuccessMessage("");
@@ -651,11 +672,13 @@ export default function MerchantEventEditPage() {
     try {
       const publicUrl = await uploadImageFile(file, "cover");
       updateForm("cover_image_url", publicUrl);
-      setSuccessMessage("封面圖片已上載。請調整圖片位置後儲存。");
+      updateForm("cover_image_focus_x", 50);
+      updateForm("cover_image_focus_y", 50);
+      updateForm("cover_image_zoom", 1);
+      setCropDraft({ x: 50, y: 50, zoom: 1 });
+      setSuccessMessage("封面圖片已上載。可按「調整封面位置」拖動及放大圖片。");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "上載封面圖片時發生錯誤。"
-      );
+      setErrorMessage(error instanceof Error ? error.message : "上載封面圖片時發生錯誤。");
     } finally {
       setIsUploadingCover(false);
       eventInput.target.value = "";
@@ -696,9 +719,7 @@ export default function MerchantEventEditPage() {
 
       setSuccessMessage(`已上載 ${uploadedUrls.length} 張 Gallery 圖片。`);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "上載 Gallery 圖片時發生錯誤。"
-      );
+      setErrorMessage(error instanceof Error ? error.message : "上載 Gallery 圖片時發生錯誤。");
     } finally {
       setIsUploadingGallery(false);
       eventInput.target.value = "";
@@ -717,10 +738,8 @@ export default function MerchantEventEditPage() {
   function buildPayload(nextStatus?: string) {
     if (!form) return null;
 
-    const priceMin =
-      form.price_min.trim() === "" ? null : Number(form.price_min.trim());
-    const priceMax =
-      form.price_max.trim() === "" ? null : Number(form.price_max.trim());
+    const priceMin = form.price_min.trim() === "" ? null : Number(form.price_min.trim());
+    const priceMax = form.price_max.trim() === "" ? null : Number(form.price_max.trim());
 
     const finalPriceType = form.price_type || "unknown";
     const registrationRequired =
@@ -738,9 +757,10 @@ export default function MerchantEventEditPage() {
       tags: normalizeTags(form.tagsText),
 
       cover_image_url: form.cover_image_url.trim() || DEFAULT_COVER_IMAGE,
-      cover_image_position: "custom",
+      cover_image_position: "facebook",
       cover_image_focus_x: form.cover_image_focus_x,
       cover_image_focus_y: form.cover_image_focus_y,
+      cover_image_zoom: form.cover_image_zoom,
       gallery_image_urls: form.gallery_image_urls,
 
       start_date: form.start_date || null,
@@ -813,10 +833,7 @@ export default function MerchantEventEditPage() {
     setIsSaving(true);
 
     try {
-      const { error } = await supabase
-        .from("events")
-        .update(payload)
-        .eq("id", eventId);
+      const { error } = await supabase.from("events").update(payload).eq("id", eventId);
 
       if (error) {
         setErrorMessage(error.message);
@@ -847,9 +864,7 @@ export default function MerchantEventEditPage() {
 
       return true;
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "儲存活動資料時發生未知錯誤。"
-      );
+      setErrorMessage(error instanceof Error ? error.message : "儲存活動資料時發生未知錯誤。");
       setIsSaving(false);
       return false;
     }
@@ -916,11 +931,7 @@ export default function MerchantEventEditPage() {
               disabled={isSaving}
               className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               儲存草稿
             </button>
           </div>
@@ -930,6 +941,7 @@ export default function MerchantEventEditPage() {
           <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
             <div className="relative p-6 md:p-8">
               <div className="absolute left-0 top-0 h-36 w-36 rounded-full bg-primary-100 blur-3xl" />
+
               <div className="relative">
                 <div className="inline-flex items-center gap-2 rounded-full bg-primary-50 px-4 py-2 text-xs font-black text-primary-600">
                   <Sparkles className="h-4 w-4" />
@@ -942,16 +954,12 @@ export default function MerchantEventEditPage() {
                       修改活動資料
                     </h1>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                      用 4 步完成活動資料。商戶可以自己改內容、上載圖片、調整封面位置、
+                      用 4 步完成活動資料。商戶可自行修改內容、上載圖片、調整封面位置、
                       補政策資料，再提交 HK Family Fun 審批。
                     </p>
                   </div>
 
-                  <span
-                    className={`w-fit rounded-full px-4 py-2 text-sm font-black ${getStatusClass(
-                      event.status
-                    )}`}
-                  >
+                  <span className={`w-fit rounded-full px-4 py-2 text-sm font-black ${getStatusClass(event.status)}`}>
                     {statusLabel}
                   </span>
                 </div>
@@ -966,9 +974,7 @@ export default function MerchantEventEditPage() {
             </div>
 
             <div className="border-t border-slate-200 bg-slate-950 p-6 text-white lg:border-l lg:border-t-0 md:p-8">
-              <div className="text-sm font-bold text-slate-300">
-                資料完成度
-              </div>
+              <div className="text-sm font-bold text-slate-300">資料完成度</div>
 
               <div className="mt-3 flex items-end gap-3">
                 <div className="text-5xl font-black">{completion}%</div>
@@ -978,23 +984,14 @@ export default function MerchantEventEditPage() {
               </div>
 
               <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-primary-400"
-                  style={{ width: `${completion}%` }}
-                />
+                <div className="h-full rounded-full bg-primary-400" style={{ width: `${completion}%` }} />
               </div>
 
               <div className="mt-6 grid gap-2">
                 <MiniCheck done={Boolean(form.title_tc.trim())} text="活動標題" />
                 <MiniCheck done={Boolean(form.start_date.trim())} text="開始日期" />
-                <MiniCheck
-                  done={Boolean(form.district && form.district !== "待確認")}
-                  text="District"
-                />
-                <MiniCheck
-                  done={Boolean(form.price_type && form.price_type !== "unknown")}
-                  text="收費類型"
-                />
+                <MiniCheck done={Boolean(form.district && form.district !== "待確認")} text="District" />
+                <MiniCheck done={Boolean(form.price_type && form.price_type !== "unknown")} text="收費類型" />
               </div>
             </div>
           </div>
@@ -1058,10 +1055,7 @@ export default function MerchantEventEditPage() {
           </div>
         </section>
 
-        <form
-          onSubmit={handleSubmit}
-          className="grid gap-6 lg:grid-cols-[1fr_420px]"
-        >
+        <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[1fr_420px]">
           <section className="space-y-6">
             {step === 1 ? (
               <StepOneBasic
@@ -1072,6 +1066,7 @@ export default function MerchantEventEditPage() {
                 removeGalleryImage={removeGalleryImage}
                 isUploadingCover={isUploadingCover}
                 isUploadingGallery={isUploadingGallery}
+                openCropModal={openCropModal}
               />
             ) : null}
 
@@ -1132,11 +1127,7 @@ export default function MerchantEventEditPage() {
                   disabled={isSaving}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-3 text-sm font-black text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  {isSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   儲存並提交審批
                 </button>
               )}
@@ -1158,15 +1149,9 @@ export default function MerchantEventEditPage() {
               </h2>
 
               <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-                <p>
-                  1. 先儲存草稿，再 Preview。商戶確認後才提交 HK Family Fun 審批。
-                </p>
-                <p>
-                  2. 封面圖片建議使用橫圖，重要文字不要太貼邊，方便手機顯示。
-                </p>
-                <p>
-                  3. 收費、報名、退款政策越清楚，越少家長查詢。
-                </p>
+                <p>1. 封面圖片建議使用橫圖，重要文字不要太貼邊。</p>
+                <p>2. 按「調整封面位置」可像 Facebook 一樣拖動圖片。</p>
+                <p>3. 調整後要按「儲存草稿」，位置才會寫入 Supabase。</p>
               </div>
             </section>
 
@@ -1178,13 +1163,24 @@ export default function MerchantEventEditPage() {
               <div className="mt-4 space-y-2 text-sm leading-6 text-primary-800">
                 <p>• 自主更新活動資料</p>
                 <p>• 一個活動可由草稿、審批、發布全流程管理</p>
-                <p>• 上載圖片及調整封面 crop</p>
+                <p>• Facebook-like 封面 crop</p>
                 <p>• 支援外部報名 link，減少重複輸入</p>
                 <p>• 下一階段可加入 featured placement 及數據報表</p>
               </div>
             </section>
           </aside>
         </form>
+
+        {isCropModalOpen ? (
+          <CoverCropModal
+            imageUrl={form.cover_image_url || DEFAULT_COVER_IMAGE}
+            cropDraft={cropDraft}
+            setCropDraft={setCropDraft}
+            onClose={() => setIsCropModalOpen(false)}
+            onApply={applyCropDraft}
+            onReset={resetCropDraft}
+          />
+        ) : null}
       </div>
     </main>
   );
@@ -1198,6 +1194,7 @@ function StepOneBasic({
   removeGalleryImage,
   isUploadingCover,
   isUploadingGallery,
+  openCropModal,
 }: {
   form: FormState;
   updateForm: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
@@ -1206,6 +1203,7 @@ function StepOneBasic({
   removeGalleryImage: (url: string) => void;
   isUploadingCover: boolean;
   isUploadingGallery: boolean;
+  openCropModal: () => void;
 }) {
   return (
     <Panel
@@ -1300,18 +1298,29 @@ function StepOneBasic({
                 placeholder="https://..."
                 help="支援外部圖片 URL 或 Supabase Storage 圖片 URL。"
               />
+
+              <button
+                type="button"
+                onClick={openCropModal}
+                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800"
+              >
+                <Crop className="h-4 w-4" />
+                調整封面位置
+              </button>
             </div>
 
             <div className="w-full lg:w-80">
               <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-                <div className="relative h-44 bg-slate-100">
+                <div className="relative aspect-[16/9] bg-slate-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={form.cover_image_url || DEFAULT_COVER_IMAGE}
                     alt="Cover preview"
-                    className="h-full w-full object-cover"
+                    className="h-full w-full select-none object-cover"
                     style={{
                       objectPosition: `${form.cover_image_focus_x}% ${form.cover_image_focus_y}%`,
+                      transform: `scale(${form.cover_image_zoom})`,
+                      transformOrigin: `${form.cover_image_focus_x}% ${form.cover_image_focus_y}%`,
                     }}
                   />
                   <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-primary-600">
@@ -1320,17 +1329,9 @@ function StepOneBasic({
                 </div>
               </div>
 
-              <div className="mt-4 space-y-4">
-                <SliderField
-                  label="封面水平位置：左 / 右"
-                  value={form.cover_image_focus_x}
-                  onChange={(value) => updateForm("cover_image_focus_x", value)}
-                />
-                <SliderField
-                  label="封面垂直位置：上 / 下"
-                  value={form.cover_image_focus_y}
-                  onChange={(value) => updateForm("cover_image_focus_y", value)}
-                />
+              <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-500">
+                X: {form.cover_image_focus_x}%・Y: {form.cover_image_focus_y}%・Zoom:{" "}
+                {form.cover_image_zoom.toFixed(2)}x
               </div>
             </div>
           </div>
@@ -1339,9 +1340,7 @@ function StepOneBasic({
         <div className="rounded-3xl border border-slate-200 bg-white p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="text-sm font-black text-slate-800">
-                Gallery 圖片
-              </div>
+              <div className="text-sm font-black text-slate-800">Gallery 圖片</div>
               <div className="mt-1 text-xs text-slate-500">
                 最多 {MAX_GALLERY_IMAGES} 張。適合活動環境、過往活動相片、宣傳圖。
               </div>
@@ -1372,11 +1371,7 @@ function StepOneBasic({
                   className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-100"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={url}
-                    alt="Gallery"
-                    className="h-28 w-full object-cover"
-                  />
+                  <img src={url} alt="Gallery" className="h-28 w-full object-cover" />
                   <button
                     type="button"
                     onClick={() => removeGalleryImage(url)}
@@ -1395,6 +1390,214 @@ function StepOneBasic({
         </div>
       </div>
     </Panel>
+  );
+}
+
+function CoverCropModal({
+  imageUrl,
+  cropDraft,
+  setCropDraft,
+  onClose,
+  onApply,
+  onReset,
+}: {
+  imageUrl: string;
+  cropDraft: CropDraft;
+  setCropDraft: (value: CropDraft | ((current: CropDraft) => CropDraft)) => void;
+  onClose: () => void;
+  onApply: () => void;
+  onReset: () => void;
+}) {
+  const dragRef = useRef<{
+    isDragging: boolean;
+    startClientX: number;
+    startClientY: number;
+    startX: number;
+    startY: number;
+  }>({
+    isDragging: false,
+    startClientX: 0,
+    startClientY: 0,
+    startX: cropDraft.x,
+    startY: cropDraft.y,
+  });
+
+  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    dragRef.current = {
+      isDragging: true,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX: cropDraft.x,
+      startY: cropDraft.y,
+    };
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!dragRef.current.isDragging) return;
+
+    const deltaX = event.clientX - dragRef.current.startClientX;
+    const deltaY = event.clientY - dragRef.current.startClientY;
+
+    setCropDraft((current) => ({
+      ...current,
+      x: Math.round(clamp(dragRef.current.startX - deltaX / 3, 0, 100)),
+      y: Math.round(clamp(dragRef.current.startY - deltaY / 3, 0, 100)),
+    }));
+  }
+
+  function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    dragRef.current.isDragging = false;
+
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // no-op
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6">
+      <div className="w-full max-w-5xl overflow-hidden rounded-[2rem] bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div>
+            <h2 className="text-xl font-black text-slate-950">
+              調整封面位置
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              拖動圖片上下左右，使用 Zoom 調整顯示範圍。做法接近 Facebook cover reposition。
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
+          <div className="bg-slate-100 p-6">
+            <div
+              role="button"
+              tabIndex={0}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              className="relative mx-auto aspect-[16/9] max-h-[62vh] w-full cursor-grab overflow-hidden rounded-3xl border-4 border-white bg-slate-200 shadow-xl active:cursor-grabbing"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl || DEFAULT_COVER_IMAGE}
+                alt="Crop preview"
+                draggable={false}
+                className="h-full w-full select-none object-cover"
+                style={{
+                  objectPosition: `${cropDraft.x}% ${cropDraft.y}%`,
+                  transform: `scale(${cropDraft.zoom})`,
+                  transformOrigin: `${cropDraft.x}% ${cropDraft.y}%`,
+                }}
+              />
+
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/25" />
+
+              <div className="pointer-events-none absolute left-4 top-4 flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-xs font-black text-slate-700 shadow-sm">
+                <Move className="h-4 w-4" />
+                拖動圖片重新定位
+              </div>
+
+              <div className="pointer-events-none absolute inset-x-0 top-1/2 border-t border-white/40" />
+              <div className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-white/40" />
+            </div>
+          </div>
+
+          <aside className="border-t border-slate-200 p-6 lg:border-l lg:border-t-0">
+            <div className="text-sm font-black text-slate-950">Crop Controls</div>
+
+            <div className="mt-5 space-y-5">
+              <SliderField
+                label="水平位置：左 / 右"
+                value={cropDraft.x}
+                onChange={(value) =>
+                  setCropDraft((current) => ({ ...current, x: value }))
+                }
+              />
+
+              <SliderField
+                label="垂直位置：上 / 下"
+                value={cropDraft.y}
+                onChange={(value) =>
+                  setCropDraft((current) => ({ ...current, y: value }))
+                }
+              />
+
+              <div>
+                <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
+                  <span>Zoom 放大 / 縮小</span>
+                  <span>{cropDraft.zoom.toFixed(2)}x</span>
+                </div>
+
+                <div className="mt-2 flex items-center gap-3">
+                  <ZoomOut className="h-4 w-4 text-slate-400" />
+                  <input
+                    type="range"
+                    min={1}
+                    max={2.5}
+                    step={0.01}
+                    value={cropDraft.zoom}
+                    onChange={(event) =>
+                      setCropDraft((current) => ({
+                        ...current,
+                        zoom: Number(event.target.value),
+                      }))
+                    }
+                    className="w-full accent-primary-500"
+                  />
+                  <ZoomIn className="h-4 w-4 text-slate-400" />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-600">
+                <div className="font-black text-slate-800">目前設定</div>
+                <div className="mt-1">X: {cropDraft.x}%</div>
+                <div>Y: {cropDraft.y}%</div>
+                <div>Zoom: {cropDraft.zoom.toFixed(2)}x</div>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3">
+              <button
+                type="button"
+                onClick={onApply}
+                className="rounded-2xl bg-primary-500 px-5 py-3 text-sm font-black text-white hover:bg-primary-600"
+              >
+                儲存封面位置
+              </button>
+
+              <button
+                type="button"
+                onClick={onReset}
+                className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Reset 到中間
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              >
+                取消
+              </button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1464,9 +1667,7 @@ function StepTwoLocation({
         />
 
         <label className="block">
-          <span className="text-sm font-black text-slate-800">
-            地區 District
-          </span>
+          <span className="text-sm font-black text-slate-800">地區 District</span>
           <select
             value={form.district}
             onChange={(event) => handleDistrictChange(event.target.value)}
@@ -1492,9 +1693,7 @@ function StepTwoLocation({
             {AREA_SELECT_OPTIONS.map((area) => (
               <option key={`${area.zh}-${area.en}`} value={area.zh}>
                 {area.zh} / {area.en}
-                {"districtZh" in area && area.districtZh
-                  ? ` — ${area.districtZh}`
-                  : ""}
+                {"districtZh" in area && area.districtZh ? ` — ${area.districtZh}` : ""}
               </option>
             ))}
           </select>
@@ -1556,14 +1755,10 @@ function StepThreePolicy({
         </label>
 
         <label className="block">
-          <span className="text-sm font-black text-slate-800">
-            家長陪同要求
-          </span>
+          <span className="text-sm font-black text-slate-800">家長陪同要求</span>
           <select
             value={form.parent_requirement}
-            onChange={(event) =>
-              updateForm("parent_requirement", event.target.value)
-            }
+            onChange={(event) => updateForm("parent_requirement", event.target.value)}
             className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
           >
             {PARENT_REQUIREMENTS.map((item) => (
@@ -1678,12 +1873,8 @@ function StepFourBooking({
                   : "border-slate-200 bg-white hover:bg-slate-50"
               }`}
             >
-              <div className="text-sm font-black text-slate-950">
-                {item.label}
-              </div>
-              <div className="mt-2 text-xs leading-5 text-slate-500">
-                {item.hint}
-              </div>
+              <div className="text-sm font-black text-slate-950">{item.label}</div>
+              <div className="mt-2 text-xs leading-5 text-slate-500">{item.hint}</div>
             </button>
           ))}
         </div>
@@ -1782,9 +1973,7 @@ function StepFourBooking({
               <TogglePill
                 key={language.value}
                 active={form.language_available.includes(language.value)}
-                onClick={() =>
-                  toggleArrayValue("language_available", language.value)
-                }
+                onClick={() => toggleArrayValue("language_available", language.value)}
               >
                 {language.label}
               </TogglePill>
@@ -1825,9 +2014,7 @@ function StepFourBooking({
             checked={form.hidden_pending_confirmation}
             title="隱藏待確認資訊"
             note="避免顯示未確認的收費、時間或地址"
-            onChange={(checked) =>
-              updateForm("hidden_pending_confirmation", checked)
-            }
+            onChange={(checked) => updateForm("hidden_pending_confirmation", checked)}
           />
         </div>
       </div>
@@ -1850,9 +2037,7 @@ function LivePreviewCard({
     <section className="sticky top-6 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <div className="text-xs font-black text-primary-600">
-            Live Preview
-          </div>
+          <div className="text-xs font-black text-primary-600">Live Preview</div>
           <h2 className="mt-1 text-xl font-black text-slate-950">
             家長看到的大約效果
           </h2>
@@ -1864,14 +2049,16 @@ function LivePreviewCard({
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-slate-200">
-        <div className="relative h-56 bg-slate-100">
+        <div className="relative aspect-[16/9] bg-slate-100">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={form.cover_image_url || DEFAULT_COVER_IMAGE}
             alt="Preview"
-            className="h-full w-full object-cover"
+            className="h-full w-full select-none object-cover"
             style={{
               objectPosition: `${form.cover_image_focus_x}% ${form.cover_image_focus_y}%`,
+              transform: `scale(${form.cover_image_zoom})`,
+              transformOrigin: `${form.cover_image_focus_x}% ${form.cover_image_focus_y}%`,
             }}
           />
 
@@ -1908,11 +2095,7 @@ function LivePreviewCard({
               }・${form.mtr_station || "港鐵站待確認"}`}
             />
 
-            <PreviewLine
-              icon={<Ticket className="h-4 w-4" />}
-              label="收費"
-              value={priceLabel}
-            />
+            <PreviewLine icon={<Ticket className="h-4 w-4" />} label="收費" value={priceLabel} />
 
             <PreviewLine
               icon={<Phone className="h-4 w-4" />}
@@ -1922,14 +2105,16 @@ function LivePreviewCard({
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            {normalizeTags(form.tagsText).slice(0, 5).map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-primary-50 px-3 py-1 text-xs font-bold text-primary-600"
-              >
-                #{tag}
-              </span>
-            ))}
+            {normalizeTags(form.tagsText)
+              .slice(0, 5)
+              .map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-primary-50 px-3 py-1 text-xs font-bold text-primary-600"
+                >
+                  #{tag}
+                </span>
+              ))}
 
             {form.is_sen_friendly ? (
               <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600">
@@ -2007,9 +2192,7 @@ function TextField({
         placeholder={placeholder}
         className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
       />
-      {help ? (
-        <p className="mt-2 text-xs leading-5 text-slate-500">{help}</p>
-      ) : null}
+      {help ? <p className="mt-2 text-xs leading-5 text-slate-500">{help}</p> : null}
     </label>
   );
 }
@@ -2146,9 +2329,7 @@ function PreviewLine({
       <div className="mt-0.5 text-primary-500">{icon}</div>
       <div>
         <div className="text-xs font-black text-slate-500">{label}</div>
-        <div className="mt-0.5 text-sm font-semibold text-slate-800">
-          {value}
-        </div>
+        <div className="mt-0.5 text-sm font-semibold text-slate-800">{value}</div>
       </div>
     </div>
   );
@@ -2164,9 +2345,7 @@ function MiniCheck({ done, text }: { done: boolean; text: string }) {
       >
         {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
       </span>
-      <span className={done ? "text-slate-200" : "text-slate-500"}>
-        {text}
-      </span>
+      <span className={done ? "text-slate-200" : "text-slate-500"}>{text}</span>
     </div>
   );
 }
