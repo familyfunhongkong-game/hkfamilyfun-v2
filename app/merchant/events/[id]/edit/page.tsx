@@ -1,58 +1,36 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { ChangeEvent, useEffect, useState } from "react";
+import type { ChangeEvent, FormEvent, ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
-  DollarSign,
-  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
   ImageIcon,
-  LinkIcon,
+  Languages,
+  Loader2,
+  Mail,
   MapPin,
+  Phone,
   Save,
+  Send,
+  ShieldCheck,
+  Sparkles,
   Ticket,
-  Upload,
+  UploadCloud,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-
-type EditableEvent = {
-  id: string;
-  merchant_id: string | null;
-  title_tc: string | null;
-  short_description_tc: string | null;
-  description_tc: string | null;
-  organizer_name: string | null;
-  venue_name: string | null;
-  address: string | null;
-  district: string | null;
-  mtr_station: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  start_time: string | null;
-  end_time: string | null;
-  price_type: string | null;
-  price_min: number | null;
-  price_max: number | null;
-  category: string | null;
-  tags: string[] | null;
-  cover_image_url: string | null;
-  cover_image_position: string | null;
-  cover_image_focus_x: number | null;
-  cover_image_focus_y: number | null;
-  registration_required: boolean | null;
-  registration_url: string | null;
-  is_sen_friendly: boolean | null;
-  is_indoor: boolean | null;
-  status: string | null;
-  source_type: string | null;
-  source_url: string | null;
-  source_file_url: string | null;
-  admin_review_note: string | null;
-};
+import {
+  AREA_SELECT_OPTIONS,
+  DISTRICT_SELECT_OPTIONS,
+  getAreaByZh,
+} from "@/lib/locationOptions";
 
 type MerchantProfile = {
   id: string;
@@ -62,101 +40,230 @@ type MerchantProfile = {
   status: string | null;
 };
 
-const DISTRICTS = [
-  "全港",
-  "多區",
-  "網上",
-  "待確認",
-  "中西區",
-  "灣仔",
-  "東區",
-  "南區",
-  "油尖旺",
-  "深水埗",
-  "九龍城",
-  "黃大仙",
-  "觀塘",
-  "荃灣",
-  "屯門",
-  "元朗",
-  "北區",
-  "大埔",
-  "沙田",
-  "西貢",
-  "葵青",
-  "離島",
+type EditableEvent = {
+  id: string;
+  merchant_id: string | null;
+  title_tc: string | null;
+  short_description_tc: string | null;
+  description_tc: string | null;
+  organizer_name: string | null;
+  category: string | null;
+  tags: string[] | null;
+
+  cover_image_url: string | null;
+  cover_image_position: string | null;
+  cover_image_focus_x: number | null;
+  cover_image_focus_y: number | null;
+  gallery_image_urls: string[] | null;
+
+  start_date: string | null;
+  end_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  venue_name: string | null;
+  address: string | null;
+  district: string | null;
+  mtr_station: string | null;
+  google_map_url: string | null;
+
+  price_type: string | null;
+  price_min: number | null;
+  price_max: number | null;
+  registration_required: boolean | null;
+  registration_url: string | null;
+  booking_method: string | null;
+  booking_note: string | null;
+  contact_phone: string | null;
+  contact_whatsapp: string | null;
+  contact_email: string | null;
+
+  age_groups: string[] | null;
+  risk_level: string | null;
+  parent_requirement: string | null;
+  is_indoor: boolean | null;
+  is_outdoor: boolean | null;
+  is_water_activity: boolean | null;
+  is_physical_activity: boolean | null;
+  is_sen_friendly: boolean | null;
+  refund_policy: string | null;
+  reschedule_policy: string | null;
+  weather_policy: string | null;
+
+  show_on_calendar: boolean | null;
+  hidden_pending_confirmation: boolean | null;
+  is_free: boolean | null;
+  language_available: string[] | null;
+
+  source_type: string | null;
+  source_url: string | null;
+  source_file_url: string | null;
+  status: string | null;
+  admin_review_note: string | null;
+};
+
+type FormState = {
+  title_tc: string;
+  short_description_tc: string;
+  description_tc: string;
+  organizer_name: string;
+  category: string;
+  tagsText: string;
+
+  cover_image_url: string;
+  cover_image_focus_x: number;
+  cover_image_focus_y: number;
+  gallery_image_urls: string[];
+
+  start_date: string;
+  end_date: string;
+  start_time: string;
+  end_time: string;
+  venue_name: string;
+  address: string;
+  district: string;
+  mtr_station: string;
+  google_map_url: string;
+
+  price_type: string;
+  price_min: string;
+  price_max: string;
+  registration_required: boolean;
+  registration_url: string;
+  booking_method: string;
+  booking_note: string;
+  contact_phone: string;
+  contact_whatsapp: string;
+  contact_email: string;
+
+  age_groups: string[];
+  risk_level: string;
+  parent_requirement: string;
+  is_indoor: boolean;
+  is_outdoor: boolean;
+  is_water_activity: boolean;
+  is_physical_activity: boolean;
+  is_sen_friendly: boolean;
+  refund_policy: string;
+  reschedule_policy: string;
+  weather_policy: string;
+
+  show_on_calendar: boolean;
+  hidden_pending_confirmation: boolean;
+  language_available: string[];
+};
+
+const DEFAULT_COVER_IMAGE =
+  "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80";
+
+const CATEGORIES = [
+  "親子活動",
+  "商場活動",
+  "免費活動",
+  "親子閱讀",
+  "室內活動",
+  "戶外探索",
+  "藝術手作",
+  "STEM",
+  "運動體驗",
+  "音樂表演",
+  "節日市集",
+  "展覽",
+  "親子工作坊",
 ];
 
 const PRICE_TYPES = [
-  { value: "free", label: "免費" },
-  { value: "paid", label: "收費" },
-  { value: "mixed", label: "免費及收費" },
-  { value: "unknown", label: "收費待確認" },
+  { value: "unknown", label: "收費待確認", hint: "適合 URL 匯入後未確認價格" },
+  { value: "free", label: "免費", hint: "適合商場、圖書館、社區免費活動" },
+  { value: "paid", label: "收費", hint: "需要填最低及最高收費" },
+  { value: "mixed", label: "免費及收費", hint: "部分免費、部分需付費" },
 ];
 
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_IMAGE_SIZE_MB = 5;
-const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+const BOOKING_METHODS = [
+  { value: "none", label: "無需報名", hint: "活動可直接到場或只作資訊展示" },
+  { value: "platform", label: "本平台報名", hint: "未來可接 HK Family Fun booking" },
+  { value: "external", label: "外部連結報名", hint: "Google Form / Klook / Eventbrite" },
+  { value: "contact", label: "聯絡商戶報名", hint: "WhatsApp / 電話 / Email" },
+];
 
-function toInputDate(value: string | null) {
+const RISK_LEVELS = [
+  { value: "low", label: "低風險" },
+  { value: "medium", label: "中風險" },
+  { value: "high", label: "高風險" },
+];
+
+const PARENT_REQUIREMENTS = [
+  { value: "not_specified", label: "未指定" },
+  { value: "parent_required", label: "必須家長陪同" },
+  { value: "parent_optional", label: "建議家長陪同" },
+  { value: "drop_off_allowed", label: "可獨立參加 / Drop-off" },
+];
+
+const AGE_GROUPS = ["0-2歲", "3-5歲", "6-8歲", "9-12歲", "13-17歲", "全年齡"];
+
+const LANGUAGE_OPTIONS = [
+  { value: "tc", label: "繁中" },
+  { value: "sc", label: "簡中" },
+  { value: "en", label: "English" },
+];
+
+const STEPS = [
+  {
+    id: 1,
+    title: "基本資料",
+    subtitle: "活動內容、分類、圖片",
+  },
+  {
+    id: 2,
+    title: "日期地點",
+    subtitle: "時間、地址、地區",
+  },
+  {
+    id: 3,
+    title: "安全政策",
+    subtitle: "年齡、風險、退款政策",
+  },
+  {
+    id: 4,
+    title: "報名發布",
+    subtitle: "收費、報名、提交審批",
+  },
+];
+
+const MAX_GALLERY_IMAGES = 7;
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+function cleanString(value: unknown, fallback = "") {
+  if (typeof value !== "string") return fallback;
+  return value;
+}
+
+function toDateInput(value: string | null | undefined) {
   if (!value) return "";
   return value.slice(0, 10);
 }
 
-function toInputTime(value: string | null) {
-  if (!value) return "";
-  return value.slice(0, 5);
+function toStringNumber(value: number | null | undefined) {
+  if (value === null || value === undefined) return "";
+  return String(value);
 }
 
-function splitTags(value: string) {
-  return value
-    .split(",")
+function normalizeTags(tagsText: string) {
+  return tagsText
+    .split(/[,，、#\n]/)
     .map((tag) => tag.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, 12);
 }
 
-function joinTags(tags: string[] | null) {
-  return (tags || []).join(", ");
+function tagsToText(tags: string[] | null | undefined) {
+  if (!Array.isArray(tags)) return "";
+  return tags.join("、");
 }
 
-function getStatusLabel(status: string | null) {
-  switch (status) {
-    case "draft":
-      return "草稿";
-    case "submitted":
-      return "審批中";
-    case "rejected":
-      return "待修改";
-    case "published":
-      return "已發布";
-    case "archived":
-      return "已封存";
-    default:
-      return "未確認";
-  }
-}
-
-function getStatusClass(status: string | null) {
-  switch (status) {
-    case "submitted":
-      return "bg-blue-100 text-blue-700";
-    case "published":
-      return "bg-green-100 text-green-700";
-    case "rejected":
-      return "bg-red-100 text-red-700";
-    case "archived":
-      return "bg-slate-100 text-slate-600";
-    case "draft":
-    default:
-      return "bg-slate-100 text-slate-700";
-  }
-}
-
-function isDistrictAcceptable(value: string) {
-  const cleanedValue = value.trim();
-  if (!cleanedValue) return false;
-  if (cleanedValue === "待確認") return false;
-  return true;
+function getSafeArray(value: string[] | null | undefined) {
+  if (!Array.isArray(value)) return [];
+  return value.filter(Boolean);
 }
 
 function getFileExtension(file: File) {
@@ -164,67 +271,211 @@ function getFileExtension(file: File) {
   const extensionFromName = nameParts.length > 1 ? nameParts.pop() : "";
 
   if (extensionFromName) return extensionFromName.toLowerCase();
+
   if (file.type === "image/jpeg") return "jpg";
   if (file.type === "image/png") return "png";
   if (file.type === "image/webp") return "webp";
 
-  return "jpg";
+  return "file";
 }
 
-function clampFocus(value: number) {
-  if (Number.isNaN(value)) return 50;
-  if (value < 0) return 0;
-  if (value > 100) return 100;
-  return value;
+function isImageFile(file: File) {
+  return ["image/jpeg", "image/png", "image/webp"].includes(file.type);
+}
+
+function buildInitialFormState(event: EditableEvent): FormState {
+  const gallery = getSafeArray(event.gallery_image_urls);
+  const languages = getSafeArray(event.language_available);
+
+  return {
+    title_tc: cleanString(event.title_tc),
+    short_description_tc: cleanString(event.short_description_tc),
+    description_tc: cleanString(event.description_tc),
+    organizer_name: cleanString(event.organizer_name),
+    category: cleanString(event.category, "親子活動"),
+    tagsText: tagsToText(event.tags),
+
+    cover_image_url: cleanString(event.cover_image_url, DEFAULT_COVER_IMAGE),
+    cover_image_focus_x:
+      typeof event.cover_image_focus_x === "number"
+        ? event.cover_image_focus_x
+        : 50,
+    cover_image_focus_y:
+      typeof event.cover_image_focus_y === "number"
+        ? event.cover_image_focus_y
+        : 50,
+    gallery_image_urls: gallery,
+
+    start_date: toDateInput(event.start_date),
+    end_date: toDateInput(event.end_date),
+    start_time: cleanString(event.start_time),
+    end_time: cleanString(event.end_time),
+    venue_name: cleanString(event.venue_name),
+    address: cleanString(event.address),
+    district: cleanString(event.district, "待確認"),
+    mtr_station: cleanString(event.mtr_station, "待確認"),
+    google_map_url: cleanString(event.google_map_url),
+
+    price_type: cleanString(event.price_type, "unknown"),
+    price_min: toStringNumber(event.price_min),
+    price_max: toStringNumber(event.price_max),
+    registration_required: Boolean(event.registration_required),
+    registration_url: cleanString(event.registration_url),
+    booking_method: cleanString(event.booking_method, "none"),
+    booking_note: cleanString(event.booking_note),
+    contact_phone: cleanString(event.contact_phone),
+    contact_whatsapp: cleanString(event.contact_whatsapp),
+    contact_email: cleanString(event.contact_email),
+
+    age_groups: getSafeArray(event.age_groups),
+    risk_level: cleanString(event.risk_level, "low"),
+    parent_requirement: cleanString(event.parent_requirement, "not_specified"),
+    is_indoor: Boolean(event.is_indoor),
+    is_outdoor: Boolean(event.is_outdoor),
+    is_water_activity: Boolean(event.is_water_activity),
+    is_physical_activity: Boolean(event.is_physical_activity),
+    is_sen_friendly: Boolean(event.is_sen_friendly),
+    refund_policy: cleanString(event.refund_policy),
+    reschedule_policy: cleanString(event.reschedule_policy),
+    weather_policy: cleanString(event.weather_policy),
+
+    show_on_calendar: event.show_on_calendar !== false,
+    hidden_pending_confirmation: Boolean(event.hidden_pending_confirmation),
+    language_available: languages.length ? languages : ["tc"],
+  };
+}
+
+function getStatusLabel(status: string | null | undefined) {
+  if (status === "draft") return "草稿";
+  if (status === "submitted") return "審批中";
+  if (status === "published") return "已發布";
+  if (status === "rejected") return "待修改";
+  if (status === "archived") return "已封存";
+  return "待確認";
+}
+
+function getStatusClass(status: string | null | undefined) {
+  if (status === "published") return "bg-green-100 text-green-700";
+  if (status === "submitted") return "bg-blue-100 text-blue-700";
+  if (status === "rejected") return "bg-red-100 text-red-700";
+  if (status === "archived") return "bg-slate-100 text-slate-600";
+  return "bg-amber-100 text-amber-700";
+}
+
+function getPriceLabel(form: FormState) {
+  if (form.price_type === "free") return "免費";
+  if (form.price_type === "paid") {
+    if (form.price_min && form.price_max) {
+      return `HK$${form.price_min} - HK$${form.price_max}`;
+    }
+
+    if (form.price_min) return `HK$${form.price_min} 起`;
+    if (form.price_max) return `最高 HK$${form.price_max}`;
+
+    return "收費";
+  }
+
+  if (form.price_type === "mixed") {
+    if (form.price_min || form.price_max) {
+      return `免費及收費 HK$${form.price_min || "0"} - HK$${form.price_max || "待確認"}`;
+    }
+
+    return "免費及收費";
+  }
+
+  return "收費待確認";
+}
+
+function getBookingMethodLabel(value: string) {
+  return BOOKING_METHODS.find((item) => item.value === value)?.label || "未指定";
+}
+
+function validateBeforeSubmit(form: FormState) {
+  const missing: string[] = [];
+
+  if (!form.title_tc.trim()) missing.push("活動標題");
+  if (!form.short_description_tc.trim()) missing.push("活動簡介");
+  if (!form.start_date.trim()) missing.push("開始日期");
+  if (!form.venue_name.trim()) missing.push("場地名稱");
+  if (!form.district.trim() || form.district === "待確認") missing.push("地區");
+  if (!form.price_type || form.price_type === "unknown") missing.push("收費類型");
+
+  if (
+    form.booking_method === "external" &&
+    !form.registration_url.trim()
+  ) {
+    missing.push("外部報名 URL");
+  }
+
+  if (
+    form.booking_method === "contact" &&
+    !form.contact_phone.trim() &&
+    !form.contact_whatsapp.trim() &&
+    !form.contact_email.trim()
+  ) {
+    missing.push("聯絡商戶報名方式");
+  }
+
+  return missing;
 }
 
 export default function MerchantEventEditPage() {
-  const router = useRouter();
   const params = useParams();
-  const eventId = String(params.id || "");
+  const router = useRouter();
 
+  const eventId = typeof params?.id === "string" ? params.id : "";
+
+  const [step, setStep] = useState(1);
   const [merchant, setMerchant] = useState<MerchantProfile | null>(null);
-  const [eventData, setEventData] = useState<EditableEvent | null>(null);
-
-  const [titleTc, setTitleTc] = useState("");
-  const [shortDescriptionTc, setShortDescriptionTc] = useState("");
-  const [descriptionTc, setDescriptionTc] = useState("");
-  const [organizerName, setOrganizerName] = useState("");
-  const [venueName, setVenueName] = useState("");
-  const [address, setAddress] = useState("");
-  const [district, setDistrict] = useState("待確認");
-  const [mtrStation, setMtrStation] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [priceType, setPriceType] = useState("unknown");
-  const [priceMin, setPriceMin] = useState("");
-  const [priceMax, setPriceMax] = useState("");
-  const [category, setCategory] = useState("親子活動");
-  const [tagsText, setTagsText] = useState("親子活動");
-  const [coverImageUrl, setCoverImageUrl] = useState("");
-  const [coverImageFocusX, setCoverImageFocusX] = useState(50);
-  const [coverImageFocusY, setCoverImageFocusY] = useState(50);
-  const [registrationRequired, setRegistrationRequired] = useState(false);
-  const [registrationUrl, setRegistrationUrl] = useState("");
-  const [isSenFriendly, setIsSenFriendly] = useState(false);
-  const [isIndoor, setIsIndoor] = useState(false);
+  const [event, setEvent] = useState<EditableEvent | null>(null);
+  const [form, setForm] = useState<FormState | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  async function loadEvent() {
+  const selectedAreaDetail = useMemo(() => {
+    if (!form?.mtr_station || form.mtr_station === "待確認") return null;
+    return getAreaByZh(form.mtr_station);
+  }, [form?.mtr_station]);
+
+  const completion = useMemo(() => {
+    if (!form) return 0;
+
+    const checks = [
+      Boolean(form.title_tc.trim()),
+      Boolean(form.short_description_tc.trim()),
+      Boolean(form.cover_image_url.trim()),
+      Boolean(form.start_date.trim()),
+      Boolean(form.venue_name.trim()),
+      Boolean(form.district.trim() && form.district !== "待確認"),
+      Boolean(form.price_type && form.price_type !== "unknown"),
+      Boolean(form.booking_method),
+    ];
+
+    const done = checks.filter(Boolean).length;
+    return Math.round((done / checks.length) * 100);
+  }, [form]);
+
+  useEffect(() => {
+    loadPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
+
+  async function loadPage() {
     setIsLoading(true);
     setErrorMessage("");
     setSuccessMessage("");
 
     try {
       if (!supabase) {
-        setErrorMessage("Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。");
+        setErrorMessage(
+          "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
+        );
         setIsLoading(false);
         return;
       }
@@ -256,768 +507,1534 @@ export default function MerchantEventEditPage() {
         return;
       }
 
-      const loadedMerchant = merchantData as MerchantProfile;
-      setMerchant(loadedMerchant);
+      const merchantRecord = merchantData as MerchantProfile;
+      setMerchant(merchantRecord);
 
-      const { data, error } = await supabase
+      const { data: eventData, error: eventError } = await supabase
         .from("events")
-        .select(
-          [
-            "id",
-            "merchant_id",
-            "title_tc",
-            "short_description_tc",
-            "description_tc",
-            "organizer_name",
-            "venue_name",
-            "address",
-            "district",
-            "mtr_station",
-            "start_date",
-            "end_date",
-            "start_time",
-            "end_time",
-            "price_type",
-            "price_min",
-            "price_max",
-            "category",
-            "tags",
-            "cover_image_url",
-            "cover_image_position",
-            "cover_image_focus_x",
-            "cover_image_focus_y",
-            "registration_required",
-            "registration_url",
-            "is_sen_friendly",
-            "is_indoor",
-            "status",
-            "source_type",
-            "source_url",
-            "source_file_url",
-            "admin_review_note",
-          ].join(", ")
-        )
+        .select("*")
         .eq("id", eventId)
-        .eq("merchant_id", loadedMerchant.id)
+        .eq("merchant_id", merchantRecord.id)
         .maybeSingle();
 
-      if (error) {
-        setErrorMessage(error.message);
+      if (eventError) {
+        setErrorMessage(eventError.message);
         setIsLoading(false);
         return;
       }
 
-      if (!data) {
-        setErrorMessage("找不到活動，或你沒有權限修改此活動。");
+      if (!eventData) {
+        setErrorMessage("找不到活動，或此活動不屬於你的商戶帳戶。");
         setIsLoading(false);
         return;
       }
 
-      const loadedEvent = data as unknown as EditableEvent;
-      setEventData(loadedEvent);
-
-      setTitleTc(loadedEvent.title_tc || "");
-      setShortDescriptionTc(loadedEvent.short_description_tc || "");
-      setDescriptionTc(loadedEvent.description_tc || "");
-      setOrganizerName(loadedEvent.organizer_name || loadedMerchant.business_name || "");
-      setVenueName(loadedEvent.venue_name || "");
-      setAddress(loadedEvent.address || "");
-      setDistrict(loadedEvent.district || "待確認");
-      setMtrStation(loadedEvent.mtr_station || "");
-      setStartDate(toInputDate(loadedEvent.start_date));
-      setEndDate(toInputDate(loadedEvent.end_date));
-      setStartTime(toInputTime(loadedEvent.start_time));
-      setEndTime(toInputTime(loadedEvent.end_time));
-      setPriceType(loadedEvent.price_type || "unknown");
-      setPriceMin(
-        loadedEvent.price_min === null || loadedEvent.price_min === undefined
-          ? ""
-          : String(loadedEvent.price_min)
-      );
-      setPriceMax(
-        loadedEvent.price_max === null || loadedEvent.price_max === undefined
-          ? ""
-          : String(loadedEvent.price_max)
-      );
-      setCategory(loadedEvent.category || "親子活動");
-      setTagsText(joinTags(loadedEvent.tags) || "親子活動");
-      setCoverImageUrl(loadedEvent.cover_image_url || "");
-      setCoverImageFocusX(clampFocus(loadedEvent.cover_image_focus_x ?? 50));
-      setCoverImageFocusY(clampFocus(loadedEvent.cover_image_focus_y ?? 50));
-      setRegistrationRequired(Boolean(loadedEvent.registration_required));
-      setRegistrationUrl(loadedEvent.registration_url || "");
-      setIsSenFriendly(Boolean(loadedEvent.is_sen_friendly));
-      setIsIndoor(Boolean(loadedEvent.is_indoor));
-
+      const loadedEvent = eventData as EditableEvent;
+      setEvent(loadedEvent);
+      setForm(buildInitialFormState(loadedEvent));
       setIsLoading(false);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "載入活動資料時發生未知錯誤。");
+      setErrorMessage(
+        error instanceof Error ? error.message : "載入活動資料時發生未知錯誤。"
+      );
       setIsLoading(false);
     }
   }
 
-  useEffect(() => {
-    loadEvent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
+  function updateForm<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        [key]: value,
+      };
+    });
+  }
 
-  const isLocked = eventData?.status === "submitted" || eventData?.status === "published";
+  function handleAreaChange(nextArea: string) {
+    if (!form) return;
 
-  async function uploadCoverImage(file: File) {
+    updateForm("mtr_station", nextArea);
+
+    if (nextArea === "待確認") {
+      updateForm("district", "待確認");
+      return;
+    }
+
+    if (nextArea === "全港" || nextArea === "多區" || nextArea === "網上") {
+      updateForm("district", nextArea);
+      return;
+    }
+
+    const matchedArea = getAreaByZh(nextArea);
+
+    if (matchedArea) {
+      updateForm("district", matchedArea.districtZh);
+    }
+  }
+
+  function handleDistrictChange(nextDistrict: string) {
+    if (!form) return;
+
+    updateForm("district", nextDistrict);
+
+    const matchedArea = getAreaByZh(form.mtr_station);
+
+    if (matchedArea && matchedArea.districtZh !== nextDistrict) {
+      updateForm("mtr_station", "待確認");
+    }
+  }
+
+  function toggleArrayValue<K extends "age_groups" | "language_available">(
+    key: K,
+    value: string
+  ) {
+    if (!form) return;
+
+    const current = form[key];
+    const next = current.includes(value)
+      ? current.filter((item) => item !== value)
+      : [...current, value];
+
+    updateForm(key, next as FormState[K]);
+  }
+
+  async function uploadImageFile(file: File, folder: "cover" | "gallery") {
+    if (!supabase) {
+      throw new Error("Supabase client 未能初始化。");
+    }
+
+    if (!merchant || !eventId) {
+      throw new Error("商戶或活動資料未載入。");
+    }
+
+    if (!isImageFile(file)) {
+      throw new Error("只支援 JPG、PNG、WebP 圖片。");
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      throw new Error(`圖片不可大於 ${MAX_FILE_SIZE_MB}MB。`);
+    }
+
+    const extension = getFileExtension(file);
+    const safeFileName = `${folder}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${extension}`;
+    const storagePath = `${merchant.id}/events/${eventId}/${safeFileName}`;
+
+    const { error } = await supabase.storage
+      .from("event-images")
+      .upload(storagePath, file, {
+        cacheControl: "3600",
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    const { data } = supabase.storage
+      .from("event-images")
+      .getPublicUrl(storagePath);
+
+    return data.publicUrl;
+  }
+
+  async function handleCoverUpload(eventInput: ChangeEvent<HTMLInputElement>) {
+    const file = eventInput.target.files?.[0];
+
+    if (!file || !form) return;
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setIsUploadingCover(true);
+
+    try {
+      const publicUrl = await uploadImageFile(file, "cover");
+      updateForm("cover_image_url", publicUrl);
+      setSuccessMessage("封面圖片已上載。請調整圖片位置後儲存。");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "上載封面圖片時發生錯誤。"
+      );
+    } finally {
+      setIsUploadingCover(false);
+      eventInput.target.value = "";
+    }
+  }
+
+  async function handleGalleryUpload(eventInput: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(eventInput.target.files || []);
+
+    if (!files.length || !form) return;
+
     setErrorMessage("");
     setSuccessMessage("");
 
-    if (!eventData || !merchant) {
-      setErrorMessage("活動或商戶資料未載入，暫時不能上載圖片。");
+    if (form.gallery_image_urls.length >= MAX_GALLERY_IMAGES) {
+      setErrorMessage(`Gallery 最多只可上載 ${MAX_GALLERY_IMAGES} 張圖片。`);
+      eventInput.target.value = "";
       return;
     }
 
-    if (isLocked) {
-      setErrorMessage("活動已提交或已發布，暫時不能直接更換封面圖。");
-      return;
-    }
+    const remainingSlots = MAX_GALLERY_IMAGES - form.gallery_image_urls.length;
+    const filesToUpload = files.slice(0, remainingSlots);
 
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      setErrorMessage("封面圖片只支援 JPG、PNG 或 WebP。");
-      return;
-    }
-
-    if (file.size > MAX_IMAGE_SIZE_BYTES) {
-      setErrorMessage(`封面圖片不可大於 ${MAX_IMAGE_SIZE_MB}MB。`);
-      return;
-    }
+    setIsUploadingGallery(true);
 
     try {
-      if (!supabase) {
-        setErrorMessage("Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。");
-        return;
+      const uploadedUrls: string[] = [];
+
+      for (const file of filesToUpload) {
+        const publicUrl = await uploadImageFile(file, "gallery");
+        uploadedUrls.push(publicUrl);
       }
 
-      setIsUploadingCover(true);
+      updateForm("gallery_image_urls", [
+        ...form.gallery_image_urls,
+        ...uploadedUrls,
+      ]);
 
-      const extension = getFileExtension(file);
-      const cleanFileName = `cover-${Date.now()}.${extension}`;
-      const storagePath = `${merchant.id}/${eventData.id}/${cleanFileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("event-images")
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          contentType: file.type,
-          upsert: true,
-        });
-
-      if (uploadError) {
-        setErrorMessage(uploadError.message);
-        setIsUploadingCover(false);
-        return;
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("event-images")
-        .getPublicUrl(storagePath);
-
-      const publicUrl = publicUrlData.publicUrl;
-
-      if (!publicUrl) {
-        setErrorMessage("圖片已上載，但未能取得公開圖片 URL。");
-        setIsUploadingCover(false);
-        return;
-      }
-
-      setCoverImageUrl(publicUrl);
-
-      const { error: updateError } = await supabase
-        .from("events")
-        .update({
-          cover_image_url: publicUrl,
-          cover_image_position: "custom",
-          cover_image_focus_x: coverImageFocusX,
-          cover_image_focus_y: coverImageFocusY,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", eventData.id)
-        .eq("merchant_id", eventData.merchant_id);
-
-      if (updateError) {
-        setErrorMessage(updateError.message);
-        setIsUploadingCover(false);
-        return;
-      }
-
-      setEventData({
-        ...eventData,
-        cover_image_url: publicUrl,
-        cover_image_position: "custom",
-        cover_image_focus_x: coverImageFocusX,
-        cover_image_focus_y: coverImageFocusY,
-      });
-
-      setSuccessMessage("封面圖片已上載並儲存。");
-      setIsUploadingCover(false);
+      setSuccessMessage(`已上載 ${uploadedUrls.length} 張 Gallery 圖片。`);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "上載封面圖片時發生未知錯誤。");
-      setIsUploadingCover(false);
+      setErrorMessage(
+        error instanceof Error ? error.message : "上載 Gallery 圖片時發生錯誤。"
+      );
+    } finally {
+      setIsUploadingGallery(false);
+      eventInput.target.value = "";
     }
   }
 
-  async function handleCoverFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    await uploadCoverImage(file);
-    event.target.value = "";
+  function removeGalleryImage(imageUrl: string) {
+    if (!form) return;
+
+    updateForm(
+      "gallery_image_urls",
+      form.gallery_image_urls.filter((url) => url !== imageUrl)
+    );
   }
 
-  function validateForm() {
-    const missing: string[] = [];
+  function buildPayload(nextStatus?: string) {
+    if (!form) return null;
 
-    if (!titleTc.trim()) missing.push("活動名稱");
-    if (!shortDescriptionTc.trim()) missing.push("活動簡介");
-    if (!descriptionTc.trim()) missing.push("活動詳情");
-    if (!startDate) missing.push("開始日期");
-    if (!venueName.trim()) missing.push("場地名稱");
+    const priceMin =
+      form.price_min.trim() === "" ? null : Number(form.price_min.trim());
+    const priceMax =
+      form.price_max.trim() === "" ? null : Number(form.price_max.trim());
 
-    if (!isDistrictAcceptable(district)) {
-      missing.push("地區，請選全港、多區、網上或實際地區，不要保留待確認");
+    const finalPriceType = form.price_type || "unknown";
+    const registrationRequired =
+      form.booking_method === "external" ||
+      form.booking_method === "platform" ||
+      form.booking_method === "contact" ||
+      form.registration_required;
+
+    return {
+      title_tc: form.title_tc.trim(),
+      short_description_tc: form.short_description_tc.trim(),
+      description_tc: form.description_tc.trim(),
+      organizer_name: form.organizer_name.trim(),
+      category: form.category,
+      tags: normalizeTags(form.tagsText),
+
+      cover_image_url: form.cover_image_url.trim() || DEFAULT_COVER_IMAGE,
+      cover_image_position: "custom",
+      cover_image_focus_x: form.cover_image_focus_x,
+      cover_image_focus_y: form.cover_image_focus_y,
+      gallery_image_urls: form.gallery_image_urls,
+
+      start_date: form.start_date || null,
+      end_date: form.end_date || null,
+      start_time: form.start_time.trim() || null,
+      end_time: form.end_time.trim() || null,
+      venue_name: form.venue_name.trim(),
+      address: form.address.trim(),
+      district: form.district,
+      mtr_station: form.mtr_station,
+      google_map_url: form.google_map_url.trim() || null,
+
+      price_type: finalPriceType,
+      price_min: Number.isFinite(priceMin) ? priceMin : null,
+      price_max: Number.isFinite(priceMax) ? priceMax : null,
+      is_free: finalPriceType === "free",
+      registration_required: registrationRequired,
+      registration_url: form.registration_url.trim() || null,
+      booking_method: form.booking_method,
+      booking_note: form.booking_note.trim() || null,
+      contact_phone: form.contact_phone.trim() || null,
+      contact_whatsapp: form.contact_whatsapp.trim() || null,
+      contact_email: form.contact_email.trim() || null,
+
+      age_groups: form.age_groups,
+      risk_level: form.risk_level,
+      parent_requirement: form.parent_requirement,
+      is_indoor: form.is_indoor,
+      is_outdoor: form.is_outdoor,
+      is_water_activity: form.is_water_activity,
+      is_physical_activity: form.is_physical_activity,
+      is_sen_friendly: form.is_sen_friendly,
+      refund_policy: form.refund_policy.trim() || null,
+      reschedule_policy: form.reschedule_policy.trim() || null,
+      weather_policy: form.weather_policy.trim() || null,
+
+      show_on_calendar: form.show_on_calendar,
+      hidden_pending_confirmation: form.hidden_pending_confirmation,
+      language_available: form.language_available.length
+        ? form.language_available
+        : ["tc"],
+
+      status: nextStatus || event?.status || "draft",
+      submitted_at: nextStatus === "submitted" ? new Date().toISOString() : undefined,
+      merchant_confirmed_at:
+        nextStatus === "submitted" ? new Date().toISOString() : undefined,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  async function saveEvent(nextStatus?: string, redirectToPreview = false) {
+    if (!form || !eventId || !supabase) return false;
+
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (nextStatus === "submitted") {
+      const missing = validateBeforeSubmit(form);
+
+      if (missing.length) {
+        setErrorMessage(`提交前必須補充：${missing.join("、")}。`);
+        return false;
+      }
     }
 
-    if (!priceType || priceType === "unknown") missing.push("收費資料");
-    if (!coverImageUrl.trim()) missing.push("封面圖片");
+    const payload = buildPayload(nextStatus);
 
-    return missing;
-  }
-
-  async function saveEvent() {
-    if (!eventData) return;
+    if (!payload) return false;
 
     setIsSaving(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    const missing = validateForm();
-
-    if (missing.length > 0) {
-      setErrorMessage(`請先補充：${missing.join("、")}`);
-      setIsSaving(false);
-      return;
-    }
 
     try {
-      if (!supabase) {
-        setErrorMessage("Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。");
-        setIsSaving(false);
-        return;
-      }
-
-      const cleanedPriceMin = priceMin.trim() === "" ? null : Number(priceMin.trim());
-      const cleanedPriceMax = priceMax.trim() === "" ? null : Number(priceMax.trim());
-
-      if (
-        (cleanedPriceMin !== null && Number.isNaN(cleanedPriceMin)) ||
-        (cleanedPriceMax !== null && Number.isNaN(cleanedPriceMax))
-      ) {
-        setErrorMessage("收費金額必須是數字。");
-        setIsSaving(false);
-        return;
-      }
-
-      const nextStatus =
-        eventData.status === "published" || eventData.status === "submitted"
-          ? eventData.status
-          : "draft";
-
-      const safeFocusX = clampFocus(coverImageFocusX);
-      const safeFocusY = clampFocus(coverImageFocusY);
-
       const { error } = await supabase
         .from("events")
-        .update({
-          title_tc: titleTc.trim(),
-          short_description_tc: shortDescriptionTc.trim(),
-          description_tc: descriptionTc.trim(),
-          organizer_name: organizerName.trim() || merchant?.business_name || null,
-          venue_name: venueName.trim(),
-          address: address.trim() || null,
-          district: district.trim(),
-          mtr_station: mtrStation.trim() || null,
-          start_date: startDate || null,
-          end_date: endDate || startDate || null,
-          start_time: startTime || null,
-          end_time: endTime || null,
-          price_type: priceType,
-          price_min: cleanedPriceMin,
-          price_max: cleanedPriceMax,
-          category: category.trim() || "親子活動",
-          tags: splitTags(tagsText),
-          cover_image_url: coverImageUrl.trim(),
-          cover_image_position: "custom",
-          cover_image_focus_x: safeFocusX,
-          cover_image_focus_y: safeFocusY,
-          registration_required: registrationRequired,
-          registration_url: registrationUrl.trim() || null,
-          is_sen_friendly: isSenFriendly,
-          is_indoor: isIndoor,
-          status: nextStatus,
-          admin_review_note: null,
-          rejected_at: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", eventData.id)
-        .eq("merchant_id", eventData.merchant_id);
+        .update(payload)
+        .eq("id", eventId);
 
       if (error) {
         setErrorMessage(error.message);
         setIsSaving(false);
-        return;
+        return false;
       }
 
-      setEventData({
-        ...eventData,
-        title_tc: titleTc.trim(),
-        short_description_tc: shortDescriptionTc.trim(),
-        description_tc: descriptionTc.trim(),
-        organizer_name: organizerName.trim() || merchant?.business_name || null,
-        venue_name: venueName.trim(),
-        address: address.trim() || null,
-        district: district.trim(),
-        mtr_station: mtrStation.trim() || null,
-        start_date: startDate || null,
-        end_date: endDate || startDate || null,
-        start_time: startTime || null,
-        end_time: endTime || null,
-        price_type: priceType,
-        price_min: cleanedPriceMin,
-        price_max: cleanedPriceMax,
-        category: category.trim() || "親子活動",
-        tags: splitTags(tagsText),
-        cover_image_url: coverImageUrl.trim(),
-        cover_image_position: "custom",
-        cover_image_focus_x: safeFocusX,
-        cover_image_focus_y: safeFocusY,
-        registration_required: registrationRequired,
-        registration_url: registrationUrl.trim() || null,
-        is_sen_friendly: isSenFriendly,
-        is_indoor: isIndoor,
-        status: nextStatus,
-        admin_review_note: null,
+      setEvent((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          ...(payload as Partial<EditableEvent>),
+          status: nextStatus || current.status,
+        };
       });
 
-      setSuccessMessage("活動資料已儲存。你可以返回 Preview 再提交審批。");
+      setSuccessMessage(
+        nextStatus === "submitted"
+          ? "活動已提交 HK Family Fun 審批。"
+          : "活動資料已儲存。"
+      );
+
       setIsSaving(false);
+
+      if (redirectToPreview) {
+        router.push(`/merchant/events/${eventId}/preview`);
+      }
+
+      return true;
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "儲存活動資料時發生未知錯誤。");
+      setErrorMessage(
+        error instanceof Error ? error.message : "儲存活動資料時發生未知錯誤。"
+      );
       setIsSaving(false);
+      return false;
     }
   }
 
-  function resetFocusCenter() {
-    setCoverImageFocusX(50);
-    setCoverImageFocusY(50);
+  async function handleSubmit(eventInput: FormEvent<HTMLFormElement>) {
+    eventInput.preventDefault();
+    await saveEvent();
   }
 
   if (isLoading) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-5xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <p className="text-sm text-slate-600">正在載入活動修改頁...</p>
+        <div className="mx-auto max-w-6xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <div className="flex items-center gap-3 text-sm text-slate-600">
+            <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
+            正在載入活動編輯頁...
+          </div>
         </div>
       </main>
     );
   }
 
-  if (!eventData) {
+  if (!form || !event) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-5xl rounded-3xl border border-red-200 bg-red-50 p-8">
-          <h1 className="text-xl font-bold text-red-900">載入失敗</h1>
-          <p className="mt-2 text-sm text-red-700">{errorMessage || "找不到活動資料。"}</p>
-          <button
-            type="button"
-            onClick={() => router.push("/merchant/dashboard")}
-            className="mt-5 rounded-xl border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-          >
-            返回 Dashboard
-          </button>
+        <div className="mx-auto max-w-6xl rounded-3xl border border-red-200 bg-red-50 p-8 text-red-700">
+          {errorMessage || "未能載入活動資料。"}
         </div>
       </main>
     );
   }
 
-  const coverObjectPosition = `${coverImageFocusX}% ${coverImageFocusY}%`;
+  const statusLabel = getStatusLabel(event.status);
+  const priceLabel = getPriceLabel(form);
+  const bookingLabel = getBookingMethodLabel(form.booking_method);
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <button
             type="button"
             onClick={() => router.push("/merchant/dashboard")}
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-950"
           >
             <ArrowLeft className="h-4 w-4" />
             返回 Merchant Dashboard
           </button>
 
-          <button
-            type="button"
-            onClick={() => router.push(`/merchant/events/${eventData.id}/preview`)}
-            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            返回 Preview
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => router.push(`/merchant/events/${eventId}/preview`)}
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+            >
+              <Eye className="h-4 w-4" />
+              預覽 Preview
+            </button>
+
+            <button
+              type="button"
+              onClick={() => saveEvent()}
+              disabled={isSaving}
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              儲存草稿
+            </button>
+          </div>
         </div>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-primary-600">
-                HK Family Fun Merchant Portal
-              </p>
+        <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+          <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="relative p-6 md:p-8">
+              <div className="absolute left-0 top-0 h-36 w-36 rounded-full bg-primary-100 blur-3xl" />
+              <div className="relative">
+                <div className="inline-flex items-center gap-2 rounded-full bg-primary-50 px-4 py-2 text-xs font-black text-primary-600">
+                  <Sparkles className="h-4 w-4" />
+                  HK Family Fun Merchant SaaS Event Builder
+                </div>
 
-              <h1 className="mt-2 text-3xl font-bold text-slate-950">
-                修改活動資料
-              </h1>
-
-              <p className="mt-2 text-sm text-slate-600">
-                補充活動資料及封面圖片後，請返回 Preview 檢查，再提交 HK Family Fun 審批。
-              </p>
-            </div>
-
-            <span className={`rounded-full px-4 py-2 text-sm font-semibold ${getStatusClass(eventData.status)}`}>
-              {getStatusLabel(eventData.status)}
-            </span>
-          </div>
-
-          {eventData.status === "rejected" && eventData.admin_review_note ? (
-            <div className="mt-5 flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <div>
-                <div className="font-bold">HK Family Fun 退回原因</div>
-                <div className="mt-1">{eventData.admin_review_note}</div>
-              </div>
-            </div>
-          ) : null}
-
-          {isLocked ? (
-            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              此活動目前是「{getStatusLabel(eventData.status)}」，暫時不能直接修改。
-            </div>
-          ) : null}
-
-          {successMessage ? (
-            <div className="mt-5 flex gap-2 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{successMessage}</span>
-            </div>
-          ) : null}
-
-          {errorMessage ? (
-            <div className="mt-5 flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          ) : null}
-        </section>
-
-        <section className="mt-6 grid gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <FormSection title="基本資料" icon={<FileText className="h-5 w-5" />}>
-              <TextInput label="活動名稱" value={titleTc} onChange={setTitleTc} />
-              <TextArea label="活動簡介" value={shortDescriptionTc} onChange={setShortDescriptionTc} rows={3} />
-              <TextArea label="活動詳情" value={descriptionTc} onChange={setDescriptionTc} rows={7} />
-              <TextInput label="主辦單位" value={organizerName} onChange={setOrganizerName} />
-              <TextInput label="活動分類" value={category} onChange={setCategory} />
-              <TextInput label="標籤 Tags，用英文逗號分隔" value={tagsText} onChange={setTagsText} />
-            </FormSection>
-
-            <FormSection title="日期、時間及地點" icon={<CalendarDays className="h-5 w-5" />}>
-              <div className="grid gap-4 md:grid-cols-2">
-                <TextInput label="開始日期" type="date" value={startDate} onChange={setStartDate} />
-                <TextInput label="結束日期" type="date" value={endDate} onChange={setEndDate} />
-                <TextInput label="開始時間" type="time" value={startTime} onChange={setStartTime} />
-                <TextInput label="結束時間" type="time" value={endTime} onChange={setEndTime} />
-              </div>
-
-              <TextInput
-                label="場地名稱"
-                value={venueName}
-                onChange={setVenueName}
-                icon={<MapPin className="h-4 w-4" />}
-              />
-
-              <TextInput label="詳細地址" value={address} onChange={setAddress} />
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="text-sm font-semibold text-slate-700">地區</span>
-                  <select
-                    value={district}
-                    onChange={(event) => setDistrict(event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                  >
-                    {DISTRICTS.map((districtOption) => (
-                      <option key={districtOption} value={districtOption}>
-                        {districtOption}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">
-                    大型活動可選「全港」或「多區」；純網上活動可選「網上」。
-                  </p>
-                </label>
-
-                <TextInput label="港鐵站" value={mtrStation} onChange={setMtrStation} />
-              </div>
-            </FormSection>
-
-            <FormSection title="收費及報名" icon={<Ticket className="h-5 w-5" />}>
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700">收費類型</span>
-                <select
-                  value={priceType}
-                  onChange={(event) => setPriceType(event.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                >
-                  {PRICE_TYPES.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <TextInput label="最低收費 HK$" type="number" value={priceMin} onChange={setPriceMin} icon={<DollarSign className="h-4 w-4" />} />
-                <TextInput label="最高收費 HK$" type="number" value={priceMax} onChange={setPriceMax} icon={<DollarSign className="h-4 w-4" />} />
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={registrationRequired}
-                    onChange={(event) => setRegistrationRequired(event.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-primary-600"
-                  />
-                  需要預先報名
-                </label>
-              </div>
-
-              <TextInput label="報名 URL" value={registrationUrl} onChange={setRegistrationUrl} icon={<LinkIcon className="h-4 w-4" />} />
-            </FormSection>
-          </div>
-
-          <aside className="space-y-6">
-            <FormSection title="封面圖片" icon={<ImageIcon className="h-5 w-5" />}>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary-500 px-4 py-3 text-sm font-bold text-white hover:bg-primary-600">
-                  <Upload className="h-4 w-4" />
-                  {isUploadingCover ? "上載中..." : "上載封面圖片"}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handleCoverFileChange}
-                    disabled={isUploadingCover || isLocked}
-                    className="hidden"
-                  />
-                </label>
-
-                <p className="mt-3 text-xs leading-5 text-slate-500">
-                  支援 JPG、PNG、WebP。最大 {MAX_IMAGE_SIZE_MB}MB。建議使用橫向圖片。
-                </p>
-              </div>
-
-              <TextInput label="封面圖片 URL" value={coverImageUrl} onChange={setCoverImageUrl} />
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center justify-between">
+                <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <div className="text-sm font-bold text-slate-800">封面圖片裁切位置</div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      左右：{coverImageFocusX}%　上下：{coverImageFocusY}%
+                    <h1 className="text-3xl font-black text-slate-950">
+                      修改活動資料
+                    </h1>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                      用 4 步完成活動資料。商戶可以自己改內容、上載圖片、調整封面位置、
+                      補政策資料，再提交 HK Family Fun 審批。
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={resetFocusCenter}
-                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  <span
+                    className={`w-fit rounded-full px-4 py-2 text-sm font-black ${getStatusClass(
+                      event.status
+                    )}`}
                   >
-                    回到置中
-                  </button>
+                    {statusLabel}
+                  </span>
                 </div>
 
-                <label className="mt-4 block">
-                  <span className="text-xs font-semibold text-slate-600">
-                    左右位置：0 = 靠左，50 = 中間，100 = 靠右
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={coverImageFocusX}
-                    onChange={(event) => setCoverImageFocusX(Number(event.target.value))}
-                    className="mt-2 w-full"
-                  />
-                </label>
+                {event.admin_review_note ? (
+                  <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+                    <div className="font-black">Admin Review Note</div>
+                    <div className="mt-1">{event.admin_review_note}</div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
 
-                <label className="mt-4 block">
-                  <span className="text-xs font-semibold text-slate-600">
-                    上下位置：0 = 最上，50 = 中間，100 = 最下
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={coverImageFocusY}
-                    onChange={(event) => setCoverImageFocusY(Number(event.target.value))}
-                    className="mt-2 w-full"
-                  />
-                </label>
+            <div className="border-t border-slate-200 bg-slate-950 p-6 text-white lg:border-l lg:border-t-0 md:p-8">
+              <div className="text-sm font-bold text-slate-300">
+                資料完成度
               </div>
 
-              {coverImageUrl ? (
-                <div className="overflow-hidden rounded-2xl border border-slate-200">
-                  <img
-                    src={coverImageUrl}
-                    alt="活動封面預覽"
-                    className="h-44 w-full object-cover"
-                    style={{ objectPosition: coverObjectPosition }}
-                  />
+              <div className="mt-3 flex items-end gap-3">
+                <div className="text-5xl font-black">{completion}%</div>
+                <div className="pb-2 text-sm text-slate-400">
+                  提交前建議達 80% 以上
                 </div>
+              </div>
+
+              <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-primary-400"
+                  style={{ width: `${completion}%` }}
+                />
+              </div>
+
+              <div className="mt-6 grid gap-2">
+                <MiniCheck done={Boolean(form.title_tc.trim())} text="活動標題" />
+                <MiniCheck done={Boolean(form.start_date.trim())} text="開始日期" />
+                <MiniCheck
+                  done={Boolean(form.district && form.district !== "待確認")}
+                  text="District"
+                />
+                <MiniCheck
+                  done={Boolean(form.price_type && form.price_type !== "unknown")}
+                  text="收費類型"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {errorMessage ? (
+          <section className="flex gap-2 rounded-3xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </section>
+        ) : null}
+
+        {successMessage ? (
+          <section className="flex gap-2 rounded-3xl border border-green-200 bg-green-50 p-5 text-sm text-green-700">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{successMessage}</span>
+          </section>
+        ) : null}
+
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="grid gap-3 md:grid-cols-4">
+            {STEPS.map((item) => {
+              const active = step === item.id;
+              const done = step > item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setStep(item.id)}
+                  className={`rounded-2xl border p-4 text-left transition ${
+                    active
+                      ? "border-primary-300 bg-primary-50"
+                      : done
+                      ? "border-green-200 bg-green-50"
+                      : "border-slate-200 bg-white hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${
+                        active
+                          ? "bg-primary-500 text-white"
+                          : done
+                          ? "bg-green-500 text-white"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {item.id}
+                    </span>
+                    <span className="text-sm font-black text-slate-950">
+                      {item.title}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    {item.subtitle}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <form
+          onSubmit={handleSubmit}
+          className="grid gap-6 lg:grid-cols-[1fr_420px]"
+        >
+          <section className="space-y-6">
+            {step === 1 ? (
+              <StepOneBasic
+                form={form}
+                updateForm={updateForm}
+                handleCoverUpload={handleCoverUpload}
+                handleGalleryUpload={handleGalleryUpload}
+                removeGalleryImage={removeGalleryImage}
+                isUploadingCover={isUploadingCover}
+                isUploadingGallery={isUploadingGallery}
+              />
+            ) : null}
+
+            {step === 2 ? (
+              <StepTwoLocation
+                form={form}
+                updateForm={updateForm}
+                handleAreaChange={handleAreaChange}
+                handleDistrictChange={handleDistrictChange}
+                selectedAreaDetail={selectedAreaDetail}
+              />
+            ) : null}
+
+            {step === 3 ? (
+              <StepThreePolicy
+                form={form}
+                updateForm={updateForm}
+                toggleArrayValue={toggleArrayValue}
+              />
+            ) : null}
+
+            {step === 4 ? (
+              <StepFourBooking
+                form={form}
+                updateForm={updateForm}
+                toggleArrayValue={toggleArrayValue}
+              />
+            ) : null}
+
+            <div className="flex flex-col gap-3 rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                disabled={step === 1}
+                onClick={() => setStep((current) => Math.max(1, current - 1))}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                上一步
+              </button>
+
+              <div className="text-center text-sm font-bold text-slate-500">
+                步驟 {step} / 4
+              </div>
+
+              {step < 4 ? (
+                <button
+                  type="button"
+                  onClick={() => setStep((current) => Math.min(4, current + 1))}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-3 text-sm font-black text-white hover:bg-primary-600"
+                >
+                  下一步
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               ) : (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                  尚未有封面圖片
-                </div>
+                <button
+                  type="button"
+                  onClick={() => saveEvent("submitted", true)}
+                  disabled={isSaving}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-3 text-sm font-black text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  儲存並提交審批
+                </button>
               )}
+            </div>
+          </section>
 
-              <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={isSenFriendly}
-                    onChange={(event) => setIsSenFriendly(event.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-primary-600"
-                  />
-                  SEN 友善
-                </label>
+          <aside className="space-y-6">
+            <LivePreviewCard
+              form={form}
+              statusLabel={statusLabel}
+              priceLabel={priceLabel}
+              bookingLabel={bookingLabel}
+            />
 
-                <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={isIndoor}
-                    onChange={(event) => setIsIndoor(event.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-primary-600"
-                  />
-                  室內活動
-                </label>
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="flex items-center gap-2 text-lg font-black text-slate-950">
+                <Sparkles className="h-5 w-5 text-primary-500" />
+                商戶提示
+              </h2>
+
+              <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                <p>
+                  1. 先儲存草稿，再 Preview。商戶確認後才提交 HK Family Fun 審批。
+                </p>
+                <p>
+                  2. 封面圖片建議使用橫圖，重要文字不要太貼邊，方便手機顯示。
+                </p>
+                <p>
+                  3. 收費、報名、退款政策越清楚，越少家長查詢。
+                </p>
               </div>
-            </FormSection>
+            </section>
 
-            <FormSection title="來源資料" icon={<LinkIcon className="h-5 w-5" />}>
-              <InfoRow label="匯入方式" value={eventData.source_type || "manual"} />
-              <InfoRow label="來源網址" value={eventData.source_url || "未有"} />
-              <InfoRow label="來源檔案" value={eventData.source_file_url || "未有"} />
-            </FormSection>
+            <section className="rounded-[2rem] border border-primary-200 bg-primary-50 p-5">
+              <h2 className="text-lg font-black text-primary-700">
+                SaaS 付費價值
+              </h2>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <button
-                type="button"
-                onClick={saveEvent}
-                disabled={isSaving || isLocked || isUploadingCover}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                <Save className="h-4 w-4" />
-                {isSaving ? "儲存中..." : "儲存修改"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => router.push(`/merchant/events/${eventData.id}/preview`)}
-                className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                返回 Preview
-              </button>
-
-              <p className="mt-3 text-xs leading-5 text-slate-500">
-                儲存後請返回 Preview 檢查活動卡，再提交 HK Family Fun 審批。
-              </p>
+              <div className="mt-4 space-y-2 text-sm leading-6 text-primary-800">
+                <p>• 自主更新活動資料</p>
+                <p>• 一個活動可由草稿、審批、發布全流程管理</p>
+                <p>• 上載圖片及調整封面 crop</p>
+                <p>• 支援外部報名 link，減少重複輸入</p>
+                <p>• 下一階段可加入 featured placement 及數據報表</p>
+              </div>
             </section>
           </aside>
-        </section>
+        </form>
       </div>
     </main>
   );
 }
 
-function FormSection({
-  title,
-  icon,
-  children,
+function StepOneBasic({
+  form,
+  updateForm,
+  handleCoverUpload,
+  handleGalleryUpload,
+  removeGalleryImage,
+  isUploadingCover,
+  isUploadingGallery,
 }: {
-  title: string;
-  icon: ReactNode;
-  children: ReactNode;
+  form: FormState;
+  updateForm: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+  handleCoverUpload: (event: ChangeEvent<HTMLInputElement>) => void;
+  handleGalleryUpload: (event: ChangeEvent<HTMLInputElement>) => void;
+  removeGalleryImage: (url: string) => void;
+  isUploadingCover: boolean;
+  isUploadingGallery: boolean;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="mb-5 flex items-center gap-2 text-lg font-bold text-slate-950">
-        <span className="text-primary-500">{icon}</span>
-        {title}
-      </h2>
-      <div className="space-y-4">{children}</div>
+    <Panel
+      icon={<ImageIcon className="h-5 w-5" />}
+      title="Step 1：基本資料"
+      subtitle="活動內容、圖片、分類及 Tags"
+    >
+      <div className="grid gap-5">
+        <TextField
+          label="活動標題"
+          required
+          value={form.title_tc}
+          onChange={(value) => updateForm("title_tc", value)}
+          placeholder="例如：Summer Kids Market @ MegaBox 小小檔主・親子創意市集"
+        />
+
+        <TextAreaField
+          label="活動簡介"
+          required
+          rows={3}
+          value={form.short_description_tc}
+          onChange={(value) => updateForm("short_description_tc", value)}
+          placeholder="一句講清楚活動賣點，會顯示在活動卡片。"
+        />
+
+        <TextAreaField
+          label="活動詳情"
+          rows={7}
+          value={form.description_tc}
+          onChange={(value) => updateForm("description_tc", value)}
+          placeholder="寫清楚活動內容、亮點、流程、適合家庭、小朋友可參與部分。"
+        />
+
+        <TextField
+          label="主辦單位"
+          value={form.organizer_name}
+          onChange={(value) => updateForm("organizer_name", value)}
+          placeholder="例如：Test Family Fun Centre"
+        />
+
+        <div className="grid gap-5 md:grid-cols-2">
+          <label className="block">
+            <span className="text-sm font-black text-slate-800">活動分類</span>
+            <select
+              value={form.category}
+              onChange={(event) => updateForm("category", event.target.value)}
+              className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+            >
+              {CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <TextField
+            label="標籤 Tags"
+            value={form.tagsText}
+            onChange={(value) => updateForm("tagsText", value)}
+            placeholder="例如：親子活動、免費、商場活動"
+            help="可用逗號、# 或頓號分開。"
+          />
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+            <div className="flex-1">
+              <div className="text-sm font-black text-slate-800">
+                封面圖片 Cover Image
+              </div>
+
+              <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-white px-4 py-5 text-sm font-bold text-slate-600 hover:border-primary-300 hover:bg-primary-50/40">
+                {isUploadingCover ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
+                ) : (
+                  <UploadCloud className="h-5 w-5 text-primary-500" />
+                )}
+                {isUploadingCover ? "正在上載封面..." : "上載封面圖片"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleCoverUpload}
+                  className="hidden"
+                />
+              </label>
+
+              <TextField
+                label="或貼上封面圖片 URL"
+                value={form.cover_image_url}
+                onChange={(value) => updateForm("cover_image_url", value)}
+                placeholder="https://..."
+                help="支援外部圖片 URL 或 Supabase Storage 圖片 URL。"
+              />
+            </div>
+
+            <div className="w-full lg:w-80">
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                <div className="relative h-44 bg-slate-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={form.cover_image_url || DEFAULT_COVER_IMAGE}
+                    alt="Cover preview"
+                    className="h-full w-full object-cover"
+                    style={{
+                      objectPosition: `${form.cover_image_focus_x}% ${form.cover_image_focus_y}%`,
+                    }}
+                  />
+                  <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-primary-600">
+                    Cover Preview
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-4">
+                <SliderField
+                  label="封面水平位置：左 / 右"
+                  value={form.cover_image_focus_x}
+                  onChange={(value) => updateForm("cover_image_focus_x", value)}
+                />
+                <SliderField
+                  label="封面垂直位置：上 / 下"
+                  value={form.cover_image_focus_y}
+                  onChange={(value) => updateForm("cover_image_focus_y", value)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-black text-slate-800">
+                Gallery 圖片
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                最多 {MAX_GALLERY_IMAGES} 張。適合活動環境、過往活動相片、宣傳圖。
+              </div>
+            </div>
+
+            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">
+              {isUploadingGallery ? (
+                <Loader2 className="h-4 w-4 animate-spin text-primary-500" />
+              ) : (
+                <UploadCloud className="h-4 w-4 text-primary-500" />
+              )}
+              {isUploadingGallery ? "上載中..." : "上載 Gallery"}
+              <input
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleGalleryUpload}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {form.gallery_image_urls.length ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {form.gallery_image_urls.map((url) => (
+                <div
+                  key={url}
+                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-100"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt="Gallery"
+                    className="h-28 w-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeGalleryImage(url)}
+                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm hover:bg-red-50 hover:text-red-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm text-slate-500">
+              暫未加入 Gallery 圖片。
+            </div>
+          )}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function StepTwoLocation({
+  form,
+  updateForm,
+  handleAreaChange,
+  handleDistrictChange,
+  selectedAreaDetail,
+}: {
+  form: FormState;
+  updateForm: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+  handleAreaChange: (value: string) => void;
+  handleDistrictChange: (value: string) => void;
+  selectedAreaDetail: ReturnType<typeof getAreaByZh>;
+}) {
+  return (
+    <Panel
+      icon={<CalendarDays className="h-5 w-5" />}
+      title="Step 2：日期、時間及地點"
+      subtitle="讓家長快速知道活動何時、在哪裡舉行"
+    >
+      <div className="grid gap-5 md:grid-cols-2">
+        <TextField
+          label="開始日期"
+          required
+          type="date"
+          value={form.start_date}
+          onChange={(value) => updateForm("start_date", value)}
+        />
+
+        <TextField
+          label="結束日期"
+          type="date"
+          value={form.end_date}
+          onChange={(value) => updateForm("end_date", value)}
+          help="單日活動可留空或填同一日。"
+        />
+
+        <TextField
+          label="開始時間"
+          value={form.start_time}
+          onChange={(value) => updateForm("start_time", value)}
+          placeholder="例如：10:00 / 12:00 PM"
+        />
+
+        <TextField
+          label="結束時間"
+          value={form.end_time}
+          onChange={(value) => updateForm("end_time", value)}
+          placeholder="例如：18:00 / 7:00 PM"
+        />
+
+        <TextField
+          label="場地名稱"
+          required
+          value={form.venue_name}
+          onChange={(value) => updateForm("venue_name", value)}
+          placeholder="例如：新城市廣場 / MegaBox / 香港公共圖書館"
+        />
+
+        <TextField
+          label="Google Map URL"
+          value={form.google_map_url}
+          onChange={(value) => updateForm("google_map_url", value)}
+          placeholder="https://maps.google.com/..."
+        />
+
+        <label className="block">
+          <span className="text-sm font-black text-slate-800">
+            地區 District
+          </span>
+          <select
+            value={form.district}
+            onChange={(event) => handleDistrictChange(event.target.value)}
+            className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+          >
+            {DISTRICT_SELECT_OPTIONS.map((district) => (
+              <option key={district.zh} value={district.zh}>
+                {district.zh} / {district.en}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-black text-slate-800">
+            地點 / 港鐵站 Area
+          </span>
+          <select
+            value={form.mtr_station || "待確認"}
+            onChange={(event) => handleAreaChange(event.target.value)}
+            className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+          >
+            {AREA_SELECT_OPTIONS.map((area) => (
+              <option key={`${area.zh}-${area.en}`} value={area.zh}>
+                {area.zh} / {area.en}
+                {"districtZh" in area && area.districtZh
+                  ? ` — ${area.districtZh}`
+                  : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="md:col-span-2">
+          <TextField
+            label="詳細地址"
+            value={form.address}
+            onChange={(value) => updateForm("address", value)}
+            placeholder="例如：沙田新城市廣場一期"
+          />
+
+          {selectedAreaDetail ? (
+            <div className="mt-3 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm leading-6 text-green-700">
+              已選擇：{selectedAreaDetail.zh} / {selectedAreaDetail.en}，
+              District：{selectedAreaDetail.districtZh}，
+              Region：{selectedAreaDetail.regionZh}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function StepThreePolicy({
+  form,
+  updateForm,
+  toggleArrayValue,
+}: {
+  form: FormState;
+  updateForm: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+  toggleArrayValue: <K extends "age_groups" | "language_available">(
+    key: K,
+    value: string
+  ) => void;
+}) {
+  return (
+    <Panel
+      icon={<ShieldCheck className="h-5 w-5" />}
+      title="Step 3：安全及政策"
+      subtitle="清楚列明年齡、風險、退款及天氣安排，減少家長查詢"
+    >
+      <div className="grid gap-5 md:grid-cols-2">
+        <label className="block">
+          <span className="text-sm font-black text-slate-800">風險等級</span>
+          <select
+            value={form.risk_level}
+            onChange={(event) => updateForm("risk_level", event.target.value)}
+            className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+          >
+            {RISK_LEVELS.map((risk) => (
+              <option key={risk.value} value={risk.value}>
+                {risk.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-black text-slate-800">
+            家長陪同要求
+          </span>
+          <select
+            value={form.parent_requirement}
+            onChange={(event) =>
+              updateForm("parent_requirement", event.target.value)
+            }
+            className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+          >
+            {PARENT_REQUIREMENTS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="md:col-span-2">
+          <div className="text-sm font-black text-slate-800">適合年齡組別</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {AGE_GROUPS.map((age) => (
+              <TogglePill
+                key={age}
+                active={form.age_groups.includes(age)}
+                onClick={() => toggleArrayValue("age_groups", age)}
+              >
+                {age}
+              </TogglePill>
+            ))}
+          </div>
+        </div>
+
+        <div className="md:col-span-2">
+          <div className="text-sm font-black text-slate-800">活動類型標記</div>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <CheckCard
+              checked={form.is_outdoor}
+              title="戶外活動"
+              note="公園、戶外市集、郊遊"
+              onChange={(checked) => updateForm("is_outdoor", checked)}
+            />
+            <CheckCard
+              checked={form.is_water_activity}
+              title="水上活動"
+              note="泳池、沙灘、水上體驗"
+              onChange={(checked) => updateForm("is_water_activity", checked)}
+            />
+            <CheckCard
+              checked={form.is_physical_activity}
+              title="體能活動"
+              note="運動、攀爬、競技活動"
+              onChange={(checked) => updateForm("is_physical_activity", checked)}
+            />
+          </div>
+        </div>
+
+        <div className="md:col-span-2">
+          <TextAreaField
+            label="退款政策"
+            rows={3}
+            value={form.refund_policy}
+            onChange={(value) => updateForm("refund_policy", value)}
+            placeholder="例如：活動開始前 48 小時可全額退款"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <TextAreaField
+            label="改期 / 取消政策"
+            rows={3}
+            value={form.reschedule_policy}
+            onChange={(value) => updateForm("reschedule_policy", value)}
+            placeholder="例如：可於活動前 7 天改期一次"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <TextAreaField
+            label="天氣政策"
+            rows={3}
+            value={form.weather_policy}
+            onChange={(value) => updateForm("weather_policy", value)}
+            placeholder="例如：八號風球或黑色暴雨以上自動取消"
+          />
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function StepFourBooking({
+  form,
+  updateForm,
+  toggleArrayValue,
+}: {
+  form: FormState;
+  updateForm: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+  toggleArrayValue: <K extends "age_groups" | "language_available">(
+    key: K,
+    value: string
+  ) => void;
+}) {
+  return (
+    <Panel
+      icon={<Ticket className="h-5 w-5" />}
+      title="Step 4：收費、報名及提交"
+      subtitle="決定家長怎樣報名、如何聯絡、是否顯示在日曆"
+    >
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-4">
+          {PRICE_TYPES.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => updateForm("price_type", item.value)}
+              className={`rounded-3xl border p-4 text-left transition ${
+                form.price_type === item.value
+                  ? "border-primary-400 bg-primary-50"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
+              }`}
+            >
+              <div className="text-sm font-black text-slate-950">
+                {item.label}
+              </div>
+              <div className="mt-2 text-xs leading-5 text-slate-500">
+                {item.hint}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          <TextField
+            label="最低收費 HK$"
+            value={form.price_min}
+            onChange={(value) => updateForm("price_min", value)}
+            placeholder="例如：0"
+            type="number"
+          />
+
+          <TextField
+            label="最高收費 HK$"
+            value={form.price_max}
+            onChange={(value) => updateForm("price_max", value)}
+            placeholder="例如：120"
+            type="number"
+          />
+        </div>
+
+        <div>
+          <div className="text-sm font-black text-slate-800">報名方式</div>
+          <div className="mt-3 grid gap-4 md:grid-cols-4">
+            {BOOKING_METHODS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => {
+                  updateForm("booking_method", item.value);
+                  updateForm("registration_required", item.value !== "none");
+                }}
+                className={`rounded-3xl border p-4 text-left transition ${
+                  form.booking_method === item.value
+                    ? "border-primary-400 bg-primary-50"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+              >
+                <div className="text-sm font-black text-slate-950">
+                  {item.label}
+                </div>
+                <div className="mt-2 text-xs leading-5 text-slate-500">
+                  {item.hint}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          <TextField
+            label="報名 URL"
+            value={form.registration_url}
+            onChange={(value) => updateForm("registration_url", value)}
+            placeholder="https://..."
+          />
+
+          <TextField
+            label="報名備註"
+            value={form.booking_note}
+            onChange={(value) => updateForm("booking_note", value)}
+            placeholder="例如：名額有限，先到先得"
+          />
+
+          <TextField
+            label="聯絡電話"
+            value={form.contact_phone}
+            onChange={(value) => updateForm("contact_phone", value)}
+            placeholder="例如：5701 8297"
+          />
+
+          <TextField
+            label="WhatsApp"
+            value={form.contact_whatsapp}
+            onChange={(value) => updateForm("contact_whatsapp", value)}
+            placeholder="例如：5701 8297"
+          />
+
+          <TextField
+            label="聯絡 Email"
+            value={form.contact_email}
+            onChange={(value) => updateForm("contact_email", value)}
+            placeholder="例如：info@hkfamilyfun.com"
+          />
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 text-sm font-black text-slate-800">
+            <Languages className="h-4 w-4 text-primary-500" />
+            可顯示語言
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {LANGUAGE_OPTIONS.map((language) => (
+              <TogglePill
+                key={language.value}
+                active={form.language_available.includes(language.value)}
+                onClick={() =>
+                  toggleArrayValue("language_available", language.value)
+                }
+              >
+                {language.label}
+              </TogglePill>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <CheckCard
+            checked={form.registration_required}
+            title="需要預先報名"
+            note="會在活動頁提醒家長先報名"
+            onChange={(checked) => updateForm("registration_required", checked)}
+          />
+
+          <CheckCard
+            checked={form.is_indoor}
+            title="室內活動"
+            note="適合炎熱或下雨天篩選"
+            onChange={(checked) => updateForm("is_indoor", checked)}
+          />
+
+          <CheckCard
+            checked={form.is_sen_friendly}
+            title="SEN 友善"
+            note="只有資料清楚提及時才勾選"
+            onChange={(checked) => updateForm("is_sen_friendly", checked)}
+          />
+
+          <CheckCard
+            checked={form.show_on_calendar}
+            title="顯示在日曆"
+            note="活動日期會出現在日曆功能"
+            onChange={(checked) => updateForm("show_on_calendar", checked)}
+          />
+
+          <CheckCard
+            checked={form.hidden_pending_confirmation}
+            title="隱藏待確認資訊"
+            note="避免顯示未確認的收費、時間或地址"
+            onChange={(checked) =>
+              updateForm("hidden_pending_confirmation", checked)
+            }
+          />
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function LivePreviewCard({
+  form,
+  statusLabel,
+  priceLabel,
+  bookingLabel,
+}: {
+  form: FormState;
+  statusLabel: string;
+  priceLabel: string;
+  bookingLabel: string;
+}) {
+  return (
+    <section className="sticky top-6 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <div className="text-xs font-black text-primary-600">
+            Live Preview
+          </div>
+          <h2 className="mt-1 text-xl font-black text-slate-950">
+            家長看到的大約效果
+          </h2>
+        </div>
+
+        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">
+          {statusLabel}
+        </span>
+      </div>
+
+      <div className="overflow-hidden rounded-3xl border border-slate-200">
+        <div className="relative h-56 bg-slate-100">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={form.cover_image_url || DEFAULT_COVER_IMAGE}
+            alt="Preview"
+            className="h-full w-full object-cover"
+            style={{
+              objectPosition: `${form.cover_image_focus_x}% ${form.cover_image_focus_y}%`,
+            }}
+          />
+
+          <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-primary-600">
+            {form.category || "親子活動"}
+          </span>
+        </div>
+
+        <div className="p-5">
+          <h3 className="text-xl font-black leading-snug text-slate-950">
+            {form.title_tc || "活動標題"}
+          </h3>
+
+          <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
+            {form.short_description_tc || "活動簡介會顯示在這裡。"}
+          </p>
+
+          <div className="mt-5 space-y-3 text-sm text-slate-700">
+            <PreviewLine
+              icon={<CalendarDays className="h-4 w-4" />}
+              label="日期及時間"
+              value={`${form.start_date || "日期待確認"} ${
+                form.end_date ? `至 ${form.end_date}` : ""
+              }・${form.start_time || "時間待確認"}${
+                form.end_time ? ` - ${form.end_time}` : ""
+              }`}
+            />
+
+            <PreviewLine
+              icon={<MapPin className="h-4 w-4" />}
+              label="地點"
+              value={`${form.venue_name || "地點待確認"}・${
+                form.district || "地區待確認"
+              }・${form.mtr_station || "港鐵站待確認"}`}
+            />
+
+            <PreviewLine
+              icon={<Ticket className="h-4 w-4" />}
+              label="收費"
+              value={priceLabel}
+            />
+
+            <PreviewLine
+              icon={<Phone className="h-4 w-4" />}
+              label="報名方式"
+              value={bookingLabel}
+            />
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {normalizeTags(form.tagsText).slice(0, 5).map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-primary-50 px-3 py-1 text-xs font-bold text-primary-600"
+              >
+                #{tag}
+              </span>
+            ))}
+
+            {form.is_sen_friendly ? (
+              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600">
+                SEN 友善
+              </span>
+            ) : null}
+
+            {form.is_indoor ? (
+              <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-600">
+                室內
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
 
-function TextInput({
+function Panel({
+  icon,
+  title,
+  subtitle,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-6 flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+          {icon}
+        </div>
+        <div>
+          <h2 className="text-2xl font-black text-slate-950">{title}</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p>
+        </div>
+      </div>
+
+      {children}
+    </section>
+  );
+}
+
+function TextField({
   label,
   value,
   onChange,
   placeholder,
+  help,
+  required,
   type = "text",
-  icon,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  help?: string;
+  required?: boolean;
   type?: string;
-  icon?: ReactNode;
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-semibold text-slate-700">{label}</span>
-      <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-100">
-        {icon ? <span className="text-slate-400">{icon}</span> : null}
-        <input
-          type={type}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          className="w-full bg-transparent text-sm outline-none"
-        />
-      </div>
+      <span className="text-sm font-black text-slate-800">
+        {label}
+        {required ? <span className="text-red-500"> *</span> : null}
+      </span>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+      />
+      {help ? (
+        <p className="mt-2 text-xs leading-5 text-slate-500">{help}</p>
+      ) : null}
     </label>
   );
 }
 
-function TextArea({
+function TextAreaField({
   label,
   value,
   onChange,
   placeholder,
   rows = 4,
+  required,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   rows?: number;
+  required?: boolean;
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-semibold text-slate-700">{label}</span>
+      <span className="text-sm font-black text-slate-800">
+        {label}
+        {required ? <span className="text-red-500"> *</span> : null}
+      </span>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -1029,11 +2046,127 @@ function TextArea({
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function SliderField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
-      <div className="font-semibold text-slate-500">{label}</div>
-      <div className="mt-1 break-all text-slate-800">{value}</div>
+    <label className="block">
+      <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
+        <span>{label}</span>
+        <span>{value}%</span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="mt-2 w-full accent-primary-500"
+      />
+    </label>
+  );
+}
+
+function TogglePill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+        active
+          ? "border-primary-400 bg-primary-50 text-primary-700"
+          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CheckCard({
+  checked,
+  title,
+  note,
+  onChange,
+}: {
+  checked: boolean;
+  title: string;
+  note: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer gap-3 rounded-3xl border p-4 transition ${
+        checked
+          ? "border-primary-300 bg-primary-50"
+          : "border-slate-200 bg-white hover:bg-slate-50"
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-1 h-4 w-4 rounded border-slate-300 text-primary-600"
+      />
+      <span>
+        <span className="block text-sm font-black text-slate-950">{title}</span>
+        <span className="mt-1 block text-xs leading-5 text-slate-500">
+          {note}
+        </span>
+      </span>
+    </label>
+  );
+}
+
+function PreviewLine({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex gap-3">
+      <div className="mt-0.5 text-primary-500">{icon}</div>
+      <div>
+        <div className="text-xs font-black text-slate-500">{label}</div>
+        <div className="mt-0.5 text-sm font-semibold text-slate-800">
+          {value}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniCheck({ done, text }: { done: boolean; text: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span
+        className={`flex h-5 w-5 items-center justify-center rounded-full ${
+          done ? "bg-green-400 text-white" : "bg-white/10 text-slate-500"
+        }`}
+      >
+        {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+      </span>
+      <span className={done ? "text-slate-200" : "text-slate-500"}>
+        {text}
+      </span>
     </div>
   );
 }

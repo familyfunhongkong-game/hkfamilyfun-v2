@@ -19,6 +19,11 @@ import {
   Wand2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
+import {
+  AREA_SELECT_OPTIONS,
+  DISTRICT_SELECT_OPTIONS,
+  getAreaByZh,
+} from "@/lib/locationOptions";
 
 type ImportMode = "url" | "file" | "batch";
 
@@ -30,33 +35,17 @@ type MerchantProfile = {
   status: string | null;
 };
 
+type DetectedLocation = {
+  district: string;
+  area: string;
+  venueName: string;
+  address: string;
+};
+
+const AREA_PLACEHOLDER_VALUE = "請選擇地點";
+
 const DEFAULT_COVER_IMAGE =
   "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80";
-
-const DISTRICTS = [
-  "待確認",
-  "全港",
-  "多區",
-  "網上",
-  "中西區",
-  "灣仔",
-  "東區",
-  "南區",
-  "油尖旺",
-  "深水埗",
-  "九龍城",
-  "黃大仙",
-  "觀塘",
-  "荃灣",
-  "屯門",
-  "元朗",
-  "北區",
-  "大埔",
-  "沙田",
-  "西貢",
-  "葵青",
-  "離島",
-];
 
 const PRICE_TYPES = [
   { value: "unknown", label: "收費待確認" },
@@ -96,6 +85,123 @@ const ACCEPTED_FILE_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ];
 
+function detectLocationFromUrl(url: string): DetectedLocation | null {
+  const lowerUrl = url.toLowerCase();
+
+  const rules: Array<{
+    keywords: string[];
+    district: string;
+    area: string;
+    venueName: string;
+    address: string;
+  }> = [
+    {
+      keywords: ["newtownplaza.com.hk", "newtownplaza", "new-town-plaza"],
+      district: "沙田區",
+      area: "沙田",
+      venueName: "新城市廣場 New Town Plaza",
+      address: "沙田新城市廣場",
+    },
+    {
+      keywords: ["megabox.com.hk", "megabox"],
+      district: "觀塘區",
+      area: "九龍灣",
+      venueName: "MegaBox",
+      address: "九龍灣 MegaBox",
+    },
+    {
+      keywords: ["airside.com.hk", "airside"],
+      district: "九龍城區",
+      area: "啟德",
+      venueName: "AIRSIDE",
+      address: "啟德 AIRSIDE",
+    },
+    {
+      keywords: ["k11musea.com", "k11musea", "k11-musea"],
+      district: "油尖旺區",
+      area: "尖沙咀",
+      venueName: "K11 MUSEA",
+      address: "尖沙咀 K11 MUSEA",
+    },
+    {
+      keywords: ["harbourcity.com.hk", "harbourcity", "harbour-city"],
+      district: "油尖旺區",
+      area: "尖沙咀",
+      venueName: "海港城 Harbour City",
+      address: "尖沙咀海港城",
+    },
+    {
+      keywords: ["timessquare.com.hk", "times-square", "times square"],
+      district: "灣仔區",
+      area: "銅鑼灣",
+      venueName: "時代廣場 Times Square",
+      address: "銅鑼灣時代廣場",
+    },
+    {
+      keywords: ["cityplaza.com", "cityplaza", "太古城中心"],
+      district: "東區",
+      area: "太古",
+      venueName: "太古城中心 Cityplaza",
+      address: "太古城中心",
+    },
+    {
+      keywords: ["taikooplace.com", "taikoo-place"],
+      district: "東區",
+      area: "鰂魚涌",
+      venueName: "太古坊 Taikoo Place",
+      address: "鰂魚涌太古坊",
+    },
+    {
+      keywords: ["ifc.com.hk", "ifc mall", "ifc"],
+      district: "中西區",
+      area: "中環",
+      venueName: "ifc mall",
+      address: "中環 ifc mall",
+    },
+    {
+      keywords: ["apm-millenniumcity.com", "apm"],
+      district: "觀塘區",
+      area: "觀塘",
+      venueName: "apm",
+      address: "觀塘 apm",
+    },
+    {
+      keywords: ["yohomall", "yoho"],
+      district: "元朗區",
+      area: "元朗",
+      venueName: "YOHO MALL",
+      address: "元朗 YOHO MALL",
+    },
+    {
+      keywords: ["tmtplaza", "tuen mun town plaza"],
+      district: "屯門區",
+      area: "屯門",
+      venueName: "屯門市廣場 Tuen Mun Town Plaza",
+      address: "屯門市廣場",
+    },
+    {
+      keywords: ["citywalk", "荃新天地"],
+      district: "荃灣區",
+      area: "荃灣",
+      venueName: "荃新天地 Citywalk",
+      address: "荃灣荃新天地",
+    },
+  ];
+
+  const matchedRule = rules.find((rule) =>
+    rule.keywords.some((keyword) => lowerUrl.includes(keyword.toLowerCase()))
+  );
+
+  if (!matchedRule) return null;
+
+  return {
+    district: matchedRule.district,
+    area: matchedRule.area,
+    venueName: matchedRule.venueName,
+    address: matchedRule.address,
+  };
+}
+
 function getFileExtension(file: File) {
   const nameParts = file.name.split(".");
   const extensionFromName = nameParts.length > 1 ? nameParts.pop() : "";
@@ -111,13 +217,17 @@ function getFileExtension(file: File) {
   return "file";
 }
 
-function detectFileSourceType(file: File): "image" | "pdf" | "csv" | "spreadsheet" | "file" {
+function detectFileSourceType(
+  file: File
+): "image" | "pdf" | "csv" | "spreadsheet" | "file" {
   if (file.type.startsWith("image/")) return "image";
   if (file.type === "application/pdf") return "pdf";
   if (file.type === "text/csv") return "csv";
+
   if (
     file.type === "application/vnd.ms-excel" ||
-    file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    file.type ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   ) {
     return "spreadsheet";
   }
@@ -126,7 +236,10 @@ function detectFileSourceType(file: File): "image" | "pdf" | "csv" | "spreadshee
 
   if (lowerName.endsWith(".pdf")) return "pdf";
   if (lowerName.endsWith(".csv")) return "csv";
-  if (lowerName.endsWith(".xls") || lowerName.endsWith(".xlsx")) return "spreadsheet";
+  if (lowerName.endsWith(".xls") || lowerName.endsWith(".xlsx")) {
+    return "spreadsheet";
+  }
+
   if (
     lowerName.endsWith(".jpg") ||
     lowerName.endsWith(".jpeg") ||
@@ -142,27 +255,36 @@ function detectFileSourceType(file: File): "image" | "pdf" | "csv" | "spreadshee
 function getSafeUrlTitle(url: string) {
   try {
     const parsedUrl = new URL(url.trim());
+
     const pathParts = parsedUrl.pathname
       .split("/")
-      .map((part) => part.trim())
+      .map((part) => decodeURIComponent(part.trim()))
       .filter(Boolean);
 
-    const blockedParts = ["share", "p", "posts", "post", "events", "event", "zh-hk", "en", "hk"];
+    const blockedParts = [
+      "share",
+      "p",
+      "posts",
+      "post",
+      "events",
+      "event",
+      "zh-hk",
+      "zh-hant",
+      "en",
+      "hk",
+      "精彩活動",
+    ];
 
-    const usefulPart = [...pathParts]
-      .reverse()
-      .find((part) => {
-        const lower = part.toLowerCase();
+    const usefulPart = [...pathParts].reverse().find((part) => {
+      const lower = part.toLowerCase();
 
-        if (blockedParts.includes(lower)) return false;
-        if (/^[a-z0-9]{6,}$/i.test(part) && !part.includes("-")) return false;
+      if (blockedParts.includes(lower)) return false;
+      if (/^[a-z0-9]{6,}$/i.test(part) && !part.includes("-")) return false;
 
-        return true;
-      });
+      return true;
+    });
 
-    if (!usefulPart) {
-      return "AI 匯入活動草稿（來自網址）";
-    }
+    if (!usefulPart) return "AI 匯入活動草稿（來自網址）";
 
     const cleaned = usefulPart
       .replace(/-/g, " ")
@@ -177,6 +299,7 @@ function getSafeUrlTitle(url: string) {
       .map((word) => {
         if (!word) return word;
         if (/[\u4e00-\u9fff]/.test(word)) return word;
+
         return word.charAt(0).toUpperCase() + word.slice(1);
       })
       .join(" ");
@@ -186,9 +309,7 @@ function getSafeUrlTitle(url: string) {
 }
 
 function getDraftTitle(mode: ImportMode, sourceUrl: string, file: File | null) {
-  if (mode === "url") {
-    return getSafeUrlTitle(sourceUrl);
-  }
+  if (mode === "url") return getSafeUrlTitle(sourceUrl);
 
   if (file) {
     const baseName = file.name.replace(/\.[^/.]+$/, "");
@@ -197,6 +318,7 @@ function getDraftTitle(mode: ImportMode, sourceUrl: string, file: File | null) {
   }
 
   if (mode === "batch") return "批量匯入活動草稿";
+
   return "AI 匯入活動草稿";
 }
 
@@ -212,7 +334,11 @@ function getDraftShortDescription(mode: ImportMode) {
   return "系統已根據上載的活動海報或 PDF 建立草稿。請在 Preview 檢查資料，再補充需要欄位。";
 }
 
-function getDraftDescription(mode: ImportMode, sourceUrl: string, file: File | null) {
+function getDraftDescription(
+  mode: ImportMode,
+  sourceUrl: string,
+  file: File | null
+) {
   if (mode === "url") {
     return [
       "此活動由商戶貼上的活動連結建立草稿。",
@@ -271,6 +397,23 @@ function isMerchantApproved(status: string | null) {
   return status === "approved";
 }
 
+function isSpecialArea(value: string) {
+  return value === "全港" || value === "多區" || value === "網上";
+}
+
+function getAreaOptionLabel(area: {
+  zh: string;
+  en: string;
+  districtZh?: string;
+}) {
+  if (area.zh === "待確認") return "待確認 / To be confirmed";
+  if (area.zh === "全港") return "全港 / Hong Kong-wide";
+  if (area.zh === "多區") return "多區 / Multiple districts";
+  if (area.zh === "網上") return "網上 / Online";
+
+  return `${area.zh} / ${area.en} — ${area.districtZh || "District 待確認"}`;
+}
+
 export default function MerchantEventImportPage() {
   const router = useRouter();
 
@@ -283,7 +426,7 @@ export default function MerchantEventImportPage() {
   const [defaultDistrict, setDefaultDistrict] = useState("待確認");
   const [defaultPriceType, setDefaultPriceType] = useState("unknown");
   const [defaultCategory, setDefaultCategory] = useState("親子活動");
-  const [defaultMtrStation, setDefaultMtrStation] = useState("");
+  const [defaultArea, setDefaultArea] = useState(AREA_PLACEHOLDER_VALUE);
   const [needRegistration, setNeedRegistration] = useState(false);
 
   const [isIndoor, setIsIndoor] = useState(false);
@@ -299,13 +442,43 @@ export default function MerchantEventImportPage() {
     return detectFileSourceType(sourceFile);
   }, [sourceFile]);
 
+  const areaOptionsForDropdown = useMemo(() => {
+    return AREA_SELECT_OPTIONS.filter((area) => area.zh !== "待確認");
+  }, []);
+
+  const selectedAreaDetail = useMemo(() => {
+    if (
+      defaultArea === AREA_PLACEHOLDER_VALUE ||
+      defaultArea === "待確認" ||
+      isSpecialArea(defaultArea)
+    ) {
+      return null;
+    }
+
+    return getAreaByZh(defaultArea);
+  }, [defaultArea]);
+
+  const detectedLocationPreview = useMemo(() => {
+    if (mode !== "url" || !sourceUrl.trim()) return null;
+    return detectLocationFromUrl(sourceUrl.trim());
+  }, [mode, sourceUrl]);
+
+  useEffect(() => {
+    if (!detectedLocationPreview) return;
+
+    setDefaultDistrict(detectedLocationPreview.district);
+    setDefaultArea(detectedLocationPreview.area);
+  }, [detectedLocationPreview]);
+
   async function loadMerchant() {
     setIsLoadingMerchant(true);
     setErrorMessage("");
 
     try {
       if (!supabase) {
-        setErrorMessage("Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。");
+        setErrorMessage(
+          "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
+        );
         setIsLoadingMerchant(false);
         return;
       }
@@ -364,6 +537,36 @@ export default function MerchantEventImportPage() {
     }
   }
 
+  function handleAreaChange(nextArea: string) {
+    setDefaultArea(nextArea);
+
+    if (nextArea === AREA_PLACEHOLDER_VALUE || nextArea === "待確認") {
+      setDefaultDistrict("待確認");
+      return;
+    }
+
+    if (isSpecialArea(nextArea)) {
+      setDefaultDistrict(nextArea);
+      return;
+    }
+
+    const matchedArea = getAreaByZh(nextArea);
+
+    if (matchedArea) {
+      setDefaultDistrict(matchedArea.districtZh);
+    }
+  }
+
+  function handleDistrictChange(nextDistrict: string) {
+    setDefaultDistrict(nextDistrict);
+
+    const matchedArea = getAreaByZh(defaultArea);
+
+    if (matchedArea && matchedArea.districtZh !== nextDistrict) {
+      setDefaultArea(AREA_PLACEHOLDER_VALUE);
+    }
+  }
+
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     setErrorMessage("");
     setSuccessMessage("");
@@ -393,14 +596,18 @@ export default function MerchantEventImportPage() {
 
     if (mode === "file" && fileType !== "image" && fileType !== "pdf") {
       setSourceFile(null);
-      setErrorMessage("海報 / PDF 模式只支援圖片或 PDF。CSV / Excel 請使用批量匯入。");
+      setErrorMessage(
+        "海報 / PDF 模式只支援圖片或 PDF。CSV / Excel 請使用批量匯入。"
+      );
       event.target.value = "";
       return;
     }
 
     if (mode === "batch" && fileType !== "csv" && fileType !== "spreadsheet") {
       setSourceFile(null);
-      setErrorMessage("批量匯入只支援 CSV 或 Excel。圖片 / PDF 請使用海報 / PDF 模式。");
+      setErrorMessage(
+        "批量匯入只支援 CSV 或 Excel。圖片 / PDF 請使用海報 / PDF 模式。"
+      );
       event.target.value = "";
       return;
     }
@@ -414,18 +621,24 @@ export default function MerchantEventImportPage() {
     }
 
     const extension = getFileExtension(file);
-    const safeFileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+    const safeFileName = `${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${extension}`;
     const storagePath = `${merchantId}/imports/${safeFileName}`;
 
-    const { error } = await supabase.storage.from("event-images").upload(storagePath, file, {
-      cacheControl: "3600",
-      contentType: file.type || "application/octet-stream",
-      upsert: false,
-    });
+    const { error } = await supabase.storage
+      .from("event-images")
+      .upload(storagePath, file, {
+        cacheControl: "3600",
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
 
     if (error) throw error;
 
-    const { data } = supabase.storage.from("event-images").getPublicUrl(storagePath);
+    const { data } = supabase.storage
+      .from("event-images")
+      .getPublicUrl(storagePath);
 
     return {
       storagePath,
@@ -480,7 +693,9 @@ export default function MerchantEventImportPage() {
 
     try {
       if (!supabase) {
-        setErrorMessage("Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。");
+        setErrorMessage(
+          "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
+        );
         return;
       }
 
@@ -491,19 +706,37 @@ export default function MerchantEventImportPage() {
 
       if ((mode === "file" || mode === "batch") && sourceFile) {
         const uploaded = await uploadSourceFile(sourceFile, merchant.id);
+
         uploadedFileUrl = uploaded.publicUrl;
         uploadedFilePath = uploaded.storagePath;
       }
 
       const sourceType = getSourceType(mode, sourceFile);
       const coverImageUrl =
-        sourceType === "image" && uploadedFileUrl ? uploadedFileUrl : DEFAULT_COVER_IMAGE;
+        sourceType === "image" && uploadedFileUrl
+          ? uploadedFileUrl
+          : DEFAULT_COVER_IMAGE;
 
       const now = new Date().toISOString();
 
       const draftTitle = getDraftTitle(mode, sourceUrl, sourceFile);
       const draftShortDescription = getDraftShortDescription(mode);
       const draftDescription = getDraftDescription(mode, sourceUrl, sourceFile);
+
+      const detectedLocation =
+        mode === "url" ? detectLocationFromUrl(sourceUrl.trim()) : null;
+
+      const locationArea =
+        detectedLocation?.area ||
+        (defaultArea === AREA_PLACEHOLDER_VALUE
+          ? "待確認"
+          : defaultArea || "待確認");
+
+      const locationDistrict =
+        detectedLocation?.district || defaultDistrict || "待確認";
+
+      const locationVenueName = detectedLocation?.venueName || "待確認";
+      const locationAddress = detectedLocation?.address || "待確認";
 
       const { data, error } = await supabase
         .from("events")
@@ -513,10 +746,10 @@ export default function MerchantEventImportPage() {
           short_description_tc: draftShortDescription,
           description_tc: draftDescription,
           organizer_name: merchant.business_name || "待確認",
-          venue_name: "待確認",
-          address: "待確認",
-          district: defaultDistrict,
-          mtr_station: defaultMtrStation.trim() || "待確認",
+          venue_name: locationVenueName,
+          address: locationAddress,
+          district: locationDistrict,
+          mtr_station: locationArea,
           category: defaultCategory,
           tags: getDefaultTags(defaultCategory, mode),
           price_type: defaultPriceType,
@@ -534,7 +767,7 @@ export default function MerchantEventImportPage() {
           source_type: sourceType,
           source_url: mode === "url" ? sourceUrl.trim() : null,
           source_file_url: uploadedFileUrl,
-          ai_extraction_status: "draft_created",
+          ai_extraction_status: "completed",
           ai_extracted_json: {
             import_mode: mode,
             source_type: sourceType,
@@ -542,7 +775,9 @@ export default function MerchantEventImportPage() {
             source_file_name: sourceFile?.name || null,
             source_file_url: uploadedFileUrl,
             source_file_path: uploadedFilePath,
-            default_district: defaultDistrict,
+            default_area: locationArea,
+            default_district: locationDistrict,
+            detected_location: detectedLocation,
             default_price_type: defaultPriceType,
             default_category: defaultCategory,
             mvp_note:
@@ -629,9 +864,21 @@ export default function MerchantEventImportPage() {
                 </p>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                  <HeroPoint icon={<LinkIcon className="h-5 w-5" />} title="貼活動 URL" note="最快建立草稿" />
-                  <HeroPoint icon={<ImageIcon className="h-5 w-5" />} title="上載海報 / PDF" note="適合宣傳圖" />
-                  <HeroPoint icon={<FileSpreadsheet className="h-5 w-5" />} title="批量 CSV / Excel" note="適合大型商戶" />
+                  <HeroPoint
+                    icon={<LinkIcon className="h-5 w-5" />}
+                    title="貼活動 URL"
+                    note="最快建立草稿"
+                  />
+                  <HeroPoint
+                    icon={<ImageIcon className="h-5 w-5" />}
+                    title="上載海報 / PDF"
+                    note="適合宣傳圖"
+                  />
+                  <HeroPoint
+                    icon={<FileSpreadsheet className="h-5 w-5" />}
+                    title="批量 CSV / Excel"
+                    note="適合大型商戶"
+                  />
                 </div>
               </div>
             </div>
@@ -687,7 +934,10 @@ export default function MerchantEventImportPage() {
           </section>
         ) : null}
 
-        <form onSubmit={createDraft} className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <form
+          onSubmit={createDraft}
+          className="grid gap-6 lg:grid-cols-[1fr_360px]"
+        >
           <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
@@ -744,6 +994,14 @@ export default function MerchantEventImportPage() {
                   <p className="mt-2 text-xs leading-5 text-slate-500">
                     提示：請貼上公開可瀏覽的活動頁。Facebook private group 或需要登入的頁面，AI 未必能完整讀取。
                   </p>
+
+                  {detectedLocationPreview ? (
+                    <div className="mt-3 rounded-2xl border border-green-200 bg-green-50 p-4 text-xs leading-5 text-green-700">
+                      已自動偵測地點：{detectedLocationPreview.venueName}，
+                      Area：{detectedLocationPreview.area}，
+                      District：{detectedLocationPreview.district}
+                    </div>
+                  ) : null}
                 </label>
               ) : (
                 <div>
@@ -799,18 +1057,57 @@ export default function MerchantEventImportPage() {
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="block">
-                <span className="text-sm font-bold text-slate-800">預設地區</span>
+                <span className="text-sm font-bold text-slate-800">
+                  地區 District
+                </span>
                 <select
                   value={defaultDistrict}
-                  onChange={(event) => setDefaultDistrict(event.target.value)}
+                  onChange={(event) => handleDistrictChange(event.target.value)}
                   className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
                 >
-                  {DISTRICTS.map((district) => (
-                    <option key={district} value={district}>
-                      {district}
+                  {DISTRICT_SELECT_OPTIONS.map((district) => (
+                    <option key={district.zh} value={district.zh}>
+                      {district.zh} / {district.en}
                     </option>
                   ))}
                 </select>
+
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  可選「全港」、「多區」、「網上」或實際 District。
+                </p>
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-bold text-slate-800">
+                  地點 / 港鐵站 Area
+                </span>
+                <select
+                  value={defaultArea}
+                  onChange={(event) => handleAreaChange(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                >
+                  <option value={AREA_PLACEHOLDER_VALUE}>
+                    請選擇地點 / 港鐵站
+                  </option>
+
+                  {areaOptionsForDropdown.map((area) => (
+                    <option key={`${area.zh}-${area.en}`} value={area.zh}>
+                      {getAreaOptionLabel(area)}
+                    </option>
+                  ))}
+                </select>
+
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  選擇 Area 後會自動更新 District，例如九龍灣 → 觀塘區。
+                </p>
+
+                {selectedAreaDetail ? (
+                  <div className="mt-3 rounded-2xl border border-green-200 bg-green-50 p-3 text-xs leading-5 text-green-700">
+                    已選擇：{selectedAreaDetail.zh} / {selectedAreaDetail.en}，
+                    District：{selectedAreaDetail.districtZh}，
+                    Region：{selectedAreaDetail.regionZh}
+                  </div>
+                ) : null}
               </label>
 
               <label className="block">
@@ -841,16 +1138,6 @@ export default function MerchantEventImportPage() {
                     </option>
                   ))}
                 </select>
-              </label>
-
-              <label className="block">
-                <span className="text-sm font-bold text-slate-800">港鐵站，可留空</span>
-                <input
-                  value={defaultMtrStation}
-                  onChange={(event) => setDefaultMtrStation(event.target.value)}
-                  placeholder="例如：九龍灣、金鐘、沙田"
-                  className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                />
               </label>
             </div>
 
@@ -905,10 +1192,38 @@ export default function MerchantEventImportPage() {
               </h2>
 
               <div className="mt-5 space-y-3">
-                <ValuePoint title="少做重複輸入" note="不用同一活動在不同平台重打一遍。" />
-                <ValuePoint title="更快上架" note="先建立草稿，再補資料及提交審批。" />
-                <ValuePoint title="自己維護內容" note="像 Shopify 一樣自己管理活動資料。" />
-                <ValuePoint title="有助曝光" note="活動審批後可在 HK Family Fun 搜尋頁展示。" />
+                <ValuePoint
+                  title="少做重複輸入"
+                  note="不用同一活動在不同平台重打一遍。"
+                />
+                <ValuePoint
+                  title="更快上架"
+                  note="先建立草稿，再補資料及提交審批。"
+                />
+                <ValuePoint
+                  title="自己維護內容"
+                  note="像 Shopify 一樣自己管理活動資料。"
+                />
+                <ValuePoint
+                  title="有助曝光"
+                  note="活動審批後可在 HK Family Fun 搜尋頁展示。"
+                />
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-black text-slate-950">
+                地點選項已標準化
+              </h2>
+
+              <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                <p>
+                  Area / District 已按 HK Family Fun 位置清單統一整理。選擇 Area
+                  後會自動帶出正確 District。
+                </p>
+                <p>
+                  例子：九龍灣 → 觀塘區；將軍澳 → 西貢區；中環 → 中西區。
+                </p>
               </div>
             </section>
 
