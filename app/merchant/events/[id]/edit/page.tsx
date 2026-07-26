@@ -29,11 +29,18 @@ function CoverCropModal({
 
   function startDrag(event: ReactPointerEvent<HTMLDivElement>) {
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // no-op
+    }
+
+    const nextZoom = cropDraft.zoom <= 1.02 ? 1.22 : cropDraft.zoom;
 
     setCropDraft((current) => ({
       ...current,
-      zoom: current.zoom <= 1.02 ? 1.18 : current.zoom,
+      zoom: current.zoom <= 1.02 ? 1.22 : current.zoom,
     }));
 
     dragRef.current = {
@@ -43,6 +50,11 @@ function CoverCropModal({
       startX: cropDraft.x,
       startY: cropDraft.y,
     };
+
+    if (nextZoom !== cropDraft.zoom) {
+      dragRef.current.startX = cropDraft.x;
+      dragRef.current.startY = cropDraft.y;
+    }
   }
 
   function moveDrag(event: ReactPointerEvent<HTMLDivElement>) {
@@ -51,7 +63,7 @@ function CoverCropModal({
     const deltaX = event.clientX - dragRef.current.startClientX;
     const deltaY = event.clientY - dragRef.current.startClientY;
 
-    const sensitivity = 0.18;
+    const sensitivity = 0.22;
 
     const nextX = clamp(
       dragRef.current.startX - deltaX * sensitivity,
@@ -69,7 +81,7 @@ function CoverCropModal({
       ...current,
       x: Math.round(nextX),
       y: Math.round(nextY),
-      zoom: current.zoom <= 1.02 ? 1.18 : current.zoom,
+      zoom: current.zoom <= 1.02 ? 1.22 : current.zoom,
     }));
   }
 
@@ -89,7 +101,7 @@ function CoverCropModal({
 
       return {
         ...current,
-        zoom: current.zoom <= 1.02 ? 1.18 : current.zoom,
+        zoom: current.zoom <= 1.02 ? 1.22 : current.zoom,
         x:
           direction === "left"
             ? clamp(current.x - step, 0, 100)
@@ -104,6 +116,13 @@ function CoverCropModal({
             : current.y,
       };
     });
+  }
+
+  function quickZoom(value: number) {
+    setCropDraft((current) => ({
+      ...current,
+      zoom: value,
+    }));
   }
 
   return (
@@ -128,7 +147,7 @@ function CoverCropModal({
           </button>
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[1fr_300px]">
+        <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[1fr_320px]">
           <div className="min-h-0 bg-slate-100 p-4 md:p-6">
             <div
               role="button"
@@ -205,7 +224,45 @@ function CoverCropModal({
             </div>
 
             <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-xs leading-5 text-blue-700">
-              建議先把 Zoom 調到 1.15x - 1.40x，圖片才有空間上下左右移動。
+              建議先把 Zoom 調到 1.20x - 1.50x，圖片才有空間上下左右移動。
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => quickZoom(1)}
+                className={`rounded-xl border px-3 py-2 text-xs font-bold ${
+                  cropDraft.zoom === 1
+                    ? "border-primary-400 bg-primary-50 text-primary-700"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                1.00x
+              </button>
+
+              <button
+                type="button"
+                onClick={() => quickZoom(1.25)}
+                className={`rounded-xl border px-3 py-2 text-xs font-bold ${
+                  cropDraft.zoom === 1.25
+                    ? "border-primary-400 bg-primary-50 text-primary-700"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                1.25x
+              </button>
+
+              <button
+                type="button"
+                onClick={() => quickZoom(1.5)}
+                className={`rounded-xl border px-3 py-2 text-xs font-bold ${
+                  cropDraft.zoom === 1.5
+                    ? "border-primary-400 bg-primary-50 text-primary-700"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                1.50x
+              </button>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
@@ -216,6 +273,7 @@ function CoverCropModal({
               >
                 ← 向左
               </button>
+
               <button
                 type="button"
                 onClick={() => nudge("right")}
@@ -223,6 +281,7 @@ function CoverCropModal({
               >
                 向右 →
               </button>
+
               <button
                 type="button"
                 onClick={() => nudge("up")}
@@ -230,6 +289,7 @@ function CoverCropModal({
               >
                 ↑ 向上
               </button>
+
               <button
                 type="button"
                 onClick={() => nudge("down")}
@@ -247,7 +307,7 @@ function CoverCropModal({
                   setCropDraft((current) => ({
                     ...current,
                     x: value,
-                    zoom: current.zoom <= 1.02 ? 1.18 : current.zoom,
+                    zoom: current.zoom <= 1.02 ? 1.22 : current.zoom,
                   }))
                 }
               />
@@ -259,7 +319,7 @@ function CoverCropModal({
                   setCropDraft((current) => ({
                     ...current,
                     y: value,
-                    zoom: current.zoom <= 1.02 ? 1.18 : current.zoom,
+                    zoom: current.zoom <= 1.02 ? 1.22 : current.zoom,
                   }))
                 }
               />
