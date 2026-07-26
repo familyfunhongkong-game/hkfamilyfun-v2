@@ -1,250 +1,196 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  AlertCircle,
   ArrowLeft,
   CalendarDays,
-  CheckCircle2,
-  ExternalLink,
-  FileText,
-  LogOut,
+  Loader2,
   MapPin,
-  ShieldCheck,
-  Tag,
   Ticket,
-  XCircle,
+  UserRound,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
-type ReviewEvent = {
+type PublicEventDetail = {
   id: string;
-  merchant_id: string | null;
   title_tc: string | null;
   short_description_tc: string | null;
   description_tc: string | null;
   organizer_name: string | null;
-  venue_name: string | null;
-  address: string | null;
-  district: string | null;
-  mtr_station: string | null;
+  category: string | null;
+  tags: string[] | null;
+
+  cover_image_url: string | null;
+  cover_image_focus_x: number | string | null;
+  cover_image_focus_y: number | string | null;
+  cover_image_zoom: number | string | null;
+  gallery_image_urls: string[] | null;
+
   start_date: string | null;
   end_date: string | null;
   start_time: string | null;
   end_time: string | null;
+
+  venue_name: string | null;
+  address: string | null;
+  district: string | null;
+  mtr_station: string | null;
+  google_map_url: string | null;
+
   price_type: string | null;
   price_min: number | null;
   price_max: number | null;
-  category: string | null;
-  tags: string[] | null;
-  cover_image_url: string | null;
+
   registration_required: boolean | null;
   registration_url: string | null;
-  is_sen_friendly: boolean | null;
-  is_indoor: boolean | null;
-  source_type: string | null;
-  source_url: string | null;
-  source_file_url: string | null;
-  ai_extraction_status: string | null;
-  ai_extracted_json: Record<string, unknown> | null;
-  status: string | null;
-  submitted_at: string | null;
-  approved_at: string | null;
-  rejected_at: string | null;
-  published_at: string | null;
-  admin_review_note: string | null;
-};
-
-type MerchantInfo = {
-  id: string;
-  business_name: string | null;
-  contact_name: string | null;
+  booking_method: string | null;
+  booking_note: string | null;
+  contact_phone: string | null;
+  contact_whatsapp: string | null;
   contact_email: string | null;
-  phone: string | null;
+
+  age_groups: string[] | null;
+  risk_level: string | null;
+  parent_requirement: string | null;
+  is_indoor: boolean | null;
+  is_outdoor: boolean | null;
+  is_water_activity: boolean | null;
+  is_physical_activity: boolean | null;
+  is_sen_friendly: boolean | null;
+  refund_policy: string | null;
+  reschedule_policy: string | null;
+  weather_policy: string | null;
+
   status: string | null;
 };
 
-const ADMIN_EMAILS = ["fionafung27@yahoo.com.hk", "info@hkfamilyfun.com"];
-
-const FALLBACK_COVER_IMAGE =
+const DEFAULT_COVER_IMAGE =
   "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1200&q=80";
 
-function getStatusLabel(status: string | null) {
-  switch (status) {
-    case "draft":
-      return "草稿";
-    case "submitted":
-      return "待審批";
-    case "rejected":
-      return "已退回";
-    case "published":
-      return "已發布";
-    case "archived":
-      return "已封存";
-    default:
-      return "未確認";
+function toNumber(value: number | string | null | undefined, fallback: number) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
   }
+
+  return fallback;
 }
 
-function getStatusClass(status: string | null) {
-  switch (status) {
-    case "submitted":
-      return "bg-blue-100 text-blue-700";
-    case "published":
-      return "bg-green-100 text-green-700";
-    case "rejected":
-      return "bg-red-100 text-red-700";
-    case "archived":
-      return "bg-slate-100 text-slate-600";
-    case "draft":
-    default:
-      return "bg-amber-100 text-amber-700";
-  }
+function getCoverImageStyle(event: PublicEventDetail): CSSProperties {
+  const focusX = toNumber(event.cover_image_focus_x, 50);
+  const focusY = toNumber(event.cover_image_focus_y, 50);
+  const zoom = Math.max(1, toNumber(event.cover_image_zoom, 1));
+
+  return {
+    objectPosition: `${focusX}% ${focusY}%`,
+    transform: `scale(${zoom})`,
+    transformOrigin: `${focusX}% ${focusY}%`,
+  };
 }
 
-function formatDateRange(event: ReviewEvent) {
-  if (!event.start_date && !event.end_date) return "日期待確認";
+function formatDate(event: PublicEventDetail) {
+  if (!event.start_date) return "日期待確認";
 
-  const start = event.start_date || "";
-  const end = event.end_date || "";
+  const end =
+    event.end_date && event.end_date !== event.start_date
+      ? ` 至 ${event.end_date}`
+      : "";
 
-  if (start && end && start !== end) return `${start} 至 ${end}`;
-  return start || end || "日期待確認";
+  return `${event.start_date}${end}`;
 }
 
-function formatTimeRange(event: ReviewEvent) {
+function formatTime(event: PublicEventDetail) {
   if (!event.start_time && !event.end_time) return "時間待確認";
 
-  const start = event.start_time ? event.start_time.slice(0, 5) : "";
-  const end = event.end_time ? event.end_time.slice(0, 5) : "";
+  if (event.start_time && event.end_time) {
+    return `${event.start_time} - ${event.end_time}`;
+  }
 
-  if (start && end) return `${start} - ${end}`;
-  return start || end || "時間待確認";
+  return event.start_time || event.end_time || "時間待確認";
 }
 
-function formatPrice(event: ReviewEvent) {
+function formatPrice(event: PublicEventDetail) {
   if (event.price_type === "free") return "免費";
-  if (!event.price_type || event.price_type === "unknown") return "收費待確認";
 
-  const min = Number(event.price_min || 0);
-  const max = Number(event.price_max || 0);
+  if (event.price_type === "paid") {
+    if (event.price_min !== null && event.price_max !== null) {
+      return `HK$${event.price_min} - HK$${event.price_max}`;
+    }
 
-  if (min === 0 && max === 0) return "收費待確認";
-  if (min === max) return `HK$${min}`;
-  return `HK$${min} - HK$${max}`;
+    if (event.price_min !== null) return `HK$${event.price_min} 起`;
+    if (event.price_max !== null) return `最高 HK$${event.price_max}`;
+
+    return "收費";
+  }
+
+  if (event.price_type === "mixed") {
+    if (event.price_min !== null || event.price_max !== null) {
+      return `免費及收費 HK$${event.price_min ?? 0} - HK$${event.price_max ?? "待確認"}`;
+    }
+
+    return "免費及收費";
+  }
+
+  return "收費待確認";
 }
 
-function getMissingFields(event: ReviewEvent) {
-  const missing: string[] = [];
-
-  if (!event.title_tc?.trim()) missing.push("活動名稱");
-  if (!event.short_description_tc?.trim()) missing.push("活動簡介");
-  if (!event.description_tc?.trim()) missing.push("活動詳情");
-  if (!event.start_date) missing.push("開始日期");
-  if (!event.venue_name?.trim() || event.venue_name.includes("待")) {
-    missing.push("場地名稱");
-  }
-  if (!event.district?.trim() || event.district.includes("待")) {
-    missing.push("地區");
-  }
-  if (!event.price_type || event.price_type === "unknown") {
-    missing.push("收費資料");
-  }
-
-  return missing;
+function getBookingLabel(event: PublicEventDetail) {
+  if (event.booking_method === "external") return "外部連結報名";
+  if (event.booking_method === "platform") return "本平台報名";
+  if (event.booking_method === "contact") return "聯絡商戶報名";
+  if (event.registration_required) return "需要預先報名";
+  return "無需報名";
 }
 
-export default function AdminEventDetailPage() {
-  const router = useRouter();
+function getParentRequirementLabel(value: string | null) {
+  if (value === "parent_required") return "必須家長陪同";
+  if (value === "parent_optional") return "建議家長陪同";
+  if (value === "drop_off_allowed") return "可獨立參加 / Drop-off";
+  return "未指定";
+}
+
+function getRiskLabel(value: string | null) {
+  if (value === "medium") return "中風險";
+  if (value === "high") return "高風險";
+  return "低風險";
+}
+
+export default function PublicEventDetailPage() {
   const params = useParams();
-  const eventId = String(params.id || "");
+  const router = useRouter();
 
-  const [adminEmail, setAdminEmail] = useState("");
-  const [event, setEvent] = useState<ReviewEvent | null>(null);
-  const [merchant, setMerchant] = useState<MerchantInfo | null>(null);
-  const [rejectReason, setRejectReason] = useState(
-    "請補充活動日期、地點、收費或報名資料。"
-  );
+  const eventId = typeof params?.id === "string" ? params.id : "";
+
+  const [event, setEvent] = useState<PublicEventDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    loadEvent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
 
   async function loadEvent() {
     setIsLoading(true);
     setErrorMessage("");
-    setSuccessMessage("");
 
     try {
       if (!supabase) {
-        setErrorMessage(
-          "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
-        );
+        setErrorMessage("Supabase client 未能初始化。");
         setIsLoading(false);
         return;
       }
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user?.email) {
-        router.replace("/merchant/login");
-        return;
-      }
-
-      if (!ADMIN_EMAILS.includes(user.email)) {
-        setErrorMessage("你沒有權限查看 Admin 活動詳情。");
-        setIsLoading(false);
-        return;
-      }
-
-      setAdminEmail(user.email);
 
       const { data, error } = await supabase
         .from("events")
-        .select(
-          [
-            "id",
-            "merchant_id",
-            "title_tc",
-            "short_description_tc",
-            "description_tc",
-            "organizer_name",
-            "venue_name",
-            "address",
-            "district",
-            "mtr_station",
-            "start_date",
-            "end_date",
-            "start_time",
-            "end_time",
-            "price_type",
-            "price_min",
-            "price_max",
-            "category",
-            "tags",
-            "cover_image_url",
-            "registration_required",
-            "registration_url",
-            "is_sen_friendly",
-            "is_indoor",
-            "source_type",
-            "source_url",
-            "source_file_url",
-            "ai_extraction_status",
-            "ai_extracted_json",
-            "status",
-            "submitted_at",
-            "approved_at",
-            "rejected_at",
-            "published_at",
-            "admin_review_note",
-          ].join(", ")
-        )
+        .select("*")
         .eq("id", eventId)
+        .eq("status", "published")
         .maybeSingle();
 
       if (error) {
@@ -254,176 +200,29 @@ export default function AdminEventDetailPage() {
       }
 
       if (!data) {
-        setErrorMessage("找不到活動資料。");
+        setErrorMessage("找不到活動，或活動尚未公開。");
         setIsLoading(false);
         return;
       }
 
-      const loadedEvent = data as unknown as ReviewEvent;
-      setEvent(loadedEvent);
-
-      if (loadedEvent.admin_review_note) {
-        setRejectReason(loadedEvent.admin_review_note);
-      }
-
-      if (loadedEvent.merchant_id) {
-        const { data: merchantData } = await supabase
-          .from("merchants")
-          .select("id, business_name, contact_name, contact_email, phone, status")
-          .eq("id", loadedEvent.merchant_id)
-          .maybeSingle();
-
-        setMerchant((merchantData || null) as MerchantInfo | null);
-      }
-
+      setEvent(data as PublicEventDetail);
       setIsLoading(false);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "載入活動詳情時發生未知錯誤。"
+        error instanceof Error ? error.message : "載入活動詳情時發生未知錯誤。"
       );
       setIsLoading(false);
     }
-  }
-
-  useEffect(() => {
-    loadEvent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
-
-  const missingFields = useMemo(() => {
-    if (!event) return [];
-    return getMissingFields(event);
-  }, [event]);
-
-  async function approveEvent() {
-    if (!event) return;
-
-    if (missingFields.length > 0) {
-      setErrorMessage(
-        `不可批准。請先退回商戶補充：${missingFields.join("、")}`
-      );
-      return;
-    }
-
-    setIsUpdating(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      if (!supabase) {
-        setErrorMessage(
-          "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
-        );
-        setIsUpdating(false);
-        return;
-      }
-
-      const now = new Date().toISOString();
-
-      const { error } = await supabase
-        .from("events")
-        .update({
-          status: "published",
-          approved_at: now,
-          published_at: now,
-          admin_review_note: null,
-          updated_at: now,
-        })
-        .eq("id", event.id);
-
-      if (error) {
-        setErrorMessage(error.message);
-        setIsUpdating(false);
-        return;
-      }
-
-      setEvent({
-        ...event,
-        status: "published",
-        approved_at: now,
-        published_at: now,
-        admin_review_note: null,
-      });
-      setSuccessMessage("活動已批准並公開發布。");
-      setIsUpdating(false);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "批准活動時發生未知錯誤。"
-      );
-      setIsUpdating(false);
-    }
-  }
-
-  async function rejectEvent() {
-    if (!event) return;
-
-    const cleanReason = rejectReason.trim();
-
-    if (!cleanReason) {
-      setErrorMessage("請先輸入退回原因。");
-      return;
-    }
-
-    setIsUpdating(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      if (!supabase) {
-        setErrorMessage(
-          "Supabase client 未能初始化。請檢查 .env.local 的 Supabase 設定。"
-        );
-        setIsUpdating(false);
-        return;
-      }
-
-      const now = new Date().toISOString();
-
-      const { error } = await supabase
-        .from("events")
-        .update({
-          status: "rejected",
-          rejected_at: now,
-          admin_review_note: cleanReason,
-          updated_at: now,
-        })
-        .eq("id", event.id);
-
-      if (error) {
-        setErrorMessage(error.message);
-        setIsUpdating(false);
-        return;
-      }
-
-      setEvent({
-        ...event,
-        status: "rejected",
-        rejected_at: now,
-        admin_review_note: cleanReason,
-      });
-      setSuccessMessage("活動已退回商戶修改。");
-      setIsUpdating(false);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "退回活動時發生未知錯誤。"
-      );
-      setIsUpdating(false);
-    }
-  }
-
-  async function signOut() {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    router.replace("/merchant/login");
   }
 
   if (isLoading) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-5xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <p className="text-sm text-slate-600">正在載入活動審批詳情...</p>
+          <div className="flex items-center gap-3 text-sm text-slate-600">
+            <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
+            正在載入活動詳情...
+          </div>
         </div>
       </main>
     );
@@ -432,303 +231,237 @@ export default function AdminEventDetailPage() {
   if (!event) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-5xl rounded-3xl border border-red-200 bg-red-50 p-8">
-          <h1 className="text-xl font-bold text-red-900">載入失敗</h1>
-          <p className="mt-2 text-sm text-red-700">
-            {errorMessage || "找不到活動資料。"}
-          </p>
-          <button
-            type="button"
-            onClick={() => router.push("/admin/events")}
-            className="mt-5 rounded-xl border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-          >
-            返回 Admin 活動列表
-          </button>
+        <div className="mx-auto max-w-5xl rounded-3xl border border-red-200 bg-red-50 p-8 text-red-700">
+          {errorMessage || "未能載入活動。"}
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => router.push("/events")}
+              className="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-red-700"
+            >
+              返回活動列表
+            </button>
+          </div>
         </div>
       </main>
     );
   }
 
-  const canApprove = event.status === "submitted" && missingFields.length === 0;
-  const canReject = event.status === "submitted" || event.status === "rejected";
+  const coverUrl = event.cover_image_url || DEFAULT_COVER_IMAGE;
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-4 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => router.push("/admin/events")}
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            返回 Admin 活動列表
-          </button>
+      <div className="mx-auto max-w-6xl space-y-6">
+        <Link
+          href="/events"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-950"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          返回活動列表
+        </Link>
 
-          <button
-            type="button"
-            onClick={signOut}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <LogOut className="h-4 w-4" />
-            登出
-          </button>
-        </div>
+        <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+          <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={coverUrl}
+              alt={event.title_tc || "Event cover"}
+              className="h-full w-full select-none object-cover"
+              style={getCoverImageStyle(event)}
+            />
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p className="flex items-center gap-2 text-sm font-semibold text-primary-600">
-                <ShieldCheck className="h-4 w-4" />
-                HK Family Fun Admin Review
-              </p>
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-transparent to-transparent" />
 
-              <h1 className="mt-2 text-3xl font-bold text-slate-950">
-                {event.title_tc || "未命名活動"}
+            <div className="absolute bottom-6 left-6 right-6 text-white">
+              <span className="rounded-full bg-white/90 px-4 py-2 text-xs font-black text-primary-600">
+                {event.category || "親子活動"}
+              </span>
+
+              <h1 className="mt-4 max-w-4xl text-3xl font-black leading-tight md:text-5xl">
+                {event.title_tc || "活動標題待確認"}
               </h1>
 
-              <p className="mt-2 text-sm text-slate-600">
-                Admin：{adminEmail || "未確認"}
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-white/90 md:text-base">
+                {event.short_description_tc || "活動簡介待確認。"}
               </p>
             </div>
-
-            <span
-              className={`rounded-full px-4 py-2 text-sm font-semibold ${getStatusClass(
-                event.status
-              )}`}
-            >
-              {getStatusLabel(event.status)}
-            </span>
           </div>
 
-          {successMessage ? (
-            <div className="mt-5 flex gap-2 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{successMessage}</span>
-            </div>
-          ) : null}
-
-          {errorMessage ? (
-            <div className="mt-5 flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          ) : null}
-
-          {missingFields.length > 0 ? (
-            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              <strong>不可直接批准，仍欠：</strong>
-              {missingFields.join("、")}
-            </div>
-          ) : (
-            <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-              基本資料完整，可以批准發布。
-            </div>
-          )}
-        </section>
-
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          <section className="lg:col-span-2 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="overflow-hidden rounded-3xl border border-slate-200">
-              <div className="relative h-72 bg-slate-100">
-                <img
-                  src={event.cover_image_url || FALLBACK_COVER_IMAGE}
-                  alt={event.title_tc || "Event cover"}
-                  className="h-full w-full object-cover"
-                />
-
-                <div className="absolute left-4 top-4 rounded-full bg-white px-3 py-1 text-xs font-semibold text-primary-600 shadow-sm">
-                  {event.category || "親子活動"}
-                </div>
-              </div>
-
-              <div className="p-5">
-                <h2 className="text-2xl font-bold text-slate-950">
-                  {event.title_tc || "未命名活動"}
-                </h2>
-
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  {event.short_description_tc || "未有活動簡介。"}
+          <div className="grid gap-0 lg:grid-cols-[1fr_380px]">
+            <article className="p-6 md:p-8">
+              <section className="rounded-3xl bg-slate-50 p-6">
+                <h2 className="text-xl font-black text-slate-950">活動詳情</h2>
+                <p className="mt-4 whitespace-pre-line text-sm leading-8 text-slate-700">
+                  {event.description_tc || event.short_description_tc || "活動詳情待確認。"}
                 </p>
+              </section>
 
-                <div className="mt-6 rounded-2xl bg-slate-50 p-5">
-                  <h3 className="font-bold text-slate-950">活動詳情</h3>
-                  <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">
-                    {event.description_tc || "未有活動詳情。"}
-                  </p>
-                </div>
+              {event.gallery_image_urls?.length ? (
+                <section className="mt-6">
+                  <h2 className="text-xl font-black text-slate-950">活動圖片</h2>
 
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  <InfoItem
-                    icon={<CalendarDays className="h-4 w-4" />}
-                    label="日期及時間"
-                    value={`${formatDateRange(event)} · ${formatTimeRange(
-                      event
-                    )}`}
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    {event.gallery_image_urls.slice(0, 7).map((url) => (
+                      <div
+                        key={url}
+                        className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt="Event gallery"
+                          className="h-56 w-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6">
+                <h2 className="text-xl font-black text-slate-950">安全及政策</h2>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <DetailBox label="適合年齡" value={(event.age_groups || []).join("、") || "未指定"} />
+                  <DetailBox label="風險等級" value={getRiskLabel(event.risk_level)} />
+                  <DetailBox label="家長陪同" value={getParentRequirementLabel(event.parent_requirement)} />
+                  <DetailBox
+                    label="活動屬性"
+                    value={[
+                      event.is_indoor ? "室內" : null,
+                      event.is_outdoor ? "戶外" : null,
+                      event.is_water_activity ? "水上活動" : null,
+                      event.is_physical_activity ? "體能活動" : null,
+                      event.is_sen_friendly ? "SEN 友善" : null,
+                    ]
+                      .filter(Boolean)
+                      .join("、") || "未指定"}
                   />
-
-                  <InfoItem
-                    icon={<MapPin className="h-4 w-4" />}
-                    label="地點"
-                    value={`${event.venue_name || "場地待確認"} · ${
-                      event.district || "地區待確認"
-                    } · ${event.mtr_station || "港鐵站待確認"}`}
-                  />
-
-                  <InfoItem
-                    icon={<Ticket className="h-4 w-4" />}
-                    label="收費"
-                    value={formatPrice(event)}
-                  />
-
-                  <InfoItem
-                    icon={<Tag className="h-4 w-4" />}
-                    label="主辦單位"
-                    value={event.organizer_name || "待確認"}
-                  />
                 </div>
 
-                {event.address ? (
-                  <div className="mt-4 rounded-2xl border border-slate-200 p-4 text-sm text-slate-700">
-                    <div className="font-semibold text-slate-950">地址</div>
-                    <div className="mt-1">{event.address}</div>
-                  </div>
-                ) : null}
+                <div className="mt-5 space-y-4">
+                  {event.refund_policy ? (
+                    <PolicyBlock title="退款政策" text={event.refund_policy} />
+                  ) : null}
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {(event.tags || ["親子活動"]).map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
+                  {event.reschedule_policy ? (
+                    <PolicyBlock title="改期 / 取消政策" text={event.reschedule_policy} />
+                  ) : null}
+
+                  {event.weather_policy ? (
+                    <PolicyBlock title="天氣政策" text={event.weather_policy} />
+                  ) : null}
                 </div>
-              </div>
-            </div>
-          </section>
+              </section>
+            </article>
 
-          <aside className="space-y-6">
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-950">商戶資料</h2>
+            <aside className="border-t border-slate-200 bg-slate-50 p-6 lg:border-l lg:border-t-0 md:p-8">
+              <div className="sticky top-6 space-y-5">
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h2 className="text-lg font-black text-slate-950">活動資料</h2>
 
-              <div className="mt-4 space-y-3 text-sm text-slate-700">
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    Business
+                  <div className="mt-5 space-y-4">
+                    <SidebarLine
+                      icon={<CalendarDays className="h-4 w-4" />}
+                      label="日期及時間"
+                      value={`${formatDate(event)}・${formatTime(event)}`}
+                    />
+
+                    <SidebarLine
+                      icon={<MapPin className="h-4 w-4" />}
+                      label="地點"
+                      value={`${event.venue_name || "地點待確認"}・${event.district || "地區待確認"}・${event.mtr_station || "港鐵站待確認"}`}
+                    />
+
+                    {event.address ? (
+                      <SidebarLine
+                        icon={<MapPin className="h-4 w-4" />}
+                        label="詳細地址"
+                        value={event.address}
+                      />
+                    ) : null}
+
+                    <SidebarLine
+                      icon={<Ticket className="h-4 w-4" />}
+                      label="收費"
+                      value={formatPrice(event)}
+                    />
+
+                    <SidebarLine
+                      icon={<UserRound className="h-4 w-4" />}
+                      label="主辦單位"
+                      value={event.organizer_name || "主辦單位待確認"}
+                    />
                   </div>
-                  <div className="font-semibold text-slate-950">
-                    {merchant?.business_name || "未有商戶名稱"}
-                  </div>
-                </div>
+                </section>
 
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    Contact
-                  </div>
-                  <div>{merchant?.contact_name || "未有聯絡人"}</div>
-                </div>
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h2 className="text-lg font-black text-slate-950">報名方式</h2>
 
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    Email
-                  </div>
-                  <div>{merchant?.contact_email || "未有 email"}</div>
-                </div>
-
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    Merchant Status
-                  </div>
-                  <div>{merchant?.status || "未確認"}</div>
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-slate-950">
-                <FileText className="h-5 w-5 text-primary-500" />
-                來源資料
-              </h2>
-
-              <div className="mt-4 space-y-3 text-sm text-slate-700">
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    匯入方式
-                  </div>
-                  <div>{event.source_type || "manual"}</div>
-                </div>
-
-                {event.source_url ? (
-                  <div>
-                    <div className="text-xs font-semibold text-slate-500">
-                      來源連結
+                  <div className="mt-4 text-sm leading-7 text-slate-700">
+                    <div className="font-black text-slate-950">
+                      {getBookingLabel(event)}
                     </div>
-                    <a
-                      href={event.source_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 break-all text-primary-600 hover:text-primary-700"
-                    >
-                      {event.source_url}
-                      <ExternalLink className="h-3 w-3 shrink-0" />
-                    </a>
+
+                    {event.booking_note ? (
+                      <p className="mt-2">{event.booking_note}</p>
+                    ) : null}
+
+                    {event.registration_url ? (
+                      <a
+                        href={event.registration_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-primary-500 px-5 py-3 text-sm font-black text-white hover:bg-primary-600"
+                      >
+                        前往報名
+                      </a>
+                    ) : null}
+
+                    {!event.registration_url && event.registration_required ? (
+                      <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                        此活動需要報名，但報名連結暫未提供。請向主辦單位查詢。
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
+                </section>
 
-                {event.source_file_url ? (
-                  <div>
-                    <div className="text-xs font-semibold text-slate-500">
-                      來源檔案
-                    </div>
-                    <div>{event.source_file_url}</div>
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h2 className="text-lg font-black text-slate-950">標籤</h2>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {(event.tags || []).map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-primary-50 px-3 py-1 text-xs font-bold text-primary-600"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+
+                    {event.is_indoor ? (
+                      <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-600">
+                        室內
+                      </span>
+                    ) : null}
+
+                    {event.is_sen_friendly ? (
+                      <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600">
+                        SEN 友善
+                      </span>
+                    ) : null}
                   </div>
-                ) : null}
+                </section>
               </div>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-950">審批操作</h2>
-
-              <div className="mt-4 space-y-3">
-                <button
-                  type="button"
-                  onClick={approveEvent}
-                  disabled={!canApprove || isUpdating}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  {isUpdating ? "處理中..." : "Approve and Publish"}
-                </button>
-
-                <textarea
-                  value={rejectReason}
-                  onChange={(event) => setRejectReason(event.target.value)}
-                  rows={4}
-                  className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                  placeholder="輸入退回原因，商戶會看到此訊息。"
-                />
-
-                <button
-                  type="button"
-                  onClick={rejectEvent}
-                  disabled={!canReject || isUpdating}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  <XCircle className="h-4 w-4" />
-                  {isUpdating ? "處理中..." : "Reject with Reason"}
-                </button>
-              </div>
-            </section>
-          </aside>
-        </div>
+            </aside>
+          </div>
+        </section>
       </div>
     </main>
   );
 }
 
-function InfoItem({
+function SidebarLine({
   icon,
   label,
   value,
@@ -738,12 +471,36 @@ function InfoItem({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 p-4 text-sm">
-      <div className="flex items-center gap-2 font-semibold text-slate-950">
-        <span className="text-primary-500">{icon}</span>
-        {label}
+    <div className="flex gap-3">
+      <div className="mt-0.5 text-primary-500">{icon}</div>
+      <div>
+        <div className="text-xs font-black text-slate-500">{label}</div>
+        <div className="mt-1 text-sm font-semibold leading-6 text-slate-800">
+          {value}
+        </div>
       </div>
-      <div className="mt-2 text-slate-600">{value}</div>
+    </div>
+  );
+}
+
+function DetailBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="text-xs font-black text-slate-500">{label}</div>
+      <div className="mt-2 text-sm font-semibold leading-6 text-slate-800">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function PolicyBlock({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="text-sm font-black text-slate-950">{title}</div>
+      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600">
+        {text}
+      </p>
     </div>
   );
 }
