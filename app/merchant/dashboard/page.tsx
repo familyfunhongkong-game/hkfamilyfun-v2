@@ -2,20 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AlertCircle,
-  封存,
-  CheckCircle2,
-  Copy,
-  編輯3,
-  ExternalLink,
-  Eye,
-  Loader2,
-  LogOut,
-  Plus,
-  RefreshCcw,
-  Send,
-} from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
 type MerchantProfile = {
@@ -112,7 +98,7 @@ function getSafeDescription(event: MerchantEvent) {
   return event.short_description_tc?.trim() || "尚未加入活動簡介。";
 }
 
-function isActionDisabled(status: EventStatus | null | undefined) {
+function isArchived(status: EventStatus | null | undefined) {
   return status === "archived";
 }
 
@@ -156,11 +142,8 @@ export default function MerchantDashboardPage() {
       return;
     }
 
-    if (isManualRefresh) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
+    if (isManualRefresh) setIsRefreshing(true);
+    else setIsLoading(true);
 
     setErrorMessage("");
     setSuccessMessage("");
@@ -216,7 +199,7 @@ export default function MerchantDashboardPage() {
       setIsLoading(false);
       setIsRefreshing(false);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "載入 商戶管理頁 時發生未知錯誤。");
+      setErrorMessage(error instanceof Error ? error.message : "載入商戶管理頁時發生未知錯誤。");
       setIsLoading(false);
       setIsRefreshing(false);
     }
@@ -338,7 +321,7 @@ export default function MerchantDashboardPage() {
   async function archiveEvent(eventId: string) {
     if (!supabase) return;
 
-    const confirmed = window.confirm("是否封存此活動？封存後不會在一般管理列表優先顯示。");
+    const confirmed = window.confirm("是否封存此活動？封存後不會在公開頁顯示。");
     if (!confirmed) return;
 
     setWorkingEventId(eventId);
@@ -369,7 +352,7 @@ export default function MerchantDashboardPage() {
     }
   }
 
-  async function restore封存dEvent(eventId: string) {
+  async function restoreArchivedEvent(eventId: string) {
     if (!supabase) return;
 
     setWorkingEventId(eventId);
@@ -405,8 +388,8 @@ export default function MerchantDashboardPage() {
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-6xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="flex items-center gap-3 text-sm text-slate-600">
-            <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
-            正在載入 商戶管理頁...
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+            正在載入商戶管理頁...
           </div>
         </div>
       </main>
@@ -447,8 +430,7 @@ export default function MerchantDashboardPage() {
                 disabled={isRefreshing}
                 className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-                重新整理
+                {isRefreshing ? "重新整理中..." : "重新整理"}
               </button>
 
               <button
@@ -456,7 +438,6 @@ export default function MerchantDashboardPage() {
                 onClick={signOut}
                 className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
               >
-                <LogOut className="h-4 w-4" />
                 登出
               </button>
             </div>
@@ -470,36 +451,29 @@ export default function MerchantDashboardPage() {
               : "border-amber-200 bg-amber-50 text-amber-800"
           }`}
         >
-          <div className="flex gap-3">
-            {merchantApproved ? <CheckCircle2 className="mt-0.5 h-5 w-5" /> : <AlertCircle className="mt-0.5 h-5 w-5" />}
-            <div>
-              <div className="font-black">{getMerchantStatusLabel(merchant.status)}</div>
-              <p className="mt-1 text-sm leading-6">
-                {merchantApproved
-                  ? "你可以匯入活動資料、建立草稿、預覽活動卡、補充資料，然後提交 HK Family Fun 審批。"
-                  : "帳戶仍在審批中。你仍可以準備活動草稿，但正式發布前需要 HK Family Fun 批核。"}
-              </p>
+          <div className="font-black">{getMerchantStatusLabel(merchant.status)}</div>
+          <p className="mt-1 text-sm leading-6">
+            {merchantApproved
+              ? "你可以匯入活動資料、建立草稿、預覽活動卡、補充資料，然後提交 HK Family Fun 審批。"
+              : "帳戶仍在審批中。你仍可以準備活動草稿，但正式發布前需要 HK Family Fun 批核。"}
+          </p>
 
-              {merchant.rejection_reason ? (
-                <p className="mt-2 rounded-2xl bg-white/70 p-3 text-sm">
-                  待修改原因：{merchant.rejection_reason}
-                </p>
-              ) : null}
-            </div>
-          </div>
+          {merchant.rejection_reason ? (
+            <p className="mt-2 rounded-2xl bg-white/70 p-3 text-sm">
+              待修改原因：{merchant.rejection_reason}
+            </p>
+          ) : null}
         </section>
 
         {errorMessage ? (
-          <section className="flex gap-2 rounded-3xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{errorMessage}</span>
+          <section className="rounded-3xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+            {errorMessage}
           </section>
         ) : null}
 
         {successMessage ? (
-          <section className="flex gap-2 rounded-3xl border border-green-200 bg-green-50 p-5 text-sm text-green-700">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{successMessage}</span>
+          <section className="rounded-3xl border border-green-200 bg-green-50 p-5 text-sm text-green-700">
+            {successMessage}
           </section>
         ) : null}
 
@@ -551,7 +525,7 @@ export default function MerchantDashboardPage() {
             <div>
               <h2 className="text-2xl font-black text-slate-950">活動管理</h2>
               <p className="mt-1 text-sm text-slate-500">
-                每個活動都可以 預覽、編輯、提交、複製 或 封存。
+                每個活動都可以預覽、編輯、提交、複製或封存。
               </p>
             </div>
 
@@ -560,8 +534,7 @@ export default function MerchantDashboardPage() {
               onClick={() => router.push("/merchant/events/import")}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-3 text-sm font-black text-white hover:bg-primary-600"
             >
-              <Plus className="h-4 w-4" />
-              匯入活動資料
+              ＋ 匯入活動資料
             </button>
           </div>
 
@@ -576,7 +549,6 @@ export default function MerchantDashboardPage() {
                 onClick={() => router.push("/merchant/events/import")}
                 className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-3 text-sm font-black text-white hover:bg-primary-600"
               >
-                <Plus className="h-4 w-4" />
                 建立第一個活動
               </button>
             </div>
@@ -592,9 +564,9 @@ export default function MerchantDashboardPage() {
               <div className="divide-y divide-slate-200">
                 {filteredEvents.map((event) => {
                   const working = workingEventId === event.id;
-                  const archived = isActionDisabled(event.status);
+                  const archived = isArchived(event.status);
                   const published = event.status === "published";
-                  const can提交 = event.status === "draft" || event.status === "rejected";
+                  const canSubmit = event.status === "draft" || event.status === "rejected";
 
                   return (
                     <div key={event.id} className="grid gap-4 px-5 py-5 lg:grid-cols-[1fr_130px_130px_250px] lg:items-center">
@@ -634,24 +606,15 @@ export default function MerchantDashboardPage() {
                       </div>
 
                       <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                        <ActionButton
-                          label="預覽"
-                          icon={<Eye className="h-3.5 w-3.5" />}
-                          onClick={() => router.push(`/merchant/events/${event.id}/preview`)}
-                        />
+                        <ActionButton label="預覽" onClick={() => router.push(`/merchant/events/${event.id}/preview`)} />
 
                         {!archived ? (
-                          <ActionButton
-                            label="編輯"
-                            icon={<編輯3 className="h-3.5 w-3.5" />}
-                            onClick={() => router.push(`/merchant/events/${event.id}/edit`)}
-                          />
+                          <ActionButton label="編輯" onClick={() => router.push(`/merchant/events/${event.id}/edit`)} />
                         ) : null}
 
-                        {can提交 ? (
+                        {canSubmit ? (
                           <ActionButton
                             label={event.status === "rejected" ? "重新提交" : "提交"}
-                            icon={working ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                             onClick={() => submitEvent(event.id)}
                             disabled={working}
                             primary
@@ -659,35 +622,15 @@ export default function MerchantDashboardPage() {
                         ) : null}
 
                         {published ? (
-                          <ActionButton
-                            label="查看公開頁"
-                            icon={<ExternalLink className="h-3.5 w-3.5" />}
-                            onClick={() => router.push(`/events/${event.id}`)}
-                          />
+                          <ActionButton label="查看公開頁" onClick={() => router.push(`/events/${event.id}`)} />
                         ) : null}
 
-                        <ActionButton
-                          label="複製"
-                          icon={working ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
-                          onClick={() => duplicateEvent(event.id)}
-                          disabled={working}
-                        />
+                        <ActionButton label="複製" onClick={() => duplicateEvent(event.id)} disabled={working} />
 
                         {archived ? (
-                          <ActionButton
-                            label="還原"
-                            icon={working ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="h-3.5 w-3.5" />}
-                            onClick={() => restore封存dEvent(event.id)}
-                            disabled={working}
-                          />
+                          <ActionButton label="還原" onClick={() => restoreArchivedEvent(event.id)} disabled={working} />
                         ) : (
-                          <ActionButton
-                            label="封存"
-                            icon={working ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <封存 className="h-3.5 w-3.5" />}
-                            onClick={() => archiveEvent(event.id)}
-                            disabled={working}
-                            danger
-                          />
+                          <ActionButton label="封存" onClick={() => archiveEvent(event.id)} disabled={working} danger />
                         )}
                       </div>
                     </div>
@@ -701,7 +644,7 @@ export default function MerchantDashboardPage() {
         <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-black text-slate-950">建議商戶流程</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            1. 匯入活動資料 → 2. 編輯 補齊資料及圖片 → 3. 預覽 檢查 → 4. 提交 / 重新提交 → 5. HK Family Fun 審批及發布。
+            1. 匯入活動資料 → 2. 編輯及補齊資料圖片 → 3. 預覽檢查 → 4. 提交 / 重新提交 → 5. HK Family Fun 審批及發布。
           </p>
         </section>
       </div>
@@ -729,14 +672,12 @@ function StatCard({
 
 function ActionButton({
   label,
-  icon,
   onClick,
   disabled,
   primary,
   danger,
 }: {
   label: string;
-  icon: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
   primary?: boolean;
@@ -747,7 +688,7 @@ function ActionButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
         primary
           ? "border-primary-500 bg-primary-500 text-white hover:bg-primary-600"
           : danger
@@ -755,8 +696,7 @@ function ActionButton({
           : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
       }`}
     >
-      {icon}
-      {label}
+      {disabled ? "處理中..." : label}
     </button>
   );
 }
