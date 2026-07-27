@@ -253,9 +253,9 @@ function getRegistrationState(event: PublicEvent): RegistrationState {
 
   if (bookingMethod === "contact") return "contact_required";
 
-  if (bookingMethod === "platform" && !registrationUrl) return "platform_coming";
+  if (bookingMethod === "platform" && !actionUrl) return "platform_coming";
 
-  if (event.registration_required && !registrationUrl) return "contact_required";
+  if (event.registration_required && !actionUrl) return "contact_required";
 
   if (bookingMethod === "none" || event.registration_required === false) return "no_registration";
 
@@ -653,3 +653,4 @@ function ContactLine({ title, value }: { title: string; value: string }) {
     </div>
   );
 }
+
