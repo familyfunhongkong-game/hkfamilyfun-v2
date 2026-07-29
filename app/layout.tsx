@@ -3,10 +3,55 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HK Family Fun｜香港親子活動搜尋平台",
+  title: "HK Family Fun｜香港親子活動平台",
   description:
-    "HK Family Fun 是香港親子活動搜尋平台，幫助家長搜尋今日活動、活動日曆、附近活動、免費活動、SEN 友善活動及商戶活動資訊。",
+    "HK Family Fun 是香港親子活動平台，幫助家長搜尋今日活動、活動日曆、附近活動、免費活動、SEN 友善活動及商戶活動資訊。",
 };
+
+const parentLinks = [
+  {
+    href: "/",
+    label: "首頁",
+    icon: "🏠",
+    hoverClass: "hover:bg-blue-50 hover:text-blue-700",
+  },
+  {
+    href: "/calendar",
+    label: "活動日曆",
+    icon: "🗓️",
+    hoverClass: "hover:bg-blue-50 hover:text-blue-700",
+  },
+  {
+    href: "/today",
+    label: "今日活動",
+    icon: "⏰",
+    hoverClass: "hover:bg-pink-50 hover:text-pink-700",
+  },
+  {
+    href: "/events",
+    label: "搜尋活動",
+    icon: "🔎",
+    hoverClass: "hover:bg-purple-50 hover:text-purple-700",
+  },
+  {
+    href: "/events/map",
+    label: "附近活動地圖",
+    icon: "🗺️",
+    hoverClass: "hover:bg-teal-50 hover:text-teal-700",
+  },
+  {
+    href: "/tips",
+    label: "報料區",
+    icon: "💬",
+    hoverClass: "hover:bg-violet-50 hover:text-violet-700",
+  },
+  {
+    href: "/favorites",
+    label: "收藏",
+    icon: "💖",
+    hoverClass: "hover:bg-rose-50 hover:text-rose-700",
+  },
+];
 
 function SiteHeader() {
   return (
@@ -21,60 +66,22 @@ function SiteHeader() {
               HK Family Fun
             </span>
             <span className="block text-xs text-slate-500">
-              香港親子活動搜尋平台
+              香港親子活動平台
             </span>
           </span>
         </Link>
 
         <nav className="flex flex-wrap items-center gap-1 text-sm font-bold text-slate-600">
-          <Link
-            href="/"
-            className="rounded-2xl px-3 py-2 hover:bg-blue-50 hover:text-blue-700"
-          >
-            🏠 首頁
-          </Link>
-
-          <Link
-            href="/events?view=calendar"
-            className="rounded-2xl px-3 py-2 hover:bg-blue-50 hover:text-blue-700"
-          >
-            🗓️ 活動日曆
-          </Link>
-
-          <Link
-            href="/events?date=today"
-            className="rounded-2xl px-3 py-2 hover:bg-pink-50 hover:text-pink-700"
-          >
-            ⏰ 今日活動
-          </Link>
-
-          <Link
-            href="/events"
-            className="rounded-2xl px-3 py-2 hover:bg-purple-50 hover:text-purple-700"
-          >
-            🔎 搜尋活動
-          </Link>
-
-          <Link
-            href="/events/map"
-            className="rounded-2xl px-3 py-2 hover:bg-teal-50 hover:text-teal-700"
-          >
-            🗺️ 附近活動地圖
-          </Link>
-
-          <Link
-            href="/report-event"
-            className="rounded-2xl px-3 py-2 hover:bg-violet-50 hover:text-violet-700"
-          >
-            💬 報料區
-          </Link>
-
-          <Link
-            href="/favorites"
-            className="rounded-2xl px-3 py-2 hover:bg-rose-50 hover:text-rose-700"
-          >
-            💖 收藏
-          </Link>
+          {parentLinks.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`rounded-2xl px-3 py-2 transition ${item.hoverClass}`}
+            >
+              <span className="mr-1">{item.icon}</span>
+              {item.label}
+            </Link>
+          ))}
         </nav>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -100,7 +107,7 @@ function SiteHeader() {
 function SiteFooter() {
   return (
     <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-3 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
         <div>
           <Link href="/" className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-black text-white">
@@ -111,7 +118,7 @@ function SiteFooter() {
                 HK Family Fun
               </span>
               <span className="block text-xs text-slate-500">
-                香港親子活動搜尋平台
+                香港親子活動平台
               </span>
             </span>
           </Link>
@@ -122,12 +129,12 @@ function SiteFooter() {
         </div>
 
         <div>
-          <h2 className="text-sm font-black text-slate-950">快速連結</h2>
+          <h2 className="text-sm font-black text-slate-950">家長入口</h2>
           <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-600">
-            <Link href="/events?date=today" className="hover:text-purple-700">
+            <Link href="/today" className="hover:text-purple-700">
               今日活動
             </Link>
-            <Link href="/events?view=calendar" className="hover:text-purple-700">
+            <Link href="/calendar" className="hover:text-purple-700">
               活動日曆
             </Link>
             <Link href="/events" className="hover:text-purple-700">
@@ -136,11 +143,32 @@ function SiteFooter() {
             <Link href="/events/map" className="hover:text-purple-700">
               附近活動地圖
             </Link>
+            <Link href="/tips" className="hover:text-purple-700">
+              報料區
+            </Link>
+            <Link href="/favorites" className="hover:text-purple-700">
+              收藏
+            </Link>
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-sm font-black text-slate-950">商戶專區</h2>
+          <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-600">
             <Link href="/merchant-join" className="hover:text-purple-700">
               商戶加入
             </Link>
             <Link href="/merchant-pricing" className="hover:text-purple-700">
               商戶方案
+            </Link>
+            <Link href="/merchant/register" className="hover:text-purple-700">
+              商戶免費登記
+            </Link>
+            <Link href="/merchant/login" className="hover:text-purple-700">
+              商戶登入
+            </Link>
+            <Link href="/merchant/events/import" className="hover:text-purple-700">
+              智能匯入活動
             </Link>
           </div>
         </div>
