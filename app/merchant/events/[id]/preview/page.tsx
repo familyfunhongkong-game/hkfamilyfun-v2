@@ -32,7 +32,6 @@ type PublicStatus = "draft" | "submitted" | "published" | "rejected" | "archived
 
 type EventRecord = {
   id: string;
-
   title_tc?: string | null;
   short_description_tc?: string | null;
   description_tc?: string | null;
@@ -151,7 +150,6 @@ function parseList(value: unknown): string[] {
     return value
       .map((item) => {
         if (typeof item === "string") return item.trim();
-
         if (item && typeof item === "object") {
           const record = item as Record<string, unknown>;
           const label = safeText(record.label).trim();
@@ -163,7 +161,6 @@ function parseList(value: unknown): string[] {
             .filter(Boolean)
             .join("｜");
         }
-
         return safeText(item).trim();
       })
       .filter(Boolean);
@@ -185,31 +182,14 @@ function parseList(value: unknown): string[] {
   return [];
 }
 
-function getGalleryImages(event: EventRecord) {
-  const cover = safeText(event.cover_image_url).trim();
-
-  const gallery = Array.isArray(event.gallery_image_urls)
-    ? event.gallery_image_urls
-        .map((image) => safeText(image).trim())
-        .filter(Boolean)
-    : [];
-
-  const allImages = [cover, ...gallery]
-    .filter(Boolean)
-    .filter((image, index, arr) => arr.indexOf(image) === index)
-    .slice(0, 5);
-
-  if (allImages.length === 0) return [fallbackImage];
-
-  return allImages;
-}
-
 function formatDate(value: unknown) {
   const text = safeText(value);
   if (!text) return "日期待確認";
 
   const parts = text.split("-");
-  if (parts.length === 3) return `${parts[0]}-${parts[1]}-${parts[2]}`;
+  if (parts.length === 3) {
+    return `${parts[0]}-${parts[1]}-${parts[2]}`;
+  }
 
   return text;
 }
@@ -522,14 +502,12 @@ export default function MerchantEventPreviewPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [selectedImage, setSelectedImage] = useState("");
 
   const priceDisplay = useMemo(() => (event ? getPriceDisplay(event) : ""), [event]);
   const quotaDisplay = useMemo(() => (event ? getQuotaDisplay(event) : ""), [event]);
   const cta = useMemo(() => (event ? getCta(event) : null), [event]);
   const mapEmbed = useMemo(() => (event ? getMapEmbedUrl(event) : ""), [event]);
   const googleMapUrl = useMemo(() => (event ? getGoogleMapUrl(event) : ""), [event]);
-  const galleryImages = useMemo(() => (event ? getGalleryImages(event) : [fallbackImage]), [event]);
 
   const tags = useMemo(() => parseList(event?.tags).slice(0, 8), [event?.tags]);
   const ageGroups = useMemo(() => parseList(event?.age_groups), [event?.age_groups]);
@@ -636,7 +614,7 @@ export default function MerchantEventPreviewPage() {
               </span>
             </div>
             <p className="mt-2 text-sm text-slate-500">
-              請檢查家長看到的活動圖片、收費、名額、CTA、地圖及注意事項。
+              請檢查家長看到的活動內容、收費、名額、CTA、地圖及注意事項。
             </p>
           </div>
 
@@ -672,11 +650,10 @@ export default function MerchantEventPreviewPage() {
           <article className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
             <div className="relative h-72 bg-slate-100 sm:h-96">
               <img
-                src={galleryImages[0]}
+                src={safeText(event.cover_image_url) || fallbackImage}
                 alt={safeText(event.title_tc) || "活動圖片"}
                 className="h-full w-full object-cover"
               />
-
               <div className="absolute left-5 top-5 flex flex-wrap gap-2">
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700 shadow">
                   {safeText(event.category) || "親子活動"}
@@ -687,19 +664,11 @@ export default function MerchantEventPreviewPage() {
                   </span>
                 ) : null}
               </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedImage(galleryImages[0])}
-                className="absolute bottom-5 right-5 rounded-full bg-white/95 px-4 py-2 text-xs font-black text-slate-900 shadow"
-              >
-                放大主圖
-              </button>
             </div>
 
             <div className="p-6 sm:p-8">
               <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="max-w-2xl">
+                <div>
                   <p className="text-sm font-black text-purple-700">Event Post Preview</p>
                   <h2 className="mt-2 text-3xl font-black leading-tight">
                     {safeText(event.title_tc) || "未命名活動"}
@@ -763,43 +732,6 @@ export default function MerchantEventPreviewPage() {
               ) : null}
             </div>
           </article>
-
-          <SectionCard title="活動圖片 Gallery" icon="🖼️">
-            <div className="mb-4 rounded-3xl border border-blue-100 bg-blue-50 p-4 text-sm leading-7 text-blue-900">
-              最多顯示 5 張圖片：1 張封面圖 + 4 張活動圖片。圖片可放 poster、場地相、活動流程圖或過往活動相片。
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {galleryImages.slice(0, 5).map((image, index) => (
-                <button
-                  key={`${image}-${index}`}
-                  type="button"
-                  onClick={() => setSelectedImage(image)}
-                  className={`group relative overflow-hidden rounded-3xl border bg-slate-100 text-left ${
-                    index === 0 ? "sm:col-span-2 h-80" : "h-52"
-                  }`}
-                >
-                  <img
-                    src={image}
-                    alt={`活動圖片 ${index + 1}`}
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                  />
-
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-900">
-                      {index === 0 ? "封面圖" : `活動圖片 ${index + 1}`}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {galleryImages.length < 5 ? (
-              <div className="mt-4 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm leading-7 text-slate-500">
-                目前只有 {galleryImages.length} 張圖片。建議補足至 3–5 張，家長會更容易理解活動內容。
-              </div>
-            ) : null}
-          </SectionCard>
 
           <SectionCard title="活動亮點" icon="✨">
             {highlights.length > 0 ? (
@@ -940,7 +872,6 @@ export default function MerchantEventPreviewPage() {
         <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
           <SideCard title="活動資料檢查">
             <CheckRow ok={Boolean(safeText(event.title_tc))} label="活動名稱" />
-            <CheckRow ok={Boolean(galleryImages.length)} label={`活動圖片 ${Math.min(galleryImages.length, 5)} / 5`} />
             <CheckRow ok={Boolean(safeText(event.start_date))} label="開始日期" />
             <CheckRow ok={Boolean(safeText(event.venue_name) || safeText(event.address))} label="場地 / 地址" />
             <CheckRow ok={Boolean(priceDisplay || quotaDisplay)} label="收費或名額" />
@@ -953,7 +884,7 @@ export default function MerchantEventPreviewPage() {
             <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
               <div className="h-32 bg-slate-100">
                 <img
-                  src={galleryImages[0]}
+                  src={safeText(event.cover_image_url) || fallbackImage}
                   alt={safeText(event.title_tc)}
                   className="h-full w-full object-cover"
                 />
@@ -965,12 +896,18 @@ export default function MerchantEventPreviewPage() {
                 <p className="line-clamp-2 text-xs leading-5 text-slate-500">
                   {safeText(event.short_description_tc) || "未填活動簡介。"}
                 </p>
-                <div className="text-xs font-bold text-slate-600">{formatDateRange(event)}</div>
+                <div className="text-xs font-bold text-slate-600">
+                  {formatDateRange(event)}
+                </div>
                 <div className="text-xs font-bold text-slate-600">
                   {[event.district, event.mtr_station].map(safeText).filter(Boolean).join("・") || "地點待確認"}
                 </div>
-                {priceDisplay ? <div className="text-xs font-black text-purple-700">{priceDisplay}</div> : null}
-                {quotaDisplay ? <div className="text-xs font-black text-amber-700">{quotaDisplay}</div> : null}
+                {priceDisplay ? (
+                  <div className="text-xs font-black text-purple-700">{priceDisplay}</div>
+                ) : null}
+                {quotaDisplay ? (
+                  <div className="text-xs font-black text-amber-700">{quotaDisplay}</div>
+                ) : null}
               </div>
             </div>
           </SideCard>
@@ -1010,23 +947,6 @@ export default function MerchantEventPreviewPage() {
           </SideCard>
         </aside>
       </section>
-
-      {selectedImage ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <button
-            type="button"
-            onClick={() => setSelectedImage("")}
-            className="absolute right-5 top-5 rounded-full bg-white px-4 py-2 text-sm font-black text-slate-900"
-          >
-            關閉
-          </button>
-          <img
-            src={selectedImage}
-            alt="活動圖片預覽"
-            className="max-h-[85vh] max-w-[95vw] rounded-3xl object-contain"
-          />
-        </div>
-      ) : null}
     </main>
   );
 }
