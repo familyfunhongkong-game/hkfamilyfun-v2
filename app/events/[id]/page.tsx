@@ -2,57 +2,38 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-type BookingType =
-  | "whatsapp"
-  | "google_form"
-  | "merchant_website"
-  | "ticketing"
-  | "official_page"
-  | "phone"
-  | "email"
-  | "walk_in"
-  | "enquiry_only"
-  | string;
-
-type PriceDisplayMode =
+type PriceMode =
   | "unknown"
-  | "free_no_price"
+  | "free_hidden"
   | "free_show"
-  | "single"
+  | "fixed"
+  | "from"
   | "range"
   | "offer"
   | "multi_ticket"
-  | "quota_only"
-  | string;
+  | "quota_only";
 
-type PricingItem = {
-  label?: string | null;
-  price?: number | string | null;
-  original_price?: number | string | null;
-  currency?: string | null;
-  source?: string | null;
-  note?: string | null;
-};
+type BookingType =
+  | "official_page"
+  | "external_ticketing"
+  | "google_form"
+  | "merchant_website"
+  | "whatsapp"
+  | "phone"
+  | "email"
+  | "walk_in"
+  | "enquiry_only";
 
-type AddOnItem = {
-  label?: string | null;
-  price?: number | string | null;
-  currency?: string | null;
-  note?: string | null;
-};
-
-type PublicEvent = {
+type EventRecord = {
   id: string;
 
   title_tc?: string | null;
   short_description_tc?: string | null;
   description_tc?: string | null;
-
-  cover_image_url?: string | null;
-  gallery_image_urls?: string[] | null;
 
   start_date?: string | null;
   end_date?: string | null;
@@ -63,33 +44,39 @@ type PublicEvent = {
   address?: string | null;
   district?: string | null;
   mtr_station?: string | null;
-
   category?: string | null;
-  tags?: string[] | null;
-  age_groups?: string[] | null;
-  language?: string | null;
-  capacity_text?: string | null;
-  duration_text?: string | null;
+
+  cover_image_url?: string | null;
+  gallery_image_urls?: string[] | null;
 
   price_type?: string | null;
-  price_display_mode?: PriceDisplayMode | null;
+  price_display_mode?: PriceMode | string | null;
   price_summary?: string | null;
   price_min?: number | string | null;
   price_max?: number | string | null;
   original_price?: number | string | null;
   discount_price?: number | string | null;
-  ticketing_notes?: string | null;
-  pricing_items?: PricingItem[] | null;
-  add_on_items?: AddOnItem[] | null;
+  show_price_on_public?: boolean | null;
+
   quota_summary?: string | null;
   quota_total?: number | string | null;
   quota_remaining?: number | string | null;
-  show_price_on_public?: boolean | null;
   show_quota_on_public?: boolean | null;
 
-  event_highlights?: string[] | null;
-  important_notes?: string[] | null;
+  pricing_items?: unknown;
+  add_on_items?: unknown;
+  ticketing_notes?: string | null;
+
+  age_groups?: unknown;
+  tags?: unknown;
+  language?: string | null;
+  capacity_text?: string | null;
+  duration_text?: string | null;
+
+  event_highlights?: unknown;
+  important_notes?: unknown;
   transportation_notes?: string | null;
+
   google_map_url?: string | null;
   map_embed_url?: string | null;
 
@@ -100,467 +87,419 @@ type PublicEvent = {
   official_website_url?: string | null;
   contact_whatsapp?: string | null;
 
-  booking_type?: BookingType | null;
+  booking_type?: BookingType | string | null;
   booking_url?: string | null;
   booking_whatsapp?: string | null;
   booking_phone?: string | null;
   booking_email?: string | null;
   booking_message?: string | null;
   cta_label?: string | null;
+  registration_url?: string | null;
+  registration_required?: boolean | null;
   registration_deadline?: string | null;
   is_full?: boolean | null;
   is_walk_in?: boolean | null;
-  platform_takes_booking?: boolean | null;
-  platform_takes_payment?: boolean | null;
 
-  registration_required?: boolean | null;
-  registration_url?: string | null;
   source_url?: string | null;
-
   status?: string | null;
-  publish_status?: string | null;
 };
 
-type CtaState = {
-  label: string;
-  href: string;
-  enabled: boolean;
-  note: string;
-  tone: "primary" | "green" | "amber" | "red" | "dark";
-};
+const fallbackImage =
+  "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=1200&q=80";
 
-function safeText(value: unknown, fallback = "") {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  return trimmed || fallback;
+function safeText(value: unknown) {
+  if (value === null || value === undefined) return "";
+  return String(value);
 }
 
-function isHttpUrl(value: unknown) {
-  return (
-    typeof value === "string" &&
-    (value.startsWith("https://") || value.startsWith("http://"))
-  );
+function toNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
-function numberValue(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return null;
+function toInteger(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
-function money(value: unknown, currency = "HK$") {
-  const parsed = numberValue(value);
-  if (parsed === null) return "";
-  if (parsed === 0) return "免費";
-  return `${currency}${parsed}`;
+function normalizeUrl(value: unknown) {
+  const text = safeText(value).trim();
+  if (!text) return "";
+  if (text.startsWith("http://") || text.startsWith("https://")) return text;
+  return `https://${text}`;
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return "";
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("zh-HK", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-  }).format(date);
+function isValidHttpUrl(value: unknown) {
+  const text = safeText(value).trim();
+  return text.startsWith("http://") || text.startsWith("https://");
 }
 
-function formatDateRange(event: PublicEvent) {
-  const start = formatDate(event.start_date);
-  const end = formatDate(event.end_date);
+function parseList(value: unknown): string[] {
+  if (!value) return [];
 
-  if (start && end && event.start_date !== event.end_date) {
-    return `${start} 至 ${end}`;
-  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
 
-  return start || end || "日期待確認";
-}
+        if (item && typeof item === "object") {
+          const record = item as Record<string, unknown>;
+          const label = safeText(record.label).trim();
+          const price = safeText(record.price).trim();
+          const source = safeText(record.source).trim();
+          const note = safeText(record.note).trim();
 
-function formatTime(value?: string | null) {
-  if (!value) return "";
-  const [hour, minute] = value.split(":");
-  if (!hour || !minute) return value;
-  return `${hour}:${minute}`;
-}
+          return [label, price ? `HK$${price}` : "", source, note]
+            .filter(Boolean)
+            .join("｜");
+        }
 
-function formatTimeRange(event: PublicEvent) {
-  const start = formatTime(event.start_time);
-  const end = formatTime(event.end_time);
-
-  if (start && end) return `${start} - ${end}`;
-  if (start) return `${start} 開始`;
-  if (end) return `${end} 結束`;
-
-  return "時間請參考主辦方公布";
-}
-
-function formatList(items?: string[] | null) {
-  if (!Array.isArray(items)) return [];
-  return items.map((item) => item.trim()).filter(Boolean);
-}
-
-function parsePricingItems(value: PublicEvent["pricing_items"]) {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item) => item && typeof item === "object");
-}
-
-function parseAddOnItems(value: PublicEvent["add_on_items"]) {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item) => item && typeof item === "object");
-}
-
-function isPublished(event: PublicEvent) {
-  return event.status === "published" || event.publish_status === "published";
-}
-
-function isPastDate(value?: string | null) {
-  if (!value) return false;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const target = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(target.getTime())) return false;
-
-  return target < today;
-}
-
-function getPriceDisplay(event: PublicEvent) {
-  const mode = event.price_display_mode || "unknown";
-  const showPrice = event.show_price_on_public !== false;
-  const summary = safeText(event.price_summary);
-  const pricingItems = parsePricingItems(event.pricing_items);
-  const addOnItems = parseAddOnItems(event.add_on_items);
-
-  if (mode === "free_no_price") {
-    return {
-      visible: false,
-      headline: "",
-      subline: "",
-      modeLabel: "免費活動",
-      pricingItems,
-      addOnItems,
-    };
+        return safeText(item).trim();
+      })
+      .filter(Boolean);
   }
 
-  if (mode === "quota_only") {
-    return {
-      visible: false,
-      headline: "",
-      subline: "",
-      modeLabel: "名額活動",
-      pricingItems,
-      addOnItems,
-    };
+  const text = safeText(value).trim();
+  if (!text) return [];
+
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parseList(parsed);
+  } catch {
+    return text
+      .split(/[,\n，、|]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
-  if (!showPrice) {
-    return {
-      visible: false,
-      headline: "",
-      subline: "",
-      modeLabel: "不公開顯示價錢",
-      pricingItems,
-      addOnItems,
-    };
-  }
-
-  if (summary) {
-    return {
-      visible: true,
-      headline: summary,
-      subline: safeText(event.ticketing_notes),
-      modeLabel:
-        mode === "offer"
-          ? "優惠價"
-          : mode === "multi_ticket"
-            ? "多票種"
-            : mode === "free_show"
-              ? "免費"
-              : "收費資料",
-      pricingItems,
-      addOnItems,
-    };
-  }
-
-  if (mode === "free_show" || event.price_type === "free") {
-    return {
-      visible: true,
-      headline: "免費",
-      subline: safeText(event.ticketing_notes),
-      modeLabel: "免費活動",
-      pricingItems,
-      addOnItems,
-    };
-  }
-
-  const min = numberValue(event.price_min);
-  const max = numberValue(event.price_max);
-  const discount = numberValue(event.discount_price);
-  const original = numberValue(event.original_price);
-
-  if (mode === "offer" && discount !== null && original !== null) {
-    return {
-      visible: true,
-      headline: `優惠 ${money(discount)}，原價 ${money(original)}`,
-      subline: safeText(event.ticketing_notes),
-      modeLabel: "優惠價",
-      pricingItems,
-      addOnItems,
-    };
-  }
-
-  if (min !== null && max !== null && min !== max) {
-    return {
-      visible: true,
-      headline: `${money(min)} - ${money(max)}`,
-      subline: safeText(event.ticketing_notes),
-      modeLabel: "收費範圍",
-      pricingItems,
-      addOnItems,
-    };
-  }
-
-  if (min !== null) {
-    return {
-      visible: true,
-      headline: money(min),
-      subline: safeText(event.ticketing_notes),
-      modeLabel: "收費",
-      pricingItems,
-      addOnItems,
-    };
-  }
-
-  return {
-    visible: true,
-    headline: "收費請參考主辦方公布",
-    subline: safeText(event.ticketing_notes),
-    modeLabel: "收費未確認",
-    pricingItems,
-    addOnItems,
-  };
+  return [];
 }
 
-function getCtaState(event: PublicEvent): CtaState {
-  const bookingType = event.booking_type || "";
-  const label = safeText(event.cta_label);
+function getGalleryImages(event: EventRecord) {
+  const cover = safeText(event.cover_image_url).trim();
 
-  if (event.end_date && isPastDate(event.end_date)) {
-    return {
-      label: "活動已完結",
-      href: "",
-      enabled: false,
-      note: "此活動日期已過，資料只供參考。",
-      tone: "dark",
-    };
+  const gallery = Array.isArray(event.gallery_image_urls)
+    ? event.gallery_image_urls.map((image) => safeText(image).trim()).filter(Boolean)
+    : [];
+
+  const allImages = [cover, ...gallery]
+    .filter(Boolean)
+    .filter((image, index, arr) => arr.indexOf(image) === index)
+    .slice(0, 5);
+
+  return allImages.length ? allImages : [fallbackImage];
+}
+
+function formatDate(value: unknown) {
+  const text = safeText(value);
+  if (!text) return "日期待確認";
+
+  const parts = text.split("-");
+  if (parts.length === 3) return `${parts[0]}-${parts[1]}-${parts[2]}`;
+
+  return text;
+}
+
+function formatDateRange(event: EventRecord) {
+  const start = safeText(event.start_date);
+  const end = safeText(event.end_date);
+
+  if (start && end && start !== end) return `${formatDate(start)} 至 ${formatDate(end)}`;
+  if (start) return formatDate(start);
+  if (end) return formatDate(end);
+
+  return "日期待確認";
+}
+
+function formatTimeRange(event: EventRecord) {
+  const start = safeText(event.start_time);
+  const end = safeText(event.end_time);
+
+  if (start && end) return `${start.slice(0, 5)}–${end.slice(0, 5)}`;
+  if (start) return `${start.slice(0, 5)} 開始`;
+  if (end) return `${end.slice(0, 5)} 結束`;
+
+  return "時間待確認";
+}
+
+function normalizePriceMode(value: unknown): PriceMode {
+  const text = safeText(value);
+
+  if (
+    [
+      "unknown",
+      "free_hidden",
+      "free_show",
+      "fixed",
+      "from",
+      "range",
+      "offer",
+      "multi_ticket",
+      "quota_only",
+    ].includes(text)
+  ) {
+    return text as PriceMode;
   }
+
+  if (text === "single") return "fixed";
+
+  return "unknown";
+}
+
+function normalizeBookingType(value: unknown): BookingType {
+  const text = safeText(value);
+
+  if (
+    [
+      "official_page",
+      "external_ticketing",
+      "google_form",
+      "merchant_website",
+      "whatsapp",
+      "phone",
+      "email",
+      "walk_in",
+      "enquiry_only",
+    ].includes(text)
+  ) {
+    return text as BookingType;
+  }
+
+  return "official_page";
+}
+
+function getPriceDisplay(event: EventRecord) {
+  const mode = normalizePriceMode(event.price_display_mode);
+
+  if (event.is_full) return "名額已滿";
+
+  if (event.show_price_on_public === false) return "";
+  if (mode === "free_hidden") return "";
+  if (mode === "quota_only") return "";
+
+  if (mode === "free_show" || event.price_type === "free") return "免費";
+
+  const min = toNumber(event.price_min);
+  const max = toNumber(event.price_max);
+  const original = toNumber(event.original_price);
+  const discount = toNumber(event.discount_price);
+
+  if (mode === "fixed") {
+    if (min !== null) return `HK$${min}`;
+    if (discount !== null) return `HK$${discount}`;
+    return "收費待確認";
+  }
+
+  if (mode === "offer") {
+    if (discount !== null && original !== null) {
+      return `早鳥優惠價 HK$${discount} (原價 HK$${original})`;
+    }
+
+    if (min !== null && original !== null) {
+      return `早鳥優惠價 HK$${min} (原價 HK$${original})`;
+    }
+
+    if (discount !== null) return `優惠價 HK$${discount}`;
+    if (min !== null) return `優惠價 HK$${min}`;
+    return "優惠詳情待確認";
+  }
+
+  if (mode === "range") {
+    if (min !== null && max !== null && min !== max) return `HK$${min}–HK$${max}`;
+    if (min !== null) return `HK$${min}`;
+    return "收費待確認";
+  }
+
+  if (mode === "from" || mode === "multi_ticket") {
+    if (min !== null) return `HK$${min} 起`;
+    return "多票種";
+  }
+
+  const summary = safeText(event.price_summary).trim();
+  if (summary) return summary;
+
+  if (event.price_type === "paid") {
+    if (min !== null && max !== null && min !== max) return `HK$${min}–HK$${max}`;
+    if (min !== null) return `HK$${min}`;
+    return "收費待確認";
+  }
+
+  return "";
+}
+
+function getQuotaDisplay(event: EventRecord) {
+  if (event.is_full) return "名額已滿";
+
+  const summary = safeText(event.quota_summary).trim();
+  const remaining = toInteger(event.quota_remaining);
+  const total = toInteger(event.quota_total);
+
+  if (!event.show_quota_on_public && !summary) return "";
+
+  if (summary) return summary;
+  if (remaining !== null && total !== null) return `尚餘 ${remaining} / ${total} 個名額`;
+  if (remaining !== null) return `尚餘 ${remaining} 個名額`;
+  if (total !== null) return `名額共 ${total} 個`;
+
+  return event.show_quota_on_public ? "名額有限" : "";
+}
+
+function getCta(event: EventRecord) {
+  const bookingType = normalizeBookingType(event.booking_type);
+  const customLabel = safeText(event.cta_label).trim();
 
   if (event.is_full) {
     return {
       label: "名額已滿",
       href: "",
-      enabled: false,
-      note: "此活動名額已滿，請向主辦方查詢候補安排。",
-      tone: "red",
+      clickable: false,
+      helper: "此活動目前名額已滿。",
     };
   }
 
-  if (event.registration_deadline && isPastDate(event.registration_deadline)) {
+  if (event.is_walk_in || bookingType === "walk_in") {
     return {
-      label: "報名已截止",
+      label: customLabel || "無需報名",
       href: "",
-      enabled: false,
-      note: "此活動報名截止日期已過。",
-      tone: "dark",
-    };
-  }
-
-  if (bookingType === "walk_in" || event.is_walk_in) {
-    return {
-      label: label || "無需報名",
-      href: "",
-      enabled: false,
-      note: "此活動標示為無需報名，建議出發前仍先查閱主辦方最新公布。",
-      tone: "green",
+      clickable: false,
+      helper: "此活動可直接到場或按主辦方安排參加。",
     };
   }
 
   if (bookingType === "enquiry_only") {
     return {
-      label: label || "請向主辦查詢",
+      label: customLabel || "請向主辦查詢",
       href: "",
-      enabled: false,
-      note: "此活動未有明確報名連結，請使用下方聯絡方式向主辦查詢。",
-      tone: "amber",
+      clickable: false,
+      helper: "此活動只作宣傳或查詢用途。",
     };
   }
 
   if (bookingType === "whatsapp") {
-    const phone = safeText(event.booking_whatsapp) || safeText(event.contact_whatsapp);
+    const phone = safeText(event.booking_whatsapp || event.contact_whatsapp).replace(/[^\d]/g, "");
     const message = encodeURIComponent(
-      safeText(event.booking_message) ||
-        `你好，我想查詢 ${safeText(event.title_tc, "HK Family Fun 活動")}。`,
+      safeText(event.booking_message).trim() || `你好，我想查詢「${safeText(event.title_tc)}」。`,
     );
 
-    if (!phone) {
-      return {
-        label: label || "WhatsApp 報名",
-        href: "",
-        enabled: false,
-        note: "主辦方未提供 WhatsApp 電話。",
-        tone: "amber",
-      };
-    }
-
     return {
-      label: label || "WhatsApp 報名",
-      href: `https://wa.me/${phone.replace(/[^\d]/g, "")}?text=${message}`,
-      enabled: true,
-      note: "將前往 WhatsApp 與主辦方聯絡。",
-      tone: "green",
+      label: customLabel || "WhatsApp 報名",
+      href: phone ? `https://wa.me/${phone}?text=${message}` : "",
+      clickable: Boolean(phone),
+      helper: phone ? "按下後會開啟 WhatsApp 聯絡主辦方。" : "主辦方未提供 WhatsApp。",
     };
   }
 
   if (bookingType === "phone") {
-    const phone = safeText(event.booking_phone) || safeText(event.organizer_phone);
+    const phone = safeText(event.booking_phone || event.organizer_phone).trim();
 
     return {
-      label: label || "致電報名",
+      label: customLabel || "致電查詢",
       href: phone ? `tel:${phone}` : "",
-      enabled: Boolean(phone),
-      note: phone ? "將開啟電話報名。" : "主辦方未提供電話。",
-      tone: phone ? "primary" : "amber",
+      clickable: Boolean(phone),
+      helper: phone ? "按下後可致電主辦方。" : "主辦方未提供電話。",
     };
   }
 
   if (bookingType === "email") {
-    const email = safeText(event.booking_email) || safeText(event.organizer_email);
-    const subject = encodeURIComponent(
-      `查詢活動：${safeText(event.title_tc, "HK Family Fun 活動")}`,
-    );
+    const email = safeText(event.booking_email || event.organizer_email).trim();
 
     return {
-      label: label || "電郵查詢",
-      href: email ? `mailto:${email}?subject=${subject}` : "",
-      enabled: Boolean(email),
-      note: email ? "將開啟電郵查詢。" : "主辦方未提供電郵。",
-      tone: email ? "primary" : "amber",
+      label: customLabel || "電郵查詢",
+      href: email ? `mailto:${email}` : "",
+      clickable: Boolean(email),
+      helper: email ? "按下後可發送電郵予主辦方。" : "主辦方未提供電郵。",
     };
   }
 
-  const bookingUrl =
-    safeText(event.booking_url) ||
-    safeText(event.registration_url) ||
-    safeText(event.official_website_url) ||
-    safeText(event.organizer_website) ||
-    safeText(event.source_url);
+  const fallbackUrl =
+    safeText(event.booking_url).trim() ||
+    safeText(event.registration_url).trim() ||
+    safeText(event.official_website_url).trim() ||
+    safeText(event.organizer_website).trim() ||
+    safeText(event.source_url).trim();
 
-  if (isHttpUrl(bookingUrl)) {
-    const defaultLabel =
-      bookingType === "google_form"
-        ? "填寫報名表"
-        : bookingType === "merchant_website"
-          ? "前往商戶網站"
-          : bookingType === "ticketing"
-            ? "前往購票"
-            : bookingType === "official_page"
-              ? "查看官方活動頁"
-              : event.registration_required
-                ? "前往報名"
-                : "查看官方活動頁";
-
-    return {
-      label: label || defaultLabel,
-      href: bookingUrl,
-      enabled: true,
-      note: "將離開 HK Family Fun，前往主辦方或第三方官方頁面。",
-      tone: "primary",
-    };
-  }
-
-  if (event.registration_required) {
-    return {
-      label: "請向主辦查詢",
-      href: "",
-      enabled: false,
-      note: "此活動需要報名，但未有提供有效報名連結。",
-      tone: "amber",
-    };
-  }
+  const labels: Record<BookingType, string> = {
+    official_page: "查看官方活動頁",
+    external_ticketing: "前往報名 / 購票",
+    google_form: "填寫報名表",
+    merchant_website: "前往商戶網站",
+    whatsapp: "WhatsApp 報名",
+    phone: "致電查詢",
+    email: "電郵查詢",
+    walk_in: "無需報名",
+    enquiry_only: "請向主辦查詢",
+  };
 
   return {
-    label: "無需報名",
-    href: "",
-    enabled: false,
-    note: "此活動未有提供報名連結，請以主辦方最新公布為準。",
-    tone: "green",
+    label: customLabel || labels[bookingType],
+    href: fallbackUrl ? normalizeUrl(fallbackUrl) : "",
+    clickable: Boolean(fallbackUrl),
+    helper: fallbackUrl ? "你將前往主辦方或商戶提供的頁面。" : "主辦方未提供報名連結。",
   };
 }
 
-function ctaClass(tone: CtaState["tone"]) {
-  if (tone === "green") return "bg-emerald-600 hover:bg-emerald-700 text-white";
-  if (tone === "amber") return "bg-amber-500 text-white";
-  if (tone === "red") return "bg-red-600 text-white";
-  if (tone === "dark") return "bg-slate-800 text-white";
-  return "bg-purple-700 hover:bg-purple-800 text-white";
+function getMapEmbedUrl(event: EventRecord) {
+  const embed = safeText(event.map_embed_url).trim();
+  if (embed) return normalizeUrl(embed);
+
+  const query = [event.venue_name, event.address, event.district, event.mtr_station, "Hong Kong"]
+    .map((item) => safeText(item).trim())
+    .filter(Boolean)
+    .join(" ");
+
+  if (!query) return "";
+
+  return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
 }
 
-function getExternalWebsiteList(event: PublicEvent) {
-  const items = [
-    {
-      label: "報名 / 購票連結",
-      url: safeText(event.booking_url) || safeText(event.registration_url),
-    },
-    {
-      label: "官方活動頁",
-      url: safeText(event.official_website_url) || safeText(event.source_url),
-    },
-    {
-      label: "主辦機構網站",
-      url: safeText(event.organizer_website),
-    },
-  ];
+function getGoogleMapUrl(event: EventRecord) {
+  const url = safeText(event.google_map_url).trim();
+  if (url) return normalizeUrl(url);
 
-  const seen = new Set<string>();
+  const query = [event.venue_name, event.address, event.district, event.mtr_station, "Hong Kong"]
+    .map((item) => safeText(item).trim())
+    .filter(Boolean)
+    .join(" ");
 
-  return items.filter((item) => {
-    if (!isHttpUrl(item.url)) return false;
-    if (seen.has(item.url)) return false;
-    seen.add(item.url);
-    return true;
-  });
+  if (!query) return "";
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 export default function PublicEventDetailPage() {
   const params = useParams();
   const eventId = typeof params?.id === "string" ? params.id : "";
 
-  const [event, setEvent] = useState<PublicEvent | null>(null);
+  const [event, setEvent] = useState<EventRecord | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [selectedImage, setSelectedImage] = useState("");
+
+  const galleryImages = useMemo(() => (event ? getGalleryImages(event) : [fallbackImage]), [event]);
+  const priceDisplay = useMemo(() => (event ? getPriceDisplay(event) : ""), [event]);
+  const quotaDisplay = useMemo(() => (event ? getQuotaDisplay(event) : ""), [event]);
+  const cta = useMemo(() => (event ? getCta(event) : null), [event]);
+  const mapEmbed = useMemo(() => (event ? getMapEmbedUrl(event) : ""), [event]);
+  const googleMapUrl = useMemo(() => (event ? getGoogleMapUrl(event) : ""), [event]);
+
+  const tags = useMemo(() => parseList(event?.tags).slice(0, 10), [event?.tags]);
+  const ageGroups = useMemo(() => parseList(event?.age_groups), [event?.age_groups]);
+  const highlights = useMemo(() => parseList(event?.event_highlights), [event?.event_highlights]);
+  const notes = useMemo(() => parseList(event?.important_notes), [event?.important_notes]);
+  const pricingItems = useMemo(() => parseList(event?.pricing_items), [event?.pricing_items]);
+  const addOnItems = useMemo(() => parseList(event?.add_on_items), [event?.add_on_items]);
 
   useEffect(() => {
     let active = true;
 
     async function loadEvent() {
       setLoading(true);
-      setLoadError("");
+      setErrorMessage("");
 
-      if (!eventId) {
-        setLoadError("找不到活動 ID。");
-        setLoading(false);
-        return;
-      }
-
-      if (!supabase) {
-        setLoadError("Supabase 未連接，暫時未能載入活動。");
+      if (!supabase || !eventId) {
+        setErrorMessage("活動資料暫時未能載入。");
         setLoading(false);
         return;
       }
@@ -573,22 +512,18 @@ export default function PublicEventDetailPage() {
 
       if (!active) return;
 
-      if (error) {
-        setLoadError(error.message);
+      if (error || !data) {
+        setErrorMessage("找不到活動資料。");
+        setEvent(null);
         setLoading(false);
         return;
       }
 
-      if (!data) {
-        setLoadError("找不到此活動。");
-        setLoading(false);
-        return;
-      }
+      const loadedEvent = data as EventRecord;
 
-      const loadedEvent = data as PublicEvent;
-
-      if (!isPublished(loadedEvent)) {
-        setLoadError("此活動尚未公開或已封存。");
+      if (loadedEvent.status && loadedEvent.status !== "published") {
+        setErrorMessage("此活動尚未公開或已封存。");
+        setEvent(null);
         setLoading(false);
         return;
       }
@@ -604,578 +539,438 @@ export default function PublicEventDetailPage() {
     };
   }, [eventId]);
 
-  const cta = useMemo(() => (event ? getCtaState(event) : null), [event]);
-  const priceDisplay = useMemo(
-    () => (event ? getPriceDisplay(event) : null),
-    [event],
-  );
-
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-16">
-        <div className="mx-auto max-w-5xl rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm font-bold text-slate-500">正在載入活動資料...</p>
+        <div className="mx-auto max-w-5xl rounded-3xl border bg-white p-8 text-sm font-bold text-slate-600">
+          正在載入活動詳情...
         </div>
       </main>
     );
   }
 
-  if (loadError || !event || !cta || !priceDisplay) {
+  if (!event) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-16">
-        <div className="mx-auto max-w-5xl rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm font-black text-purple-700">HK Family Fun</p>
-          <h1 className="mt-3 text-2xl font-black text-slate-950">
-            暫時未能顯示活動
-          </h1>
-          <p className="mt-3 text-sm leading-7 text-slate-600">
-            {loadError || "活動資料不存在。"}
-          </p>
+        <div className="mx-auto max-w-5xl rounded-3xl border border-slate-200 bg-white p-8">
+          <h1 className="text-2xl font-black">活動暫時未能顯示</h1>
+          <p className="mt-3 text-sm leading-7 text-slate-600">{errorMessage || "請稍後再試。"}</p>
           <Link
             href="/events"
-            className="mt-6 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
+            className="mt-6 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
           >
-            返回活動列表
+            返回搜尋活動
           </Link>
         </div>
       </main>
     );
   }
 
-  const tags = formatList(event.tags);
-  const ageGroups = formatList(event.age_groups);
-  const highlights = formatList(event.event_highlights);
-  const notes = formatList(event.important_notes);
-  const websites = getExternalWebsiteList(event);
-
   return (
-    <main className="min-h-screen bg-slate-50 pb-28 text-slate-950">
-      <section className="bg-gradient-to-b from-white via-purple-50/30 to-slate-50">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-            <div>
-              <div className="flex flex-wrap gap-2">
-                {event.category ? <Pill>{event.category}</Pill> : null}
-                {event.district ? <Pill>{event.district}</Pill> : null}
-                {priceDisplay.visible && priceDisplay.headline ? (
-                  <Pill>{priceDisplay.modeLabel}</Pill>
-                ) : null}
-              </div>
+    <main className="min-h-screen bg-slate-50 text-slate-950">
+      <section className="bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+          <Link href="/events" className="text-sm font-black text-purple-700">
+            ← 返回活動列表
+          </Link>
 
-              <h1 className="mt-5 text-4xl font-black leading-tight tracking-tight md:text-5xl">
-                {safeText(event.title_tc, "未命名活動")}
-              </h1>
-
-              {event.short_description_tc ? (
-                <p className="mt-5 max-w-3xl text-base leading-8 text-slate-600">
-                  {event.short_description_tc}
-                </p>
-              ) : null}
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                {cta.enabled ? (
-                  <a
-                    href={cta.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={`rounded-full px-6 py-3 text-sm font-black shadow-sm ${ctaClass(cta.tone)}`}
-                  >
-                    {cta.label}
-                  </a>
-                ) : (
-                  <span
-                    className={`rounded-full px-6 py-3 text-sm font-black shadow-sm ${ctaClass(cta.tone)}`}
-                  >
-                    {cta.label}
-                  </span>
-                )}
-
-                <Link
-                  href="/events"
-                  className="rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-black text-slate-700 hover:border-purple-300 hover:text-purple-700"
-                >
-                  返回活動列表
-                </Link>
-
-                <Link
-                  href="/events/map"
-                  className="rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-black text-slate-700 hover:border-emerald-300 hover:text-emerald-700"
-                >
-                  附近活動地圖
-                </Link>
-              </div>
-
-              <p className="mt-3 text-xs leading-6 text-slate-500">{cta.note}</p>
-            </div>
-
-            <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
-              {event.cover_image_url ? (
+          <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_360px]">
+            <article className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+              <div className="relative h-72 bg-slate-100 sm:h-[420px]">
                 <img
-                  src={event.cover_image_url}
-                  alt={safeText(event.title_tc, "活動圖片")}
-                  className="h-80 w-full object-cover"
+                  src={galleryImages[0]}
+                  alt={safeText(event.title_tc) || "活動圖片"}
+                  className="h-full w-full object-cover"
                 />
-              ) : (
-                <div className="flex h-80 w-full items-center justify-center bg-gradient-to-br from-purple-100 via-pink-50 to-cyan-100">
-                  <div className="text-center">
-                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-white text-3xl shadow-sm">
-                      親
+
+                <div className="absolute left-5 top-5 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700 shadow">
+                    {safeText(event.category) || "親子活動"}
+                  </span>
+                  {priceDisplay ? (
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800 shadow">
+                      {priceDisplay}
+                    </span>
+                  ) : null}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedImage(galleryImages[0])}
+                  className="absolute bottom-5 right-5 rounded-full bg-white/95 px-4 py-2 text-xs font-black text-slate-900 shadow"
+                >
+                  放大圖片
+                </button>
+              </div>
+
+              <div className="p-6 sm:p-8">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-purple-700">HK Family Fun Event</p>
+                    <h1 className="mt-2 text-3xl font-black leading-tight sm:text-4xl">
+                      {safeText(event.title_tc) || "未命名活動"}
+                    </h1>
+                  </div>
+
+                  {cta ? (
+                    <div className="w-full rounded-3xl border border-purple-100 bg-purple-50 p-4 sm:w-[260px]">
+                      <p className="text-xs font-black text-purple-700">報名 / 查詢</p>
+                      {cta.clickable ? (
+                        <a
+                          href={cta.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 block rounded-2xl bg-purple-700 px-4 py-3 text-center text-sm font-black text-white"
+                        >
+                          {cta.label}
+                        </a>
+                      ) : (
+                        <div className="mt-2 rounded-2xl bg-slate-800 px-4 py-3 text-center text-sm font-black text-white">
+                          {cta.label}
+                        </div>
+                      )}
+                      <p className="mt-2 text-xs leading-5 text-slate-500">{cta.helper}</p>
                     </div>
-                    <p className="mt-4 text-sm font-black text-slate-600">
-                      HK Family Fun 活動圖片
-                    </p>
-                  </div>
+                  ) : null}
                 </div>
-              )}
 
-              <div className="p-5">
-                <p className="text-xs font-black text-purple-700">活動重點</p>
-                <div className="mt-3 grid gap-3">
-                  <MiniFact label="日期" value={formatDateRange(event)} />
-                  <MiniFact label="時間" value={formatTimeRange(event)} />
-                  <MiniFact
+                <p className="mt-6 text-base leading-8 text-slate-700">
+                  {safeText(event.short_description_tc) ||
+                    safeText(event.description_tc) ||
+                    "活動詳情請以主辦方公布為準。"}
+                </p>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <InfoTile icon="📅" label="日期與時間" value={`${formatDateRange(event)}・${formatTimeRange(event)}`} />
+                  <InfoTile
+                    icon="📍"
                     label="地點"
-                    value={
-                      safeText(event.venue_name) ||
-                      safeText(event.address) ||
-                      "地點待確認"
-                    }
+                    value={[event.venue_name, event.district, event.mtr_station].map(safeText).filter(Boolean).join("・") || "地點待確認"}
                   />
-                  {priceDisplay.visible ? (
-                    <MiniFact label="收費" value={priceDisplay.headline} />
-                  ) : null}
-                  {event.show_quota_on_public && event.quota_summary ? (
-                    <MiniFact label="名額" value={event.quota_summary} />
-                  ) : null}
+                  {priceDisplay ? <InfoTile icon="🎟️" label="收費" value={priceDisplay} /> : null}
+                  {quotaDisplay ? <InfoTile icon="👥" label="名額" value={quotaDisplay} /> : null}
+                  {ageGroups.length > 0 ? <InfoTile icon="👶" label="適合年齡" value={ageGroups.join("、")} /> : null}
+                  {safeText(event.language) ? <InfoTile icon="🗣️" label="語言" value={safeText(event.language)} /> : null}
+                  {safeText(event.duration_text) ? <InfoTile icon="⏱️" label="活動時長" value={safeText(event.duration_text)} /> : null}
+                  {safeText(event.capacity_text) ? <InfoTile icon="🧾" label="對象 / 名額" value={safeText(event.capacity_text)} /> : null}
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-8">
-        <div className="space-y-6">
-          <Card title="活動詳情">
-            {event.description_tc ? (
-              <p className="whitespace-pre-line text-sm leading-8 text-slate-700">
-                {event.description_tc}
-              </p>
-            ) : (
-              <p className="text-sm leading-8 text-slate-500">
-                主辦方暫未提供詳細介紹，請查看官方活動頁。
-              </p>
-            )}
-          </Card>
-
-          {highlights.length > 0 ? (
-            <Card title="活動亮點">
-              <div className="grid gap-3 md:grid-cols-2">
-                {highlights.map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold leading-7 text-emerald-900"
-                  >
-                    ✓ {item}
+                {tags.length > 0 ? (
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700"
+                      >
+                        {tag}
+                      </span>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </Card>
-          ) : null}
-
-          <Card title="收費、優惠及票務">
-            {priceDisplay.visible ? (
-              <div className="rounded-3xl border border-purple-100 bg-purple-50 p-5">
-                <p className="text-xs font-black text-purple-700">
-                  {priceDisplay.modeLabel}
-                </p>
-                <p className="mt-2 text-2xl font-black text-slate-950">
-                  {priceDisplay.headline}
-                </p>
-                {priceDisplay.subline ? (
-                  <p className="mt-2 text-sm leading-7 text-slate-700">
-                    {priceDisplay.subline}
-                  </p>
                 ) : null}
               </div>
-            ) : (
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                <p className="text-sm font-bold leading-7 text-slate-600">
-                  {event.price_display_mode === "quota_only"
-                    ? "此活動主要以名額安排為準，公開頁不顯示價錢。"
-                    : "此活動不公開顯示價錢，請參考主辦方最新公布。"}
-                </p>
-              </div>
-            )}
+            </article>
 
-            {priceDisplay.pricingItems.length > 0 ? (
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {priceDisplay.pricingItems.map((item, index) => {
-                  const itemPrice = money(item.price);
-                  const original = money(item.original_price);
-                  const source = safeText(item.source);
-                  const note = safeText(item.note);
+            <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
+              <SideCard title="活動快速資料">
+                <PreviewRow label="日期" value={formatDateRange(event)} />
+                <PreviewRow label="時間" value={formatTimeRange(event)} />
+                <PreviewRow label="地區" value={safeText(event.district) || "待確認"} />
+                <PreviewRow label="港鐵" value={safeText(event.mtr_station) || "待確認"} />
+                <PreviewRow label="收費" value={priceDisplay || "不顯示"} />
+                <PreviewRow label="名額" value={quotaDisplay || "不顯示"} />
+              </SideCard>
 
-                  return (
-                    <div
-                      key={`${safeText(item.label, "ticket")}-${index}`}
-                      className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+              {cta ? (
+                <SideCard title="報名 / 查詢">
+                  {cta.clickable ? (
+                    <a
+                      href={cta.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block rounded-2xl bg-purple-700 px-4 py-3 text-center text-sm font-black text-white"
                     >
-                      <p className="text-sm font-black text-slate-950">
-                        {safeText(item.label, `票種 ${index + 1}`)}
-                      </p>
-                      <div className="mt-2 flex flex-wrap items-end gap-2">
-                        {itemPrice ? (
-                          <span className="text-2xl font-black text-purple-700">
-                            {itemPrice}
-                          </span>
-                        ) : null}
-                        {original && original !== itemPrice ? (
-                          <span className="text-sm font-bold text-slate-400 line-through">
-                            原價 {original}
-                          </span>
-                        ) : null}
-                      </div>
-                      {source ? (
-                        <p className="mt-2 text-xs font-bold text-slate-500">
-                          渠道：{source}
-                        </p>
-                      ) : null}
-                      {note ? (
-                        <p className="mt-2 text-xs leading-6 text-slate-500">
-                          {note}
-                        </p>
-                      ) : null}
+                      {cta.label}
+                    </a>
+                  ) : (
+                    <div className="rounded-2xl bg-slate-800 px-4 py-3 text-center text-sm font-black text-white">
+                      {cta.label}
                     </div>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {priceDisplay.addOnItems.length > 0 ? (
-              <div className="mt-6">
-                <p className="text-sm font-black text-slate-950">加購項目</p>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  {priceDisplay.addOnItems.map((item, index) => (
-                    <div
-                      key={`${safeText(item.label, "addon")}-${index}`}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                    >
-                      <p className="text-sm font-black text-slate-900">
-                        {safeText(item.label, `加購 ${index + 1}`)}
-                      </p>
-                      {money(item.price) ? (
-                        <p className="mt-1 text-lg font-black text-slate-950">
-                          {money(item.price)}
-                        </p>
-                      ) : null}
-                      {item.note ? (
-                        <p className="mt-1 text-xs leading-6 text-slate-500">
-                          {item.note}
-                        </p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </Card>
-
-          {(event.show_quota_on_public || event.quota_summary) ? (
-            <Card title="名額資料">
-              <div className="grid gap-3 md:grid-cols-3">
-                <InfoBox
-                  label="名額摘要"
-                  value={safeText(event.quota_summary, "名額請參考主辦方公布")}
-                />
-                <InfoBox
-                  label="總名額"
-                  value={
-                    event.quota_total !== null && event.quota_total !== undefined
-                      ? String(event.quota_total)
-                      : "未提供"
-                  }
-                />
-                <InfoBox
-                  label="剩餘名額"
-                  value={
-                    event.quota_remaining !== null &&
-                    event.quota_remaining !== undefined
-                      ? String(event.quota_remaining)
-                      : "未提供"
-                  }
-                />
-              </div>
-            </Card>
-          ) : null}
-
-          <Card title="交通及地圖">
-            <div className="space-y-4">
-              {event.transportation_notes ? (
-                <p className="whitespace-pre-line text-sm leading-8 text-slate-700">
-                  {event.transportation_notes}
-                </p>
-              ) : (
-                <p className="text-sm leading-8 text-slate-500">
-                  請出發前查看主辦方或 Google Map 最新交通資訊。
-                </p>
-              )}
-
-              {event.map_embed_url && isHttpUrl(event.map_embed_url) ? (
-                <div className="overflow-hidden rounded-3xl border border-slate-200">
-                  <iframe
-                    src={event.map_embed_url}
-                    title="活動地圖"
-                    className="h-72 w-full"
-                    loading="lazy"
-                  />
-                </div>
+                  )}
+                  <p className="text-sm leading-7 text-slate-600">{cta.helper}</p>
+                </SideCard>
               ) : null}
 
-              {event.google_map_url && isHttpUrl(event.google_map_url) ? (
-                <a
-                  href={event.google_map_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:border-emerald-300 hover:text-emerald-700"
-                >
-                  打開 Google Map
-                </a>
-              ) : null}
-            </div>
-          </Card>
-
-          {notes.length > 0 ? (
-            <Card title="注意事項">
-              <ul className="space-y-3">
-                {notes.map((item) => (
-                  <li
-                    key={item}
-                    className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-7 text-amber-900"
+              <SideCard title="分享及收藏">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(window.location.href)}
+                    className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-700"
                   >
-                    • {item}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          ) : null}
-
-          <Card title="平台聲明">
-            <p className="text-sm leading-8 text-slate-600">
-              HK Family Fun 現階段只提供活動曝光、搜尋、資料展示及官方報名導流服務。
-              平台不代收活動款項，不保證報名、銷售、名額或參加人數結果。
-              所有活動資料、收費、名額、時間及條款，請以主辦方最新公布為準。
-            </p>
-          </Card>
+                    分享連結
+                  </button>
+                  <Link
+                    href="/favorites"
+                    className="rounded-2xl bg-pink-600 px-4 py-3 text-center text-sm font-black text-white"
+                  >
+                    收藏
+                  </Link>
+                </div>
+              </SideCard>
+            </aside>
+          </div>
         </div>
-
-        <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-          <Card title="活動資料">
-            <div className="space-y-3">
-              <InfoBox label="日期" value={formatDateRange(event)} />
-              <InfoBox label="時間" value={formatTimeRange(event)} />
-              <InfoBox
-                label="地點"
-                value={safeText(event.venue_name, "地點待確認")}
-              />
-              <InfoBox
-                label="地址"
-                value={safeText(event.address, "詳細地址待確認")}
-              />
-              <InfoBox
-                label="地區 / 港鐵"
-                value={`${safeText(event.district, "地區待確認")} ${
-                  event.mtr_station ? `｜${event.mtr_station}` : ""
-                }`}
-              />
-              {event.language ? <InfoBox label="語言" value={event.language} /> : null}
-              {event.duration_text ? (
-                <InfoBox label="活動時長" value={event.duration_text} />
-              ) : null}
-              {event.capacity_text ? (
-                <InfoBox label="名額 / 對象" value={event.capacity_text} />
-              ) : null}
-            </div>
-          </Card>
-
-          <Card title="報名方式">
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <p className="text-lg font-black text-slate-950">{cta.label}</p>
-              <p className="mt-2 text-sm leading-7 text-slate-600">{cta.note}</p>
-
-              {cta.enabled ? (
-                <a
-                  href={cta.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`mt-4 inline-flex w-full justify-center rounded-2xl px-5 py-3 text-sm font-black ${ctaClass(cta.tone)}`}
-                >
-                  {cta.label}
-                </a>
-              ) : (
-                <span
-                  className={`mt-4 inline-flex w-full justify-center rounded-2xl px-5 py-3 text-sm font-black ${ctaClass(cta.tone)}`}
-                >
-                  {cta.label}
-                </span>
-              )}
-            </div>
-          </Card>
-
-          <Card title="主辦機構">
-            <div className="space-y-3">
-              <InfoBox
-                label="主辦機構"
-                value={safeText(event.organizer_name, "主辦機構待確認")}
-              />
-              {event.organizer_phone ? (
-                <ContactLine label="電話" value={event.organizer_phone} href={`tel:${event.organizer_phone}`} />
-              ) : null}
-              {event.organizer_email ? (
-                <ContactLine label="電郵" value={event.organizer_email} href={`mailto:${event.organizer_email}`} />
-              ) : null}
-              {event.contact_whatsapp ? (
-                <ContactLine
-                  label="WhatsApp"
-                  value={event.contact_whatsapp}
-                  href={`https://wa.me/${event.contact_whatsapp.replace(/[^\d]/g, "")}`}
-                />
-              ) : null}
-            </div>
-          </Card>
-
-          {websites.length > 0 ? (
-            <Card title="官方連結">
-              <div className="space-y-3">
-                {websites.map((item) => (
-                  <a
-                    key={`${item.label}-${item.url}`}
-                    href={item.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block rounded-2xl border border-slate-200 bg-white p-4 text-sm font-black text-purple-700 hover:border-purple-300 hover:bg-purple-50"
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            </Card>
-          ) : null}
-
-          {(tags.length > 0 || ageGroups.length > 0) ? (
-            <Card title="標籤">
-              <div className="flex flex-wrap gap-2">
-                {[...ageGroups, ...tags].map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700"
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            </Card>
-          ) : null}
-        </aside>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-2xl backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="line-clamp-1 text-sm font-black text-slate-950">
-              {safeText(event.title_tc, "HK Family Fun 活動")}
-            </p>
-            <p className="text-xs text-slate-500">
-              {formatDateRange(event)}
-              {priceDisplay.visible && priceDisplay.headline
-                ? `｜${priceDisplay.headline}`
-                : ""}
-            </p>
+      <section className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+        <SectionCard title="活動圖片 Gallery" icon="🖼️">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {galleryImages.slice(0, 5).map((image, index) => (
+              <button
+                key={`${image}-${index}`}
+                type="button"
+                onClick={() => setSelectedImage(image)}
+                className={`group relative overflow-hidden rounded-3xl border bg-slate-100 text-left ${
+                  index === 0 ? "sm:col-span-2 h-80" : "h-52"
+                }`}
+              >
+                <img
+                  src={image}
+                  alt={`活動圖片 ${index + 1}`}
+                  className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                />
+
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-900">
+                    {index === 0 ? "封面圖" : `活動圖片 ${index + 1}`}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="活動亮點" icon="✨">
+          {highlights.length > 0 ? <BulletList items={highlights} /> : <EmptyText>主辦方暫未提供活動亮點。</EmptyText>}
+        </SectionCard>
+
+        <SectionCard title="活動詳情" icon="📝">
+          <div className="whitespace-pre-line text-sm leading-8 text-slate-700">
+            {safeText(event.description_tc) || "活動詳情請以主辦方公布為準。"}
+          </div>
+        </SectionCard>
+
+        {(pricingItems.length > 0 || addOnItems.length > 0 || safeText(event.ticketing_notes)) ? (
+          <SectionCard title="票價、票種及加購資料" icon="🎫">
+            <div className="space-y-5">
+              {pricingItems.length > 0 ? (
+                <div>
+                  <h3 className="text-sm font-black">票種 / 渠道</h3>
+                  <BulletList items={pricingItems} />
+                </div>
+              ) : null}
+
+              {addOnItems.length > 0 ? (
+                <div>
+                  <h3 className="text-sm font-black">加購項目</h3>
+                  <BulletList items={addOnItems} />
+                </div>
+              ) : null}
+
+              {safeText(event.ticketing_notes) ? (
+                <div className="rounded-3xl bg-amber-50 p-4 text-sm leading-7 text-amber-900">
+                  {safeText(event.ticketing_notes)}
+                </div>
+              ) : null}
+            </div>
+          </SectionCard>
+        ) : null}
+
+        <SectionCard title="注意事項" icon="⚠️">
+          {notes.length > 0 ? <BulletList items={notes} /> : <EmptyText>活動注意事項請以主辦方公布為準。</EmptyText>}
+        </SectionCard>
+
+        <SectionCard title="交通及地圖" icon="🗺️">
+          <div className="space-y-4">
+            <InfoTile icon="📍" label="地址" value={safeText(event.address) || safeText(event.venue_name) || "地址待確認"} />
+
+            {safeText(event.transportation_notes) ? (
+              <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">
+                {safeText(event.transportation_notes)}
+              </div>
+            ) : null}
+
+            {mapEmbed ? (
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
+                <iframe title="Google Map" src={mapEmbed} className="h-80 w-full" loading="lazy" />
+              </div>
+            ) : (
+              <EmptyText>主辦方暫未提供足夠地圖資料。</EmptyText>
+            )}
+
+            {googleMapUrl ? (
+              <a
+                href={googleMapUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700"
+              >
+                開啟 Google Map
+              </a>
+            ) : null}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="主辦機構及聯絡方式" icon="🏢">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <InfoTile icon="🏷️" label="主辦機構" value={safeText(event.organizer_name) || "主辦資料待確認"} />
+            {safeText(event.organizer_phone) ? <InfoTile icon="☎️" label="電話" value={safeText(event.organizer_phone)} /> : null}
+            {safeText(event.organizer_email) ? <InfoTile icon="✉️" label="電郵" value={safeText(event.organizer_email)} /> : null}
+            {safeText(event.contact_whatsapp) ? <InfoTile icon="💬" label="WhatsApp" value={safeText(event.contact_whatsapp)} /> : null}
           </div>
 
-          {cta.enabled ? (
-            <a
-              href={cta.href}
-              target="_blank"
-              rel="noreferrer"
-              className={`rounded-full px-6 py-3 text-sm font-black ${ctaClass(cta.tone)}`}
-            >
-              {cta.label}
-            </a>
-          ) : (
-            <span
-              className={`rounded-full px-6 py-3 text-sm font-black ${ctaClass(cta.tone)}`}
-            >
-              {cta.label}
-            </span>
-          )}
+          <div className="mt-5 flex flex-wrap gap-3">
+            {isValidHttpUrl(event.official_website_url) ? (
+              <a
+                href={safeText(event.official_website_url)}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full bg-slate-900 px-5 py-3 text-sm font-black text-white"
+              >
+                官方網站
+              </a>
+            ) : null}
+
+            {isValidHttpUrl(event.organizer_website) ? (
+              <a
+                href={safeText(event.organizer_website)}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700"
+              >
+                主辦網站
+              </a>
+            ) : null}
+
+            {isValidHttpUrl(event.source_url) ? (
+              <a
+                href={safeText(event.source_url)}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full border border-purple-200 bg-purple-50 px-5 py-3 text-sm font-black text-purple-700"
+              >
+                來源資料
+              </a>
+            ) : null}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="平台免責聲明" icon="🛡️">
+          <p className="text-sm leading-7 text-slate-600">
+            HK Family Fun 現階段只作活動資料展示、搜尋及導流用途；不代收活動款項，不保證報名、
+            銷售、名額或參加人數結果。所有活動資料、收費、名額、時間及安排以主辦方最後公布為準。
+            家長報名前應自行向主辦方確認詳情。
+          </p>
+        </SectionCard>
+      </section>
+
+      {selectedImage ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <button
+            type="button"
+            onClick={() => setSelectedImage("")}
+            className="absolute right-5 top-5 rounded-full bg-white px-4 py-2 text-sm font-black text-slate-900"
+          >
+            關閉
+          </button>
+          <img
+            src={selectedImage}
+            alt="活動圖片預覽"
+            className="max-h-[85vh] max-w-[95vw] rounded-3xl object-contain"
+          />
         </div>
-      </div>
+      ) : null}
     </main>
   );
 }
 
-function Card({
+function SectionCard({
   title,
+  icon,
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  icon: string;
+  children: ReactNode;
 }) {
   return (
     <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-black text-slate-950">{title}</h2>
+      <h2 className="flex items-center gap-2 text-xl font-black">
+        <span>{icon}</span>
+        {title}
+      </h2>
       <div className="mt-5">{children}</div>
     </section>
   );
 }
 
-function MiniFact({ label, value }: { label: string; value: string }) {
+function SideCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-black text-purple-700">{label}</p>
-      <p className="mt-1 text-sm font-bold leading-6 text-slate-800">{value}</p>
-    </div>
+    <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="text-lg font-black">{title}</h2>
+      <div className="mt-4 space-y-3">{children}</div>
+    </section>
   );
 }
 
-function InfoBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-black text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-black leading-6 text-slate-900">{value}</p>
-    </div>
-  );
-}
-
-function ContactLine({
+function InfoTile({
+  icon,
   label,
   value,
-  href,
 }: {
+  icon: string;
   label: string;
   value: string;
-  href: string;
 }) {
   return (
-    <a
-      href={href}
-      target={href.startsWith("http") ? "_blank" : undefined}
-      rel={href.startsWith("http") ? "noreferrer" : undefined}
-      className="block rounded-2xl border border-slate-200 bg-white p-4 hover:border-purple-300 hover:bg-purple-50"
-    >
-      <p className="text-xs font-black text-slate-500">{label}</p>
-      <p className="mt-1 break-all text-sm font-black text-purple-700">
-        {value}
-      </p>
-    </a>
+    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex gap-3">
+        <span className="text-lg">{icon}</span>
+        <div>
+          <p className="text-xs font-black text-slate-500">{label}</p>
+          <p className="mt-1 text-sm font-black leading-6 text-slate-900">{value}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function Pill({ children }: { children: React.ReactNode }) {
+function BulletList({ items }: { items: string[] }) {
   return (
-    <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
+    <ul className="space-y-3 text-sm leading-7 text-slate-700">
+      {items.map((item) => (
+        <li key={item} className="flex gap-3">
+          <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-purple-600" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function EmptyText({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm font-bold leading-7 text-slate-500">
       {children}
-    </span>
+    </div>
+  );
+}
+
+function PreviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4 rounded-2xl bg-slate-50 p-3 text-sm">
+      <span className="font-black text-slate-500">{label}</span>
+      <span className="text-right font-black text-slate-900">{value}</span>
+    </div>
   );
 }
