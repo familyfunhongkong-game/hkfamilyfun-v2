@@ -315,13 +315,24 @@ export default function AdminEventsPage() {
     setLoading(true);
     setMessage("");
 
-    const { data, error } = await supabase
+    const client = supabase;
+
+    if (!client) {
+      setEvents([]);
+      setSelected(null);
+      setMessage("Supabase client 未能初始化，請檢查 .env.local 設定。");
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await client
       .from("events")
       .select("*")
       .order("updated_at", { ascending: false });
 
     if (error) {
       setEvents([]);
+      setSelected(null);
       setMessage(`讀取活動失敗：${error.message}`);
     } else {
       const rows = (data || []) as EventRecord[];
@@ -367,7 +378,6 @@ export default function AdminEventsPage() {
 
     return events.filter((event) => {
       const group = statusGroup(event.status);
-
       const matchesFilter =
         activeFilter === "all" ? true : group === activeFilter;
 
@@ -441,6 +451,13 @@ export default function AdminEventsPage() {
   }, [events]);
 
   async function updateStatus(id: string, nextStatus: string) {
+    const client = supabase;
+
+    if (!client) {
+      setMessage("Supabase client 未能初始化，暫時不能更新活動狀態。");
+      return;
+    }
+
     const originalEvents = events;
     const originalSelected = selected;
     const now = new Date().toISOString();
@@ -468,7 +485,7 @@ export default function AdminEventsPage() {
       setSelected(updatedTarget);
     }
 
-    const { error } = await supabase
+    const { error } = await client
       .from("events")
       .update({
         status: nextStatus,
@@ -481,7 +498,7 @@ export default function AdminEventsPage() {
       setSelected(originalSelected);
       setMessage(`更新失敗：${error.message}`);
     } else {
-      const { data } = await supabase
+      const { data } = await client
         .from("events")
         .select("*")
         .eq("id", id)
@@ -830,13 +847,15 @@ export default function AdminEventsPage() {
 
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                   {selected.cover_image_url ? (
-                    <img
-                      src={selected.cover_image_url}
-                      alt={titleOf(selected)}
-                      className="h-44 w-full object-cover"
-                    />
+                    <div className="flex h-48 w-full items-center justify-center bg-slate-50 p-2">
+                      <img
+                        src={selected.cover_image_url}
+                        alt={titleOf(selected)}
+                        className="max-h-full max-w-full rounded-xl object-contain"
+                      />
+                    </div>
                   ) : (
-                    <div className="flex h-44 items-center justify-center text-sm text-slate-400">
+                    <div className="flex h-48 items-center justify-center text-sm text-slate-400">
                       未有封面圖片
                     </div>
                   )}
@@ -1081,23 +1100,25 @@ function EventRow({
   return (
     <div
       className={[
-        "grid gap-4 p-5 transition lg:grid-cols-[88px_1fr_260px]",
+        "grid gap-4 p-5 transition lg:grid-cols-[140px_1fr_260px]",
         selected ? "bg-purple-50/60" : "bg-white hover:bg-slate-50",
       ].join(" ")}
     >
       <button
         type="button"
         onClick={onSelect}
-        className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 text-left"
+        className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm"
       >
         {event.cover_image_url ? (
-          <img
-            src={event.cover_image_url}
-            alt={titleOf(event)}
-            className="h-20 w-full object-cover"
-          />
+          <div className="flex h-28 w-full items-center justify-center bg-slate-50 p-2">
+            <img
+              src={event.cover_image_url}
+              alt={titleOf(event)}
+              className="max-h-full max-w-full rounded-xl object-contain"
+            />
+          </div>
         ) : (
-          <div className="flex h-20 items-center justify-center text-xl">親</div>
+          <div className="flex h-28 items-center justify-center text-xl">親</div>
         )}
       </button>
 

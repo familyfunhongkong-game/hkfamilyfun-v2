@@ -720,39 +720,46 @@ function EventCard({
   const score = readyScore(event);
   const missing = missingItems(event);
   const published = group === "published";
+  const canSubmitForReview = canSubmit(event);
 
   return (
-    <div className="grid gap-4 p-5 lg:grid-cols-[110px_1fr_250px]">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+    <div className="grid gap-5 p-5 transition hover:bg-slate-50 lg:grid-cols-[220px_1fr_250px]">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         {event.cover_image_url ? (
-          <img
-            src={event.cover_image_url}
-            alt={titleOf(event)}
-            className="h-24 w-full object-cover lg:h-full"
-          />
+          <div className="flex h-44 w-full items-center justify-center bg-slate-50 p-2">
+            <img
+              src={event.cover_image_url}
+              alt={titleOf(event)}
+              className="max-h-full max-w-full rounded-2xl object-contain"
+            />
+          </div>
         ) : (
-          <div className="flex h-24 items-center justify-center text-2xl lg:h-full">
+          <div className="flex h-44 w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-4xl">
             親
           </div>
         )}
+
+        <div className="border-t border-slate-100 bg-white px-3 py-2 text-xs font-bold text-slate-500">
+          圖片 {imageCount(event)} 張
+        </div>
       </div>
 
-      <div>
+      <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={event.status} />
           <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
             完整度 {score}%
           </span>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-            {imageCount(event)} 張圖
+            {categoryOf(event)}
           </span>
         </div>
 
-        <h3 className="mt-3 text-lg font-black text-slate-950">
+        <h3 className="mt-3 text-xl font-black leading-snug text-slate-950">
           {titleOf(event)}
         </h3>
 
-        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
+        <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
           {safeText(event.short_description_tc || event.description_tc, "未有活動簡介")}
         </p>
 
@@ -764,7 +771,7 @@ function EventCard({
         </div>
 
         {missing.length ? (
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-800">
             <span className="font-black">建議補充：</span>
             {missing.join("、")}
           </div>
@@ -843,7 +850,7 @@ function EventCard({
             <button
               type="button"
               onClick={onSubmit}
-              disabled={busy || !canSubmit(event)}
+              disabled={busy || !canSubmitForReview}
               className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
             >
               提交審批
@@ -869,6 +876,12 @@ function EventCard({
               封存
             </button>
           )}
+
+          {group === "draft" && !canSubmitForReview ? (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-700">
+              資料完整度未夠，請先補齊重點資料。
+            </p>
+          ) : null}
         </div>
       </div>
     </div>
