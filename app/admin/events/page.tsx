@@ -64,14 +64,14 @@ type EventRecord = {
   updated_at?: string | null;
 };
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "all", label: "全部活動" },
-  { key: "review", label: "待審批" },
-  { key: "pending", label: "待處理" },
-  { key: "draft", label: "草稿" },
-  { key: "published", label: "已發布" },
-  { key: "rejected", label: "已拒絕" },
-  { key: "archived", label: "已封存" },
+const FILTERS: { key: FilterKey; label: string; helper: string }[] = [
+  { key: "all", label: "全部", helper: "所有活動" },
+  { key: "review", label: "待審批", helper: "商戶已提交" },
+  { key: "pending", label: "待處理", helper: "資料需跟進" },
+  { key: "draft", label: "草稿", helper: "未提交" },
+  { key: "published", label: "已發布", helper: "公開顯示" },
+  { key: "rejected", label: "已拒絕", helper: "不公開" },
+  { key: "archived", label: "已封存", helper: "已下架" },
 ];
 
 function safeText(value: unknown, fallback = "未填寫") {
@@ -128,9 +128,7 @@ function statusBadgeClass(status?: string | null) {
 
   if (group === "review") return "border-amber-200 bg-amber-50 text-amber-800";
   if (group === "pending") return "border-orange-200 bg-orange-50 text-orange-800";
-  if (group === "published") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  }
+  if (group === "published") return "border-emerald-200 bg-emerald-50 text-emerald-800";
   if (group === "rejected") return "border-rose-200 bg-rose-50 text-rose-800";
   if (group === "archived") return "border-slate-200 bg-slate-100 text-slate-600";
 
@@ -254,6 +252,13 @@ function ctaOf(event: EventRecord) {
   return "CTA 未設定";
 }
 
+function shortDescription(event: EventRecord) {
+  return safeText(
+    event.short_description_tc || event.description_tc,
+    "系統已收到此活動資料，請在 Preview 或編輯頁檢查日期、地點、收費及 CTA。"
+  );
+}
+
 function readyScore(event: EventRecord) {
   const checks = [
     hasValue(event.title_tc || event.title),
@@ -282,13 +287,6 @@ function missingItems(event: EventRecord) {
   }
 
   return items;
-}
-
-function shortDescription(event: EventRecord) {
-  return safeText(
-    event.short_description_tc || event.description_tc,
-    "系統已收到此活動資料，請在 Preview 或編輯頁檢查日期、地點、收費及 CTA。"
-  );
 }
 
 function csvEscape(value: unknown) {
@@ -349,108 +347,8 @@ function buildCsv(events: EventRecord[]) {
   return [header, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
 }
 
-function StatCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "slate" | "amber" | "orange" | "green" | "rose" | "purple";
-}) {
-  const toneClass = {
-    slate: "border-slate-200 bg-slate-50 text-slate-950",
-    amber: "border-amber-200 bg-amber-50 text-amber-900",
-    orange: "border-orange-200 bg-orange-50 text-orange-900",
-    green: "border-emerald-200 bg-emerald-50 text-emerald-900",
-    rose: "border-rose-200 bg-rose-50 text-rose-900",
-    purple: "border-purple-200 bg-purple-50 text-purple-900",
-  }[tone];
-
-  return (
-    <div className={`rounded-3xl border p-5 ${toneClass}`}>
-      <p className="text-xs font-black opacity-70">{label}</p>
-      <p className="mt-2 text-3xl font-black">{value}</p>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status?: string | null }) {
-  return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${statusBadgeClass(status)}`}>
-      {statusLabel(status)}
-    </span>
-  );
-}
-
-function MiniInfo({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl bg-slate-50 px-3 py-2">
-      <p className="text-xs font-black text-slate-400">{label}</p>
-      <p className="mt-1 truncate text-xs font-bold text-slate-700">{value}</p>
-    </div>
-  );
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-black text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full rounded-full bg-purple-600" style={{ width: value }} />
-      </div>
-    </div>
-  );
-}
-
-function BarRow({
-  label,
-  value,
-  max,
-}: {
-  label: string;
-  value: number;
-  max: number;
-}) {
-  const width = max > 0 ? Math.max(6, Math.round((value / max) * 100)) : 0;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3 text-xs">
-        <span className="truncate font-bold text-slate-700">{label}</span>
-        <span className="font-black text-slate-950">{value}</span>
-      </div>
-      <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${width}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function EventImage({ event, large = false }: { event: EventRecord; large?: boolean }) {
-  return (
-    <div
-      className={[
-        "overflow-hidden rounded-3xl border border-slate-200 bg-slate-50",
-        large ? "h-72" : "h-40",
-      ].join(" ")}
-    >
-      {event.cover_image_url ? (
-        <div className="flex h-full w-full items-center justify-center p-2">
-          <img
-            src={event.cover_image_url}
-            alt={titleOf(event)}
-            className="max-h-full max-w-full rounded-2xl object-contain"
-          />
-        </div>
-      ) : (
-        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-5xl">
-          親
-        </div>
-      )}
-    </div>
-  );
+function canPublish(event: EventRecord) {
+  return readyScore(event) >= 60;
 }
 
 export default function AdminEventsPage() {
@@ -536,6 +434,7 @@ export default function AdminEventsPage() {
             merchantOf(event),
             categoryOf(event),
             dateOf(event),
+            timeOf(event),
             locationOf(event),
             priceOf(event),
             ctaOf(event),
@@ -606,6 +505,7 @@ export default function AdminEventsPage() {
         event.id === id ? { ...event, status: nextStatus, updated_at: now } : event
       )
     );
+
     setSelectedId(id);
     setActiveFilter(statusGroup(nextStatus));
 
@@ -648,7 +548,7 @@ export default function AdminEventsPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-[1480px] px-4 py-16">
+        <div className="mx-auto max-w-[1560px] px-4 py-16">
           <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-3xl">
               親
@@ -663,8 +563,8 @@ export default function AdminEventsPage() {
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1480px] px-4 py-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="mx-auto max-w-[1560px] px-4 py-7">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <p className="text-sm font-black text-purple-700">
                 Admin Portal · 活動審批中心
@@ -673,8 +573,8 @@ export default function AdminEventsPage() {
                 活動審批、發布及數據管理
               </h1>
               <p className="mt-3 max-w-5xl text-sm leading-6 text-slate-600">
-                檢查商戶提交的活動資料、收費、CTA、圖片及地圖。審批通過後，
-                活動會轉為 published，公開頁才會顯示給家長。
+                左邊快速篩選活動，右邊固定審批面板。審批通過後活動會變成 published，
+                公開頁才會顯示給家長。
               </p>
             </div>
 
@@ -702,13 +602,28 @@ export default function AdminEventsPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            <StatCard label="全部活動" value={counts.all} tone="slate" />
-            <StatCard label="待審批" value={counts.review} tone="amber" />
-            <StatCard label="待處理" value={counts.pending} tone="orange" />
-            <StatCard label="已發布" value={counts.published} tone="green" />
-            <StatCard label="已拒絕" value={counts.rejected} tone="rose" />
-            <StatCard label="已封存" value={counts.archived} tone="purple" />
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+            {FILTERS.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                onClick={() => setActiveFilter(filter.key)}
+                className={[
+                  "rounded-3xl border p-4 text-left transition",
+                  activeFilter === filter.key
+                    ? "border-purple-600 bg-purple-50 shadow-sm"
+                    : "border-slate-200 bg-slate-50 hover:bg-white",
+                ].join(" ")}
+              >
+                <p className="text-xs font-black text-slate-500">{filter.label}</p>
+                <p className="mt-1 text-3xl font-black text-slate-950">
+                  {counts[filter.key]}
+                </p>
+                <p className="mt-1 text-xs font-bold text-slate-400">
+                  {filter.helper}
+                </p>
+              </button>
+            ))}
           </div>
 
           {showAnalytics ? (
@@ -720,7 +635,7 @@ export default function AdminEventsPage() {
                       可視化數據總覽
                     </h2>
                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                      MVP analytics：按資料完整度及審批狀態即時統計。
+                      MVP analytics：用資料完整度及審批狀態即時判斷活動質素。
                     </p>
                   </div>
 
@@ -730,7 +645,7 @@ export default function AdminEventsPage() {
                       onClick={exportFilteredCsv}
                       className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white hover:bg-slate-800"
                     >
-                      下載活動總表
+                      下載目前列表
                     </button>
                     <button
                       type="button"
@@ -775,7 +690,7 @@ export default function AdminEventsPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-[1480px] gap-6 px-4 py-6 xl:grid-cols-[1fr_430px]">
+      <section className="mx-auto grid max-w-[1560px] gap-6 px-4 py-6 xl:grid-cols-[1fr_470px]">
         <div className="space-y-5">
           <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -821,6 +736,9 @@ export default function AdminEventsPage() {
                   {filteredEvents.length} / {events.length}
                 </span>
               </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                點選活動卡片後，右側會即時顯示審批面板。按鈕不會再只有數字變動而沒有 preview。
+              </p>
             </div>
 
             {filteredEvents.length === 0 ? (
@@ -837,148 +755,19 @@ export default function AdminEventsPage() {
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {filteredEvents.map((event) => {
-                  const selected = selectedEvent?.id === event.id;
-                  const missing = missingItems(event);
-                  const score = readyScore(event);
-
-                  return (
-                    <button
-                      key={event.id}
-                      type="button"
-                      onClick={() => setSelectedId(event.id)}
-                      className={[
-                        "grid w-full gap-5 p-5 text-left transition hover:bg-slate-50 lg:grid-cols-[230px_1fr_220px]",
-                        selected ? "bg-purple-50/50" : "bg-white",
-                      ].join(" ")}
-                    >
-                      <EventImage event={event} />
-
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <StatusBadge status={event.status} />
-                          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-                            {score}分
-                          </span>
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                            {imageCount(event)} 張圖
-                          </span>
-                        </div>
-
-                        <h3 className="mt-3 text-xl font-black leading-snug text-slate-950">
-                          {titleOf(event)}
-                        </h3>
-
-                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
-                          {shortDescription(event)}
-                        </p>
-
-                        <div className="mt-4 grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
-                          <MiniInfo label="商戶" value={merchantOf(event)} />
-                          <MiniInfo label="日期" value={dateOf(event)} />
-                          <MiniInfo label="地點" value={locationOf(event)} />
-                          <MiniInfo label="收費" value={priceOf(event)} />
-                        </div>
-
-                        {missing.length ? (
-                          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800">
-                            建議補充：{missing.join("、")}
-                          </div>
-                        ) : (
-                          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800">
-                            資料完整，適合審批或公開。
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-bold text-slate-500">完整度</span>
-                            <span className="font-black text-slate-950">{score}%</span>
-                          </div>
-                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                            <div
-                              className={[
-                                "h-full rounded-full",
-                                score >= 80
-                                  ? "bg-emerald-500"
-                                  : score >= 60
-                                  ? "bg-amber-500"
-                                  : "bg-rose-500",
-                              ].join(" ")}
-                              style={{ width: `${score}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <Link
-                            href={`/merchant/events/${event.id}/preview`}
-                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
-                            onClick={(clickEvent) => clickEvent.stopPropagation()}
-                          >
-                            Preview
-                          </Link>
-                          <Link
-                            href={`/merchant/events/${event.id}/edit`}
-                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
-                            onClick={(clickEvent) => clickEvent.stopPropagation()}
-                          >
-                            編輯
-                          </Link>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            disabled={busyId === event.id}
-                            onClick={(clickEvent) => {
-                              clickEvent.stopPropagation();
-                              updateStatus(event.id, "published");
-                            }}
-                            className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === event.id}
-                            onClick={(clickEvent) => {
-                              clickEvent.stopPropagation();
-                              updateStatus(event.id, "rejected");
-                            }}
-                            className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white hover:bg-rose-700 disabled:opacity-50"
-                          >
-                            Reject
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === event.id}
-                            onClick={(clickEvent) => {
-                              clickEvent.stopPropagation();
-                              updateStatus(event.id, "archived");
-                            }}
-                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                          >
-                            Archive
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === event.id}
-                            onClick={(clickEvent) => {
-                              clickEvent.stopPropagation();
-                              updateStatus(event.id, "draft");
-                            }}
-                            className="rounded-xl border border-purple-300 bg-purple-50 px-3 py-2 text-xs font-black text-purple-700 hover:bg-purple-100 disabled:opacity-50"
-                          >
-                            Draft
-                          </button>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                {filteredEvents.map((event) => (
+                  <AdminEventCard
+                    key={event.id}
+                    event={event}
+                    selected={selectedEvent?.id === event.id}
+                    busy={busyId === event.id}
+                    onSelect={() => setSelectedId(event.id)}
+                    onPublish={() => updateStatus(event.id, "published")}
+                    onReject={() => updateStatus(event.id, "rejected")}
+                    onArchive={() => updateStatus(event.id, "archived")}
+                    onDraft={() => updateStatus(event.id, "draft")}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -986,122 +775,14 @@ export default function AdminEventsPage() {
 
         <aside className="xl:sticky xl:top-24 xl:self-start">
           {selectedEvent ? (
-            <div className="space-y-5">
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-black text-purple-700">
-                      REVIEW DETAIL
-                    </p>
-                    <h2 className="mt-1 text-xl font-black leading-snug text-slate-950">
-                      {titleOf(selectedEvent)}
-                    </h2>
-                  </div>
-                  <StatusBadge status={selectedEvent.status} />
-                </div>
-
-                <div className="mt-4">
-                  <EventImage event={selectedEvent} large />
-                </div>
-
-                <div className="mt-4 grid gap-2">
-                  <ReviewRow label="商戶" value={merchantOf(selectedEvent)} />
-                  <ReviewRow label="日期" value={dateOf(selectedEvent)} />
-                  <ReviewRow label="時間" value={timeOf(selectedEvent)} />
-                  <ReviewRow label="地點" value={locationOf(selectedEvent)} />
-                  <ReviewRow label="分類" value={categoryOf(selectedEvent)} />
-                  <ReviewRow label="收費" value={priceOf(selectedEvent)} />
-                  <ReviewRow label="CTA" value={ctaOf(selectedEvent)} />
-                  <ReviewRow label="圖片數量" value={`${imageCount(selectedEvent)} 張`} />
-                  <ReviewRow
-                    label="Google Map"
-                    value={
-                      hasValue(selectedEvent.google_map_url) ||
-                      hasValue(selectedEvent.google_map_embed_url)
-                        ? "已準備"
-                        : "未填寫"
-                    }
-                  />
-                </div>
-
-                {missingItems(selectedEvent).length ? (
-                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                    <p className="font-black">審批前建議處理</p>
-                    <ul className="mt-2 list-disc pl-5">
-                      {missingItems(selectedEvent).map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <Link
-                    href={`/merchant/events/${selectedEvent.id}/preview`}
-                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
-                  >
-                    Preview
-                  </Link>
-                  <Link
-                    href={`/merchant/events/${selectedEvent.id}/edit`}
-                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
-                  >
-                    編輯
-                  </Link>
-                  <Link
-                    href={`/events/${selectedEvent.id}`}
-                    className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-center text-xs font-black text-emerald-700 hover:bg-emerald-100"
-                  >
-                    公開頁
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => updateStatus(selectedEvent.id, "draft")}
-                    disabled={busyId === selectedEvent.id}
-                    className="rounded-xl border border-purple-300 bg-purple-50 px-3 py-2 text-xs font-black text-purple-700 hover:bg-purple-100 disabled:opacity-50"
-                  >
-                    改回草稿
-                  </button>
-                </div>
-
-                <div className="mt-3 grid gap-2">
-                  <button
-                    type="button"
-                    onClick={() => updateStatus(selectedEvent.id, "published")}
-                    disabled={busyId === selectedEvent.id}
-                    className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-50"
-                  >
-                    審批通過並發布
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateStatus(selectedEvent.id, "rejected")}
-                    disabled={busyId === selectedEvent.id}
-                    className="rounded-xl bg-rose-600 px-4 py-3 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
-                  >
-                    拒絕活動
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateStatus(selectedEvent.id, "archived")}
-                    disabled={busyId === selectedEvent.id}
-                    className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
-                  >
-                    封存活動
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-blue-200 bg-blue-50 p-5 text-sm leading-6 text-blue-900">
-                <p className="font-black">審批提醒</p>
-                <ul className="mt-2 list-disc space-y-1 pl-5">
-                  <li>圖片不能太細或過度裁切。</li>
-                  <li>收費及名額要清楚，不能混淆價錢和 quota。</li>
-                  <li>CTA 要對應實際情況：官方網站、Google Form、WhatsApp 或無需報名。</li>
-                  <li>Google Map 要能協助家長找到地點。</li>
-                </ul>
-              </div>
-            </div>
+            <ApprovalPanel
+              event={selectedEvent}
+              busy={busyId === selectedEvent.id}
+              onPublish={() => updateStatus(selectedEvent.id, "published")}
+              onReject={() => updateStatus(selectedEvent.id, "rejected")}
+              onArchive={() => updateStatus(selectedEvent.id, "archived")}
+              onDraft={() => updateStatus(selectedEvent.id, "draft")}
+            />
           ) : (
             <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-2xl">
@@ -1111,13 +792,427 @@ export default function AdminEventsPage() {
                 選擇一個活動審批
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                左邊點選活動後，這裡會顯示完整審批摘要、Preview、公開頁及審批操作。
+                左邊點選活動後，這裡會顯示完整審批摘要、Preview、公開頁及操作。
               </p>
             </div>
           )}
         </aside>
       </section>
     </main>
+  );
+}
+
+function AdminEventCard({
+  event,
+  selected,
+  busy,
+  onSelect,
+  onPublish,
+  onReject,
+  onArchive,
+  onDraft,
+}: {
+  event: EventRecord;
+  selected: boolean;
+  busy: boolean;
+  onSelect: () => void;
+  onPublish: () => void;
+  onReject: () => void;
+  onArchive: () => void;
+  onDraft: () => void;
+}) {
+  const score = readyScore(event);
+  const missing = missingItems(event);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(keyboardEvent) => {
+        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+          onSelect();
+        }
+      }}
+      className={[
+        "grid cursor-pointer gap-5 p-5 text-left transition hover:bg-slate-50 xl:grid-cols-[270px_1fr_230px]",
+        selected ? "bg-purple-50/60 ring-2 ring-inset ring-purple-200" : "bg-white",
+      ].join(" ")}
+    >
+      <EventImage event={event} />
+
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={event.status} />
+          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+            {score}分
+          </span>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+            {imageCount(event)} 張圖
+          </span>
+        </div>
+
+        <h3 className="mt-3 text-xl font-black leading-snug text-slate-950">
+          {titleOf(event)}
+        </h3>
+
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
+          {shortDescription(event)}
+        </p>
+
+        <div className="mt-4 grid gap-2 text-xs sm:grid-cols-2 2xl:grid-cols-4">
+          <MiniInfo label="商戶" value={merchantOf(event)} />
+          <MiniInfo label="日期" value={dateOf(event)} />
+          <MiniInfo label="地點" value={locationOf(event)} />
+          <MiniInfo label="收費" value={priceOf(event)} />
+        </div>
+
+        {missing.length ? (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800">
+            建議補充：{missing.join("、")}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800">
+            資料完整，適合審批或公開。
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-500">完整度</span>
+            <span className="font-black text-slate-950">{score}%</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className={[
+                "h-full rounded-full",
+                score >= 80
+                  ? "bg-emerald-500"
+                  : score >= 60
+                  ? "bg-amber-500"
+                  : "bg-rose-500",
+              ].join(" ")}
+              style={{ width: `${score}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            href={`/merchant/events/${event.id}/preview`}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
+            onClick={(clickEvent) => clickEvent.stopPropagation()}
+          >
+            Preview
+          </Link>
+          <Link
+            href={`/merchant/events/${event.id}/edit`}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
+            onClick={(clickEvent) => clickEvent.stopPropagation()}
+          >
+            編輯
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={busy || !canPublish(event)}
+            onClick={(clickEvent) => {
+              clickEvent.stopPropagation();
+              onPublish();
+            }}
+            className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 disabled:bg-slate-300"
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={(clickEvent) => {
+              clickEvent.stopPropagation();
+              onReject();
+            }}
+            className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white hover:bg-rose-700 disabled:opacity-50"
+          >
+            Reject
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={(clickEvent) => {
+              clickEvent.stopPropagation();
+              onArchive();
+            }}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Archive
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={(clickEvent) => {
+              clickEvent.stopPropagation();
+              onDraft();
+            }}
+            className="rounded-xl border border-purple-300 bg-purple-50 px-3 py-2 text-xs font-black text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+          >
+            Draft
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ApprovalPanel({
+  event,
+  busy,
+  onPublish,
+  onReject,
+  onArchive,
+  onDraft,
+}: {
+  event: EventRecord;
+  busy: boolean;
+  onPublish: () => void;
+  onReject: () => void;
+  onArchive: () => void;
+  onDraft: () => void;
+}) {
+  const missing = missingItems(event);
+  const score = readyScore(event);
+  const publishDisabled = busy || !canPublish(event);
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black text-purple-700">APPROVAL REVIEW</p>
+            <h2 className="mt-1 text-2xl font-black leading-snug text-slate-950">
+              {titleOf(event)}
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Raw status：{safeText(event.status, "draft")}
+            </p>
+          </div>
+          <StatusBadge status={event.status} />
+        </div>
+
+        <div className="mt-5">
+          <EventImage event={event} large />
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-black text-slate-600">審批完整度</span>
+            <span className="font-black text-slate-950">{score}%</span>
+          </div>
+          <div className="mt-2 h-3 overflow-hidden rounded-full bg-white">
+            <div
+              className={[
+                "h-full rounded-full",
+                score >= 80
+                  ? "bg-emerald-500"
+                  : score >= 60
+                  ? "bg-amber-500"
+                  : "bg-rose-500",
+              ].join(" ")}
+              style={{ width: `${score}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            60分以下不建議直接公開；最好先改回草稿，讓商戶補資料。
+          </p>
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          <ReviewRow label="商戶" value={merchantOf(event)} />
+          <ReviewRow label="日期" value={dateOf(event)} />
+          <ReviewRow label="時間" value={timeOf(event)} />
+          <ReviewRow label="地點" value={locationOf(event)} />
+          <ReviewRow label="分類" value={categoryOf(event)} />
+          <ReviewRow label="收費" value={priceOf(event)} />
+          <ReviewRow label="CTA" value={ctaOf(event)} />
+          <ReviewRow label="圖片" value={`${imageCount(event)} 張`} />
+          <ReviewRow
+            label="Google Map"
+            value={
+              hasValue(event.google_map_url) || hasValue(event.google_map_embed_url)
+                ? "已準備"
+                : "未填寫"
+            }
+          />
+        </div>
+
+        {missing.length ? (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+            <p className="font-black">審批前建議處理</p>
+            <ul className="mt-2 list-disc pl-5">
+              {missing.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">
+            主要資料已齊備，可考慮審批發布。
+          </div>
+        )}
+
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <Link
+            href={`/merchant/events/${event.id}/preview`}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-3 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
+          >
+            Preview
+          </Link>
+          <Link
+            href={`/merchant/events/${event.id}/edit`}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-3 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
+          >
+            編輯
+          </Link>
+          <Link
+            href={`/events/${event.id}`}
+            className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-3 text-center text-xs font-black text-emerald-700 hover:bg-emerald-100"
+          >
+            公開頁
+          </Link>
+          <button
+            type="button"
+            onClick={onDraft}
+            disabled={busy}
+            className="rounded-xl border border-purple-300 bg-purple-50 px-3 py-3 text-xs font-black text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+          >
+            改回草稿
+          </button>
+        </div>
+
+        <div className="mt-3 grid gap-2">
+          <button
+            type="button"
+            onClick={onPublish}
+            disabled={publishDisabled}
+            className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-slate-300"
+          >
+            審批通過並發布
+          </button>
+          <button
+            type="button"
+            onClick={onReject}
+            disabled={busy}
+            className="rounded-xl bg-rose-600 px-4 py-3 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
+          >
+            拒絕活動
+          </button>
+          <button
+            type="button"
+            onClick={onArchive}
+            disabled={busy}
+            className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
+          >
+            封存活動
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-blue-200 bg-blue-50 p-5 text-sm leading-6 text-blue-900">
+        <p className="font-black">審批 UX 規則</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          <li>圖片要足夠清楚，不應太細或過度裁切。</li>
+          <li>收費、優惠、名額和 quota 要分開顯示，不應混淆。</li>
+          <li>CTA 要對應實際情況：官方網站、Google Form、WhatsApp 或無需報名。</li>
+          <li>Google Map 必須有助家長找到地點。</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function EventImage({ event, large = false }: { event: EventRecord; large?: boolean }) {
+  return (
+    <div
+      className={[
+        "overflow-hidden rounded-3xl border border-slate-200 bg-slate-50",
+        large ? "h-80" : "h-44",
+      ].join(" ")}
+    >
+      {event.cover_image_url ? (
+        <div className="flex h-full w-full items-center justify-center p-2">
+          <img
+            src={event.cover_image_url}
+            alt={titleOf(event)}
+            className="max-h-full max-w-full rounded-2xl object-contain"
+          />
+        </div>
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-5xl">
+          親
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-black text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-purple-600" style={{ width: value }} />
+      </div>
+    </div>
+  );
+}
+
+function BarRow({
+  label,
+  value,
+  max,
+}: {
+  label: string;
+  value: number;
+  max: number;
+}) {
+  const width = max > 0 ? Math.max(6, Math.round((value / max) * 100)) : 0;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="truncate font-bold text-slate-700">{label}</span>
+        <span className="font-black text-slate-950">{value}</span>
+      </div>
+      <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status?: string | null }) {
+  return (
+    <span
+      className={[
+        "inline-flex rounded-full border px-3 py-1 text-xs font-black",
+        statusBadgeClass(status),
+      ].join(" ")}
+    >
+      {statusLabel(status)}
+    </span>
+  );
+}
+
+function MiniInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 px-3 py-2">
+      <p className="text-xs font-black text-slate-400">{label}</p>
+      <p className="mt-1 truncate text-xs font-bold text-slate-700">{value}</p>
+    </div>
   );
 }
 
