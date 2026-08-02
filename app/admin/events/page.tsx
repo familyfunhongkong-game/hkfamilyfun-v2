@@ -248,7 +248,9 @@ function qualityIssues(event: EventRecord) {
   if (priceOf(event) === "收費未填") issues.push("缺少收費資料");
   if (ctaOf(event) === "未設定") issues.push("缺少 CTA / 報名方式");
   if (imageCount(event) === 0) issues.push("缺少圖片");
-  if (!hasValue(event.google_map_url) && !hasValue(event.google_map_embed_url)) issues.push("缺少 Google Map");
+  if (!hasValue(event.google_map_url) && !hasValue(event.google_map_embed_url)) {
+    issues.push("缺少 Google Map");
+  }
 
   return issues;
 }
@@ -322,7 +324,16 @@ export default function AdminEventsPage() {
       setEvents([]);
       setMessage(`讀取活動失敗：${error.message}`);
     } else {
-      setEvents((data || []) as EventRecord[]);
+      const rows = (data || []) as EventRecord[];
+      setEvents(rows);
+
+      const currentVisible = selected
+        ? rows.find((event) => event.id === selected.id)
+        : null;
+
+      if (currentVisible) {
+        setSelected(currentVisible);
+      }
     }
 
     setLoading(false);
@@ -330,6 +341,7 @@ export default function AdminEventsPage() {
 
   useEffect(() => {
     loadEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const counts = useMemo(() => {
@@ -379,6 +391,22 @@ export default function AdminEventsPage() {
     });
   }, [events, activeFilter, search]);
 
+  useEffect(() => {
+    if (loading) return;
+
+    if (filteredEvents.length === 0) {
+      setSelected(null);
+      return;
+    }
+
+    const selectedStillVisible =
+      selected && filteredEvents.some((event) => event.id === selected.id);
+
+    if (!selectedStillVisible) {
+      setSelected(filteredEvents[0]);
+    }
+  }, [filteredEvents, loading, selected]);
+
   const analytics = useMemo(() => {
     const total = events.length || 1;
 
@@ -415,31 +443,36 @@ export default function AdminEventsPage() {
   async function updateStatus(id: string, nextStatus: string) {
     const originalEvents = events;
     const originalSelected = selected;
+    const now = new Date().toISOString();
+    const nextGroup = statusGroup(nextStatus);
+    const targetEvent = events.find((event) => event.id === id);
 
     setBusyId(id);
     setMessage("");
 
+    const updatedTarget = targetEvent
+      ? { ...targetEvent, status: nextStatus, updated_at: now }
+      : null;
+
+    setActiveFilter(nextGroup);
+
     setEvents((prev) =>
       prev.map((event) =>
         event.id === id
-          ? { ...event, status: nextStatus, updated_at: new Date().toISOString() }
+          ? { ...event, status: nextStatus, updated_at: now }
           : event
       )
     );
 
-    if (selected?.id === id) {
-      setSelected({
-        ...selected,
-        status: nextStatus,
-        updated_at: new Date().toISOString(),
-      });
+    if (updatedTarget) {
+      setSelected(updatedTarget);
     }
 
     const { error } = await supabase
       .from("events")
       .update({
         status: nextStatus,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .eq("id", id);
 
@@ -448,10 +481,24 @@ export default function AdminEventsPage() {
       setSelected(originalSelected);
       setMessage(`更新失敗：${error.message}`);
     } else {
-      const nextGroup = statusGroup(nextStatus);
-      setActiveFilter(nextGroup);
-      setMessage(`已更新為「${statusLabel(nextStatus)}」。已自動切換到相關分類。`);
-      await loadEvents();
+      const { data } = await supabase
+        .from("events")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (data) {
+        const refreshedEvent = data as EventRecord;
+
+        setEvents((prev) =>
+          prev.map((event) => (event.id === id ? refreshedEvent : event))
+        );
+
+        setSelected(refreshedEvent);
+        setActiveFilter(statusGroup(refreshedEvent.status));
+      }
+
+      setMessage(`已更新為「${statusLabel(nextStatus)}」，右側已同步顯示該活動。`);
     }
 
     setBusyId(null);
@@ -874,9 +921,9 @@ export default function AdminEventsPage() {
                 <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-xs leading-6 text-blue-800">
                   <p className="font-black">審批提示</p>
                   <ul className="mt-2 list-disc space-y-1 pl-4">
-                    <li>已修正 status group，草稿、封存、待審批不再混亂。</li>
-                    <li>按 Draft 後會自動切換到草稿 filter。</li>
-                    <li>右側 Raw status 方便你檢查 Supabase 真實 status 值。</li>
+                    <li>按狀態按鈕後，右側會自動同步顯示該活動。</li>
+                    <li>切換 filter 後，右側會自動選中第一個可見活動。</li>
+                    <li>Raw status 用來檢查 Supabase 真實 status 值。</li>
                   </ul>
                 </div>
               </div>
