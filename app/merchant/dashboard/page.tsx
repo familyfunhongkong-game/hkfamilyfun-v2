@@ -20,6 +20,8 @@ type EventRecord = {
   activity_category?: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   status?: string | null;
   cover_image_url?: string | null;
   gallery_image_urls?: unknown;
@@ -66,7 +68,7 @@ type FilterKey =
   | "archived";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "all", label: "全部活動" },
+  { key: "all", label: "全部" },
   { key: "draft", label: "草稿" },
   { key: "review", label: "審批中" },
   { key: "published", label: "已發布" },
@@ -148,6 +150,16 @@ function dateOf(event: EventRecord) {
   return "日期未填";
 }
 
+function timeOf(event: EventRecord) {
+  const start = safeText(event.start_time, "");
+  const end = safeText(event.end_time, "");
+
+  if (start && end) return `${start} - ${end}`;
+  if (start) return start;
+  if (end) return end;
+  return "時間待確認";
+}
+
 function locationOf(event: EventRecord) {
   const parts = [event.venue_name, event.district, event.mtr_station]
     .map((item) => safeText(item, ""))
@@ -179,10 +191,7 @@ function getGalleryArray(value: unknown) {
 }
 
 function imageCount(event: EventRecord) {
-  const cover = event.cover_image_url ? 1 : 0;
-  const gallery = getGalleryArray(event.gallery_image_urls).length;
-
-  return cover + gallery;
+  return (event.cover_image_url ? 1 : 0) + getGalleryArray(event.gallery_image_urls).length;
 }
 
 function numberText(value: unknown) {
@@ -396,6 +405,7 @@ export default function MerchantDashboardPage() {
             titleOf(event),
             categoryOf(event),
             dateOf(event),
+            timeOf(event),
             locationOf(event),
             priceOf(event),
             ctaOf(event),
@@ -499,14 +509,12 @@ export default function MerchantDashboardPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-[1480px] px-4 py-16">
+        <div className="mx-auto max-w-[1500px] px-4 py-16">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-2xl">
               親
             </div>
-            <p className="font-bold text-slate-700">
-              正在讀取商戶 Dashboard...
-            </p>
+            <p className="font-bold text-slate-700">正在讀取商戶 Dashboard...</p>
           </div>
         </div>
       </main>
@@ -550,8 +558,8 @@ export default function MerchantDashboardPage() {
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1480px] px-4 py-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="mx-auto max-w-[1500px] px-4 py-7">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <p className="text-sm font-bold text-purple-700">
                 Merchant Portal · 活動管理中心
@@ -560,8 +568,8 @@ export default function MerchantDashboardPage() {
                 商戶 Dashboard
               </h1>
               <p className="mt-3 max-w-5xl text-sm leading-6 text-slate-600">
-                管理活動草稿、審批狀態、公開頁資料及報名 CTA。商戶可貼網址、
-                上載圖片或 PDF 建立草稿，再補齊資料提交 HK Family Fun 審批。
+                以兩欄式管理活動草稿、審批狀態、公開頁資料及報名 CTA。圖片更大、
+                操作更集中，減少上下捲動。
               </p>
             </div>
 
@@ -577,45 +585,47 @@ export default function MerchantDashboardPage() {
                 href="/merchant/events/import"
                 className="rounded-full bg-purple-700 px-5 py-2 text-sm font-bold text-white hover:bg-purple-800"
               >
-                新增活動
+                智能匯入活動
               </Link>
             </div>
           </div>
 
-          <div className="mt-6 rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-xs font-black text-emerald-700">
-                  商戶帳戶已連接
-                </p>
-                <h2 className="mt-1 text-xl font-black text-slate-950">
-                  {safeText(merchant.business_name, "未命名商戶")}
-                </h2>
-                <p className="mt-1 text-sm text-emerald-800">
-                  狀態：{safeText(merchant.status, "未確認")} · Email：
-                  {safeText(merchant.contact_email, "未填寫")}
-                </p>
-              </div>
+          <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_420px]">
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs font-black text-emerald-700">
+                    商戶帳戶已連接
+                  </p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                    {safeText(merchant.business_name, "未命名商戶")}
+                  </h2>
+                  <p className="mt-1 text-sm text-emerald-800">
+                    狀態：{safeText(merchant.status, "未確認")} · Email：
+                    {safeText(merchant.contact_email, "未填寫")}
+                  </p>
+                </div>
 
-              <div className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-700">
-                平均資料完整度：{averageScore}%
+                <div className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-700">
+                  平均完整度：{averageScore}%
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            <StatCard label="全部活動" value={counts.all} tone="slate" />
-            <StatCard label="草稿" value={counts.draft} tone="purple" />
-            <StatCard label="審批中" value={counts.review} tone="amber" />
-            <StatCard label="已發布" value={counts.published} tone="green" />
-            <StatCard label="已拒絕" value={counts.rejected} tone="rose" />
-            <StatCard label="已封存" value={counts.archived} tone="slate" />
+            <div className="grid grid-cols-3 gap-2 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+              <MiniStat label="全部" value={counts.all} />
+              <MiniStat label="草稿" value={counts.draft} />
+              <MiniStat label="審批中" value={counts.review} />
+              <MiniStat label="已發布" value={counts.published} />
+              <MiniStat label="已拒絕" value={counts.rejected} />
+              <MiniStat label="已封存" value={counts.archived} />
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-[1480px] gap-6 px-4 py-6 xl:grid-cols-[1fr_330px]">
-        <div className="space-y-5">
+      <section className="mx-auto grid max-w-[1500px] gap-6 px-4 py-6 xl:grid-cols-[1fr_320px]">
+        <div className="space-y-4">
           <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <input
@@ -664,7 +674,7 @@ export default function MerchantDashboardPage() {
                   </span>
                 </h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  建議先用 Preview 檢查資料，再提交審批。公開頁只會顯示已發布活動。
+                  圖片、日期、地點、收費、CTA 及 Google Map 會影響完整度。
                 </p>
               </div>
 
@@ -672,7 +682,7 @@ export default function MerchantDashboardPage() {
                 href="/merchant/events/import"
                 className="rounded-full bg-slate-950 px-4 py-2 text-center text-xs font-black text-white hover:bg-slate-800"
               >
-                智能匯入活動
+                新增活動
               </Link>
             </div>
 
@@ -712,53 +722,43 @@ export default function MerchantDashboardPage() {
           </div>
         </div>
 
-        <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-black text-purple-700">商戶使用流程</p>
-            <h2 className="mt-2 text-xl font-black text-slate-950">
-              由草稿到發布
-            </h2>
+        <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+          <div className="rounded-3xl border border-purple-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-black text-purple-700">快捷操作</p>
+            <div className="mt-4 grid gap-2">
+              <Link
+                href="/merchant/events/import"
+                className="rounded-2xl bg-purple-700 px-4 py-3 text-center text-sm font-black text-white hover:bg-purple-800"
+              >
+                智能匯入活動
+              </Link>
+              <button
+                type="button"
+                onClick={loadDashboard}
+                className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+              >
+                重新整理列表
+              </button>
+            </div>
+          </div>
 
-            <div className="mt-5 space-y-3">
-              <GuideStep
-                number="1"
-                title="建立草稿"
-                text="貼活動網址、上載圖片或 PDF，先產生可編輯資料。"
-              />
-              <GuideStep
-                number="2"
-                title="補齊重點資料"
-                text="日期、地點、收費、CTA、圖片及 Google Map 最重要。"
-              />
-              <GuideStep
-                number="3"
-                title="Preview 檢查"
-                text="先看家長會見到的大約效果，再提交審批。"
-              />
-              <GuideStep
-                number="4"
-                title="提交審批"
-                text="HK Family Fun 審批通過後，活動才會公開顯示。"
-              />
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-black text-purple-700">商戶流程</p>
+            <div className="mt-4 space-y-2">
+              <GuideStep number="1" title="建立草稿" text="網址、圖片或 PDF 先匯入。" />
+              <GuideStep number="2" title="補齊資料" text="日期、地點、收費、CTA。" />
+              <GuideStep number="3" title="Preview" text="檢查家長見到的效果。" />
+              <GuideStep number="4" title="提交審批" text="通過後才會公開。" />
             </div>
           </div>
 
           <div className="rounded-3xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-900">
-            <p className="font-black">提升曝光建議</p>
+            <p className="font-black">提示</p>
             <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">
-              <li>封面圖建議用清晰橫圖，避免文字太細。</li>
-              <li>活動簡介用 2–3 句講清楚適合邊類家庭。</li>
-              <li>報名方式要清楚：官方網站、Google Form、WhatsApp 或無需報名。</li>
-              <li>Google Map 可提高家長出發前信心。</li>
+              <li>活動圖建議使用橫圖，家長 card 會更清楚。</li>
+              <li>只放 quota 時，不應混入價錢欄。</li>
+              <li>CTA 要清楚分辨官方網站、Google Form、WhatsApp 或無需報名。</li>
             </ul>
-          </div>
-
-          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-            <p className="font-black">平台角色說明</p>
-            <p className="mt-2 leading-6">
-              HK Family Fun 主要協助活動搜尋、整理及展示。活動內容、收費、
-              名額、報名安排及現場安排，仍以主辦方最新公布為準。
-            </p>
           </div>
         </aside>
       </section>
@@ -788,21 +788,23 @@ function EventCard({
   const canSubmitForReview = canSubmit(event);
 
   return (
-    <div className="grid gap-5 p-5 transition hover:bg-slate-50 lg:grid-cols-[260px_1fr] 2xl:grid-cols-[280px_1fr_250px]">
+    <div className="grid gap-5 p-5 transition hover:bg-slate-50 2xl:grid-cols-[360px_1fr_210px]">
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        {event.cover_image_url ? (
-          <div className="flex h-52 w-full items-center justify-center bg-slate-50 p-2">
-            <img
-              src={event.cover_image_url}
-              alt={titleOf(event)}
-              className="max-h-full max-w-full rounded-2xl object-contain"
-            />
-          </div>
-        ) : (
-          <div className="flex h-52 w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-5xl">
-            親
-          </div>
-        )}
+        <div className="aspect-video w-full bg-slate-50">
+          {event.cover_image_url ? (
+            <div className="flex h-full w-full items-center justify-center p-2">
+              <img
+                src={event.cover_image_url}
+                alt={titleOf(event)}
+                className="max-h-full max-w-full rounded-2xl object-contain"
+              />
+            </div>
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-5xl">
+              親
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center justify-between border-t border-slate-100 bg-white px-3 py-2 text-xs font-bold text-slate-500">
           <span>圖片 {imageCount(event)} 張</span>
@@ -825,7 +827,7 @@ function EventCard({
           {titleOf(event)}
         </h3>
 
-        <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
           {safeText(
             event.short_description_tc || event.description_tc,
             "未有活動簡介"
@@ -834,9 +836,21 @@ function EventCard({
 
         <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
           <MiniInfo label="日期" value={dateOf(event)} />
+          <MiniInfo label="時間" value={timeOf(event)} />
           <MiniInfo label="地點" value={locationOf(event)} />
           <MiniInfo label="收費" value={priceOf(event)} />
+        </div>
+
+        <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
           <MiniInfo label="CTA" value={ctaOf(event)} />
+          <MiniInfo
+            label="Google Map"
+            value={
+              hasValue(event.google_map_url) || hasValue(event.google_map_embed_url)
+                ? "已準備"
+                : "未填寫"
+            }
+          />
         </div>
 
         {missing.length ? (
@@ -851,10 +865,10 @@ function EventCard({
         )}
       </div>
 
-      <div className="flex flex-col justify-between gap-3 lg:col-span-2 2xl:col-span-1">
+      <div className="flex flex-col justify-between gap-3">
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 flex items-center justify-between text-xs">
-            <span className="font-bold text-slate-500">資料完整度</span>
+            <span className="font-bold text-slate-500">完整度</span>
             <span className="font-black text-slate-950">{score}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-white">
@@ -957,27 +971,11 @@ function EventCard({
   );
 }
 
-function StatCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "slate" | "amber" | "green" | "rose" | "purple";
-}) {
-  const tones = {
-    slate: "bg-slate-50 border-slate-200 text-slate-900",
-    amber: "bg-amber-50 border-amber-200 text-amber-900",
-    green: "bg-emerald-50 border-emerald-200 text-emerald-900",
-    rose: "bg-rose-50 border-rose-200 text-rose-900",
-    purple: "bg-purple-50 border-purple-200 text-purple-900",
-  };
-
+function MiniStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className={`rounded-3xl border p-5 ${tones[tone]}`}>
-      <p className="text-xs font-black opacity-70">{label}</p>
-      <p className="mt-2 text-3xl font-black">{value}</p>
+    <div className="rounded-2xl bg-slate-50 px-4 py-3">
+      <p className="text-xs font-black text-slate-500">{label}</p>
+      <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
     </div>
   );
 }
@@ -1014,13 +1012,13 @@ function GuideStep({
   text: string;
 }) {
   return (
-    <div className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-700 text-sm font-black text-white">
+    <div className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-purple-700 text-xs font-black text-white">
         {number}
       </div>
       <div>
-        <p className="font-black text-slate-950">{title}</p>
-        <p className="mt-1 text-sm leading-6 text-slate-600">{text}</p>
+        <p className="text-sm font-black text-slate-950">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-slate-600">{text}</p>
       </div>
     </div>
   );
