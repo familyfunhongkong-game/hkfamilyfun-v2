@@ -377,9 +377,7 @@ export default function MerchantDashboardPage() {
 
     events.forEach((event) => {
       const group = statusGroup(event.status);
-      if (group !== "all") {
-        base[group] += 1;
-      }
+      base[group] += 1;
     });
 
     return base;
@@ -474,14 +472,14 @@ export default function MerchantDashboardPage() {
     setBusyId(event.id);
     setMessage("");
 
+    const { id, created_at, updated_at, ...copyableEvent } = event;
+
     const newEvent = {
-      ...event,
-      id: undefined,
+      ...copyableEvent,
       status: "draft",
       title_tc: `${titleOf(event)} 副本`,
       title: event.title ? `${event.title} 副本` : null,
       merchant_id: merchant.id,
-      created_at: undefined,
       updated_at: new Date().toISOString(),
     };
 
@@ -501,7 +499,7 @@ export default function MerchantDashboardPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-6xl px-4 py-16">
+        <div className="mx-auto max-w-[1480px] px-4 py-16">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-2xl">
               親
@@ -552,7 +550,7 @@ export default function MerchantDashboardPage() {
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mx-auto max-w-[1480px] px-4 py-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-bold text-purple-700">
@@ -561,9 +559,9 @@ export default function MerchantDashboardPage() {
               <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
                 商戶 Dashboard
               </h1>
-              <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
-                管理你的活動草稿、審批狀態、公開頁資料及報名 CTA。
-                目標是減少重複填表，讓活動更快被家長搜尋到。
+              <p className="mt-3 max-w-5xl text-sm leading-6 text-slate-600">
+                管理活動草稿、審批狀態、公開頁資料及報名 CTA。商戶可貼網址、
+                上載圖片或 PDF 建立草稿，再補齊資料提交 HK Family Fun 審批。
               </p>
             </div>
 
@@ -616,15 +614,15 @@ export default function MerchantDashboardPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[1fr_360px]">
+      <section className="mx-auto grid max-w-[1480px] gap-6 px-4 py-6 xl:grid-cols-[1fr_330px]">
         <div className="space-y-5">
           <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="搜尋活動名稱、地區、收費、CTA..."
-                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 lg:max-w-md"
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 xl:max-w-xl"
               />
 
               <div className="flex flex-wrap gap-2">
@@ -657,13 +655,25 @@ export default function MerchantDashboardPage() {
           ) : null}
 
           <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h2 className="text-lg font-black text-slate-950">
-                我的活動
-                <span className="ml-2 text-sm font-semibold text-slate-500">
-                  {filteredEvents.length} / {events.length}
-                </span>
-              </h2>
+            <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-black text-slate-950">
+                  我的活動
+                  <span className="ml-2 text-sm font-semibold text-slate-500">
+                    {filteredEvents.length} / {events.length}
+                  </span>
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  建議先用 Preview 檢查資料，再提交審批。公開頁只會顯示已發布活動。
+                </p>
+              </div>
+
+              <Link
+                href="/merchant/events/import"
+                className="rounded-full bg-slate-950 px-4 py-2 text-center text-xs font-black text-white hover:bg-slate-800"
+              >
+                智能匯入活動
+              </Link>
             </div>
 
             {filteredEvents.length === 0 ? (
@@ -702,7 +712,7 @@ export default function MerchantDashboardPage() {
           </div>
         </div>
 
-        <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
+        <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-black text-purple-700">商戶使用流程</p>
             <h2 className="mt-2 text-xl font-black text-slate-950">
@@ -736,7 +746,7 @@ export default function MerchantDashboardPage() {
           <div className="rounded-3xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-900">
             <p className="font-black">提升曝光建議</p>
             <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">
-              <li>封面圖建議橫圖，避免文字太細。</li>
+              <li>封面圖建議用清晰橫圖，避免文字太細。</li>
               <li>活動簡介用 2–3 句講清楚適合邊類家庭。</li>
               <li>報名方式要清楚：官方網站、Google Form、WhatsApp 或無需報名。</li>
               <li>Google Map 可提高家長出發前信心。</li>
@@ -778,10 +788,10 @@ function EventCard({
   const canSubmitForReview = canSubmit(event);
 
   return (
-    <div className="grid gap-5 p-5 transition hover:bg-slate-50 lg:grid-cols-[220px_1fr_250px]">
+    <div className="grid gap-5 p-5 transition hover:bg-slate-50 lg:grid-cols-[260px_1fr] 2xl:grid-cols-[280px_1fr_250px]">
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         {event.cover_image_url ? (
-          <div className="flex h-44 w-full items-center justify-center bg-slate-50 p-2">
+          <div className="flex h-52 w-full items-center justify-center bg-slate-50 p-2">
             <img
               src={event.cover_image_url}
               alt={titleOf(event)}
@@ -789,13 +799,14 @@ function EventCard({
             />
           </div>
         ) : (
-          <div className="flex h-44 w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-4xl">
+          <div className="flex h-52 w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-5xl">
             親
           </div>
         )}
 
-        <div className="border-t border-slate-100 bg-white px-3 py-2 text-xs font-bold text-slate-500">
-          圖片 {imageCount(event)} 張
+        <div className="flex items-center justify-between border-t border-slate-100 bg-white px-3 py-2 text-xs font-bold text-slate-500">
+          <span>圖片 {imageCount(event)} 張</span>
+          <span>{categoryOf(event)}</span>
         </div>
       </div>
 
@@ -840,7 +851,7 @@ function EventCard({
         )}
       </div>
 
-      <div className="flex flex-col justify-between gap-3">
+      <div className="flex flex-col justify-between gap-3 lg:col-span-2 2xl:col-span-1">
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 flex items-center justify-between text-xs">
             <span className="font-bold text-slate-500">資料完整度</span>
