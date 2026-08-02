@@ -4,24 +4,36 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 
+type FilterKey =
+  | "all"
+  | "review"
+  | "pending"
+  | "draft"
+  | "published"
+  | "rejected"
+  | "archived";
+
 type EventRecord = {
   id: string;
+  merchant_id?: string | null;
   title_tc?: string | null;
   title?: string | null;
   short_description_tc?: string | null;
   description_tc?: string | null;
-  merchant_id?: string | null;
-  merchant_name?: string | null;
-  organizer_name?: string | null;
-  venue_name?: string | null;
-  address?: string | null;
-  area?: string | null;
-  district?: string | null;
-  mtr_station?: string | null;
+  highlights?: string | null;
+  terms?: string | null;
+  remarks?: string | null;
   category?: string | null;
   activity_category?: string | null;
+  venue_name?: string | null;
+  address?: string | null;
+  district?: string | null;
+  area?: string | null;
+  mtr_station?: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   status?: string | null;
   cover_image_url?: string | null;
   gallery_image_urls?: unknown;
@@ -35,43 +47,27 @@ type EventRecord = {
   price_label?: string | null;
   quota_label?: string | null;
   registration_url?: string | null;
+  booking_url?: string | null;
   source_url?: string | null;
   official_url?: string | null;
-  booking_url?: string | null;
-  booking_method?: string | null;
   cta_type?: string | null;
   cta_label?: string | null;
+  booking_method?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
   whatsapp?: string | null;
+  organizer_name?: string | null;
+  merchant_name?: string | null;
   google_map_url?: string | null;
   google_map_embed_url?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
 
-type FilterKey =
-  | "all"
-  | "review"
-  | "draft"
-  | "published"
-  | "rejected"
-  | "archived";
-
-type MerchantStats = {
-  merchant: string;
-  total: number;
-  review: number;
-  draft: number;
-  published: number;
-  rejected: number;
-  archived: number;
-  avg_quality_total: number;
-};
-
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "全部活動" },
   { key: "review", label: "待審批" },
+  { key: "pending", label: "待處理" },
   { key: "draft", label: "草稿" },
   { key: "published", label: "已發布" },
   { key: "rejected", label: "已拒絕" },
@@ -88,26 +84,28 @@ function hasValue(value: unknown) {
   return safeText(value, "") !== "";
 }
 
-function normalizedStatus(status?: string | null) {
+function titleOf(event: EventRecord) {
+  return safeText(event.title_tc || event.title, "未命名活動");
+}
+
+function categoryOf(event: EventRecord) {
+  return safeText(event.activity_category || event.category, "未分類");
+}
+
+function normalStatus(status?: string | null) {
   return safeText(status, "").toLowerCase();
 }
 
 function statusGroup(status?: string | null): FilterKey {
-  const s = normalizedStatus(status);
+  const s = normalStatus(status);
 
-  if (["submitted", "pending", "review", "pending_review"].includes(s)) {
-    return "review";
-  }
-
+  if (["submitted", "review", "pending_review"].includes(s)) return "review";
+  if (["pending", "need_review", "needs_review"].includes(s)) return "pending";
   if (["published", "approved", "online", "live"].includes(s)) {
     return "published";
   }
-
-  if (["rejected", "declined"].includes(s)) {
-    return "rejected";
-  }
-
-  if (["archived", "archive", "offline", "hidden"].includes(s)) {
+  if (["rejected", "declined"].includes(s)) return "rejected";
+  if (["archived", "archive", "hidden", "offline"].includes(s)) {
     return "archived";
   }
 
@@ -118,6 +116,7 @@ function statusLabel(status?: string | null) {
   const group = statusGroup(status);
 
   if (group === "review") return "待審批";
+  if (group === "pending") return "待處理";
   if (group === "published") return "已發布";
   if (group === "rejected") return "已拒絕";
   if (group === "archived") return "已封存";
@@ -127,26 +126,15 @@ function statusLabel(status?: string | null) {
 function statusBadgeClass(status?: string | null) {
   const group = statusGroup(status);
 
-  if (group === "review") return "border-amber-200 bg-amber-50 text-amber-700";
-  if (group === "published") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (group === "rejected") return "border-rose-200 bg-rose-50 text-rose-700";
+  if (group === "review") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (group === "pending") return "border-orange-200 bg-orange-50 text-orange-800";
+  if (group === "published") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+  if (group === "rejected") return "border-rose-200 bg-rose-50 text-rose-800";
   if (group === "archived") return "border-slate-200 bg-slate-100 text-slate-600";
-  return "border-purple-200 bg-purple-50 text-purple-700";
-}
 
-function titleOf(event: EventRecord) {
-  return safeText(event.title_tc || event.title, "未命名活動");
-}
-
-function merchantOf(event: EventRecord) {
-  return safeText(
-    event.merchant_name || event.organizer_name || event.merchant_id,
-    "未連接商戶"
-  );
-}
-
-function categoryOf(event: EventRecord) {
-  return safeText(event.activity_category || event.category, "未分類");
+  return "border-purple-200 bg-purple-50 text-purple-800";
 }
 
 function dateOf(event: EventRecord) {
@@ -159,12 +147,26 @@ function dateOf(event: EventRecord) {
   return "日期未填";
 }
 
+function timeOf(event: EventRecord) {
+  const start = safeText(event.start_time, "");
+  const end = safeText(event.end_time, "");
+
+  if (start && end) return `${start} - ${end}`;
+  if (start) return start;
+  if (end) return end;
+  return "時間待確認";
+}
+
 function locationOf(event: EventRecord) {
   const parts = [event.venue_name, event.district, event.mtr_station]
     .map((item) => safeText(item, ""))
     .filter(Boolean);
 
   return parts.length ? parts.join("・") : "地點未填";
+}
+
+function merchantOf(event: EventRecord) {
+  return safeText(event.organizer_name || event.merchant_name, "未填商戶");
 }
 
 function getGalleryArray(value: unknown) {
@@ -190,9 +192,7 @@ function getGalleryArray(value: unknown) {
 }
 
 function imageCount(event: EventRecord) {
-  const cover = event.cover_image_url ? 1 : 0;
-  const gallery = getGalleryArray(event.gallery_image_urls).length;
-  return cover + gallery;
+  return (event.cover_image_url ? 1 : 0) + getGalleryArray(event.gallery_image_urls).length;
 }
 
 function numberText(value: unknown) {
@@ -231,22 +231,9 @@ function priceOf(event: EventRecord) {
   return "收費未填";
 }
 
-function primaryActionUrl(event: EventRecord) {
-  return (
-    safeText(event.registration_url, "") ||
-    safeText(event.booking_url, "") ||
-    safeText(event.official_url, "") ||
-    safeText(event.source_url, "") ||
-    safeText(event.whatsapp, "") ||
-    safeText(event.contact_phone, "") ||
-    safeText(event.contact_email, "")
-  );
-}
-
 function ctaOf(event: EventRecord) {
   const label = safeText(event.cta_label, "");
   const type = safeText(event.cta_type || event.booking_method, "").toLowerCase();
-  const url = primaryActionUrl(event);
 
   if (label) return label;
   if (type.includes("whatsapp")) return "WhatsApp 報名";
@@ -254,9 +241,17 @@ function ctaOf(event: EventRecord) {
   if (type.includes("external")) return "外部連結報名";
   if (type.includes("official")) return "查看官方活動頁";
   if (type.includes("none")) return "無需報名";
-  if (url) return "可點擊";
 
-  return "未設定";
+  if (
+    hasValue(event.registration_url) ||
+    hasValue(event.booking_url) ||
+    hasValue(event.official_url) ||
+    hasValue(event.source_url)
+  ) {
+    return "可點擊";
+  }
+
+  return "CTA 未設定";
 }
 
 function readyScore(event: EventRecord) {
@@ -265,7 +260,7 @@ function readyScore(event: EventRecord) {
     hasValue(event.start_date),
     hasValue(event.venue_name) || hasValue(event.address),
     priceOf(event) !== "收費未填",
-    ctaOf(event) !== "未設定",
+    ctaOf(event) !== "CTA 未設定",
     imageCount(event) > 0,
     hasValue(event.google_map_url) || hasValue(event.google_map_embed_url),
   ];
@@ -273,88 +268,210 @@ function readyScore(event: EventRecord) {
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }
 
-function qualityIssues(event: EventRecord) {
-  const issues: string[] = [];
+function missingItems(event: EventRecord) {
+  const items: string[] = [];
 
-  if (!hasValue(event.title_tc || event.title)) issues.push("缺少活動名稱");
-  if (!hasValue(event.start_date)) issues.push("缺少日期");
-  if (!hasValue(event.venue_name) && !hasValue(event.address)) issues.push("缺少地點");
-  if (priceOf(event) === "收費未填") issues.push("缺少收費資料");
-  if (ctaOf(event) === "未設定") issues.push("缺少 CTA / 報名方式");
-  if (imageCount(event) === 0) issues.push("缺少圖片");
+  if (!hasValue(event.title_tc || event.title)) items.push("活動名稱");
+  if (!hasValue(event.start_date)) items.push("日期");
+  if (!hasValue(event.venue_name) && !hasValue(event.address)) items.push("地點");
+  if (priceOf(event) === "收費未填") items.push("收費");
+  if (ctaOf(event) === "CTA 未設定") items.push("CTA");
+  if (imageCount(event) === 0) items.push("圖片");
   if (!hasValue(event.google_map_url) && !hasValue(event.google_map_embed_url)) {
-    issues.push("缺少 Google Map");
+    items.push("Google Map");
   }
 
-  return issues;
+  return items;
 }
 
-function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
-  if (!rows.length) return;
+function shortDescription(event: EventRecord) {
+  return safeText(
+    event.short_description_tc || event.description_tc,
+    "系統已收到此活動資料，請在 Preview 或編輯頁檢查日期、地點、收費及 CTA。"
+  );
+}
 
-  const headers = Object.keys(rows[0]);
-  const csv = [
-    headers.join(","),
-    ...rows.map((row) =>
-      headers
-        .map((header) => {
-          const raw = row[header];
-          const value =
-            raw === null || raw === undefined
-              ? ""
-              : Array.isArray(raw)
-              ? raw.join(" | ")
-              : String(raw);
+function csvEscape(value: unknown) {
+  const text = safeText(value, "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
 
-          return `"${value.replace(/"/g, '""')}"`;
-        })
-        .join(",")
-    ),
-  ].join("\n");
+function todayFileName(prefix: string, ext: string) {
+  const date = new Date().toISOString().slice(0, 10);
+  return `${prefix}-${date}.${ext}`;
+}
 
-  const blob = new Blob(["\uFEFF" + csv], {
-    type: "text/csv;charset=utf-8;",
-  });
-
+function downloadTextFile(filename: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
   URL.revokeObjectURL(url);
 }
 
-function todayFileName(prefix: string) {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
+function buildCsv(events: EventRecord[]) {
+  const header = [
+    "id",
+    "status",
+    "title",
+    "merchant",
+    "category",
+    "date",
+    "time",
+    "location",
+    "price",
+    "cta",
+    "image_count",
+    "ready_score",
+    "missing_items",
+    "updated_at",
+  ];
 
-  return `${prefix}-${yyyy}${mm}${dd}.csv`;
+  const rows = events.map((event) => [
+    event.id,
+    statusLabel(event.status),
+    titleOf(event),
+    merchantOf(event),
+    categoryOf(event),
+    dateOf(event),
+    timeOf(event),
+    locationOf(event),
+    priceOf(event),
+    ctaOf(event),
+    imageCount(event),
+    readyScore(event),
+    missingItems(event).join("、"),
+    safeText(event.updated_at, ""),
+  ]);
+
+  return [header, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
+}
+
+function StatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "slate" | "amber" | "orange" | "green" | "rose" | "purple";
+}) {
+  const toneClass = {
+    slate: "border-slate-200 bg-slate-50 text-slate-950",
+    amber: "border-amber-200 bg-amber-50 text-amber-900",
+    orange: "border-orange-200 bg-orange-50 text-orange-900",
+    green: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    rose: "border-rose-200 bg-rose-50 text-rose-900",
+    purple: "border-purple-200 bg-purple-50 text-purple-900",
+  }[tone];
+
+  return (
+    <div className={`rounded-3xl border p-5 ${toneClass}`}>
+      <p className="text-xs font-black opacity-70">{label}</p>
+      <p className="mt-2 text-3xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status?: string | null }) {
+  return (
+    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${statusBadgeClass(status)}`}>
+      {statusLabel(status)}
+    </span>
+  );
+}
+
+function MiniInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 px-3 py-2">
+      <p className="text-xs font-black text-slate-400">{label}</p>
+      <p className="mt-1 truncate text-xs font-bold text-slate-700">{value}</p>
+    </div>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-black text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-purple-600" style={{ width: value }} />
+      </div>
+    </div>
+  );
+}
+
+function BarRow({
+  label,
+  value,
+  max,
+}: {
+  label: string;
+  value: number;
+  max: number;
+}) {
+  const width = max > 0 ? Math.max(6, Math.round((value / max) * 100)) : 0;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="truncate font-bold text-slate-700">{label}</span>
+        <span className="font-black text-slate-950">{value}</span>
+      </div>
+      <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function EventImage({ event, large = false }: { event: EventRecord; large?: boolean }) {
+  return (
+    <div
+      className={[
+        "overflow-hidden rounded-3xl border border-slate-200 bg-slate-50",
+        large ? "h-72" : "h-40",
+      ].join(" ")}
+    >
+      {event.cover_image_url ? (
+        <div className="flex h-full w-full items-center justify-center p-2">
+          <img
+            src={event.cover_image_url}
+            alt={titleOf(event)}
+            className="max-h-full max-w-full rounded-2xl object-contain"
+          />
+        </div>
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-5xl">
+          親
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<FilterKey>("review");
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<EventRecord | null>(null);
   const [message, setMessage] = useState("");
+  const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(true);
 
   async function loadEvents() {
+    const client = supabase;
+
     setLoading(true);
     setMessage("");
 
-    const client = supabase;
-
     if (!client) {
       setEvents([]);
-      setSelected(null);
-      setMessage("Supabase client 未能初始化，請檢查 .env.local 設定。");
+      setMessage("Supabase client 未能初始化，請檢查 .env.local。");
       setLoading(false);
       return;
     }
@@ -366,37 +483,33 @@ export default function AdminEventsPage() {
 
     if (error) {
       setEvents([]);
-      setSelected(null);
       setMessage(`讀取活動失敗：${error.message}`);
       setLoading(false);
       return;
     }
 
-    const rows = (data || []) as EventRecord[];
-    setEvents(rows);
+    const nextEvents = (data || []) as EventRecord[];
+    setEvents(nextEvents);
 
-    if (rows.length) {
-      const current = selected
-        ? rows.find((event) => event.id === selected.id)
-        : null;
-
-      setSelected(current || rows[0]);
-    } else {
-      setSelected(null);
-    }
+    setSelectedId((current) => {
+      if (current && nextEvents.some((event) => event.id === current)) {
+        return current;
+      }
+      return nextEvents[0]?.id || null;
+    });
 
     setLoading(false);
   }
 
   useEffect(() => {
     loadEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const counts = useMemo(() => {
-    const base: Record<FilterKey, number> = {
+    const next: Record<FilterKey, number> = {
       all: events.length,
       review: 0,
+      pending: 0,
       draft: 0,
       published: 0,
       rejected: 0,
@@ -404,13 +517,10 @@ export default function AdminEventsPage() {
     };
 
     events.forEach((event) => {
-      const group = statusGroup(event.status);
-      if (group !== "all") {
-        base[group] += 1;
-      }
+      next[statusGroup(event.status)] += 1;
     });
 
-    return base;
+    return next;
   }, [events]);
 
   const filteredEvents = useMemo(() => {
@@ -418,19 +528,19 @@ export default function AdminEventsPage() {
 
     return events.filter((event) => {
       const group = statusGroup(event.status);
-      const matchesFilter =
-        activeFilter === "all" ? true : group === activeFilter;
+      const matchesFilter = activeFilter === "all" ? true : group === activeFilter;
 
       const matchesKeyword = keyword
         ? [
             titleOf(event),
             merchantOf(event),
             categoryOf(event),
+            dateOf(event),
             locationOf(event),
             priceOf(event),
             ctaOf(event),
             statusLabel(event.status),
-            safeText(event.status, ""),
+            missingItems(event).join(" "),
           ]
             .join(" ")
             .toLowerCase()
@@ -439,40 +549,24 @@ export default function AdminEventsPage() {
 
       return matchesFilter && matchesKeyword;
     });
-  }, [events, activeFilter, search]);
+  }, [events, search, activeFilter]);
 
-  useEffect(() => {
-    if (loading) return;
-
-    if (filteredEvents.length === 0) {
-      setSelected(null);
-      return;
-    }
-
-    const selectedStillVisible =
-      selected && filteredEvents.some((event) => event.id === selected.id);
-
-    if (!selectedStillVisible) {
-      setSelected(filteredEvents[0]);
-    }
-  }, [filteredEvents, loading, selected]);
+  const selectedEvent = useMemo(() => {
+    if (!selectedId) return filteredEvents[0] || events[0] || null;
+    return events.find((event) => event.id === selectedId) || filteredEvents[0] || events[0] || null;
+  }, [events, filteredEvents, selectedId]);
 
   const analytics = useMemo(() => {
     const total = events.length || 1;
-
-    const ctaReady = events.filter((event) => ctaOf(event) !== "未設定").length;
-    const mapReady = events.filter(
-      (event) =>
-        hasValue(event.google_map_url) || hasValue(event.google_map_embed_url)
+    const withCta = events.filter((event) => ctaOf(event) !== "CTA 未設定").length;
+    const withMap = events.filter(
+      (event) => hasValue(event.google_map_url) || hasValue(event.google_map_embed_url)
     ).length;
-    const imageReady = events.filter((event) => imageCount(event) > 0).length;
-    const priceReady = events.filter(
-      (event) => priceOf(event) !== "收費未填"
-    ).length;
-    const highQuality = events.filter((event) => readyScore(event) >= 80).length;
+    const withImage = events.filter((event) => imageCount(event) > 0).length;
+    const withPrice = events.filter((event) => priceOf(event) !== "收費未填").length;
+    const quality80 = events.filter((event) => readyScore(event) >= 80).length;
 
     const merchantMap = new Map<string, number>();
-
     events.forEach((event) => {
       const merchant = merchantOf(event);
       merchantMap.set(merchant, (merchantMap.get(merchant) || 0) + 1);
@@ -484,11 +578,11 @@ export default function AdminEventsPage() {
       .slice(0, 8);
 
     return {
-      ctaRate: Math.round((ctaReady / total) * 100),
-      mapRate: Math.round((mapReady / total) * 100),
-      imageRate: Math.round((imageReady / total) * 100),
-      priceRate: Math.round((priceReady / total) * 100),
-      qualityRate: Math.round((highQuality / total) * 100),
+      ctaRate: `${Math.round((withCta / total) * 100)}%`,
+      mapRate: `${Math.round((withMap / total) * 100)}%`,
+      imageRate: `${Math.round((withImage / total) * 100)}%`,
+      priceRate: `${Math.round((withPrice / total) * 100)}%`,
+      qualityRate: `${Math.round((quality80 / total) * 100)}%`,
       byMerchant,
     };
   }, [events]);
@@ -502,31 +596,18 @@ export default function AdminEventsPage() {
     }
 
     const originalEvents = events;
-    const originalSelected = selected;
     const now = new Date().toISOString();
-    const nextGroup = statusGroup(nextStatus);
-    const targetEvent = events.find((event) => event.id === id);
 
     setBusyId(id);
     setMessage("");
 
-    const optimisticEvent = targetEvent
-      ? { ...targetEvent, status: nextStatus, updated_at: now }
-      : null;
-
-    setActiveFilter(nextGroup);
-
-    setEvents((prev) =>
-      prev.map((event) =>
-        event.id === id
-          ? { ...event, status: nextStatus, updated_at: now }
-          : event
+    setEvents((previous) =>
+      previous.map((event) =>
+        event.id === id ? { ...event, status: nextStatus, updated_at: now } : event
       )
     );
-
-    if (optimisticEvent) {
-      setSelected(optimisticEvent);
-    }
+    setSelectedId(id);
+    setActiveFilter(statusGroup(nextStatus));
 
     const { error } = await client
       .from("events")
@@ -538,129 +619,62 @@ export default function AdminEventsPage() {
 
     if (error) {
       setEvents(originalEvents);
-      setSelected(originalSelected);
-      setMessage(`更新失敗：${error.message}`);
-      setBusyId(null);
-      return;
+      setMessage(`狀態更新失敗：${error.message}`);
+    } else {
+      setMessage(`活動已更新為「${statusLabel(nextStatus)}」。`);
+      await loadEvents();
+      setSelectedId(id);
     }
 
-    const { data } = await client.from("events").select("*").eq("id", id).single();
-
-    if (data) {
-      const refreshedEvent = data as EventRecord;
-
-      setEvents((prev) =>
-        prev.map((event) => (event.id === id ? refreshedEvent : event))
-      );
-
-      setSelected(refreshedEvent);
-      setActiveFilter(statusGroup(refreshedEvent.status));
-    }
-
-    setMessage(`已更新為「${statusLabel(nextStatus)}」。`);
     setBusyId(null);
   }
 
-  function exportEventsReport() {
-    const rows = events.map((event) => ({
-      id: event.id,
-      raw_status: event.status || "",
-      status_group: statusLabel(event.status),
-      title: titleOf(event),
-      merchant: merchantOf(event),
-      category: categoryOf(event),
-      date: dateOf(event),
-      location: locationOf(event),
-      price: priceOf(event),
-      cta: ctaOf(event),
-      image_count: imageCount(event),
-      map_ready:
-        hasValue(event.google_map_url) || hasValue(event.google_map_embed_url)
-          ? "yes"
-          : "no",
-      quality_score: readyScore(event),
-      issues: qualityIssues(event).join(" | "),
-      source_url: event.source_url || "",
-      registration_url: event.registration_url || "",
-      updated_at: event.updated_at || "",
-      created_at: event.created_at || "",
-    }));
-
-    downloadCsv(todayFileName("hk-family-fun-events-report"), rows);
+  function exportFilteredCsv() {
+    downloadTextFile(
+      todayFileName("hk-family-fun-admin-events", "csv"),
+      buildCsv(filteredEvents),
+      "text/csv;charset=utf-8"
+    );
   }
 
-  function exportMerchantReport() {
-    const merchantMap = new Map<string, MerchantStats>();
-
-    events.forEach((event) => {
-      const merchant = merchantOf(event);
-      const group = statusGroup(event.status);
-
-      const current =
-        merchantMap.get(merchant) ||
-        {
-          merchant,
-          total: 0,
-          review: 0,
-          draft: 0,
-          published: 0,
-          rejected: 0,
-          archived: 0,
-          avg_quality_total: 0,
-        };
-
-      current.total += 1;
-
-      if (group === "review") current.review += 1;
-      if (group === "draft") current.draft += 1;
-      if (group === "published") current.published += 1;
-      if (group === "rejected") current.rejected += 1;
-      if (group === "archived") current.archived += 1;
-
-      current.avg_quality_total += readyScore(event);
-
-      merchantMap.set(merchant, current);
-    });
-
-    const rows = Array.from(merchantMap.values()).map((row) => ({
-      merchant: row.merchant,
-      total: row.total,
-      review: row.review,
-      draft: row.draft,
-      published: row.published,
-      rejected: row.rejected,
-      archived: row.archived,
-      avg_quality: row.total
-        ? Math.round(row.avg_quality_total / row.total)
-        : 0,
-    }));
-
-    downloadCsv(todayFileName("hk-family-fun-merchant-report"), rows);
+  function exportAllJson() {
+    downloadTextFile(
+      todayFileName("hk-family-fun-admin-events", "json"),
+      JSON.stringify(events, null, 2),
+      "application/json;charset=utf-8"
+    );
   }
 
-  function exportApprovalReport() {
-    const rows = FILTERS.map((filter) => ({
-      status: filter.label,
-      count: counts[filter.key],
-    }));
-
-    downloadCsv(todayFileName("hk-family-fun-approval-status-report"), rows);
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-[1480px] px-4 py-16">
+          <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-3xl">
+              親
+            </div>
+            <p className="font-black text-slate-700">正在讀取 Admin 活動資料...</p>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mx-auto max-w-[1480px] px-4 py-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-sm font-bold text-purple-700">
+              <p className="text-sm font-black text-purple-700">
                 Admin Portal · 活動審批中心
               </p>
               <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
                 活動審批、發布及數據管理
               </h1>
-              <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
-                審批商戶提交的活動、檢查資料完整度、管理公開狀態、下載報表及追蹤商戶活動表現。
+              <p className="mt-3 max-w-5xl text-sm leading-6 text-slate-600">
+                檢查商戶提交的活動資料、收費、CTA、圖片及地圖。審批通過後，
+                活動會轉為 published，公開頁才會顯示給家長。
               </p>
             </div>
 
@@ -688,24 +702,24 @@ export default function AdminEventsPage() {
             </div>
           </div>
 
-          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <StatCard label="全部活動" value={counts.all} tone="slate" />
             <StatCard label="待審批" value={counts.review} tone="amber" />
-            <StatCard label="草稿" value={counts.draft} tone="purple" />
+            <StatCard label="待處理" value={counts.pending} tone="orange" />
             <StatCard label="已發布" value={counts.published} tone="green" />
             <StatCard label="已拒絕" value={counts.rejected} tone="rose" />
-            <StatCard label="已封存" value={counts.archived} tone="slate" />
+            <StatCard label="已封存" value={counts.archived} tone="purple" />
           </div>
 
           {showAnalytics ? (
-            <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_420px]">
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-lg font-black text-slate-950">
                       可視化數據總覽
                     </h2>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
                       MVP analytics：按資料完整度及審批狀態即時統計。
                     </p>
                   </div>
@@ -713,34 +727,27 @@ export default function AdminEventsPage() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={exportEventsReport}
+                      onClick={exportFilteredCsv}
                       className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white hover:bg-slate-800"
                     >
                       下載活動總表
                     </button>
                     <button
                       type="button"
-                      onClick={exportMerchantReport}
+                      onClick={exportAllJson}
                       className="rounded-full bg-purple-700 px-4 py-2 text-xs font-black text-white hover:bg-purple-800"
                     >
-                      下載商戶分析
-                    </button>
-                    <button
-                      type="button"
-                      onClick={exportApprovalReport}
-                      className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-black text-slate-700"
-                    >
-                      下載審批報表
+                      下載 JSON
                     </button>
                   </div>
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                  <Metric label="CTA 完成" value={analytics.ctaRate} />
-                  <Metric label="地圖完成" value={analytics.mapRate} />
-                  <Metric label="圖片完成" value={analytics.imageRate} />
-                  <Metric label="收費完成" value={analytics.priceRate} />
-                  <Metric label="80分以上" value={analytics.qualityRate} />
+                  <MetricCard label="CTA 完成" value={analytics.ctaRate} />
+                  <MetricCard label="地圖完成" value={analytics.mapRate} />
+                  <MetricCard label="圖片完成" value={analytics.imageRate} />
+                  <MetricCard label="收費完成" value={analytics.priceRate} />
+                  <MetricCard label="80分以上" value={analytics.qualityRate} />
                 </div>
               </div>
 
@@ -748,7 +755,6 @@ export default function AdminEventsPage() {
                 <h2 className="text-lg font-black text-slate-950">
                   商戶活動數 Top List
                 </h2>
-
                 <div className="mt-4 space-y-3">
                   {analytics.byMerchant.length ? (
                     analytics.byMerchant.map((item) => (
@@ -756,14 +762,11 @@ export default function AdminEventsPage() {
                         key={item.merchant}
                         label={item.merchant}
                         value={item.count}
-                        max={Math.max(
-                          ...analytics.byMerchant.map((merchant) => merchant.count),
-                          1
-                        )}
+                        max={Math.max(...analytics.byMerchant.map((row) => row.count), 1)}
                       />
                     ))
                   ) : (
-                    <p className="text-sm text-slate-500">暫時未有商戶數據。</p>
+                    <p className="text-sm text-slate-500">暫時沒有商戶數據。</p>
                   )}
                 </div>
               </div>
@@ -772,15 +775,15 @@ export default function AdminEventsPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[1fr_390px]">
+      <section className="mx-auto grid max-w-[1480px] gap-6 px-4 py-6 xl:grid-cols-[1fr_430px]">
         <div className="space-y-5">
           <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="搜尋活動名稱、商戶、地區、收費、CTA..."
-                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 lg:max-w-md"
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 xl:max-w-xl"
               />
 
               <div className="flex flex-wrap gap-2">
@@ -820,429 +823,309 @@ export default function AdminEventsPage() {
               </h2>
             </div>
 
-            {loading ? (
-              <div className="p-8 text-center text-sm text-slate-500">
-                正在讀取活動資料...
-              </div>
-            ) : filteredEvents.length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl">
+            {filteredEvents.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-2xl">
                   🔎
                 </div>
-                <p className="mt-4 text-lg font-black text-slate-900">
+                <h3 className="mt-4 text-xl font-black text-slate-950">
                   暫時沒有符合條件的活動
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
+                </h3>
+                <p className="mt-2 text-sm text-slate-500">
                   可切換狀態、清除搜尋字，或按重新整理。
                 </p>
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {filteredEvents.map((event) => (
-                  <EventRow
-                    key={event.id}
-                    event={event}
-                    busy={busyId === event.id}
-                    selected={selected?.id === event.id}
-                    onSelect={() => setSelected(event)}
-                    onApprove={() => updateStatus(event.id, "published")}
-                    onReject={() => updateStatus(event.id, "rejected")}
-                    onArchive={() => updateStatus(event.id, "archived")}
-                    onDraft={() => updateStatus(event.id, "draft")}
-                  />
-                ))}
+                {filteredEvents.map((event) => {
+                  const selected = selectedEvent?.id === event.id;
+                  const missing = missingItems(event);
+                  const score = readyScore(event);
+
+                  return (
+                    <button
+                      key={event.id}
+                      type="button"
+                      onClick={() => setSelectedId(event.id)}
+                      className={[
+                        "grid w-full gap-5 p-5 text-left transition hover:bg-slate-50 lg:grid-cols-[230px_1fr_220px]",
+                        selected ? "bg-purple-50/50" : "bg-white",
+                      ].join(" ")}
+                    >
+                      <EventImage event={event} />
+
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <StatusBadge status={event.status} />
+                          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                            {score}分
+                          </span>
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                            {imageCount(event)} 張圖
+                          </span>
+                        </div>
+
+                        <h3 className="mt-3 text-xl font-black leading-snug text-slate-950">
+                          {titleOf(event)}
+                        </h3>
+
+                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
+                          {shortDescription(event)}
+                        </p>
+
+                        <div className="mt-4 grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
+                          <MiniInfo label="商戶" value={merchantOf(event)} />
+                          <MiniInfo label="日期" value={dateOf(event)} />
+                          <MiniInfo label="地點" value={locationOf(event)} />
+                          <MiniInfo label="收費" value={priceOf(event)} />
+                        </div>
+
+                        {missing.length ? (
+                          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800">
+                            建議補充：{missing.join("、")}
+                          </div>
+                        ) : (
+                          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800">
+                            資料完整，適合審批或公開。
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-slate-500">完整度</span>
+                            <span className="font-black text-slate-950">{score}%</span>
+                          </div>
+                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className={[
+                                "h-full rounded-full",
+                                score >= 80
+                                  ? "bg-emerald-500"
+                                  : score >= 60
+                                  ? "bg-amber-500"
+                                  : "bg-rose-500",
+                              ].join(" ")}
+                              style={{ width: `${score}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <Link
+                            href={`/merchant/events/${event.id}/preview`}
+                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
+                            onClick={(clickEvent) => clickEvent.stopPropagation()}
+                          >
+                            Preview
+                          </Link>
+                          <Link
+                            href={`/merchant/events/${event.id}/edit`}
+                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
+                            onClick={(clickEvent) => clickEvent.stopPropagation()}
+                          >
+                            編輯
+                          </Link>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            disabled={busyId === event.id}
+                            onClick={(clickEvent) => {
+                              clickEvent.stopPropagation();
+                              updateStatus(event.id, "published");
+                            }}
+                            className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busyId === event.id}
+                            onClick={(clickEvent) => {
+                              clickEvent.stopPropagation();
+                              updateStatus(event.id, "rejected");
+                            }}
+                            className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white hover:bg-rose-700 disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busyId === event.id}
+                            onClick={(clickEvent) => {
+                              clickEvent.stopPropagation();
+                              updateStatus(event.id, "archived");
+                            }}
+                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          >
+                            Archive
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busyId === event.id}
+                            onClick={(clickEvent) => {
+                              clickEvent.stopPropagation();
+                              updateStatus(event.id, "draft");
+                            }}
+                            className="rounded-xl border border-purple-300 bg-purple-50 px-3 py-2 text-xs font-black text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+                          >
+                            Draft
+                          </button>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
 
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            {selected ? (
-              <div className="space-y-5">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-purple-700">
-                    Review Detail
-                  </p>
-                  <h2 className="mt-2 text-xl font-black text-slate-950">
-                    {titleOf(selected)}
-                  </h2>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <StatusBadge status={selected.status} />
-                    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-                      完整度 {readyScore(selected)}%
-                    </span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                      Raw: {safeText(selected.status, "empty")}
-                    </span>
+        <aside className="xl:sticky xl:top-24 xl:self-start">
+          {selectedEvent ? (
+            <div className="space-y-5">
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black text-purple-700">
+                      REVIEW DETAIL
+                    </p>
+                    <h2 className="mt-1 text-xl font-black leading-snug text-slate-950">
+                      {titleOf(selectedEvent)}
+                    </h2>
                   </div>
+                  <StatusBadge status={selectedEvent.status} />
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                  {selected.cover_image_url ? (
-                    <div className="flex h-48 w-full items-center justify-center bg-slate-50 p-2">
-                      <img
-                        src={selected.cover_image_url}
-                        alt={titleOf(selected)}
-                        className="max-h-full max-w-full rounded-xl object-contain"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex h-48 items-center justify-center text-sm text-slate-400">
-                      未有封面圖片
-                    </div>
-                  )}
+                <div className="mt-4">
+                  <EventImage event={selectedEvent} large />
                 </div>
 
-                <div className="grid gap-2 text-sm">
-                  <ReviewLine label="商戶" value={merchantOf(selected)} />
-                  <ReviewLine label="日期" value={dateOf(selected)} />
-                  <ReviewLine label="地點" value={locationOf(selected)} />
-                  <ReviewLine label="分類" value={categoryOf(selected)} />
-                  <ReviewLine label="收費" value={priceOf(selected)} />
-                  <ReviewLine label="CTA" value={ctaOf(selected)} />
-                  <ReviewLine label="圖片數量" value={`${imageCount(selected)} 張`} />
-                  <ReviewLine
+                <div className="mt-4 grid gap-2">
+                  <ReviewRow label="商戶" value={merchantOf(selectedEvent)} />
+                  <ReviewRow label="日期" value={dateOf(selectedEvent)} />
+                  <ReviewRow label="時間" value={timeOf(selectedEvent)} />
+                  <ReviewRow label="地點" value={locationOf(selectedEvent)} />
+                  <ReviewRow label="分類" value={categoryOf(selectedEvent)} />
+                  <ReviewRow label="收費" value={priceOf(selectedEvent)} />
+                  <ReviewRow label="CTA" value={ctaOf(selectedEvent)} />
+                  <ReviewRow label="圖片數量" value={`${imageCount(selectedEvent)} 張`} />
+                  <ReviewRow
                     label="Google Map"
                     value={
-                      selected.google_map_url || selected.google_map_embed_url
-                        ? "已提供"
-                        : "未提供"
+                      hasValue(selectedEvent.google_map_url) ||
+                      hasValue(selectedEvent.google_map_embed_url)
+                        ? "已準備"
+                        : "未填寫"
                     }
                   />
                 </div>
 
-                <QualityBox issues={qualityIssues(selected)} />
+                {missingItems(selectedEvent).length ? (
+                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+                    <p className="font-black">審批前建議處理</p>
+                    <ul className="mt-2 list-disc pl-5">
+                      {missingItems(selectedEvent).map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="mt-4 grid grid-cols-2 gap-2">
                   <Link
-                    href={`/merchant/events/${selected.id}/preview`}
-                    className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 hover:bg-slate-50"
+                    href={`/merchant/events/${selectedEvent.id}/preview`}
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
                   >
                     Preview
                   </Link>
                   <Link
-                    href={`/events/${selected.id}`}
-                    className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 hover:bg-slate-50"
-                  >
-                    公開頁
-                  </Link>
-                  <Link
-                    href={`/merchant/events/${selected.id}/edit`}
-                    className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 hover:bg-slate-50"
+                    href={`/merchant/events/${selectedEvent.id}/edit`}
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
                   >
                     編輯
                   </Link>
+                  <Link
+                    href={`/events/${selectedEvent.id}`}
+                    className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-center text-xs font-black text-emerald-700 hover:bg-emerald-100"
+                  >
+                    公開頁
+                  </Link>
                   <button
                     type="button"
-                    onClick={() => updateStatus(selected.id, "draft")}
-                    disabled={busyId === selected.id}
-                    className="rounded-2xl border border-purple-300 bg-purple-50 px-4 py-3 text-sm font-bold text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+                    onClick={() => updateStatus(selectedEvent.id, "draft")}
+                    disabled={busyId === selectedEvent.id}
+                    className="rounded-xl border border-purple-300 bg-purple-50 px-3 py-2 text-xs font-black text-purple-700 hover:bg-purple-100 disabled:opacity-50"
                   >
                     改回草稿
                   </button>
                 </div>
 
-                <div className="grid gap-2">
+                <div className="mt-3 grid gap-2">
                   <button
                     type="button"
-                    onClick={() => updateStatus(selected.id, "published")}
-                    disabled={busyId === selected.id}
-                    className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-50"
+                    onClick={() => updateStatus(selectedEvent.id, "published")}
+                    disabled={busyId === selectedEvent.id}
+                    className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-50"
                   >
-                    通過審批並發布
+                    審批通過並發布
                   </button>
                   <button
                     type="button"
-                    onClick={() => updateStatus(selected.id, "rejected")}
-                    disabled={busyId === selected.id}
-                    className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
+                    onClick={() => updateStatus(selectedEvent.id, "rejected")}
+                    disabled={busyId === selectedEvent.id}
+                    className="rounded-xl bg-rose-600 px-4 py-3 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
                   >
                     拒絕活動
                   </button>
                   <button
                     type="button"
-                    onClick={() => updateStatus(selected.id, "archived")}
-                    disabled={busyId === selected.id}
-                    className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
+                    onClick={() => updateStatus(selectedEvent.id, "archived")}
+                    disabled={busyId === selectedEvent.id}
+                    className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
                   >
                     封存活動
                   </button>
                 </div>
+              </div>
 
-                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-xs leading-6 text-blue-800">
-                  <p className="font-black">審批提示</p>
-                  <ul className="mt-2 list-disc space-y-1 pl-4">
-                    <li>按狀態按鈕後，右側會同步顯示該活動。</li>
-                    <li>切換 filter 後，右側會自動選中第一個可見活動。</li>
-                    <li>Raw status 用來檢查 Supabase 真實 status 值。</li>
-                  </ul>
-                </div>
+              <div className="rounded-3xl border border-blue-200 bg-blue-50 p-5 text-sm leading-6 text-blue-900">
+                <p className="font-black">審批提醒</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  <li>圖片不能太細或過度裁切。</li>
+                  <li>收費及名額要清楚，不能混淆價錢和 quota。</li>
+                  <li>CTA 要對應實際情況：官方網站、Google Form、WhatsApp 或無需報名。</li>
+                  <li>Google Map 要能協助家長找到地點。</li>
+                </ul>
               </div>
-            ) : (
-              <div className="py-10 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-2xl">
-                  ✅
-                </div>
-                <h2 className="mt-4 text-lg font-black text-slate-950">
-                  選擇一個活動審批
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  左邊點選活動後，這裡會顯示完整審批摘要、Preview、公開頁及審批操作。
-                </p>
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-2xl">
+                ✅
               </div>
-            )}
-          </div>
+              <h2 className="mt-4 text-xl font-black text-slate-950">
+                選擇一個活動審批
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                左邊點選活動後，這裡會顯示完整審批摘要、Preview、公開頁及審批操作。
+              </p>
+            </div>
+          )}
         </aside>
       </section>
     </main>
   );
 }
 
-function StatCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "slate" | "amber" | "green" | "rose" | "purple";
-}) {
-  const tones = {
-    slate: "bg-slate-50 border-slate-200 text-slate-900",
-    amber: "bg-amber-50 border-amber-200 text-amber-900",
-    green: "bg-emerald-50 border-emerald-200 text-emerald-900",
-    rose: "bg-rose-50 border-rose-200 text-rose-900",
-    purple: "bg-purple-50 border-purple-200 text-purple-900",
-  };
-
+function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`rounded-3xl border p-5 ${tones[tone]}`}>
-      <p className="text-xs font-black opacity-70">{label}</p>
-      <p className="mt-2 text-3xl font-black">{value}</p>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="flex items-end justify-between">
-        <p className="text-xs font-black text-slate-500">{label}</p>
-        <p className="text-2xl font-black text-slate-950">{value}%</p>
-      </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className="h-full rounded-full bg-purple-700"
-          style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function BarRow({
-  label,
-  value,
-  max,
-}: {
-  label: string;
-  value: number;
-  max: number;
-}) {
-  const width = Math.max(6, Math.round((value / max) * 100));
-
-  return (
-    <div>
-      <div className="mb-1 flex justify-between gap-3 text-xs">
-        <span className="truncate font-bold text-slate-700">{label}</span>
-        <span className="font-black text-slate-950">{value}</span>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className="h-full rounded-full bg-emerald-500"
-          style={{ width: `${width}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status?: string | null }) {
-  return (
-    <span
-      className={[
-        "inline-flex rounded-full border px-3 py-1 text-xs font-black",
-        statusBadgeClass(status),
-      ].join(" ")}
-    >
-      {statusLabel(status)}
-    </span>
-  );
-}
-
-function ReviewLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
-      <span className="text-xs font-black text-slate-500">{label}</span>
-      <span className="text-right text-xs font-bold text-slate-900">{value}</span>
-    </div>
-  );
-}
-
-function QualityBox({ issues }: { issues: string[] }) {
-  if (issues.length === 0) {
-    return (
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-bold text-emerald-800">
-        ✅ 基本資料完整，可以審批。
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
-      <p className="font-black">審批前建議檢查</p>
-      <ul className="mt-2 list-disc space-y-1 pl-4">
-        {issues.map((issue) => (
-          <li key={issue}>{issue}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function EventRow({
-  event,
-  busy,
-  selected,
-  onSelect,
-  onApprove,
-  onReject,
-  onArchive,
-  onDraft,
-}: {
-  event: EventRecord;
-  busy: boolean;
-  selected: boolean;
-  onSelect: () => void;
-  onApprove: () => void;
-  onReject: () => void;
-  onArchive: () => void;
-  onDraft: () => void;
-}) {
-  return (
-    <div
-      className={[
-        "grid gap-4 p-5 transition lg:grid-cols-[140px_1fr_260px]",
-        selected ? "bg-purple-50/60" : "bg-white hover:bg-slate-50",
-      ].join(" ")}
-    >
-      <button
-        type="button"
-        onClick={onSelect}
-        className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm"
-      >
-        {event.cover_image_url ? (
-          <div className="flex h-28 w-full items-center justify-center bg-slate-50 p-2">
-            <img
-              src={event.cover_image_url}
-              alt={titleOf(event)}
-              className="max-h-full max-w-full rounded-xl object-contain"
-            />
-          </div>
-        ) : (
-          <div className="flex h-28 items-center justify-center text-xl">親</div>
-        )}
-      </button>
-
-      <button type="button" onClick={onSelect} className="text-left">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status={event.status} />
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-            {imageCount(event)} 張圖
-          </span>
-          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-            完整度 {readyScore(event)}%
-          </span>
-        </div>
-
-        <h3 className="mt-3 text-lg font-black text-slate-950">
-          {titleOf(event)}
-        </h3>
-
-        <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">
-          {safeText(event.short_description_tc || event.description_tc, "未有簡介")}
-        </p>
-
-        <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
-          <MiniInfo label="商戶" value={merchantOf(event)} />
-          <MiniInfo label="日期" value={dateOf(event)} />
-          <MiniInfo label="地點" value={locationOf(event)} />
-          <MiniInfo label="收費" value={priceOf(event)} />
-        </div>
-      </button>
-
-      <div className="flex flex-col justify-between gap-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-3 text-xs">
-          <div className="flex justify-between gap-3">
-            <span className="font-bold text-slate-500">CTA</span>
-            <span className="text-right font-black text-slate-900">
-              {ctaOf(event)}
-            </span>
-          </div>
-          <div className="mt-2 flex justify-between gap-3">
-            <span className="font-bold text-slate-500">分類</span>
-            <span className="text-right font-bold text-slate-700">
-              {categoryOf(event)}
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={onApprove}
-            disabled={busy}
-            className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            Approve
-          </button>
-          <button
-            type="button"
-            onClick={onReject}
-            disabled={busy}
-            className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white hover:bg-rose-700 disabled:opacity-50"
-          >
-            Reject
-          </button>
-          <button
-            type="button"
-            onClick={onArchive}
-            disabled={busy}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            Archive
-          </button>
-          <button
-            type="button"
-            onClick={onDraft}
-            disabled={busy}
-            className="rounded-xl border border-purple-300 bg-purple-50 px-3 py-2 text-xs font-black text-purple-700 hover:bg-purple-100 disabled:opacity-50"
-          >
-            Draft
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MiniInfo({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-slate-50 px-3 py-2">
-      <p className="font-bold text-slate-400">{label}</p>
-      <p className="mt-1 truncate font-bold text-slate-700">{value}</p>
+    <div className="grid grid-cols-[110px_1fr] gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm">
+      <p className="font-black text-slate-500">{label}</p>
+      <p className="font-bold text-slate-900">{value}</p>
     </div>
   );
 }
