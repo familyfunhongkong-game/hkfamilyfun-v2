@@ -22,7 +22,7 @@ type EventRecord = {
   end_date?: string | null;
   status?: string | null;
   cover_image_url?: string | null;
-  gallery_image_urls?: string[] | null;
+  gallery_image_urls?: unknown;
   price?: string | number | null;
   fee?: string | number | null;
   min_price?: string | number | null;
@@ -156,11 +156,31 @@ function locationOf(event: EventRecord) {
   return parts.length ? parts.join("・") : "地點未填";
 }
 
+function getGalleryArray(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  return [];
+}
+
 function imageCount(event: EventRecord) {
   const cover = event.cover_image_url ? 1 : 0;
-  const gallery = Array.isArray(event.gallery_image_urls)
-    ? event.gallery_image_urls.filter(Boolean).length
-    : 0;
+  const gallery = getGalleryArray(event.gallery_image_urls).length;
 
   return cover + gallery;
 }
@@ -194,6 +214,7 @@ function priceOf(event: EventRecord) {
   if (offer && original) return `優惠 HK$${offer}（原價 HK$${original}）`;
   if (offer) return `優惠 HK$${offer}`;
   if (min && max && min !== max) return `HK$${min}–HK$${max}`;
+  if (min && max && min === max) return `HK$${min}`;
   if (min) return `HK$${min} 起`;
   if (fixed) return `HK$${fixed}`;
 
@@ -275,10 +296,20 @@ export default function MerchantDashboardPage() {
     setLoading(true);
     setMessage("");
 
+    const client = supabase;
+
+    if (!client) {
+      setMerchant(null);
+      setEvents([]);
+      setMessage("Supabase client 未能初始化，請檢查 .env.local 設定。");
+      setLoading(false);
+      return;
+    }
+
     const {
       data: { user },
       error: userError,
-    } = await supabase.auth.getUser();
+    } = await client.auth.getUser();
 
     if (userError || !user) {
       setMerchant(null);
@@ -288,7 +319,7 @@ export default function MerchantDashboardPage() {
       return;
     }
 
-    const { data: merchantData, error: merchantError } = await supabase
+    const { data: merchantData, error: merchantError } = await client
       .from("merchants")
       .select("*")
       .eq("owner_user_id", user.id)
@@ -313,7 +344,7 @@ export default function MerchantDashboardPage() {
     const currentMerchant = merchantData as MerchantRecord;
     setMerchant(currentMerchant);
 
-    const { data: eventData, error: eventError } = await supabase
+    const { data: eventData, error: eventError } = await client
       .from("events")
       .select("*")
       .eq("merchant_id", currentMerchant.id)
@@ -331,6 +362,7 @@ export default function MerchantDashboardPage() {
 
   useEffect(() => {
     loadDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const counts = useMemo(() => {
@@ -345,7 +377,9 @@ export default function MerchantDashboardPage() {
 
     events.forEach((event) => {
       const group = statusGroup(event.status);
-      base[group] += 1;
+      if (group !== "all") {
+        base[group] += 1;
+      }
     });
 
     return base;
@@ -368,6 +402,7 @@ export default function MerchantDashboardPage() {
             priceOf(event),
             ctaOf(event),
             statusLabel(event.status),
+            safeText(event.status, ""),
           ]
             .join(" ")
             .toLowerCase()
@@ -385,6 +420,13 @@ export default function MerchantDashboardPage() {
   }, [events]);
 
   async function updateStatus(id: string, nextStatus: string) {
+    const client = supabase;
+
+    if (!client) {
+      setMessage("Supabase client 未能初始化，暫時不能更新活動狀態。");
+      return;
+    }
+
     const originalEvents = events;
     const now = new Date().toISOString();
 
@@ -399,7 +441,7 @@ export default function MerchantDashboardPage() {
       )
     );
 
-    const { error } = await supabase
+    const { error } = await client
       .from("events")
       .update({
         status: nextStatus,
@@ -420,6 +462,13 @@ export default function MerchantDashboardPage() {
   }
 
   async function duplicateEvent(event: EventRecord) {
+    const client = supabase;
+
+    if (!client) {
+      setMessage("Supabase client 未能初始化，暫時不能複製活動。");
+      return;
+    }
+
     if (!merchant) return;
 
     setBusyId(event.id);
@@ -436,7 +485,7 @@ export default function MerchantDashboardPage() {
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await supabase.from("events").insert(newEvent);
+    const { error } = await client.from("events").insert(newEvent);
 
     if (error) {
       setMessage(`複製失敗：${error.message}`);
@@ -457,7 +506,9 @@ export default function MerchantDashboardPage() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-2xl">
               親
             </div>
-            <p className="font-bold text-slate-700">正在讀取商戶 Dashboard...</p>
+            <p className="font-bold text-slate-700">
+              正在讀取商戶 Dashboard...
+            </p>
           </div>
         </div>
       </main>
@@ -469,7 +520,9 @@ export default function MerchantDashboardPage() {
       <main className="min-h-screen bg-slate-50">
         <div className="mx-auto max-w-4xl px-4 py-16">
           <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 shadow-sm">
-            <p className="text-sm font-black text-amber-700">Merchant Dashboard</p>
+            <p className="text-sm font-black text-amber-700">
+              Merchant Dashboard
+            </p>
             <h1 className="mt-2 text-2xl font-black text-slate-950">
               尚未連接商戶帳戶
             </h1>
@@ -509,8 +562,8 @@ export default function MerchantDashboardPage() {
                 商戶 Dashboard
               </h1>
               <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
-                管理你的活動草稿、審批狀態、公開頁資料及報名 CTA。目標是減少重複填表，
-                讓活動更快被家長搜尋到。
+                管理你的活動草稿、審批狀態、公開頁資料及報名 CTA。
+                目標是減少重複填表，讓活動更快被家長搜尋到。
               </p>
             </div>
 
@@ -588,7 +641,9 @@ export default function MerchantDashboardPage() {
                     ].join(" ")}
                   >
                     {filter.label}
-                    <span className="ml-1 opacity-80">{counts[filter.key]}</span>
+                    <span className="ml-1 opacity-80">
+                      {counts[filter.key]}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -691,8 +746,8 @@ export default function MerchantDashboardPage() {
           <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
             <p className="font-black">平台角色說明</p>
             <p className="mt-2 leading-6">
-              HK Family Fun 主要協助活動搜尋、整理及展示。活動內容、收費、名額、
-              報名安排及現場安排，仍以主辦方最新公布為準。
+              HK Family Fun 主要協助活動搜尋、整理及展示。活動內容、收費、
+              名額、報名安排及現場安排，仍以主辦方最新公布為準。
             </p>
           </div>
         </aside>
@@ -760,7 +815,10 @@ function EventCard({
         </h3>
 
         <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
-          {safeText(event.short_description_tc || event.description_tc, "未有活動簡介")}
+          {safeText(
+            event.short_description_tc || event.description_tc,
+            "未有活動簡介"
+          )}
         </p>
 
         <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
