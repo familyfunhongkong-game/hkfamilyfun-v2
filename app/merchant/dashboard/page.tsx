@@ -1,395 +1,463 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 
-type MerchantProfile = {
+type EventRecord = {
   id: string;
-  business_name: string | null;
-  contact_name: string | null;
-  contact_email: string | null;
-  status: string | null;
-  rejection_reason?: string | null;
+  merchant_id?: string | null;
+  title_tc?: string | null;
+  title?: string | null;
+  short_description_tc?: string | null;
+  description_tc?: string | null;
+  venue_name?: string | null;
+  address?: string | null;
+  district?: string | null;
+  area?: string | null;
+  mtr_station?: string | null;
+  category?: string | null;
+  activity_category?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  status?: string | null;
+  cover_image_url?: string | null;
+  gallery_image_urls?: string[] | null;
+  price?: string | number | null;
+  fee?: string | number | null;
+  min_price?: string | number | null;
+  max_price?: string | number | null;
+  original_price?: string | number | null;
+  offer_price?: string | number | null;
+  price_display_mode?: string | null;
+  price_label?: string | null;
+  quota_label?: string | null;
+  registration_url?: string | null;
+  source_url?: string | null;
+  official_url?: string | null;
+  booking_url?: string | null;
+  booking_method?: string | null;
+  cta_type?: string | null;
+  cta_label?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  whatsapp?: string | null;
+  google_map_url?: string | null;
+  google_map_embed_url?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
-type EventStatus = "draft" | "submitted" | "published" | "rejected" | "archived" | string;
-
-type MerchantEvent = {
+type MerchantRecord = {
   id: string;
-  merchant_id: string | null;
-  title_tc: string | null;
-  short_description_tc: string | null;
-  status: EventStatus | null;
-  source_type: string | null;
-  source_url: string | null;
-  cover_image_url: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  venue_name: string | null;
-  district: string | null;
-  mtr_station: string | null;
-  price_type: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-  submitted_at: string | null;
-  published_at?: string | null;
+  owner_user_id?: string | null;
+  business_name?: string | null;
+  contact_email?: string | null;
+  status?: string | null;
+  created_at?: string | null;
 };
 
-const STATUS_TABS = [
-  { value: "all", label: "全部" },
-  { value: "draft", label: "草稿" },
-  { value: "submitted", label: "審批中" },
-  { value: "rejected", label: "待修改" },
-  { value: "published", label: "已發布" },
-  { value: "archived", label: "已封存" },
+type FilterKey =
+  | "all"
+  | "draft"
+  | "review"
+  | "published"
+  | "rejected"
+  | "archived";
+
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: "all", label: "全部活動" },
+  { key: "draft", label: "草稿" },
+  { key: "review", label: "審批中" },
+  { key: "published", label: "已發布" },
+  { key: "rejected", label: "已拒絕" },
+  { key: "archived", label: "已封存" },
 ];
 
-function getStatusLabel(status: EventStatus | null | undefined) {
-  if (status === "draft") return "草稿";
-  if (status === "submitted") return "審批中";
-  if (status === "published") return "已發布";
-  if (status === "rejected") return "待修改";
-  if (status === "archived") return "已封存";
-  return "待確認";
+function safeText(value: unknown, fallback = "未填寫") {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value).trim();
+  return text.length ? text : fallback;
 }
 
-function getStatusClass(status: EventStatus | null | undefined) {
-  if (status === "published") return "bg-green-100 text-green-700";
-  if (status === "submitted") return "bg-blue-100 text-blue-700";
-  if (status === "rejected") return "bg-red-100 text-red-700";
-  if (status === "archived") return "bg-slate-100 text-slate-500";
-  return "bg-amber-100 text-amber-700";
+function hasValue(value: unknown) {
+  return safeText(value, "") !== "";
 }
 
-function getMerchantStatusLabel(status: string | null | undefined) {
-  if (status === "approved") return "商戶帳戶已通過";
-  if (status === "rejected") return "商戶帳戶待修改";
-  if (status === "suspended") return "商戶帳戶暫停";
-  return "商戶帳戶審批中";
+function normalizedStatus(status?: string | null) {
+  return safeText(status, "").toLowerCase();
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "未設定";
-  try {
-    return new Intl.DateTimeFormat("zh-HK", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    }).format(new Date(value));
-  } catch {
-    return value.slice(0, 10);
+function statusGroup(status?: string | null): FilterKey {
+  const s = normalizedStatus(status);
+
+  if (["submitted", "pending", "review", "pending_review"].includes(s)) {
+    return "review";
   }
+
+  if (["published", "approved", "online", "live"].includes(s)) {
+    return "published";
+  }
+
+  if (["rejected", "declined"].includes(s)) {
+    return "rejected";
+  }
+
+  if (["archived", "archive", "offline", "hidden"].includes(s)) {
+    return "archived";
+  }
+
+  return "draft";
 }
 
-function getStatusCount(events: MerchantEvent[], status: string) {
-  return events.filter((event) => event.status === status).length;
+function statusLabel(status?: string | null) {
+  const group = statusGroup(status);
+
+  if (group === "review") return "審批中";
+  if (group === "published") return "已發布";
+  if (group === "rejected") return "已拒絕";
+  if (group === "archived") return "已封存";
+  return "草稿";
 }
 
-function getShortId(id: string) {
-  return id.length > 8 ? `${id.slice(0, 8)}...` : id;
+function statusBadgeClass(status?: string | null) {
+  const group = statusGroup(status);
+
+  if (group === "review") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (group === "published") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (group === "rejected") return "border-rose-200 bg-rose-50 text-rose-700";
+  if (group === "archived") return "border-slate-200 bg-slate-100 text-slate-600";
+  return "border-purple-200 bg-purple-50 text-purple-700";
 }
 
-function getSafeTitle(event: MerchantEvent) {
-  return event.title_tc?.trim() || "未命名活動";
+function titleOf(event: EventRecord) {
+  return safeText(event.title_tc || event.title, "未命名活動");
 }
 
-function getSafeDescription(event: MerchantEvent) {
-  return event.short_description_tc?.trim() || "尚未加入活動簡介。";
+function categoryOf(event: EventRecord) {
+  return safeText(event.activity_category || event.category, "未分類");
 }
 
-function isArchived(status: EventStatus | null | undefined) {
-  return status === "archived";
+function dateOf(event: EventRecord) {
+  const start = safeText(event.start_date, "");
+  const end = safeText(event.end_date, "");
+
+  if (start && end && start !== end) return `${start} 至 ${end}`;
+  if (start) return start;
+  if (end) return end;
+  return "日期未填";
+}
+
+function locationOf(event: EventRecord) {
+  const parts = [event.venue_name, event.district, event.mtr_station]
+    .map((item) => safeText(item, ""))
+    .filter(Boolean);
+
+  return parts.length ? parts.join("・") : "地點未填";
+}
+
+function imageCount(event: EventRecord) {
+  const cover = event.cover_image_url ? 1 : 0;
+  const gallery = Array.isArray(event.gallery_image_urls)
+    ? event.gallery_image_urls.filter(Boolean).length
+    : 0;
+
+  return cover + gallery;
+}
+
+function numberText(value: unknown) {
+  if (value === null || value === undefined || value === "") return "";
+  const n = Number(value);
+  if (Number.isNaN(n)) return String(value);
+  return n.toLocaleString("zh-HK");
+}
+
+function priceOf(event: EventRecord) {
+  const mode = safeText(event.price_display_mode, "").toLowerCase();
+  const label = safeText(event.price_label, "");
+  const quota = safeText(event.quota_label, "");
+
+  if (mode.includes("quota") || mode.includes("name")) {
+    return quota || label || "只顯示名額";
+  }
+
+  if (mode.includes("hidden")) return "不顯示價錢";
+  if (mode.includes("free")) return "免費";
+
+  const offer = numberText(event.offer_price);
+  const original = numberText(event.original_price);
+  const min = numberText(event.min_price);
+  const max = numberText(event.max_price);
+  const fixed = numberText(event.price || event.fee);
+
+  if (label) return label;
+  if (offer && original) return `優惠 HK$${offer}（原價 HK$${original}）`;
+  if (offer) return `優惠 HK$${offer}`;
+  if (min && max && min !== max) return `HK$${min}–HK$${max}`;
+  if (min) return `HK$${min} 起`;
+  if (fixed) return `HK$${fixed}`;
+
+  return "收費未填";
+}
+
+function primaryActionUrl(event: EventRecord) {
+  return (
+    safeText(event.registration_url, "") ||
+    safeText(event.booking_url, "") ||
+    safeText(event.official_url, "") ||
+    safeText(event.source_url, "") ||
+    safeText(event.whatsapp, "") ||
+    safeText(event.contact_phone, "") ||
+    safeText(event.contact_email, "")
+  );
+}
+
+function ctaOf(event: EventRecord) {
+  const label = safeText(event.cta_label, "");
+  const type = safeText(event.cta_type || event.booking_method, "").toLowerCase();
+  const url = primaryActionUrl(event);
+
+  if (label) return label;
+  if (type.includes("whatsapp")) return "WhatsApp 報名";
+  if (type.includes("google")) return "Google Form 報名";
+  if (type.includes("external")) return "外部連結報名";
+  if (type.includes("official")) return "查看官方活動頁";
+  if (type.includes("none")) return "無需報名";
+  if (url) return "可點擊";
+
+  return "未設定";
+}
+
+function readyScore(event: EventRecord) {
+  const checks = [
+    hasValue(event.title_tc || event.title),
+    hasValue(event.start_date),
+    hasValue(event.venue_name) || hasValue(event.address),
+    priceOf(event) !== "收費未填",
+    ctaOf(event) !== "未設定",
+    imageCount(event) > 0,
+    hasValue(event.google_map_url) || hasValue(event.google_map_embed_url),
+  ];
+
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+}
+
+function missingItems(event: EventRecord) {
+  const items: string[] = [];
+
+  if (!hasValue(event.title_tc || event.title)) items.push("活動名稱");
+  if (!hasValue(event.start_date)) items.push("活動日期");
+  if (!hasValue(event.venue_name) && !hasValue(event.address)) items.push("地點");
+  if (priceOf(event) === "收費未填") items.push("收費資料");
+  if (ctaOf(event) === "未設定") items.push("報名 / CTA");
+  if (imageCount(event) === 0) items.push("圖片");
+  if (!hasValue(event.google_map_url) && !hasValue(event.google_map_embed_url)) {
+    items.push("Google Map");
+  }
+
+  return items;
+}
+
+function canSubmit(event: EventRecord) {
+  return readyScore(event) >= 60 && statusGroup(event.status) === "draft";
 }
 
 export default function MerchantDashboardPage() {
-  const router = useRouter();
+  const [merchant, setMerchant] = useState<MerchantRecord | null>(null);
+  const [events, setEvents] = useState<EventRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+  const [search, setSearch] = useState("");
+  const [message, setMessage] = useState("");
 
-  const [merchant, setMerchant] = useState<MerchantProfile | null>(null);
-  const [events, setEvents] = useState<MerchantEvent[]>([]);
-  const [activeTab, setActiveTab] = useState("all");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [workingEventId, setWorkingEventId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  async function loadDashboard() {
+    setLoading(true);
+    setMessage("");
 
-  const filteredEvents = useMemo(() => {
-    if (activeTab === "all") return events;
-    return events.filter((event) => event.status === activeTab);
-  }, [activeTab, events]);
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  const counts = useMemo(() => {
-    return {
-      draft: getStatusCount(events, "draft"),
-      submitted: getStatusCount(events, "submitted"),
-      rejected: getStatusCount(events, "rejected"),
-      published: getStatusCount(events, "published"),
-      archived: getStatusCount(events, "archived"),
-      all: events.length,
-    };
-  }, [events]);
-
-  useEffect(() => {
-    loadDashboard();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function loadDashboard(isManualRefresh = false) {
-    if (!supabase) {
-      setErrorMessage("Supabase client 未能初始化。請檢查 .env.local。");
-      setIsLoading(false);
+    if (userError || !user) {
+      setMerchant(null);
+      setEvents([]);
+      setMessage("請先登入商戶帳戶。");
+      setLoading(false);
       return;
     }
 
-    if (isManualRefresh) setIsRefreshing(true);
-    else setIsLoading(true);
+    const { data: merchantData, error: merchantError } = await supabase
+      .from("merchants")
+      .select("*")
+      .eq("owner_user_id", user.id)
+      .maybeSingle();
 
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        router.replace("/merchant/login");
-        return;
-      }
-
-      const { data: merchantData, error: merchantError } = await supabase
-        .from("merchants")
-        .select("id, business_name, contact_name, contact_email, status, rejection_reason")
-        .eq("owner_user_id", user.id)
-        .maybeSingle();
-
-      if (merchantError) {
-        setErrorMessage(merchantError.message);
-        setIsLoading(false);
-        setIsRefreshing(false);
-        return;
-      }
-
-      if (!merchantData) {
-        router.replace("/merchant/register");
-        return;
-      }
-
-      const merchantRecord = merchantData as MerchantProfile;
-      setMerchant(merchantRecord);
-
-      const { data: eventData, error: eventError } = await supabase
-        .from("events")
-        .select(
-          "id, merchant_id, title_tc, short_description_tc, status, source_type, source_url, cover_image_url, start_date, end_date, venue_name, district, mtr_station, price_type, created_at, updated_at, submitted_at, published_at"
-        )
-        .eq("merchant_id", merchantRecord.id)
-        .order("updated_at", { ascending: false });
-
-      if (eventError) {
-        setErrorMessage(eventError.message);
-        setIsLoading(false);
-        setIsRefreshing(false);
-        return;
-      }
-
-      setEvents((eventData || []) as MerchantEvent[]);
-      setIsLoading(false);
-      setIsRefreshing(false);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "載入商戶管理頁時發生未知錯誤。");
-      setIsLoading(false);
-      setIsRefreshing(false);
+    if (merchantError) {
+      setMerchant(null);
+      setEvents([]);
+      setMessage(`讀取商戶資料失敗：${merchantError.message}`);
+      setLoading(false);
+      return;
     }
-  }
 
-  async function signOut() {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    router.replace("/merchant/login");
-  }
-
-  async function submitEvent(eventId: string) {
-    if (!supabase) return;
-
-    setWorkingEventId(eventId);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      const { error } = await supabase
-        .from("events")
-        .update({
-          status: "submitted",
-          submitted_at: new Date().toISOString(),
-          merchant_confirmed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", eventId);
-
-      if (error) {
-        setErrorMessage(error.message);
-        setWorkingEventId(null);
-        return;
-      }
-
-      setSuccessMessage("活動已提交 HK Family Fun 審批。");
-      await loadDashboard(true);
-      setWorkingEventId(null);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "提交活動時發生未知錯誤。");
-      setWorkingEventId(null);
+    if (!merchantData) {
+      setMerchant(null);
+      setEvents([]);
+      setMessage("此帳戶未連接商戶資料，請先完成商戶登記。");
+      setLoading(false);
+      return;
     }
-  }
 
-  async function duplicateEvent(eventId: string) {
-    if (!supabase || !merchant) return;
+    const currentMerchant = merchantData as MerchantRecord;
+    setMerchant(currentMerchant);
 
-    const confirmed = window.confirm("是否複製此活動成為新草稿？");
-    if (!confirmed) return;
+    const { data: eventData, error: eventError } = await supabase
+      .from("events")
+      .select("*")
+      .eq("merchant_id", currentMerchant.id)
+      .order("updated_at", { ascending: false });
 
-    setWorkingEventId(eventId);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .eq("id", eventId)
-        .eq("merchant_id", merchant.id)
-        .maybeSingle();
-
-      if (error) {
-        setErrorMessage(error.message);
-        setWorkingEventId(null);
-        return;
-      }
-
-      if (!data) {
-        setErrorMessage("找不到要複製的活動。");
-        setWorkingEventId(null);
-        return;
-      }
-
-      const sourceEvent = data as Record<string, unknown>;
-
-      const clonedEvent: Record<string, unknown> = {
-        ...sourceEvent,
-        title_tc: `${String(sourceEvent.title_tc || "未命名活動")}（副本）`,
-        status: "draft",
-        submitted_at: null,
-        merchant_confirmed_at: null,
-        published_at: null,
-        rejected_at: null,
-        admin_review_note: null,
-        rejection_reason: null,
-        created_at: undefined,
-        updated_at: new Date().toISOString(),
-      };
-
-      delete clonedEvent.id;
-
-      const { data: insertedData, error: insertError } = await supabase
-        .from("events")
-        .insert(clonedEvent)
-        .select("id")
-        .single();
-
-      if (insertError) {
-        setErrorMessage(insertError.message);
-        setWorkingEventId(null);
-        return;
-      }
-
-      setSuccessMessage("已複製活動為新草稿。");
-      await loadDashboard(true);
-
-      if (insertedData?.id) {
-        router.push(`/merchant/events/${insertedData.id}/edit`);
-      }
-
-      setWorkingEventId(null);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "複製活動時發生未知錯誤。");
-      setWorkingEventId(null);
+    if (eventError) {
+      setEvents([]);
+      setMessage(`讀取活動資料失敗：${eventError.message}`);
+    } else {
+      setEvents((eventData || []) as EventRecord[]);
     }
+
+    setLoading(false);
   }
 
-  async function archiveEvent(eventId: string) {
-    if (!supabase) return;
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
-    const confirmed = window.confirm("是否封存此活動？封存後不會在公開頁顯示。");
-    if (!confirmed) return;
+  const counts = useMemo(() => {
+    const base: Record<FilterKey, number> = {
+      all: events.length,
+      draft: 0,
+      review: 0,
+      published: 0,
+      rejected: 0,
+      archived: 0,
+    };
 
-    setWorkingEventId(eventId);
-    setErrorMessage("");
-    setSuccessMessage("");
+    events.forEach((event) => {
+      const group = statusGroup(event.status);
+      base[group] += 1;
+    });
 
-    try {
-      const { error } = await supabase
-        .from("events")
-        .update({
-          status: "archived",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", eventId);
+    return base;
+  }, [events]);
 
-      if (error) {
-        setErrorMessage(error.message);
-        setWorkingEventId(null);
-        return;
-      }
+  const filteredEvents = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
 
-      setSuccessMessage("活動已封存。");
-      await loadDashboard(true);
-      setWorkingEventId(null);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "封存活動時發生未知錯誤。");
-      setWorkingEventId(null);
+    return events.filter((event) => {
+      const group = statusGroup(event.status);
+      const matchesFilter =
+        activeFilter === "all" ? true : group === activeFilter;
+
+      const matchesKeyword = keyword
+        ? [
+            titleOf(event),
+            categoryOf(event),
+            dateOf(event),
+            locationOf(event),
+            priceOf(event),
+            ctaOf(event),
+            statusLabel(event.status),
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(keyword)
+        : true;
+
+      return matchesFilter && matchesKeyword;
+    });
+  }, [events, activeFilter, search]);
+
+  const averageScore = useMemo(() => {
+    if (!events.length) return 0;
+    const total = events.reduce((sum, event) => sum + readyScore(event), 0);
+    return Math.round(total / events.length);
+  }, [events]);
+
+  async function updateStatus(id: string, nextStatus: string) {
+    const originalEvents = events;
+    const now = new Date().toISOString();
+
+    setBusyId(id);
+    setMessage("");
+
+    setEvents((prev) =>
+      prev.map((event) =>
+        event.id === id
+          ? { ...event, status: nextStatus, updated_at: now }
+          : event
+      )
+    );
+
+    const { error } = await supabase
+      .from("events")
+      .update({
+        status: nextStatus,
+        updated_at: now,
+      })
+      .eq("id", id);
+
+    if (error) {
+      setEvents(originalEvents);
+      setMessage(`更新失敗：${error.message}`);
+    } else {
+      setActiveFilter(statusGroup(nextStatus));
+      setMessage(`活動已更新為「${statusLabel(nextStatus)}」。`);
+      await loadDashboard();
     }
+
+    setBusyId(null);
   }
 
-  async function restoreArchivedEvent(eventId: string) {
-    if (!supabase) return;
+  async function duplicateEvent(event: EventRecord) {
+    if (!merchant) return;
 
-    setWorkingEventId(eventId);
-    setErrorMessage("");
-    setSuccessMessage("");
+    setBusyId(event.id);
+    setMessage("");
 
-    try {
-      const { error } = await supabase
-        .from("events")
-        .update({
-          status: "draft",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", eventId);
+    const newEvent = {
+      ...event,
+      id: undefined,
+      status: "draft",
+      title_tc: `${titleOf(event)} 副本`,
+      title: event.title ? `${event.title} 副本` : null,
+      merchant_id: merchant.id,
+      created_at: undefined,
+      updated_at: new Date().toISOString(),
+    };
 
-      if (error) {
-        setErrorMessage(error.message);
-        setWorkingEventId(null);
-        return;
-      }
+    const { error } = await supabase.from("events").insert(newEvent);
 
-      setSuccessMessage("活動已還原為草稿。");
-      await loadDashboard(true);
-      setWorkingEventId(null);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "還原活動時發生未知錯誤。");
-      setWorkingEventId(null);
+    if (error) {
+      setMessage(`複製失敗：${error.message}`);
+    } else {
+      setMessage("已建立活動副本，可在草稿中繼續編輯。");
+      setActiveFilter("draft");
+      await loadDashboard();
     }
+
+    setBusyId(null);
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-6xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <div className="flex items-center gap-3 text-sm text-slate-600">
-            <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
-            正在載入商戶管理頁...
+      <main className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-2xl">
+              親
+            </div>
+            <p className="font-bold text-slate-700">正在讀取商戶 Dashboard...</p>
           </div>
         </div>
       </main>
@@ -398,305 +466,480 @@ export default function MerchantDashboardPage() {
 
   if (!merchant) {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-6xl rounded-3xl border border-red-200 bg-red-50 p-8 text-red-700">
-          找不到商戶資料。請重新登入或重新登記商戶帳戶。
+      <main className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-4xl px-4 py-16">
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 shadow-sm">
+            <p className="text-sm font-black text-amber-700">Merchant Dashboard</p>
+            <h1 className="mt-2 text-2xl font-black text-slate-950">
+              尚未連接商戶帳戶
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-slate-700">
+              {message || "請先登入或完成商戶免費登記。"}
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/merchant/login"
+                className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white"
+              >
+                商戶登入
+              </Link>
+              <Link
+                href="/merchant/register"
+                className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
+              >
+                商戶免費登記
+              </Link>
+            </div>
+          </div>
         </div>
       </main>
     );
   }
 
-  const merchantApproved = merchant.status === "approved";
-
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <main className="min-h-screen bg-slate-50">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="text-xs font-black text-primary-600">HK Family Fun 商戶管理中心</div>
-              <h1 className="mt-2 text-3xl font-black text-slate-950">
-                {merchant.business_name || "未命名商戶"}
+              <p className="text-sm font-bold text-purple-700">
+                Merchant Portal · 活動管理中心
+              </p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                商戶 Dashboard
               </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                {merchant.contact_name || "未設定聯絡人"}・{merchant.contact_email || "未設定 Email"}
+              <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
+                管理你的活動草稿、審批狀態、公開頁資料及報名 CTA。目標是減少重複填表，
+                讓活動更快被家長搜尋到。
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => loadDashboard(true)}
-                disabled={isRefreshing}
-                className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={loadDashboard}
+                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
               >
-                {isRefreshing ? "重新整理中..." : "重新整理"}
+                重新整理
               </button>
-
-              <button
-                type="button"
-                onClick={signOut}
-                className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              <Link
+                href="/merchant/events/import"
+                className="rounded-full bg-purple-700 px-5 py-2 text-sm font-bold text-white hover:bg-purple-800"
               >
-                登出
-              </button>
+                新增活動
+              </Link>
             </div>
           </div>
-        </section>
 
-        <section
-          className={`rounded-[2rem] border p-5 shadow-sm ${
-            merchantApproved
-              ? "border-green-200 bg-green-50 text-green-800"
-              : "border-amber-200 bg-amber-50 text-amber-800"
-          }`}
-        >
-          <div className="font-black">{getMerchantStatusLabel(merchant.status)}</div>
-          <p className="mt-1 text-sm leading-6">
-            {merchantApproved
-              ? "你可以匯入活動資料、建立草稿、預覽活動卡、補充資料，然後提交 HK Family Fun 審批。"
-              : "帳戶仍在審批中。你仍可以準備活動草稿，但正式發布前需要 HK Family Fun 批核。"}
-          </p>
+          <div className="mt-6 rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-black text-emerald-700">
+                  商戶帳戶已連接
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  {safeText(merchant.business_name, "未命名商戶")}
+                </h2>
+                <p className="mt-1 text-sm text-emerald-800">
+                  狀態：{safeText(merchant.status, "未確認")} · Email：
+                  {safeText(merchant.contact_email, "未填寫")}
+                </p>
+              </div>
 
-          {merchant.rejection_reason ? (
-            <p className="mt-2 rounded-2xl bg-white/70 p-3 text-sm">
-              待修改原因：{merchant.rejection_reason}
-            </p>
+              <div className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-700">
+                平均資料完整度：{averageScore}%
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <StatCard label="全部活動" value={counts.all} tone="slate" />
+            <StatCard label="草稿" value={counts.draft} tone="purple" />
+            <StatCard label="審批中" value={counts.review} tone="amber" />
+            <StatCard label="已發布" value={counts.published} tone="green" />
+            <StatCard label="已拒絕" value={counts.rejected} tone="rose" />
+            <StatCard label="已封存" value={counts.archived} tone="slate" />
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-5">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="搜尋活動名稱、地區、收費、CTA..."
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 lg:max-w-md"
+              />
+
+              <div className="flex flex-wrap gap-2">
+                {FILTERS.map((filter) => (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => setActiveFilter(filter.key)}
+                    className={[
+                      "rounded-full border px-4 py-2 text-xs font-bold transition",
+                      activeFilter === filter.key
+                        ? "border-purple-700 bg-purple-700 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                    ].join(" ")}
+                  >
+                    {filter.label}
+                    <span className="ml-1 opacity-80">{counts[filter.key]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {message ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+              {message}
+            </div>
           ) : null}
-        </section>
 
-        {errorMessage ? (
-          <section className="rounded-3xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-            {errorMessage}
-          </section>
-        ) : null}
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-lg font-black text-slate-950">
+                我的活動
+                <span className="ml-2 text-sm font-semibold text-slate-500">
+                  {filteredEvents.length} / {events.length}
+                </span>
+              </h2>
+            </div>
 
-        {successMessage ? (
-          <section className="rounded-3xl border border-green-200 bg-green-50 p-5 text-sm text-green-700">
-            {successMessage}
-          </section>
-        ) : null}
-
-        <section className="grid gap-4 md:grid-cols-4">
-          <StatCard title="草稿" value={counts.draft} note="尚未提交的活動" />
-          <StatCard title="審批中" value={counts.submitted} note="已提交等待審批" />
-          <StatCard title="待修改" value={counts.rejected} note="被退回需要補資料" />
-          <StatCard title="已發布" value={counts.published} note="公開中的活動" />
-        </section>
-
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap gap-2">
-            {STATUS_TABS.map((tab) => {
-              const count =
-                tab.value === "all"
-                  ? counts.all
-                  : tab.value === "draft"
-                  ? counts.draft
-                  : tab.value === "submitted"
-                  ? counts.submitted
-                  : tab.value === "rejected"
-                  ? counts.rejected
-                  : tab.value === "published"
-                  ? counts.published
-                  : counts.archived;
-
-              const active = activeTab === tab.value;
-
-              return (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => setActiveTab(tab.value)}
-                  className={`rounded-full border px-4 py-2 text-sm font-black transition ${
-                    active
-                      ? "border-primary-500 bg-primary-500 text-white"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
+            {filteredEvents.length === 0 ? (
+              <div className="p-10 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-2xl">
+                  📅
+                </div>
+                <h3 className="mt-4 text-xl font-black text-slate-950">
+                  暫時未有活動
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  你可以貼上活動網址、上載 poster 或 PDF，先建立可編輯草稿。
+                </p>
+                <Link
+                  href="/merchant/events/import"
+                  className="mt-5 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
                 >
-                  {tab.label} ({count})
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-2xl font-black text-slate-950">活動管理</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                每個活動都可以預覽、編輯、提交、複製或封存。
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => router.push("/merchant/events/import")}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-3 text-sm font-black text-white hover:bg-primary-600"
-            >
-              ＋ 匯入活動資料
-            </button>
-          </div>
-
-          {filteredEvents.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-              <div className="text-lg font-black text-slate-950">暫時沒有活動</div>
-              <p className="mt-2 text-sm text-slate-500">
-                可先貼上活動網址，建立活動草稿，再補充資料提交審批。
-              </p>
-              <button
-                type="button"
-                onClick={() => router.push("/merchant/events/import")}
-                className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 py-3 text-sm font-black text-white hover:bg-primary-600"
-              >
-                建立第一個活動
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-3xl border border-slate-200">
-              <div className="hidden grid-cols-[1fr_130px_130px_250px] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black text-slate-500 lg:grid">
-                <div>活動</div>
-                <div>狀態 / 來源</div>
-                <div>最後更新</div>
-                <div className="text-right">操作</div>
+                  新增第一個活動
+                </Link>
               </div>
-
-              <div className="divide-y divide-slate-200">
-                {filteredEvents.map((event) => {
-                  const working = workingEventId === event.id;
-                  const archived = isArchived(event.status);
-                  const published = event.status === "published";
-                  const canSubmit = event.status === "draft" || event.status === "rejected";
-
-                  return (
-                    <div key={event.id} className="grid gap-4 px-5 py-5 lg:grid-cols-[1fr_130px_130px_250px] lg:items-center">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-black leading-snug text-slate-950">
-                            {getSafeTitle(event)}
-                          </h3>
-                          <span className={`rounded-full px-2.5 py-1 text-xs font-black ${getStatusClass(event.status)}`}>
-                            {getStatusLabel(event.status)}
-                          </span>
-                        </div>
-
-                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
-                          {getSafeDescription(event)}
-                        </p>
-
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                          <span>ID: {getShortId(event.id)}</span>
-                          {event.start_date ? <span>{formatDate(event.start_date)}</span> : null}
-                          {event.district ? <span>{event.district}</span> : null}
-                          {event.mtr_station ? <span>{event.mtr_station}</span> : null}
-                        </div>
-                      </div>
-
-                      <div>
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ${getStatusClass(event.status)}`}>
-                          {getStatusLabel(event.status)}
-                        </span>
-                        <div className="mt-2 text-xs text-slate-500">
-                          來源：{event.source_type || "manual"}
-                        </div>
-                      </div>
-
-                      <div className="text-sm text-slate-600">
-                        {formatDate(event.updated_at || event.created_at)}
-                      </div>
-
-                      <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                        <ActionButton label="預覽" onClick={() => router.push(`/merchant/events/${event.id}/preview`)} />
-
-                        {!archived ? (
-                          <ActionButton label="編輯" onClick={() => router.push(`/merchant/events/${event.id}/edit`)} />
-                        ) : null}
-
-                        {canSubmit ? (
-                          <ActionButton
-                            label={event.status === "rejected" ? "重新提交" : "提交"}
-                            onClick={() => submitEvent(event.id)}
-                            disabled={working}
-                            primary
-                          />
-                        ) : null}
-
-                        {published ? (
-                          <ActionButton label="查看公開頁" onClick={() => router.push(`/events/${event.id}`)} />
-                        ) : null}
-
-                        <ActionButton label="複製" onClick={() => duplicateEvent(event.id)} disabled={working} />
-
-                        {archived ? (
-                          <ActionButton label="還原" onClick={() => restoreArchivedEvent(event.id)} disabled={working} />
-                        ) : (
-                          <ActionButton label="封存" onClick={() => archiveEvent(event.id)} disabled={working} danger />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {filteredEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    busy={busyId === event.id}
+                    onSubmit={() => updateStatus(event.id, "submitted")}
+                    onArchive={() => updateStatus(event.id, "archived")}
+                    onRestore={() => updateStatus(event.id, "draft")}
+                    onDuplicate={() => duplicateEvent(event)}
+                  />
+                ))}
               </div>
-            </div>
-          )}
-        </section>
+            )}
+          </div>
+        </div>
 
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-black text-slate-950">建議商戶流程</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            1. 匯入活動資料 → 2. 編輯及補齊資料圖片 → 3. 預覽檢查 → 4. 提交 / 重新提交 → 5. HK Family Fun 審批及發布。
-          </p>
-        </section>
-      </div>
+        <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-black text-purple-700">商戶使用流程</p>
+            <h2 className="mt-2 text-xl font-black text-slate-950">
+              由草稿到發布
+            </h2>
+
+            <div className="mt-5 space-y-3">
+              <GuideStep
+                number="1"
+                title="建立草稿"
+                text="貼活動網址、上載圖片或 PDF，先產生可編輯資料。"
+              />
+              <GuideStep
+                number="2"
+                title="補齊重點資料"
+                text="日期、地點、收費、CTA、圖片及 Google Map 最重要。"
+              />
+              <GuideStep
+                number="3"
+                title="Preview 檢查"
+                text="先看家長會見到的大約效果，再提交審批。"
+              />
+              <GuideStep
+                number="4"
+                title="提交審批"
+                text="HK Family Fun 審批通過後，活動才會公開顯示。"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-900">
+            <p className="font-black">提升曝光建議</p>
+            <ul className="mt-3 list-disc space-y-2 pl-5 leading-6">
+              <li>封面圖建議橫圖，避免文字太細。</li>
+              <li>活動簡介用 2–3 句講清楚適合邊類家庭。</li>
+              <li>報名方式要清楚：官方網站、Google Form、WhatsApp 或無需報名。</li>
+              <li>Google Map 可提高家長出發前信心。</li>
+            </ul>
+          </div>
+
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+            <p className="font-black">平台角色說明</p>
+            <p className="mt-2 leading-6">
+              HK Family Fun 主要協助活動搜尋、整理及展示。活動內容、收費、名額、
+              報名安排及現場安排，仍以主辦方最新公布為準。
+            </p>
+          </div>
+        </aside>
+      </section>
     </main>
   );
 }
 
-function StatCard({
-  title,
-  value,
-  note,
+function EventCard({
+  event,
+  busy,
+  onSubmit,
+  onArchive,
+  onRestore,
+  onDuplicate,
 }: {
-  title: string;
-  value: number;
-  note: string;
+  event: EventRecord;
+  busy: boolean;
+  onSubmit: () => void;
+  onArchive: () => void;
+  onRestore: () => void;
+  onDuplicate: () => void;
 }) {
+  const group = statusGroup(event.status);
+  const score = readyScore(event);
+  const missing = missingItems(event);
+  const published = group === "published";
+
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="text-sm font-bold text-slate-500">{title}</div>
-      <div className="mt-2 text-3xl font-black text-slate-950">{value}</div>
-      <div className="mt-1 text-xs text-slate-500">{note}</div>
-    </section>
+    <div className="grid gap-4 p-5 lg:grid-cols-[110px_1fr_250px]">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+        {event.cover_image_url ? (
+          <img
+            src={event.cover_image_url}
+            alt={titleOf(event)}
+            className="h-24 w-full object-cover lg:h-full"
+          />
+        ) : (
+          <div className="flex h-24 items-center justify-center text-2xl lg:h-full">
+            親
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={event.status} />
+          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+            完整度 {score}%
+          </span>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+            {imageCount(event)} 張圖
+          </span>
+        </div>
+
+        <h3 className="mt-3 text-lg font-black text-slate-950">
+          {titleOf(event)}
+        </h3>
+
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
+          {safeText(event.short_description_tc || event.description_tc, "未有活動簡介")}
+        </p>
+
+        <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
+          <MiniInfo label="日期" value={dateOf(event)} />
+          <MiniInfo label="地點" value={locationOf(event)} />
+          <MiniInfo label="收費" value={priceOf(event)} />
+          <MiniInfo label="CTA" value={ctaOf(event)} />
+        </div>
+
+        {missing.length ? (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+            <span className="font-black">建議補充：</span>
+            {missing.join("、")}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800">
+            資料完整，可提交或已適合公開展示。
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col justify-between gap-3">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-500">資料完整度</span>
+            <span className="font-black text-slate-950">{score}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-white">
+            <div
+              className={[
+                "h-full rounded-full",
+                score >= 80
+                  ? "bg-emerald-500"
+                  : score >= 60
+                  ? "bg-amber-500"
+                  : "bg-rose-500",
+              ].join(" ")}
+              style={{ width: `${score}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            href={`/merchant/events/${event.id}/preview`}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
+          >
+            Preview
+          </Link>
+
+          <Link
+            href={`/merchant/events/${event.id}/edit`}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
+          >
+            編輯
+          </Link>
+
+          {published ? (
+            <Link
+              href={`/events/${event.id}`}
+              className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-center text-xs font-black text-emerald-700 hover:bg-emerald-100"
+            >
+              公開頁
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-black text-slate-400"
+            >
+              未公開
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onDuplicate}
+            disabled={busy}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            複製
+          </button>
+        </div>
+
+        <div className="grid gap-2">
+          {group === "draft" ? (
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={busy || !canSubmit(event)}
+              className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
+            >
+              提交審批
+            </button>
+          ) : null}
+
+          {group === "archived" ? (
+            <button
+              type="button"
+              onClick={onRestore}
+              disabled={busy}
+              className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white hover:bg-purple-800 disabled:opacity-50"
+            >
+              還原草稿
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onArchive}
+              disabled={busy}
+              className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              封存
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
-function ActionButton({
+function StatCard({
   label,
-  onClick,
-  disabled,
-  primary,
-  danger,
+  value,
+  tone,
 }: {
   label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  primary?: boolean;
-  danger?: boolean;
+  value: number;
+  tone: "slate" | "amber" | "green" | "rose" | "purple";
+}) {
+  const tones = {
+    slate: "bg-slate-50 border-slate-200 text-slate-900",
+    amber: "bg-amber-50 border-amber-200 text-amber-900",
+    green: "bg-emerald-50 border-emerald-200 text-emerald-900",
+    rose: "bg-rose-50 border-rose-200 text-rose-900",
+    purple: "bg-purple-50 border-purple-200 text-purple-900",
+  };
+
+  return (
+    <div className={`rounded-3xl border p-5 ${tones[tone]}`}>
+      <p className="text-xs font-black opacity-70">{label}</p>
+      <p className="mt-2 text-3xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status?: string | null }) {
+  return (
+    <span
+      className={[
+        "inline-flex rounded-full border px-3 py-1 text-xs font-black",
+        statusBadgeClass(status),
+      ].join(" ")}
+    >
+      {statusLabel(status)}
+    </span>
+  );
+}
+
+function MiniInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-slate-50 px-3 py-2">
+      <p className="font-bold text-slate-400">{label}</p>
+      <p className="mt-1 truncate font-bold text-slate-700">{value}</p>
+    </div>
+  );
+}
+
+function GuideStep({
+  number,
+  title,
+  text,
+}: {
+  number: string;
+  title: string;
+  text: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`inline-flex items-center justify-center rounded-xl border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
-        primary
-          ? "border-primary-500 bg-primary-500 text-white hover:bg-primary-600"
-          : danger
-          ? "border-red-300 bg-white text-red-600 hover:bg-red-50"
-          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-      }`}
-    >
-      {disabled ? "處理中..." : label}
-    </button>
+    <div className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-700 text-sm font-black text-white">
+        {number}
+      </div>
+      <div>
+        <p className="font-black text-slate-950">{title}</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">{text}</p>
+      </div>
+    </div>
   );
 }
