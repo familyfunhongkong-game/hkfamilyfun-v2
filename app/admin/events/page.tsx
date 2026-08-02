@@ -24,7 +24,7 @@ type EventRecord = {
   end_date?: string | null;
   status?: string | null;
   cover_image_url?: string | null;
-  gallery_image_urls?: string[] | null;
+  gallery_image_urls?: unknown;
   price?: string | number | null;
   fee?: string | number | null;
   min_price?: string | number | null;
@@ -57,6 +57,17 @@ type FilterKey =
   | "published"
   | "rejected"
   | "archived";
+
+type MerchantStats = {
+  merchant: string;
+  total: number;
+  review: number;
+  draft: number;
+  published: number;
+  rejected: number;
+  archived: number;
+  avg_quality_total: number;
+};
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "全部活動" },
@@ -128,7 +139,10 @@ function titleOf(event: EventRecord) {
 }
 
 function merchantOf(event: EventRecord) {
-  return safeText(event.merchant_name || event.organizer_name || event.merchant_id, "未連接商戶");
+  return safeText(
+    event.merchant_name || event.organizer_name || event.merchant_id,
+    "未連接商戶"
+  );
 }
 
 function categoryOf(event: EventRecord) {
@@ -153,12 +167,31 @@ function locationOf(event: EventRecord) {
   return parts.length ? parts.join("・") : "地點未填";
 }
 
+function getGalleryArray(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  return [];
+}
+
 function imageCount(event: EventRecord) {
   const cover = event.cover_image_url ? 1 : 0;
-  const gallery = Array.isArray(event.gallery_image_urls)
-    ? event.gallery_image_urls.filter(Boolean).length
-    : 0;
-
+  const gallery = getGalleryArray(event.gallery_image_urls).length;
   return cover + gallery;
 }
 
@@ -191,6 +224,7 @@ function priceOf(event: EventRecord) {
   if (offer && original) return `優惠 HK$${offer}（原價 HK$${original}）`;
   if (offer) return `優惠 HK$${offer}`;
   if (min && max && min !== max) return `HK$${min}–HK$${max}`;
+  if (min && max && min === max) return `HK$${min}`;
   if (min) return `HK$${min} 起`;
   if (fixed) return `HK$${fixed}`;
 
@@ -334,17 +368,21 @@ export default function AdminEventsPage() {
       setEvents([]);
       setSelected(null);
       setMessage(`讀取活動失敗：${error.message}`);
-    } else {
-      const rows = (data || []) as EventRecord[];
-      setEvents(rows);
+      setLoading(false);
+      return;
+    }
 
-      const currentVisible = selected
+    const rows = (data || []) as EventRecord[];
+    setEvents(rows);
+
+    if (rows.length) {
+      const current = selected
         ? rows.find((event) => event.id === selected.id)
         : null;
 
-      if (currentVisible) {
-        setSelected(currentVisible);
-      }
+      setSelected(current || rows[0]);
+    } else {
+      setSelected(null);
     }
 
     setLoading(false);
@@ -367,7 +405,9 @@ export default function AdminEventsPage() {
 
     events.forEach((event) => {
       const group = statusGroup(event.status);
-      base[group] += 1;
+      if (group !== "all") {
+        base[group] += 1;
+      }
     });
 
     return base;
@@ -422,10 +462,13 @@ export default function AdminEventsPage() {
 
     const ctaReady = events.filter((event) => ctaOf(event) !== "未設定").length;
     const mapReady = events.filter(
-      (event) => hasValue(event.google_map_url) || hasValue(event.google_map_embed_url)
+      (event) =>
+        hasValue(event.google_map_url) || hasValue(event.google_map_embed_url)
     ).length;
     const imageReady = events.filter((event) => imageCount(event) > 0).length;
-    const priceReady = events.filter((event) => priceOf(event) !== "收費未填").length;
+    const priceReady = events.filter(
+      (event) => priceOf(event) !== "收費未填"
+    ).length;
     const highQuality = events.filter((event) => readyScore(event) >= 80).length;
 
     const merchantMap = new Map<string, number>();
@@ -467,7 +510,7 @@ export default function AdminEventsPage() {
     setBusyId(id);
     setMessage("");
 
-    const updatedTarget = targetEvent
+    const optimisticEvent = targetEvent
       ? { ...targetEvent, status: nextStatus, updated_at: now }
       : null;
 
@@ -481,8 +524,8 @@ export default function AdminEventsPage() {
       )
     );
 
-    if (updatedTarget) {
-      setSelected(updatedTarget);
+    if (optimisticEvent) {
+      setSelected(optimisticEvent);
     }
 
     const { error } = await client
@@ -497,27 +540,24 @@ export default function AdminEventsPage() {
       setEvents(originalEvents);
       setSelected(originalSelected);
       setMessage(`更新失敗：${error.message}`);
-    } else {
-      const { data } = await client
-        .from("events")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (data) {
-        const refreshedEvent = data as EventRecord;
-
-        setEvents((prev) =>
-          prev.map((event) => (event.id === id ? refreshedEvent : event))
-        );
-
-        setSelected(refreshedEvent);
-        setActiveFilter(statusGroup(refreshedEvent.status));
-      }
-
-      setMessage(`已更新為「${statusLabel(nextStatus)}」，右側已同步顯示該活動。`);
+      setBusyId(null);
+      return;
     }
 
+    const { data } = await client.from("events").select("*").eq("id", id).single();
+
+    if (data) {
+      const refreshedEvent = data as EventRecord;
+
+      setEvents((prev) =>
+        prev.map((event) => (event.id === id ? refreshedEvent : event))
+      );
+
+      setSelected(refreshedEvent);
+      setActiveFilter(statusGroup(refreshedEvent.status));
+    }
+
+    setMessage(`已更新為「${statusLabel(nextStatus)}」。`);
     setBusyId(null);
   }
 
@@ -550,19 +590,7 @@ export default function AdminEventsPage() {
   }
 
   function exportMerchantReport() {
-    const merchantMap = new Map<
-      string,
-      {
-        merchant: string;
-        total: number;
-        review: number;
-        draft: number;
-        published: number;
-        rejected: number;
-        archived: number;
-        avg_quality_total: number;
-      }
-    >();
+    const merchantMap = new Map<string, MerchantStats>();
 
     events.forEach((event) => {
       const merchant = merchantOf(event);
@@ -582,7 +610,13 @@ export default function AdminEventsPage() {
         };
 
       current.total += 1;
-      current[group] += 1;
+
+      if (group === "review") current.review += 1;
+      if (group === "draft") current.draft += 1;
+      if (group === "published") current.published += 1;
+      if (group === "rejected") current.rejected += 1;
+      if (group === "archived") current.archived += 1;
+
       current.avg_quality_total += readyScore(event);
 
       merchantMap.set(merchant, current);
@@ -940,7 +974,7 @@ export default function AdminEventsPage() {
                 <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-xs leading-6 text-blue-800">
                   <p className="font-black">審批提示</p>
                   <ul className="mt-2 list-disc space-y-1 pl-4">
-                    <li>按狀態按鈕後，右側會自動同步顯示該活動。</li>
+                    <li>按狀態按鈕後，右側會同步顯示該活動。</li>
                     <li>切換 filter 後，右側會自動選中第一個可見活動。</li>
                     <li>Raw status 用來檢查 Supabase 真實 status 值。</li>
                   </ul>
