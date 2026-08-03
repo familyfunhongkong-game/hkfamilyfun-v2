@@ -1,183 +1,189 @@
 ﻿"use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-type PriceMode =
-  | "free_hidden"
-  | "free_show"
-  | "fixed"
-  | "from"
-  | "range"
-  | "offer"
-  | "multi_ticket"
-  | "quota_only";
+type EventRecord = {
+  id: string;
+  merchant_id?: string | null;
+  title_tc?: string | null;
+  title?: string | null;
+  short_description_tc?: string | null;
+  description_tc?: string | null;
+  highlights?: string | null;
+  terms?: string | null;
+  remarks?: string | null;
+  tags?: string | null;
+  category?: string | null;
+  activity_category?: string | null;
 
-type BookingType =
-  | "official_page"
-  | "external_ticketing"
-  | "google_form"
-  | "merchant_website"
-  | "whatsapp"
-  | "phone"
-  | "email"
-  | "walk_in"
-  | "enquiry_only";
+  start_date?: string | null;
+  end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+
+  venue_name?: string | null;
+  address?: string | null;
+  area?: string | null;
+  district?: string | null;
+  mtr_station?: string | null;
+  google_map_url?: string | null;
+  google_map_embed_url?: string | null;
+
+  price_display_mode?: string | null;
+  price_label?: string | null;
+  min_price?: string | number | null;
+  max_price?: string | number | null;
+  original_price?: string | number | null;
+  offer_price?: string | number | null;
+  quota_label?: string | null;
+
+  cta_type?: string | null;
+  cta_label?: string | null;
+  registration_url?: string | null;
+  booking_url?: string | null;
+  official_url?: string | null;
+  source_url?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  whatsapp?: string | null;
+
+  cover_image_url?: string | null;
+  gallery_image_urls?: unknown;
+
+  organizer_name?: string | null;
+  merchant_name?: string | null;
+  status?: string | null;
+  updated_at?: string | null;
+};
+
+type MerchantRecord = {
+  id: string;
+  business_name?: string | null;
+  contact_email?: string | null;
+  status?: string | null;
+};
 
 type FormState = {
   title_tc: string;
   short_description_tc: string;
   description_tc: string;
-  category: string;
+  activity_category: string;
+  highlights: string;
+  terms: string;
+  remarks: string;
   tags: string;
 
   start_date: string;
   end_date: string;
   start_time: string;
   end_time: string;
+
   venue_name: string;
   address: string;
+  area: string;
   district: string;
   mtr_station: string;
   google_map_url: string;
-  map_embed_url: string;
-  transportation_notes: string;
+  google_map_embed_url: string;
+
+  price_display_mode: string;
+  price_label: string;
+  min_price: string;
+  max_price: string;
+  original_price: string;
+  offer_price: string;
+  quota_label: string;
+
+  cta_type: string;
+  cta_label: string;
+  registration_url: string;
+  booking_url: string;
+  official_url: string;
+  source_url: string;
+  contact_phone: string;
+  contact_email: string;
+  whatsapp: string;
 
   cover_image_url: string;
-  gallery_image_1: string;
-  gallery_image_2: string;
-  gallery_image_3: string;
-  gallery_image_4: string;
-
-  price_type: string;
-  price_display_mode: PriceMode;
-  price_summary: string;
-  price_min: string;
-  price_max: string;
-  original_price: string;
-  discount_price: string;
-  show_price_on_public: boolean;
-
-  quota_summary: string;
-  quota_total: string;
-  quota_remaining: string;
-  show_quota_on_public: boolean;
-
-  pricing_items_text: string;
-  add_on_items_text: string;
-  ticketing_notes: string;
-
-  booking_type: BookingType;
-  booking_url: string;
-  booking_whatsapp: string;
-  booking_phone: string;
-  booking_email: string;
-  booking_message: string;
-  cta_label: string;
-  registration_deadline: string;
-  is_full: boolean;
-  is_walk_in: boolean;
-
-  event_highlights: string;
-  important_notes: string;
+  gallery_image_urls: string[];
 
   organizer_name: string;
-  organizer_phone: string;
-  organizer_email: string;
-  organizer_website: string;
-  official_website_url: string;
-  contact_whatsapp: string;
 };
-
-const fallbackImage =
-  "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=1200&q=80";
 
 const emptyForm: FormState = {
   title_tc: "",
   short_description_tc: "",
   description_tc: "",
-  category: "親子活動",
+  activity_category: "親子活動",
+  highlights: "",
+  terms: "",
+  remarks: "",
   tags: "",
 
   start_date: "",
   end_date: "",
   start_time: "",
   end_time: "",
+
   venue_name: "",
   address: "",
+  area: "",
   district: "",
   mtr_station: "",
   google_map_url: "",
-  map_embed_url: "",
-  transportation_notes: "",
+  google_map_embed_url: "",
+
+  price_display_mode: "unknown",
+  price_label: "",
+  min_price: "",
+  max_price: "",
+  original_price: "",
+  offer_price: "",
+  quota_label: "",
+
+  cta_type: "official",
+  cta_label: "查看官方活動頁",
+  registration_url: "",
+  booking_url: "",
+  official_url: "",
+  source_url: "",
+  contact_phone: "",
+  contact_email: "",
+  whatsapp: "",
 
   cover_image_url: "",
-  gallery_image_1: "",
-  gallery_image_2: "",
-  gallery_image_3: "",
-  gallery_image_4: "",
-
-  price_type: "paid",
-  price_display_mode: "fixed",
-  price_summary: "",
-  price_min: "",
-  price_max: "",
-  original_price: "",
-  discount_price: "",
-  show_price_on_public: true,
-
-  quota_summary: "",
-  quota_total: "",
-  quota_remaining: "",
-  show_quota_on_public: false,
-
-  pricing_items_text: "",
-  add_on_items_text: "",
-  ticketing_notes: "",
-
-  booking_type: "official_page",
-  booking_url: "",
-  booking_whatsapp: "",
-  booking_phone: "",
-  booking_email: "",
-  booking_message: "",
-  cta_label: "",
-  registration_deadline: "",
-  is_full: false,
-  is_walk_in: false,
-
-  event_highlights: "",
-  important_notes: "",
+  gallery_image_urls: ["", "", "", "", ""],
 
   organizer_name: "",
-  organizer_phone: "",
-  organizer_email: "",
-  organizer_website: "",
-  official_website_url: "",
-  contact_whatsapp: "",
 };
 
 const steps = [
-  "1. 基本資料",
-  "2. 圖片及海報",
-  "3. 時間地點",
-  "4. 收費名額",
-  "5. 報名 CTA",
-  "6. 內容提交",
+  "基本資料",
+  "時間地點",
+  "圖片",
+  "收費名額",
+  "報名 CTA",
+  "內容提交",
 ];
 
-const priceModes: { key: PriceMode; title: string; desc: string }[] = [
+const priceModes = [
   {
-    key: "free_hidden",
-    title: "免費，不顯示價錢",
-    desc: "適合只想顯示活動內容，不突出價錢。",
+    key: "unknown",
+    title: "收費待確認",
+    desc: "未確認收費，需商戶補充。",
   },
   {
-    key: "free_show",
+    key: "hidden",
+    title: "不顯示價錢",
+    desc: "公開頁不展示任何價錢。",
+  },
+  {
+    key: "free",
     title: "免費",
-    desc: "活動卡及詳情頁會顯示免費。",
+    desc: "活動免費，不需要填收費。",
   },
   {
     key: "fixed",
@@ -185,9 +191,9 @@ const priceModes: { key: PriceMode; title: string; desc: string }[] = [
     desc: "例如 HK$50，不會顯示「起」。",
   },
   {
-    key: "from",
-    title: "HK$XX 起",
-    desc: "適合多票種、不同渠道、兒童成人不同價。",
+    key: "early_bird",
+    title: "優惠 / 早鳥",
+    desc: "例如 HK$50（原價 HK$90）。",
   },
   {
     key: "range",
@@ -195,1062 +201,1192 @@ const priceModes: { key: PriceMode; title: string; desc: string }[] = [
     desc: "例如 HK$50–HK$180。",
   },
   {
-    key: "offer",
-    title: "優惠 / 早鳥",
-    desc: "例如早鳥優惠價 HK$50 (原價 HK$90)。",
+    key: "from",
+    title: "HK$XX 起",
+    desc: "適合不同票種，最低價起。",
   },
   {
-    key: "multi_ticket",
-    title: "多票種",
-    desc: "適合 Klook、Eventbrite、NF Touch 等渠道。",
-  },
-  {
-    key: "quota_only",
+    key: "quota",
     title: "只顯示名額",
-    desc: "不顯示價錢，只顯示名額有限。",
+    desc: "不顯示價錢，只顯示名額。",
   },
 ];
 
-const bookingTypes: { key: BookingType; title: string; desc: string }[] = [
+const ctaTypes = [
   {
-    key: "official_page",
-    title: "查看官方活動頁",
-    desc: "導向主辦方活動頁，適合只作官方詳情導流。",
+    key: "official",
+    title: "官方活動頁",
+    desc: "家長前往主辦方活動頁。",
+    label: "查看官方活動頁",
   },
   {
-    key: "external_ticketing",
+    key: "external",
     title: "外部連結報名",
     desc: "Klook / Eventbrite / Ticketing Partner。",
+    label: "前往報名",
   },
   {
     key: "google_form",
     title: "Google Form",
-    desc: "直接填表報名。",
-  },
-  {
-    key: "merchant_website",
-    title: "商戶網站",
-    desc: "導向商戶網站。",
+    desc: "直接填寫 Google Form。",
+    label: "Google Form 報名",
   },
   {
     key: "whatsapp",
     title: "WhatsApp",
-    desc: "家長 WhatsApp 查詢或報名。",
+    desc: "以 WhatsApp 查詢或報名。",
+    label: "WhatsApp 報名",
   },
   {
-    key: "phone",
-    title: "電話",
-    desc: "家長致電查詢。",
+    key: "contact",
+    title: "向主辦查詢",
+    desc: "電話、Email 或 WhatsApp 查詢。",
+    label: "請向主辦查詢",
   },
   {
-    key: "email",
-    title: "電郵",
-    desc: "家長電郵查詢。",
-  },
-  {
-    key: "walk_in",
+    key: "none",
     title: "無需報名",
-    desc: "家長可 walk-in / 即場參加。",
-  },
-  {
-    key: "enquiry_only",
-    title: "只作宣傳 / 查詢",
-    desc: "不開放即時報名。",
+    desc: "活動可直接到場。",
+    label: "無需報名",
   },
 ];
 
-function safeText(value: unknown) {
+function safeText(value: unknown, fallback = "") {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value).trim();
+  return text.length ? text : fallback;
+}
+
+function toInputValue(value: unknown) {
   if (value === null || value === undefined) return "";
   return String(value);
 }
 
-function splitTextToArray(value: string) {
-  return value
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function joinArrayText(value: unknown) {
-  if (!value) return "";
-
+function getGalleryArray(value: unknown) {
   if (Array.isArray(value)) {
-    return value
-      .map((item) => {
-        if (typeof item === "string") return item;
-
-        if (item && typeof item === "object") {
-          const record = item as Record<string, unknown>;
-          return [record.label, record.price, record.source, record.note]
-            .map(safeText)
-            .filter(Boolean)
-            .join("｜");
-        }
-
-        return safeText(item);
-      })
-      .filter(Boolean)
-      .join("\n");
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
   }
 
-  return safeText(value);
-}
-
-function toNumberOrNull(value: string) {
-  if (!value.trim()) return null;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-function getGalleryArray(form: FormState) {
-  return [
-    form.gallery_image_1,
-    form.gallery_image_2,
-    form.gallery_image_3,
-    form.gallery_image_4,
-  ]
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 4);
-}
-
-function getAllImages(form: FormState) {
-  const images = [form.cover_image_url, ...getGalleryArray(form)]
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .filter((item, index, arr) => arr.indexOf(item) === index)
-    .slice(0, 5);
-
-  return images.length ? images : [fallbackImage];
-}
-
-function getPriceDisplay(form: FormState) {
-  if (form.is_full) return "名額已滿";
-  if (!form.show_price_on_public) return "";
-  if (form.price_display_mode === "free_hidden") return "";
-  if (form.price_display_mode === "quota_only") return "";
-  if (form.price_display_mode === "free_show") return "免費";
-
-  const min = toNumberOrNull(form.price_min);
-  const max = toNumberOrNull(form.price_max);
-  const original = toNumberOrNull(form.original_price);
-  const discount = toNumberOrNull(form.discount_price);
-
-  if (form.price_display_mode === "fixed") {
-    if (min !== null) return `HK$${min}`;
-    return "收費待確認";
-  }
-
-  if (form.price_display_mode === "offer") {
-    if (discount !== null && original !== null) {
-      return `早鳥優惠價 HK$${discount} (原價 HK$${original})`;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+      }
+    } catch {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
     }
-
-    if (min !== null && original !== null) {
-      return `早鳥優惠價 HK$${min} (原價 HK$${original})`;
-    }
-
-    if (discount !== null) return `優惠價 HK$${discount}`;
-    if (min !== null) return `優惠價 HK$${min}`;
-    return "優惠詳情待確認";
   }
 
-  if (form.price_display_mode === "range") {
-    if (min !== null && max !== null && min !== max) return `HK$${min}–HK$${max}`;
-    if (min !== null) return `HK$${min}`;
-    return "收費待確認";
-  }
-
-  if (form.price_display_mode === "from") {
-    if (min !== null) return `HK$${min} 起`;
-    return "收費待確認";
-  }
-
-  if (form.price_display_mode === "multi_ticket") {
-    if (min !== null) return `HK$${min} 起`;
-    return form.price_summary.trim() || "多票種";
-  }
-
-  return form.price_summary.trim() || "收費待確認";
+  return [];
 }
 
-function getQuotaDisplay(form: FormState) {
-  if (form.is_full) return "名額已滿";
-
-  if (!form.show_quota_on_public && !form.quota_summary.trim()) return "";
-
-  if (form.quota_summary.trim()) return form.quota_summary.trim();
-
-  const total = form.quota_total.trim();
-  const remaining = form.quota_remaining.trim();
-
-  if (remaining && total) return `尚餘 ${remaining} / ${total} 個名額`;
-  if (remaining) return `尚餘 ${remaining} 個名額`;
-  if (total) return `名額共 ${total} 個`;
-
-  return form.show_quota_on_public ? "名額有限" : "";
+function normalizeGallery(images: string[]) {
+  return Array.from(new Set(images.map((item) => item.trim()).filter(Boolean))).slice(0, 5);
 }
 
-function getCtaDisplay(form: FormState) {
-  if (form.is_full) return "名額已滿";
-  if (form.is_walk_in || form.booking_type === "walk_in") {
-    return form.cta_label.trim() || "無需報名";
-  }
-
-  const defaultLabels: Record<BookingType, string> = {
-    official_page: "查看官方活動頁",
-    external_ticketing: "前往報名 / 購票",
-    google_form: "填寫報名表",
-    merchant_website: "前往商戶網站",
-    whatsapp: "WhatsApp 報名",
-    phone: "致電查詢",
-    email: "電郵查詢",
-    walk_in: "無需報名",
-    enquiry_only: "請向主辦查詢",
-  };
-
-  return form.cta_label.trim() || defaultLabels[form.booking_type];
+function ensureFiveImages(images: string[]) {
+  const next = [...images].slice(0, 5);
+  while (next.length < 5) next.push("");
+  return next;
 }
 
-function isPriceFieldEnabled(form: FormState, field: string) {
+function updateImageItem(images: string[], index: number, value: string) {
+  const next = [...images];
+  next[index] = value;
+  return ensureFiveImages(next);
+}
+
+function formatPricePreview(form: FormState) {
   const mode = form.price_display_mode;
 
-  if (mode === "free_hidden" || mode === "free_show" || mode === "quota_only") {
-    return false;
+  if (mode === "hidden") return "不顯示價錢";
+  if (mode === "free") return "免費";
+  if (mode === "quota") return form.quota_label || "名額有限，詳情請向主辦查詢";
+
+  if (mode === "early_bird") {
+    if (form.offer_price && form.original_price) {
+      return `早鳥優惠價 HK$${form.offer_price}（原價 HK$${form.original_price}）`;
+    }
+    if (form.offer_price) return `早鳥優惠價 HK$${form.offer_price}`;
+    if (form.price_label) return form.price_label;
+    return "早鳥優惠價待確認";
   }
 
   if (mode === "fixed") {
-    return field === "price_min" || field === "price_summary";
-  }
-
-  if (mode === "from") {
-    return field === "price_min" || field === "price_summary";
+    if (form.min_price) return `HK$${form.min_price}`;
+    if (form.price_label) return form.price_label;
+    return "固定收費待確認";
   }
 
   if (mode === "range") {
-    return field === "price_min" || field === "price_max" || field === "price_summary";
+    if (form.min_price && form.max_price) {
+      if (form.min_price === form.max_price) return `HK$${form.min_price}`;
+      return `HK$${form.min_price}–HK$${form.max_price}`;
+    }
+    if (form.min_price) return `HK$${form.min_price} 起`;
+    if (form.price_label) return form.price_label;
+    return "價錢範圍待確認";
   }
 
-  if (mode === "offer") {
-    return (
-      field === "discount_price" ||
-      field === "original_price" ||
-      field === "price_min" ||
-      field === "price_summary" ||
-      field === "ticketing_notes"
-    );
+  if (mode === "from") {
+    if (form.min_price) return `HK$${form.min_price} 起`;
+    if (form.price_label) return form.price_label;
+    return "HK$XX 起";
   }
 
-  if (mode === "multi_ticket") {
-    return (
-      field === "price_min" ||
-      field === "price_max" ||
-      field === "price_summary" ||
-      field === "pricing_items_text" ||
-      field === "add_on_items_text" ||
-      field === "ticketing_notes"
-    );
-  }
+  if (form.price_label) return form.price_label;
 
-  return true;
+  return "收費待確認";
 }
 
-function isBookingFieldEnabled(form: FormState, field: string) {
-  const type = form.booking_type;
+function getCtaPreview(form: FormState) {
+  if (form.cta_label) return form.cta_label;
+  const selected = ctaTypes.find((item) => item.key === form.cta_type);
+  return selected?.label || "查看詳情";
+}
 
-  if (type === "walk_in" || type === "enquiry_only") {
-    return field === "cta_label" || field === "booking_message" || field === "is_walk_in";
+function activeCtaUrl(form: FormState) {
+  if (form.cta_type === "whatsapp") return form.whatsapp;
+  if (form.cta_type === "google_form") return form.registration_url || form.booking_url;
+  if (form.cta_type === "external") return form.registration_url || form.booking_url;
+  if (form.cta_type === "official") return form.official_url || form.source_url;
+  return "";
+}
+
+function readiness(form: FormState) {
+  const checks = [
+    {
+      key: "活動名稱",
+      done: !!safeText(form.title_tc),
+    },
+    {
+      key: "日期",
+      done: !!safeText(form.start_date),
+    },
+    {
+      key: "地點",
+      done: !!safeText(form.venue_name) || !!safeText(form.address),
+    },
+    {
+      key: "收費",
+      done: formatPricePreview(form) !== "收費待確認",
+    },
+    {
+      key: "CTA",
+      done:
+        form.cta_type === "none" ||
+        form.cta_type === "contact" ||
+        !!safeText(activeCtaUrl(form)),
+    },
+    {
+      key: "圖片",
+      done:
+        !!safeText(form.cover_image_url) ||
+        normalizeGallery(form.gallery_image_urls).length > 0,
+    },
+    {
+      key: "Google Map",
+      done: !!safeText(form.google_map_url) || !!safeText(form.google_map_embed_url),
+    },
+  ];
+
+  const score = Math.round((checks.filter((item) => item.done).length / checks.length) * 100);
+  const missing = checks.filter((item) => !item.done).map((item) => item.key);
+
+  return { score, missing, checks };
+}
+
+function isDisabledPriceField(mode: string, field: string) {
+  if (mode === "hidden" || mode === "free") {
+    return [
+      "price_label",
+      "min_price",
+      "max_price",
+      "original_price",
+      "offer_price",
+      "quota_label",
+    ].includes(field);
   }
 
-  if (type === "whatsapp") {
-    return field === "booking_whatsapp" || field === "booking_message" || field === "cta_label";
+  if (mode === "fixed") {
+    return ["max_price", "original_price", "offer_price", "quota_label"].includes(field);
   }
 
-  if (type === "phone") {
-    return field === "booking_phone" || field === "cta_label";
+  if (mode === "early_bird") {
+    return ["max_price"].includes(field);
   }
 
-  if (type === "email") {
-    return field === "booking_email" || field === "cta_label";
+  if (mode === "range") {
+    return ["original_price", "offer_price", "quota_label"].includes(field);
   }
 
-  if (
-    type === "google_form" ||
-    type === "external_ticketing" ||
-    type === "merchant_website" ||
-    type === "official_page"
-  ) {
-    return field === "booking_url" || field === "cta_label" || field === "registration_deadline";
+  if (mode === "from") {
+    return ["max_price", "original_price", "offer_price", "quota_label"].includes(field);
   }
 
-  return true;
+  if (mode === "quota") {
+    return ["price_label", "min_price", "max_price", "original_price", "offer_price"].includes(field);
+  }
+
+  return false;
+}
+
+function statusLabel(status?: string | null) {
+  const text = safeText(status, "draft").toLowerCase();
+
+  if (["submitted", "pending", "review", "pending_review"].includes(text)) return "審批中";
+  if (["published", "approved", "live"].includes(text)) return "已發布";
+  if (["rejected", "declined"].includes(text)) return "已拒絕";
+  if (["archived", "hidden", "offline"].includes(text)) return "已封存";
+  return "草稿";
+}
+
+function formFromEvent(event: EventRecord): FormState {
+  const gallery = ensureFiveImages(
+    normalizeGallery([
+      safeText(event.cover_image_url),
+      ...getGalleryArray(event.gallery_image_urls),
+    ])
+  );
+
+  return {
+    title_tc: safeText(event.title_tc || event.title),
+    short_description_tc: safeText(event.short_description_tc),
+    description_tc: safeText(event.description_tc),
+    activity_category: safeText(event.activity_category || event.category, "親子活動"),
+    highlights: safeText(event.highlights),
+    terms: safeText(event.terms),
+    remarks: safeText(event.remarks),
+    tags: safeText(event.tags),
+
+    start_date: safeText(event.start_date),
+    end_date: safeText(event.end_date),
+    start_time: safeText(event.start_time),
+    end_time: safeText(event.end_time),
+
+    venue_name: safeText(event.venue_name),
+    address: safeText(event.address),
+    area: safeText(event.area),
+    district: safeText(event.district),
+    mtr_station: safeText(event.mtr_station),
+    google_map_url: safeText(event.google_map_url),
+    google_map_embed_url: safeText(event.google_map_embed_url),
+
+    price_display_mode: safeText(event.price_display_mode, "unknown"),
+    price_label: safeText(event.price_label),
+    min_price: toInputValue(event.min_price),
+    max_price: toInputValue(event.max_price),
+    original_price: toInputValue(event.original_price),
+    offer_price: toInputValue(event.offer_price),
+    quota_label: safeText(event.quota_label),
+
+    cta_type: safeText(event.cta_type, "official"),
+    cta_label: safeText(event.cta_label, "查看官方活動頁"),
+    registration_url: safeText(event.registration_url),
+    booking_url: safeText(event.booking_url),
+    official_url: safeText(event.official_url),
+    source_url: safeText(event.source_url),
+    contact_phone: safeText(event.contact_phone),
+    contact_email: safeText(event.contact_email),
+    whatsapp: safeText(event.whatsapp),
+
+    cover_image_url: safeText(event.cover_image_url || gallery[0]),
+    gallery_image_urls: gallery,
+
+    organizer_name: safeText(event.organizer_name || event.merchant_name),
+  };
 }
 
 export default function MerchantEventEditPage() {
   const params = useParams();
   const router = useRouter();
-  const eventId = typeof params?.id === "string" ? params.id : "";
+  const eventId = String(params?.id || "");
 
-  const [step, setStep] = useState(1);
+  const [eventRecord, setEventRecord] = useState<EventRecord | null>(null);
+  const [merchant, setMerchant] = useState<MerchantRecord | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
-  const [status, setStatus] = useState("draft");
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [selectedPreviewImage, setSelectedPreviewImage] = useState("");
+  const [previewMode, setPreviewMode] = useState<"card" | "detail">("card");
 
-  const allImages = useMemo(() => getAllImages(form), [form]);
-  const priceDisplay = useMemo(() => getPriceDisplay(form), [form]);
-  const quotaDisplay = useMemo(() => getQuotaDisplay(form), [form]);
-  const ctaDisplay = useMemo(() => getCtaDisplay(form), [form]);
+  const ready = useMemo(() => readiness(form), [form]);
+  const galleryImages = useMemo(
+    () => normalizeGallery([form.cover_image_url, ...form.gallery_image_urls]),
+    [form.cover_image_url, form.gallery_image_urls]
+  );
+
+  function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((previous) => ({
+      ...previous,
+      [key]: value,
+    }));
+  }
 
   useEffect(() => {
-    let active = true;
-
     async function loadEvent() {
-      setLoading(true);
-      setErrorMessage("");
+      const client = supabase;
 
-      if (!supabase || !eventId) {
-        setErrorMessage("Supabase 未連接或活動 ID 不正確。");
+      setLoading(true);
+      setMessage("");
+
+      if (!client) {
+        setMessage("Supabase client 未能初始化，請檢查 .env.local。");
         setLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
+      if (!eventId) {
+        setMessage("找不到活動 ID。");
+        setLoading(false);
+        return;
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await client.auth.getUser();
+
+      if (userError || !user) {
+        setMessage("請先登入商戶帳戶。");
+        setLoading(false);
+        return;
+      }
+
+      const { data: merchantData, error: merchantError } = await client
+        .from("merchants")
+        .select("*")
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+
+      if (merchantError) {
+        setMessage(`讀取商戶資料失敗：${merchantError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      const currentMerchant = merchantData as MerchantRecord | null;
+      setMerchant(currentMerchant);
+
+      const { data: eventData, error: eventError } = await client
         .from("events")
         .select("*")
         .eq("id", eventId)
         .maybeSingle();
 
-      if (!active) return;
-
-      if (error || !data) {
-        setErrorMessage(error?.message || "找不到活動資料。");
+      if (eventError) {
+        setMessage(`讀取活動失敗：${eventError.message}`);
         setLoading(false);
         return;
       }
 
-      const gallery = Array.isArray(data.gallery_image_urls) ? data.gallery_image_urls : [];
+      if (!eventData) {
+        setMessage("找不到此活動。");
+        setLoading(false);
+        return;
+      }
 
-      setForm({
-        ...emptyForm,
-        title_tc: safeText(data.title_tc),
-        short_description_tc: safeText(data.short_description_tc),
-        description_tc: safeText(data.description_tc),
-        category: safeText(data.category) || "親子活動",
-        tags: joinArrayText(data.tags),
-
-        start_date: safeText(data.start_date),
-        end_date: safeText(data.end_date),
-        start_time: safeText(data.start_time),
-        end_time: safeText(data.end_time),
-        venue_name: safeText(data.venue_name),
-        address: safeText(data.address),
-        district: safeText(data.district),
-        mtr_station: safeText(data.mtr_station),
-        google_map_url: safeText(data.google_map_url),
-        map_embed_url: safeText(data.map_embed_url),
-        transportation_notes: safeText(data.transportation_notes),
-
-        cover_image_url: safeText(data.cover_image_url),
-        gallery_image_1: safeText(gallery[0]),
-        gallery_image_2: safeText(gallery[1]),
-        gallery_image_3: safeText(gallery[2]),
-        gallery_image_4: safeText(gallery[3]),
-
-        price_type: safeText(data.price_type) || "paid",
-        price_display_mode: (safeText(data.price_display_mode) || "fixed") as PriceMode,
-        price_summary: safeText(data.price_summary),
-        price_min: safeText(data.price_min),
-        price_max: safeText(data.price_max),
-        original_price: safeText(data.original_price),
-        discount_price: safeText(data.discount_price),
-        show_price_on_public: data.show_price_on_public !== false,
-
-        quota_summary: safeText(data.quota_summary),
-        quota_total: safeText(data.quota_total),
-        quota_remaining: safeText(data.quota_remaining),
-        show_quota_on_public: Boolean(data.show_quota_on_public),
-
-        pricing_items_text: joinArrayText(data.pricing_items),
-        add_on_items_text: joinArrayText(data.add_on_items),
-        ticketing_notes: safeText(data.ticketing_notes),
-
-        booking_type: (safeText(data.booking_type) || "official_page") as BookingType,
-        booking_url: safeText(data.booking_url || data.registration_url),
-        booking_whatsapp: safeText(data.booking_whatsapp),
-        booking_phone: safeText(data.booking_phone),
-        booking_email: safeText(data.booking_email),
-        booking_message: safeText(data.booking_message),
-        cta_label: safeText(data.cta_label),
-        registration_deadline: safeText(data.registration_deadline),
-        is_full: Boolean(data.is_full),
-        is_walk_in: Boolean(data.is_walk_in),
-
-        event_highlights: joinArrayText(data.event_highlights),
-        important_notes: joinArrayText(data.important_notes),
-
-        organizer_name: safeText(data.organizer_name),
-        organizer_phone: safeText(data.organizer_phone),
-        organizer_email: safeText(data.organizer_email),
-        organizer_website: safeText(data.organizer_website),
-        official_website_url: safeText(data.official_website_url),
-        contact_whatsapp: safeText(data.contact_whatsapp),
-      });
-
-      setStatus(safeText(data.status) || "draft");
+      const currentEvent = eventData as EventRecord;
+      setEventRecord(currentEvent);
+      setForm(formFromEvent(currentEvent));
       setLoading(false);
     }
 
     loadEvent();
-
-    return () => {
-      active = false;
-    };
   }, [eventId]);
 
-  function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  }
-
   function buildPayload(nextStatus?: string) {
-    const gallery = getGalleryArray(form);
+    const finalGallery = normalizeGallery([form.cover_image_url, ...form.gallery_image_urls]);
+    const priceSummary = formatPricePreview(form);
+    const ctaSummary = getCtaPreview(form);
+    const now = new Date().toISOString();
 
     return {
-      title_tc: form.title_tc.trim(),
-      short_description_tc: form.short_description_tc.trim(),
-      description_tc: form.description_tc.trim(),
-      category: form.category.trim(),
-      tags: splitTextToArray(form.tags),
+      title_tc: form.title_tc || "未命名活動草稿",
+      title: form.title_tc || "Untitled event",
+      short_description_tc: form.short_description_tc,
+      description_tc: form.description_tc,
+      activity_category: form.activity_category,
+      category: form.activity_category,
+      highlights: form.highlights,
+      terms: form.terms,
+      remarks: form.remarks,
+      tags: form.tags,
 
       start_date: form.start_date || null,
-      end_date: form.end_date || null,
+      end_date: form.end_date || form.start_date || null,
       start_time: form.start_time || null,
       end_time: form.end_time || null,
-      venue_name: form.venue_name.trim(),
-      address: form.address.trim(),
-      district: form.district.trim(),
-      mtr_station: form.mtr_station.trim(),
-      google_map_url: form.google_map_url.trim(),
-      map_embed_url: form.map_embed_url.trim(),
-      transportation_notes: form.transportation_notes.trim(),
 
-      cover_image_url: form.cover_image_url.trim(),
-      gallery_image_urls: gallery,
+      venue_name: form.venue_name,
+      address: form.address,
+      area: form.area,
+      district: form.district,
+      mtr_station: form.mtr_station,
+      google_map_url: form.google_map_url,
+      google_map_embed_url: form.google_map_embed_url,
 
-      price_type:
-        form.price_display_mode === "free_hidden" || form.price_display_mode === "free_show"
-          ? "free"
-          : "paid",
       price_display_mode: form.price_display_mode,
-      price_summary: priceDisplay || form.price_summary.trim(),
-      price_min: toNumberOrNull(form.price_min),
-      price_max: toNumberOrNull(form.price_max),
-      original_price: toNumberOrNull(form.original_price),
-      discount_price: toNumberOrNull(form.discount_price),
-      show_price_on_public: form.show_price_on_public,
+      price_label: priceSummary,
+      min_price:
+        form.price_display_mode === "hidden" ||
+        form.price_display_mode === "free" ||
+        form.price_display_mode === "quota"
+          ? null
+          : form.min_price || null,
+      max_price:
+        form.price_display_mode === "range" && form.max_price ? form.max_price : null,
+      original_price:
+        form.price_display_mode === "early_bird" && form.original_price
+          ? form.original_price
+          : null,
+      offer_price:
+        form.price_display_mode === "early_bird" && form.offer_price
+          ? form.offer_price
+          : null,
+      quota_label:
+        form.price_display_mode === "quota" || form.quota_label ? form.quota_label : "",
 
-      quota_summary: quotaDisplay || form.quota_summary.trim(),
-      quota_total: toNumberOrNull(form.quota_total),
-      quota_remaining: toNumberOrNull(form.quota_remaining),
-      show_quota_on_public: form.show_quota_on_public,
+      cta_type: form.cta_type,
+      cta_label: ctaSummary,
+      registration_url: form.registration_url,
+      booking_url: form.booking_url,
+      official_url: form.official_url,
+      source_url: form.source_url,
+      contact_phone: form.contact_phone,
+      contact_email: form.contact_email,
+      whatsapp: form.whatsapp,
 
-      pricing_items: splitTextToArray(form.pricing_items_text),
-      add_on_items: splitTextToArray(form.add_on_items_text),
-      ticketing_notes: form.ticketing_notes.trim(),
+      cover_image_url: form.cover_image_url || finalGallery[0] || "",
+      gallery_image_urls: finalGallery,
 
-      booking_type: form.booking_type,
-      booking_url: form.booking_url.trim(),
-      registration_url: form.booking_url.trim(),
-      booking_whatsapp: form.booking_whatsapp.trim(),
-      booking_phone: form.booking_phone.trim(),
-      booking_email: form.booking_email.trim(),
-      booking_message: form.booking_message.trim(),
-      cta_label: ctaDisplay,
-      registration_deadline: form.registration_deadline || null,
-      is_full: form.is_full,
-      is_walk_in: form.is_walk_in || form.booking_type === "walk_in",
+      organizer_name: form.organizer_name || merchant?.business_name || "",
+      merchant_name: merchant?.business_name || eventRecord?.merchant_name || "",
 
-      event_highlights: splitTextToArray(form.event_highlights),
-      important_notes: splitTextToArray(form.important_notes),
-
-      organizer_name: form.organizer_name.trim(),
-      organizer_phone: form.organizer_phone.trim(),
-      organizer_email: form.organizer_email.trim(),
-      organizer_website: form.organizer_website.trim(),
-      official_website_url: form.official_website_url.trim(),
-      contact_whatsapp: form.contact_whatsapp.trim(),
-
-      status: nextStatus || status || "draft",
+      status: nextStatus || eventRecord?.status || "draft",
+      updated_at: now,
     };
   }
 
   async function saveEvent(nextStatus?: string) {
+    const client = supabase;
+
+    if (!client) {
+      setMessage("Supabase client 未能初始化，暫時不能儲存。");
+      return;
+    }
+
+    if (!eventId) {
+      setMessage("找不到活動 ID，不能儲存。");
+      return;
+    }
+
+    if (nextStatus === "submitted" && ready.missing.length) {
+      setMessage(`提交前請先補齊：${ready.missing.join("、")}。`);
+      return;
+    }
+
     setSaving(true);
     setMessage("");
-    setErrorMessage("");
 
-    if (!supabase || !eventId) {
-      setErrorMessage("Supabase 未連接或活動 ID 不正確。");
-      setSaving(false);
-      return;
-    }
+    const payload = buildPayload(nextStatus);
 
-    const { error } = await supabase.from("events").update(buildPayload(nextStatus)).eq("id", eventId);
+    const { data, error } = await client
+      .from("events")
+      .update(payload)
+      .eq("id", eventId)
+      .select("*")
+      .maybeSingle();
 
     if (error) {
-      setErrorMessage(error.message);
+      setMessage(`儲存失敗：${error.message}`);
       setSaving(false);
       return;
     }
 
-    if (nextStatus) setStatus(nextStatus);
+    if (data) {
+      const updated = data as EventRecord;
+      setEventRecord(updated);
+      setForm(formFromEvent(updated));
+    }
 
-    setMessage(nextStatus === "submitted" ? "已提交 HK Family Fun 審批。" : "已儲存草稿。");
+    if (nextStatus === "submitted") {
+      setMessage("已提交 HK Family Fun 審批。");
+    } else {
+      setMessage("已儲存草稿。");
+    }
+
     setSaving(false);
-  }
-
-  async function saveAndPreview() {
-    await saveEvent(status || "draft");
-    router.push(`/merchant/events/${eventId}/preview`);
   }
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-16">
-        <div className="mx-auto max-w-5xl rounded-3xl border bg-white p-8 text-sm font-bold text-slate-600">
-          正在載入活動資料...
+      <main className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-[1500px] px-4 py-16">
+          <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-3xl">
+              親
+            </div>
+            <p className="font-black text-slate-700">正在讀取活動資料...</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!eventRecord) {
+    return (
+      <main className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-4xl px-4 py-16">
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8">
+            <h1 className="text-2xl font-black text-slate-950">找不到活動</h1>
+            <p className="mt-3 text-sm leading-6 text-amber-800">
+              {message || "請返回 Dashboard 重新選擇活動。"}
+            </p>
+            <Link
+              href="/merchant/dashboard"
+              className="mt-6 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
+            >
+              返回 Dashboard
+            </Link>
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
+    <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-6 sm:px-6 lg:px-8">
-          <div>
-            <Link href="/merchant/dashboard" className="text-sm font-black text-purple-700">
-              ← 返回 Merchant Dashboard
-            </Link>
-            <h1 className="mt-2 text-3xl font-black">編輯活動資料</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              分步填寫，右邊即時預覽家長看到的大約效果。
-            </p>
+        <div className="mx-auto max-w-[1500px] px-4 py-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <Link
+                href="/merchant/dashboard"
+                className="text-sm font-black text-purple-700 hover:text-purple-900"
+              >
+                ← 返回 Merchant Dashboard
+              </Link>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                編輯活動資料
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                支援 server-side 匯入資料、5 張 Gallery 圖、收費欄位鎖定及即時 Preview。
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/merchant/events/${eventId}/preview`}
+                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+              >
+                Preview
+              </Link>
+              <button
+                type="button"
+                onClick={() => saveEvent()}
+                disabled={saving}
+                className="rounded-full bg-slate-950 px-5 py-2 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
+              >
+                {saving ? "儲存中..." : "儲存草稿"}
+              </button>
+              <button
+                type="button"
+                onClick={() => saveEvent("submitted")}
+                disabled={saving || ready.missing.length > 0}
+                className="rounded-full bg-purple-700 px-5 py-2 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
+              >
+                提交審批
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={saveAndPreview}
-              className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700"
-            >
-              預覽頁
-            </button>
-            <button
-              type="button"
-              onClick={() => saveEvent("draft")}
-              disabled={saving}
-              className="rounded-full bg-slate-900 px-5 py-3 text-sm font-black text-white disabled:bg-slate-300"
-            >
-              {saving ? "儲存中..." : "儲存草稿"}
-            </button>
-            <button
-              type="button"
-              onClick={() => saveEvent("submitted")}
-              disabled={saving}
-              className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white disabled:bg-slate-300"
-            >
-              提交審批
-            </button>
-          </div>
+          {message ? (
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+              {message}
+            </div>
+          ) : null}
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {message ? (
-          <div className="mb-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
-            {message}
+      <section className="mx-auto grid max-w-[1500px] gap-6 px-4 py-6 xl:grid-cols-[1fr_390px]">
+        <div className="space-y-5">
+          <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              {steps.map((label, index) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setStep(index)}
+                  className={[
+                    "rounded-2xl px-4 py-3 text-sm font-black transition",
+                    step === index
+                      ? "bg-purple-700 text-white"
+                      : "bg-slate-50 text-slate-700 hover:bg-slate-100",
+                  ].join(" ")}
+                >
+                  {index + 1}. {label}
+                </button>
+              ))}
+            </div>
           </div>
-        ) : null}
 
-        {errorMessage ? (
-          <div className="mb-4 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
-            {errorMessage}
-          </div>
-        ) : null}
+          {step === 0 ? (
+            <Section title="Step 1：基本資料" desc="先確認活動名稱、分類及簡介。">
+              <Input
+                label="活動名稱"
+                value={form.title_tc}
+                onChange={(value) => updateField("title_tc", value)}
+              />
+              <Input
+                label="活動分類"
+                value={form.activity_category}
+                onChange={(value) => updateField("activity_category", value)}
+              />
+              <Textarea
+                label="短簡介"
+                value={form.short_description_tc}
+                onChange={(value) => updateField("short_description_tc", value)}
+              />
+              <Input
+                label="標籤"
+                value={form.tags}
+                onChange={(value) => updateField("tags", value)}
+                placeholder="AIRSIDE, 親子活動, 健康活動"
+              />
+            </Section>
+          ) : null}
 
-        <div className="mb-6 flex gap-2 overflow-x-auto rounded-[2rem] border border-slate-200 bg-white p-3">
-          {steps.map((label, index) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setStep(index + 1)}
-              className={`min-w-[130px] rounded-2xl px-4 py-3 text-sm font-black ${
-                step === index + 1 ? "bg-purple-700 text-white" : "bg-slate-50 text-slate-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+          {step === 1 ? (
+            <Section title="Step 2：時間及地點" desc="日期、時間、地點和 Google Map 會直接影響家長搜尋。">
+              <Input
+                label="開始日期"
+                type="date"
+                value={form.start_date}
+                onChange={(value) => updateField("start_date", value)}
+              />
+              <Input
+                label="結束日期"
+                type="date"
+                value={form.end_date}
+                onChange={(value) => updateField("end_date", value)}
+              />
+              <Input
+                label="開始時間"
+                type="time"
+                value={form.start_time}
+                onChange={(value) => updateField("start_time", value)}
+              />
+              <Input
+                label="結束時間"
+                type="time"
+                value={form.end_time}
+                onChange={(value) => updateField("end_time", value)}
+              />
+              <Input
+                label="場地名稱"
+                value={form.venue_name}
+                onChange={(value) => updateField("venue_name", value)}
+              />
+              <Input
+                label="詳細地址"
+                value={form.address}
+                onChange={(value) => updateField("address", value)}
+              />
+              <Input
+                label="地區"
+                value={form.area}
+                onChange={(value) => updateField("area", value)}
+              />
+              <Input
+                label="分區"
+                value={form.district}
+                onChange={(value) => updateField("district", value)}
+              />
+              <Input
+                label="港鐵站"
+                value={form.mtr_station}
+                onChange={(value) => updateField("mtr_station", value)}
+              />
+              <Input
+                label="Google Map URL"
+                value={form.google_map_url}
+                onChange={(value) => updateField("google_map_url", value)}
+              />
+              <Input
+                label="Google Map Embed URL"
+                value={form.google_map_embed_url}
+                onChange={(value) => updateField("google_map_embed_url", value)}
+              />
+            </Section>
+          ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-            {step === 1 ? (
-              <div className="space-y-5">
-                <StepTitle title="Step 1：基本資料" desc="先填家長最需要知道的活動名稱、簡介、分類及標籤。" />
+          {step === 2 ? (
+            <Section title="Step 3：圖片 Gallery" desc="支援封面圖 + Gallery，最多顯示 5 張。建議用橫圖。">
+              <Input
+                label="封面圖片 URL"
+                value={form.cover_image_url}
+                onChange={(value) => updateField("cover_image_url", value)}
+              />
 
-                <Input label="活動名稱" required value={form.title_tc} onChange={(value) => updateField("title_tc", value)} />
-
-                <Textarea
-                  label="短簡介"
-                  value={form.short_description_tc}
-                  onChange={(value) => updateField("short_description_tc", value)}
-                />
-
-                <Textarea
-                  label="詳細介紹"
-                  rows={7}
-                  value={form.description_tc}
-                  onChange={(value) => updateField("description_tc", value)}
-                />
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input label="活動分類" value={form.category} onChange={(value) => updateField("category", value)} />
-                  <Textarea
-                    label="標籤，每行一個"
-                    value={form.tags}
-                    onChange={(value) => updateField("tags", value)}
-                    placeholder={"免費\n室內\n親子\nSEN 友善"}
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            {step === 2 ? (
-              <div className="space-y-5">
-                <StepTitle
-                  title="Step 2：圖片及海報"
-                  desc="最多 5 張：封面圖 1 張 + Gallery 4 張。沒有圖片可暫時留空，不會顯示壞圖。"
-                />
-
-                <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-sm leading-7 text-blue-900">
-                  建議：封面圖用最吸引的一張；Gallery 可放 poster、場地相、活動流程圖、過往活動相片。
-                </div>
-
+              {form.gallery_image_urls.map((image, index) => (
                 <Input
-                  label="封面圖 URL"
-                  value={form.cover_image_url}
-                  onChange={(value) => updateField("cover_image_url", value)}
-                  placeholder="https://..."
+                  key={index}
+                  label={`Gallery 圖片 ${index + 1}`}
+                  value={image}
+                  onChange={(value) =>
+                    updateField(
+                      "gallery_image_urls",
+                      updateImageItem(form.gallery_image_urls, index, value)
+                    )
+                  }
                 />
+              ))}
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input label="活動圖片 1 URL" value={form.gallery_image_1} onChange={(value) => updateField("gallery_image_1", value)} />
-                  <Input label="活動圖片 2 URL" value={form.gallery_image_2} onChange={(value) => updateField("gallery_image_2", value)} />
-                  <Input label="活動圖片 3 URL" value={form.gallery_image_3} onChange={(value) => updateField("gallery_image_3", value)} />
-                  <Input label="活動圖片 4 URL" value={form.gallery_image_4} onChange={(value) => updateField("gallery_image_4", value)} />
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {allImages.map((image, index) => (
-                    <button
-                      type="button"
+              {galleryImages.length ? (
+                <div className="md:col-span-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {galleryImages.map((image, index) => (
+                    <div
                       key={`${image}-${index}`}
-                      onClick={() => setSelectedPreviewImage(image)}
-                      className={`relative overflow-hidden rounded-3xl border bg-slate-100 ${
-                        index === 0 ? "sm:col-span-2 h-64" : "h-40"
-                      }`}
+                      className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50"
                     >
-                      <img src={image} alt={`活動圖片 ${index + 1}`} className="h-full w-full object-cover" />
-                      <span className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-xs font-black">
-                        {index === 0 ? "封面圖" : `活動圖片 ${index + 1}`}
-                      </span>
-                    </button>
+                      <div className="aspect-video flex items-center justify-center p-2">
+                        <img
+                          src={image}
+                          alt={`活動圖片 ${index + 1}`}
+                          className="max-h-full max-w-full rounded-2xl object-contain"
+                        />
+                      </div>
+                      <p className="border-t border-slate-100 px-3 py-2 text-xs font-bold text-slate-500">
+                        圖片 {index + 1}
+                      </p>
+                    </div>
                   ))}
                 </div>
+              ) : (
+                <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm font-bold text-slate-500">
+                  暫時未有圖片。請貼上封面或 Gallery 圖片 URL。
+                </div>
+              )}
+            </Section>
+          ) : null}
+
+          {step === 3 ? (
+            <Section
+              title="Step 4：收費、優惠、票種及名額"
+              desc="選擇收費模式後，不需要填的欄位會變灰，避免商戶混淆。"
+            >
+              <div className="md:col-span-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {priceModes.map((mode) => (
+                  <button
+                    key={mode.key}
+                    type="button"
+                    onClick={() => updateField("price_display_mode", mode.key)}
+                    className={[
+                      "rounded-3xl border p-4 text-left transition",
+                      form.price_display_mode === mode.key
+                        ? "border-purple-500 bg-purple-50 shadow-sm"
+                        : "border-slate-200 bg-white hover:bg-slate-50",
+                    ].join(" ")}
+                  >
+                    <p className="text-base font-black text-slate-950">{mode.title}</p>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">{mode.desc}</p>
+                  </button>
+                ))}
               </div>
-            ) : null}
 
-            {step === 3 ? (
-              <div className="space-y-5">
-                <StepTitle title="Step 3：時間地點" desc="地點資料會影響搜尋、地圖及附近活動推薦。" />
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input type="date" label="開始日期" value={form.start_date} onChange={(value) => updateField("start_date", value)} />
-                  <Input type="date" label="結束日期" value={form.end_date} onChange={(value) => updateField("end_date", value)} />
-                  <Input type="time" label="開始時間" value={form.start_time} onChange={(value) => updateField("start_time", value)} />
-                  <Input type="time" label="結束時間" value={form.end_time} onChange={(value) => updateField("end_time", value)} />
-                  <Input label="場地名稱" value={form.venue_name} onChange={(value) => updateField("venue_name", value)} />
-                  <Input label="詳細地址" value={form.address} onChange={(value) => updateField("address", value)} />
-                  <Input label="地區" value={form.district} onChange={(value) => updateField("district", value)} />
-                  <Input label="港鐵站" value={form.mtr_station} onChange={(value) => updateField("mtr_station", value)} />
-                </div>
-
-                <Textarea label="交通提示" value={form.transportation_notes} onChange={(value) => updateField("transportation_notes", value)} />
-                <Input label="Google Map 連結" value={form.google_map_url} onChange={(value) => updateField("google_map_url", value)} />
-                <Input label="Google Map Embed URL" value={form.map_embed_url} onChange={(value) => updateField("map_embed_url", value)} />
+              <div className="md:col-span-2 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+                <span className="font-black">即時公開顯示：</span>
+                {formatPricePreview(form)}
               </div>
-            ) : null}
 
-            {step === 4 ? (
-              <div className="space-y-6">
-                <StepTitle
-                  title="Step 4：收費、優惠、票種及名額"
-                  desc="收費和名額分開處理。選了不需要的模式，相關欄位會變灰，減少混亂。"
-                />
+              <Input
+                label="公開價錢摘要"
+                value={form.price_label}
+                disabled={isDisabledPriceField(form.price_display_mode, "price_label")}
+                onChange={(value) => updateField("price_label", value)}
+                placeholder="例如：早鳥優惠價 HK$50（原價 HK$90）"
+              />
+              <Input
+                label="最低 / 固定收費 HK$"
+                value={form.min_price}
+                disabled={isDisabledPriceField(form.price_display_mode, "min_price")}
+                onChange={(value) => updateField("min_price", value)}
+              />
+              <Input
+                label="最高收費 HK$"
+                value={form.max_price}
+                disabled={isDisabledPriceField(form.price_display_mode, "max_price")}
+                onChange={(value) => updateField("max_price", value)}
+              />
+              <Input
+                label="優惠價 HK$"
+                value={form.offer_price}
+                disabled={isDisabledPriceField(form.price_display_mode, "offer_price")}
+                onChange={(value) => updateField("offer_price", value)}
+              />
+              <Input
+                label="原價 HK$"
+                value={form.original_price}
+                disabled={isDisabledPriceField(form.price_display_mode, "original_price")}
+                onChange={(value) => updateField("original_price", value)}
+              />
+              <Input
+                label="名額 / quota 摘要"
+                value={form.quota_label}
+                disabled={isDisabledPriceField(form.price_display_mode, "quota_label")}
+                onChange={(value) => updateField("quota_label", value)}
+                placeholder="例如：名額有限，先到先得，額滿即止"
+              />
+            </Section>
+          ) : null}
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {priceModes.map((mode) => (
-                    <button
-                      key={mode.key}
-                      type="button"
-                      onClick={() => updateField("price_display_mode", mode.key)}
-                      className={`rounded-3xl border p-4 text-left ${
-                        form.price_display_mode === mode.key
-                          ? "border-purple-500 bg-purple-50"
-                          : "border-slate-200 bg-white"
-                      }`}
-                    >
-                      <h3 className="font-black">{mode.title}</h3>
-                      <p className="mt-2 text-xs leading-5 text-slate-500">{mode.desc}</p>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-sm leading-7 text-blue-900">
-                  顯示規則：固定價只顯示 HK$50；優惠會顯示「早鳥優惠價 HK$50 (原價 HK$90)」；
-                  只選「HK$XX 起」、「多票種」或「價錢範圍」才會顯示「起」或範圍。
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input
-                    label="公開頁價錢摘要"
-                    value={form.price_summary}
-                    onChange={(value) => updateField("price_summary", value)}
-                    disabled={!isPriceFieldEnabled(form, "price_summary")}
-                    placeholder="可留空，由系統自動生成"
-                  />
-                  <Input
-                    label="最低 / 固定收費 HK$"
-                    value={form.price_min}
-                    onChange={(value) => updateField("price_min", value)}
-                    disabled={!isPriceFieldEnabled(form, "price_min")}
-                    placeholder="例如 50"
-                  />
-                  <Input
-                    label="最高收費 HK$"
-                    value={form.price_max}
-                    onChange={(value) => updateField("price_max", value)}
-                    disabled={!isPriceFieldEnabled(form, "price_max")}
-                    placeholder="只在範圍 / 多票種需要"
-                  />
-                  <Input
-                    label="共用原價 HK$"
-                    value={form.original_price}
-                    onChange={(value) => updateField("original_price", value)}
-                    disabled={!isPriceFieldEnabled(form, "original_price")}
-                    placeholder="例如 90"
-                  />
-                  <Input
-                    label="優惠價 HK$"
-                    value={form.discount_price}
-                    onChange={(value) => updateField("discount_price", value)}
-                    disabled={!isPriceFieldEnabled(form, "discount_price")}
-                    placeholder="例如 50"
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input
-                    label="名額摘要"
-                    value={form.quota_summary}
-                    onChange={(value) => updateField("quota_summary", value)}
-                    placeholder="例如：名額有限，先到先得，額滿即止"
-                  />
-                  <Input label="總名額" value={form.quota_total} onChange={(value) => updateField("quota_total", value)} />
-                  <Input label="剩餘名額" value={form.quota_remaining} onChange={(value) => updateField("quota_remaining", value)} />
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Checkbox label="公開頁顯示價錢" checked={form.show_price_on_public} onChange={(checked) => updateField("show_price_on_public", checked)} />
-                  <Checkbox label="公開頁顯示名額" checked={form.show_quota_on_public} onChange={(checked) => updateField("show_quota_on_public", checked)} />
-                  <Checkbox label="名額已滿" checked={form.is_full} onChange={(checked) => updateField("is_full", checked)} />
-                </div>
-
-                <Textarea
-                  label="票種 / 渠道資料，每行一項"
-                  value={form.pricing_items_text}
-                  onChange={(value) => updateField("pricing_items_text", value)}
-                  disabled={!isPriceFieldEnabled(form, "pricing_items_text")}
-                  placeholder={"NF Touch 會員 HK$50｜原價 HK$90\nKlook 早鳥優惠 HK$60｜原價 HK$90"}
-                />
-
-                <Textarea
-                  label="加購項目，每行一項"
-                  value={form.add_on_items_text}
-                  onChange={(value) => updateField("add_on_items_text", value)}
-                  disabled={!isPriceFieldEnabled(form, "add_on_items_text")}
-                />
-
-                <Textarea
-                  label="票務 / 收費備註"
-                  value={form.ticketing_notes}
-                  onChange={(value) => updateField("ticketing_notes", value)}
-                  disabled={!isPriceFieldEnabled(form, "ticketing_notes")}
-                />
+          {step === 4 ? (
+            <Section title="Step 5：報名 CTA" desc="CTA 會影響家長下一步行動，要清楚分辨官方頁、報名頁、WhatsApp 或無需報名。">
+              <div className="md:col-span-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {ctaTypes.map((type) => (
+                  <button
+                    key={type.key}
+                    type="button"
+                    onClick={() => {
+                      updateField("cta_type", type.key);
+                      updateField("cta_label", type.label);
+                    }}
+                    className={[
+                      "rounded-3xl border p-4 text-left transition",
+                      form.cta_type === type.key
+                        ? "border-purple-500 bg-purple-50 shadow-sm"
+                        : "border-slate-200 bg-white hover:bg-slate-50",
+                    ].join(" ")}
+                  >
+                    <p className="font-black text-slate-950">{type.title}</p>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">{type.desc}</p>
+                  </button>
+                ))}
               </div>
-            ) : null}
 
-            {step === 5 ? (
-              <div className="space-y-6">
-                <StepTitle title="Step 5：報名 CTA" desc="不是所有活動都在平台報名，所以 CTA 必須按實際情況顯示。" />
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {bookingTypes.map((type) => (
-                    <button
-                      key={type.key}
-                      type="button"
-                      onClick={() => updateField("booking_type", type.key)}
-                      className={`rounded-3xl border p-4 text-left ${
-                        form.booking_type === type.key
-                          ? "border-purple-500 bg-purple-50"
-                          : "border-slate-200 bg-white"
-                      }`}
-                    >
-                      <h3 className="font-black">{type.title}</h3>
-                      <p className="mt-2 text-xs leading-5 text-slate-500">{type.desc}</p>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900">
-                  只需要填與報名方式相關的欄位。灰色欄位代表目前模式不需要填。
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input
-                    label="報名 / 購票 / 官方連結"
-                    value={form.booking_url}
-                    onChange={(value) => updateField("booking_url", value)}
-                    disabled={!isBookingFieldEnabled(form, "booking_url")}
-                  />
-                  <Input
-                    label="CTA 顯示文字"
-                    value={form.cta_label}
-                    onChange={(value) => updateField("cta_label", value)}
-                    disabled={!isBookingFieldEnabled(form, "cta_label")}
-                    placeholder={ctaDisplay}
-                  />
-                  <Input
-                    label="WhatsApp"
-                    value={form.booking_whatsapp}
-                    onChange={(value) => updateField("booking_whatsapp", value)}
-                    disabled={!isBookingFieldEnabled(form, "booking_whatsapp")}
-                  />
-                  <Input
-                    label="電話"
-                    value={form.booking_phone}
-                    onChange={(value) => updateField("booking_phone", value)}
-                    disabled={!isBookingFieldEnabled(form, "booking_phone")}
-                  />
-                  <Input
-                    label="電郵"
-                    value={form.booking_email}
-                    onChange={(value) => updateField("booking_email", value)}
-                    disabled={!isBookingFieldEnabled(form, "booking_email")}
-                  />
-                  <Input
-                    type="date"
-                    label="報名截止日期"
-                    value={form.registration_deadline}
-                    onChange={(value) => updateField("registration_deadline", value)}
-                    disabled={!isBookingFieldEnabled(form, "registration_deadline")}
-                  />
-                </div>
-
-                <Textarea
-                  label="WhatsApp / 查詢預設訊息"
-                  value={form.booking_message}
-                  onChange={(value) => updateField("booking_message", value)}
-                  disabled={!isBookingFieldEnabled(form, "booking_message")}
-                />
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Checkbox label="無需報名 / Walk-in" checked={form.is_walk_in} onChange={(checked) => updateField("is_walk_in", checked)} />
-                </div>
+              <div className="md:col-span-2 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+                <span className="font-black">即時 CTA 顯示：</span>
+                {getCtaPreview(form)}
               </div>
-            ) : null}
 
-            {step === 6 ? (
-              <div className="space-y-5">
-                <StepTitle title="Step 6：內容細節及提交" desc="最後補充活動亮點、注意事項、主辦機構及聯絡方式。" />
+              <Input
+                label="CTA 按鈕文字"
+                value={form.cta_label}
+                onChange={(value) => updateField("cta_label", value)}
+              />
+              <Input
+                label="報名 URL"
+                value={form.registration_url}
+                disabled={form.cta_type === "none" || form.cta_type === "contact"}
+                onChange={(value) => updateField("registration_url", value)}
+              />
+              <Input
+                label="Booking URL"
+                value={form.booking_url}
+                disabled={form.cta_type === "none" || form.cta_type === "contact"}
+                onChange={(value) => updateField("booking_url", value)}
+              />
+              <Input
+                label="官方活動頁"
+                value={form.official_url}
+                disabled={form.cta_type === "none"}
+                onChange={(value) => updateField("official_url", value)}
+              />
+              <Input
+                label="來源 URL"
+                value={form.source_url}
+                onChange={(value) => updateField("source_url", value)}
+              />
+              <Input
+                label="聯絡電話"
+                value={form.contact_phone}
+                disabled={form.cta_type !== "contact"}
+                onChange={(value) => updateField("contact_phone", value)}
+              />
+              <Input
+                label="聯絡 Email"
+                value={form.contact_email}
+                disabled={form.cta_type !== "contact"}
+                onChange={(value) => updateField("contact_email", value)}
+              />
+              <Input
+                label="WhatsApp"
+                value={form.whatsapp}
+                disabled={form.cta_type !== "whatsapp" && form.cta_type !== "contact"}
+                onChange={(value) => updateField("whatsapp", value)}
+              />
+            </Section>
+          ) : null}
 
-                <Textarea
-                  label="活動亮點，每行一點"
-                  value={form.event_highlights}
-                  onChange={(value) => updateField("event_highlights", value)}
-                  placeholder={"親子互動體驗\n適合小朋友打卡\n室內活動，雨天都適合"}
-                />
+          {step === 5 ? (
+            <Section title="Step 6：內容細節及提交" desc="最後檢查活動內容、注意事項、主辦資料及完整度。">
+              <Textarea
+                label="詳細介紹"
+                value={form.description_tc}
+                onChange={(value) => updateField("description_tc", value)}
+              />
+              <Textarea
+                label="活動亮點（一行一項）"
+                value={form.highlights}
+                onChange={(value) => updateField("highlights", value)}
+              />
+              <Textarea
+                label="注意事項（一行一項）"
+                value={form.terms}
+                onChange={(value) => updateField("terms", value)}
+              />
+              <Textarea
+                label="備註"
+                value={form.remarks}
+                onChange={(value) => updateField("remarks", value)}
+              />
+              <Input
+                label="主辦方"
+                value={form.organizer_name}
+                onChange={(value) => updateField("organizer_name", value)}
+              />
+            </Section>
+          ) : null}
 
-                <Textarea
-                  label="注意事項，每行一點"
-                  value={form.important_notes}
-                  onChange={(value) => updateField("important_notes", value)}
-                  placeholder={"活動資料以主辦方公布為準\n名額有限，請預早查詢\n家長需自行確認報名及付款安排"}
-                />
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input label="主辦機構" value={form.organizer_name} onChange={(value) => updateField("organizer_name", value)} />
-                  <Input label="主辦電話" value={form.organizer_phone} onChange={(value) => updateField("organizer_phone", value)} />
-                  <Input label="主辦 Email" value={form.organizer_email} onChange={(value) => updateField("organizer_email", value)} />
-                  <Input label="主辦網站" value={form.organizer_website} onChange={(value) => updateField("organizer_website", value)} />
-                  <Input label="官方網站" value={form.official_website_url} onChange={(value) => updateField("official_website_url", value)} />
-                  <Input label="聯絡 WhatsApp" value={form.contact_whatsapp} onChange={(value) => updateField("contact_whatsapp", value)} />
-                </div>
-              </div>
-            ) : null}
-
-            <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-5">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => setStep((current) => Math.max(1, current - 1))}
-                className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700"
+                onClick={() => setStep((current) => Math.max(0, current - 1))}
+                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
               >
                 上一步
               </button>
 
-              <span className="text-sm font-black text-slate-500">Step {step} / 6</span>
+              <p className="text-sm font-black text-slate-500">
+                Step {step + 1} / {steps.length}
+              </p>
 
-              {step < 6 ? (
+              {step < steps.length - 1 ? (
                 <button
                   type="button"
-                  onClick={() => setStep((current) => Math.min(6, current + 1))}
-                  className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
+                  onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))}
+                  className="rounded-full bg-purple-700 px-5 py-2 text-sm font-black text-white hover:bg-purple-800"
                 >
                   下一步
                 </button>
               ) : (
                 <button
                   type="button"
-                  onClick={() => saveEvent("draft")}
+                  onClick={() => saveEvent()}
                   disabled={saving}
-                  className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white disabled:bg-slate-300"
+                  className="rounded-full bg-slate-950 px-5 py-2 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
                 >
-                  {saving ? "儲存中..." : "儲存草稿"}
+                  儲存草稿
                 </button>
               )}
             </div>
-          </section>
+          </div>
+        </div>
 
-          <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-black text-purple-700">即時預覽</h2>
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
-                  家長看到的大約效果
-                </span>
+        <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-black text-purple-700">即時 Preview</p>
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  狀態：{statusLabel(eventRecord.status)}
+                </p>
               </div>
+              <div className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                家長看到的大約效果
+              </div>
+            </div>
 
-              <div className="mt-4 overflow-hidden rounded-3xl border border-slate-200">
-                <div className="h-48 bg-slate-100">
-                  <img src={allImages[0]} alt="活動主圖" className="h-full w-full object-cover" />
-                </div>
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPreviewMode("card")}
+                className={[
+                  "rounded-full px-3 py-2 text-xs font-black",
+                  previewMode === "card"
+                    ? "bg-purple-700 text-white"
+                    : "bg-slate-100 text-slate-600",
+                ].join(" ")}
+              >
+                Card
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewMode("detail")}
+                className={[
+                  "rounded-full px-3 py-2 text-xs font-black",
+                  previewMode === "detail"
+                    ? "bg-purple-700 text-white"
+                    : "bg-slate-100 text-slate-600",
+                ].join(" ")}
+              >
+                Detail
+              </button>
+            </div>
 
-                <div className="space-y-3 p-4">
-                  <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
-                    {form.category || "親子活動"}
+            <PreviewCard form={form} images={galleryImages} mode={previewMode} />
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-950">公開頁關鍵資料</h2>
+              <span
+                className={[
+                  "rounded-full px-3 py-1 text-xs font-black",
+                  ready.score >= 80
+                    ? "bg-emerald-50 text-emerald-700"
+                    : ready.score >= 60
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-rose-50 text-rose-700",
+                ].join(" ")}
+              >
+                {ready.score}%
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {ready.checks.map((item) => (
+                <div
+                  key={item.key}
+                  className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm"
+                >
+                  <span className="font-black text-slate-500">{item.key}</span>
+                  <span
+                    className={[
+                      "font-black",
+                      item.done ? "text-emerald-700" : "text-rose-700",
+                    ].join(" ")}
+                  >
+                    {item.done ? "已完成" : "未完成"}
                   </span>
-
-                  <h3 className="text-lg font-black leading-tight">{form.title_tc || "未命名活動"}</h3>
-
-                  <p className="line-clamp-3 text-sm leading-6 text-slate-600">
-                    {form.short_description_tc || "請填寫短簡介。"}
-                  </p>
-
-                  <PreviewLine label="日期" value={`${form.start_date || "日期待確認"} 至 ${form.end_date || form.start_date || "待確認"}`} />
-                  <PreviewLine label="地點" value={[form.venue_name, form.district].filter(Boolean).join("・") || "地點待確認"} />
-                  {priceDisplay ? <PreviewLine label="收費" value={priceDisplay} /> : null}
-                  {quotaDisplay ? <PreviewLine label="名額" value={quotaDisplay} /> : null}
-                  <PreviewLine label="報名方式" value={ctaDisplay} />
-
-                  <div className="grid grid-cols-4 gap-2">
-                    {allImages.slice(1, 5).map((image, index) => (
-                      <button
-                        key={`${image}-${index}`}
-                        type="button"
-                        onClick={() => setSelectedPreviewImage(image)}
-                        className="h-16 overflow-hidden rounded-2xl border bg-slate-100"
-                      >
-                        <img src={image} alt={`Gallery ${index + 1}`} className="h-full w-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-
-                  <button type="button" className="w-full rounded-2xl bg-purple-700 px-4 py-3 text-sm font-black text-white">
-                    {ctaDisplay}
-                  </button>
                 </div>
-              </div>
-            </section>
+              ))}
+            </div>
 
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-black">公開頁關鍵資料</h2>
-              <div className="mt-4 space-y-3">
-                <InfoRow label="圖片" value={`${allImages.length} / 5`} />
-                <InfoRow label="價錢" value={priceDisplay || "不顯示"} />
-                <InfoRow label="名額" value={quotaDisplay || "不顯示"} />
-                <InfoRow label="CTA" value={ctaDisplay} />
-                <InfoRow label="地圖" value={form.google_map_url || form.map_embed_url ? "已準備" : "待補"} />
+            {ready.missing.length ? (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+                <p className="font-black">提交前要補齊：</p>
+                <p>{ready.missing.join("、")}</p>
               </div>
-            </section>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">
+                主要資料已齊，可以提交審批。
+              </div>
+            )}
+          </div>
 
-            <section className="rounded-[2rem] border border-purple-200 bg-purple-50 p-5">
-              <h2 className="text-lg font-black text-purple-900">商戶提示</h2>
-              <ul className="mt-3 space-y-2 text-sm leading-6 text-purple-900">
-                <li>• 封面圖影響活動 card 點擊率。</li>
-                <li>• Gallery 建議補 3–5 張，家長會更易理解活動。</li>
-                <li>• 固定價不要填最高價，避免變成 HK$50 起或範圍。</li>
-                <li>• 名額資料要獨立填，不要放入收費欄。</li>
-                <li>• 報名 CTA 要按實際流程選擇。</li>
-              </ul>
-            </section>
-          </aside>
-        </div>
+          <div className="rounded-3xl border border-purple-200 bg-purple-50 p-5 text-sm leading-6 text-purple-900">
+            <p className="font-black">商戶提示</p>
+            <ul className="mt-3 list-disc space-y-2 pl-5">
+              <li>收費模式會自動鎖定不相關欄位，避免填錯。</li>
+              <li>固定價 HK$50 只會顯示 HK$50，不會顯示「起」。</li>
+              <li>只顯示名額時，價錢不會混入收費區。</li>
+              <li>Gallery 最多顯示 5 張，建議用清楚橫圖。</li>
+            </ul>
+          </div>
+        </aside>
       </section>
-
-      {selectedPreviewImage ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <button
-            type="button"
-            onClick={() => setSelectedPreviewImage("")}
-            className="absolute right-5 top-5 rounded-full bg-white px-4 py-2 text-sm font-black text-slate-900"
-          >
-            關閉
-          </button>
-          <img
-            src={selectedPreviewImage}
-            alt="圖片預覽"
-            className="max-h-[85vh] max-w-[95vw] rounded-3xl object-contain"
-          />
-        </div>
-      ) : null}
     </main>
   );
 }
 
-function StepTitle({ title, desc }: { title: string; desc: string }) {
+function PreviewCard({
+  form,
+  images,
+  mode,
+}: {
+  form: FormState;
+  images: string[];
+  mode: "card" | "detail";
+}) {
+  const hero = form.cover_image_url || images[0] || "";
+
   return (
-    <div>
-      <h2 className="text-2xl font-black">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{desc}</p>
+    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className={mode === "detail" ? "aspect-video bg-slate-50" : "aspect-[4/3] bg-slate-50"}>
+        {hero ? (
+          <div className="flex h-full w-full items-center justify-center p-2">
+            <img
+              src={hero}
+              alt={form.title_tc || "活動圖片"}
+              className="max-h-full max-w-full rounded-2xl object-contain"
+            />
+          </div>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-5xl">
+            親
+          </div>
+        )}
+      </div>
+
+      <div className="p-5">
+        <div className="mb-3 flex flex-wrap gap-2">
+          <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
+            {form.activity_category || "親子活動"}
+          </span>
+          <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+            {statusLabel("draft")}
+          </span>
+        </div>
+
+        <h3 className="text-xl font-black leading-snug text-slate-950">
+          {form.title_tc || "未命名活動"}
+        </h3>
+
+        <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
+          {form.short_description_tc || form.description_tc || "活動簡介會顯示在這裡。"}
+        </p>
+
+        <div className="mt-4 grid gap-2 text-xs text-slate-600">
+          <PreviewRow label="日期" value={`${form.start_date || "未填"}${form.end_date ? ` 至 ${form.end_date}` : ""}`} />
+          <PreviewRow label="地點" value={form.venue_name || form.address || "未填"} />
+          <PreviewRow label="收費" value={formatPricePreview(form)} />
+          <PreviewRow label="報名方式" value={getCtaPreview(form)} />
+        </div>
+
+        {mode === "detail" && images.length ? (
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {images.slice(0, 5).map((image, index) => (
+              <div key={`${image}-${index}`} className="aspect-video overflow-hidden rounded-xl bg-slate-50">
+                <img src={image} alt={`Gallery ${index + 1}`} className="h-full w-full object-contain" />
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          className="mt-5 w-full rounded-2xl bg-purple-700 px-4 py-3 text-sm font-black text-white"
+        >
+          {getCtaPreview(form)}
+        </button>
+      </div>
     </div>
+  );
+}
+
+function Section({
+  title,
+  desc,
+  children,
+}: {
+  title: string;
+  desc: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-2xl font-black tracking-tight text-slate-950">{title}</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{desc}</p>
+      <div className="mt-6 grid gap-4 md:grid-cols-2">{children}</div>
+    </section>
   );
 }
 
@@ -1258,33 +1394,38 @@ function Input({
   label,
   value,
   onChange,
-  placeholder,
-  required,
-  disabled,
   type = "text",
+  disabled = false,
+  placeholder = "",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  placeholder?: string;
-  required?: boolean;
-  disabled?: boolean;
   type?: string;
+  disabled?: boolean;
+  placeholder?: string;
 }) {
   return (
-    <label className={`block ${disabled ? "opacity-45" : ""}`}>
-      <span className="text-sm font-black text-slate-700">
-        {label}
-        {required ? <span className="text-red-500"> *</span> : null}
-      </span>
+    <label className={disabled ? "opacity-45" : ""}>
+      <span className="text-xs font-black text-slate-600">{label}</span>
       <input
         type={type}
         value={value}
         disabled={disabled}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-purple-500 disabled:bg-slate-100"
+        className={[
+          "mt-1 w-full rounded-2xl border px-4 py-3 text-sm outline-none",
+          disabled
+            ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+            : "border-slate-300 bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-100",
+        ].join(" ")}
       />
+      {disabled ? (
+        <span className="mt-1 block text-xs font-bold text-slate-400">
+          目前模式不需要填此欄。
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -1293,63 +1434,28 @@ function Textarea({
   label,
   value,
   onChange,
-  placeholder,
-  disabled,
-  rows = 4,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  placeholder?: string;
-  disabled?: boolean;
-  rows?: number;
 }) {
   return (
-    <label className={`block ${disabled ? "opacity-45" : ""}`}>
-      <span className="text-sm font-black text-slate-700">{label}</span>
+    <label className="md:col-span-2">
+      <span className="text-xs font-black text-slate-600">{label}</span>
       <textarea
         value={value}
-        rows={rows}
-        disabled={disabled}
-        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold leading-6 outline-none focus:border-purple-500 disabled:bg-slate-100"
+        className="mt-1 min-h-32 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
       />
     </label>
   );
 }
 
-function Checkbox({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
+function PreviewRow({ label, value }: { label: string; value: string }) {
   return (
-    <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-700">
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-4 w-4" />
-      {label}
-    </label>
-  );
-}
-
-function PreviewLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-3 text-sm">
-      <span className="w-16 shrink-0 font-black text-slate-500">{label}</span>
-      <span className="font-bold text-slate-900">{value}</span>
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-4 rounded-2xl bg-slate-50 p-3 text-sm">
-      <span className="font-black text-slate-500">{label}</span>
-      <span className="text-right font-black text-slate-900">{value}</span>
+    <div className="grid grid-cols-[80px_1fr] gap-2 rounded-2xl bg-slate-50 px-3 py-2">
+      <span className="font-black text-slate-400">{label}</span>
+      <span className="font-bold text-slate-800">{value}</span>
     </div>
   );
 }
