@@ -644,7 +644,6 @@ export default function MerchantEventEditPage() {
       title: form.title_tc || "Untitled event",
       short_description_tc: form.short_description_tc,
       description_tc: form.description_tc,
-      activity_category: form.activity_category,
       category: form.activity_category,
       highlights: form.highlights,
       terms: form.terms,
