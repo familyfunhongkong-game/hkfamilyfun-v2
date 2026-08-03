@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 type EventRecord = {
@@ -503,7 +503,6 @@ function formFromEvent(event: EventRecord): FormState {
 
 export default function MerchantEventEditPage() {
   const params = useParams();
-  const router = useRouter();
   const eventId = String(params?.id || "");
 
   const [eventRecord, setEventRecord] = useState<EventRecord | null>(null);
