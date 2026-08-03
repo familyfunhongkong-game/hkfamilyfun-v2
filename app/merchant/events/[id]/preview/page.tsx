@@ -1,6 +1,5 @@
 "use client";
 
-import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -69,7 +68,10 @@ function safeText(value: unknown, fallback = "") {
   if (value === null || value === undefined) return fallback;
 
   if (Array.isArray(value)) {
-    const joined = value.map((item) => String(item || "").trim()).filter(Boolean).join(", ");
+    const joined = value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .join(", ");
     return joined || fallback;
   }
 
@@ -278,10 +280,24 @@ function getGoogleMapEmbed(event: EventRecord) {
   return "";
 }
 
-function getObjectFitStyle(): CSSProperties {
-  return {
-    objectFit: "contain",
-  };
+function getImageFrameClass(mode: "hero" | "gallery" | "side" = "gallery") {
+  if (mode === "hero") {
+    return "flex min-h-[420px] w-full items-center justify-center bg-gradient-to-br from-slate-100 via-white to-purple-50 p-4";
+  }
+
+  if (mode === "side") {
+    return "flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-br from-slate-100 via-white to-purple-50 p-3";
+  }
+
+  return "flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-br from-slate-100 via-white to-purple-50 p-3";
+}
+
+function getImageClass(mode: "hero" | "gallery" | "side" = "gallery") {
+  if (mode === "hero") {
+    return "max-h-[620px] max-w-full rounded-2xl object-contain shadow-sm";
+  }
+
+  return "max-h-full max-w-full rounded-2xl object-contain";
 }
 
 export default function MerchantEventPreviewPage() {
@@ -508,16 +524,15 @@ export default function MerchantEventPreviewPage() {
           <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="bg-slate-100">
               {heroImage ? (
-                <div className="flex aspect-[16/9] w-full items-center justify-center bg-slate-100 p-2">
+                <div className={getImageFrameClass("hero")}>
                   <img
                     src={heroImage}
                     alt={getTitle(event)}
-                    className="max-h-full max-w-full rounded-2xl"
-                    style={getObjectFitStyle()}
+                    className={getImageClass("hero")}
                   />
                 </div>
               ) : (
-                <div className="flex aspect-[16/9] items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-6xl">
+                <div className="flex min-h-[420px] items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-6xl">
                   親
                 </div>
               )}
@@ -592,7 +607,7 @@ export default function MerchantEventPreviewPage() {
               <div>
                 <h2 className="text-2xl font-black text-slate-950">活動圖片 Gallery</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  已讀取 {images.length} 張圖片；這裡應顯示新上載的圖片。
+                  已讀取 {images.length} 張圖片。點擊圖片可切換上方主圖。
                 </p>
               </div>
               <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
@@ -601,7 +616,7 @@ export default function MerchantEventPreviewPage() {
             </div>
 
             {images.length ? (
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
                 {images.map((image, index) => (
                   <button
                     key={`${image}-${index}`}
@@ -614,12 +629,11 @@ export default function MerchantEventPreviewPage() {
                         : "border-slate-200 hover:border-purple-300",
                     ].join(" ")}
                   >
-                    <div className="flex aspect-video items-center justify-center bg-slate-50 p-2">
+                    <div className={getImageFrameClass("gallery")}>
                       <img
                         src={image}
                         alt={`Gallery 圖片 ${index + 1}`}
-                        className="max-h-full max-w-full rounded-2xl"
-                        style={getObjectFitStyle()}
+                        className={getImageClass("gallery")}
                       />
                     </div>
                     <div className="border-t border-slate-100 px-3 py-2 text-xs font-black text-slate-500">
@@ -756,12 +770,11 @@ export default function MerchantEventPreviewPage() {
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="bg-slate-50 p-3">
               {heroImage ? (
-                <div className="flex aspect-video items-center justify-center">
+                <div className={getImageFrameClass("side")}>
                   <img
                     src={heroImage}
                     alt={getTitle(event)}
-                    className="max-h-full max-w-full rounded-2xl"
-                    style={getObjectFitStyle()}
+                    className={getImageClass("side")}
                   />
                 </div>
               ) : null}
@@ -779,12 +792,12 @@ export default function MerchantEventPreviewPage() {
           </div>
 
           <div className="rounded-3xl border border-purple-200 bg-purple-50 p-5 text-sm leading-6 text-purple-900">
-            <p className="font-black">如 Preview 沒有新圖片</p>
+            <p className="font-black">圖片顯示設計</p>
             <ul className="mt-3 list-disc space-y-2 pl-5">
-              <li>先返回編輯頁 Step 3。</li>
-              <li>等 Auto Save 顯示成功。</li>
-              <li>再按本頁「重新讀取」。</li>
-              <li>如果仍沒有，代表 DB 未成功儲存 gallery_image_urls。</li>
+              <li>主圖使用大尺寸顯示，方便看清活動海報。</li>
+              <li>Gallery 使用 2-column 大圖，不再壓成細 thumbnail。</li>
+              <li>圖片使用 object-contain，不會裁走海報文字。</li>
+              <li>點擊 Gallery 圖片可切換上方主圖。</li>
             </ul>
           </div>
         </aside>
