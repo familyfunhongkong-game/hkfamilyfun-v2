@@ -657,7 +657,6 @@ export default function MerchantEventEditPage() {
 
       venue_name: form.venue_name,
       address: form.address,
-      area: form.area,
       district: form.district,
       mtr_station: form.mtr_station,
       google_map_url: form.google_map_url,

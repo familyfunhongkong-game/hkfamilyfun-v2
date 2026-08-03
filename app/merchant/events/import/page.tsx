@@ -340,7 +340,6 @@ export default function ImportEventPage() {
       end_time: draft.end_time || null,
       venue_name: draft.venue_name,
       address: draft.address,
-      area: draft.area,
       district: draft.district,
       mtr_station: draft.mtr_station,
       price_display_mode: draft.price_display_mode,
