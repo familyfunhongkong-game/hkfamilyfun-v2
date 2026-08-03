@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import type { ChangeEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -113,6 +114,8 @@ type FormState = {
   organizer_name: string;
 };
 
+const STORAGE_BUCKET = "event-images";
+
 const emptyForm: FormState = {
   title_tc: "",
   short_description_tc: "",
@@ -170,46 +173,14 @@ const steps = [
 ];
 
 const priceModes = [
-  {
-    key: "unknown",
-    title: "收費待確認",
-    desc: "未確認收費，需商戶補充。",
-  },
-  {
-    key: "hidden",
-    title: "不顯示價錢",
-    desc: "公開頁不展示任何價錢。",
-  },
-  {
-    key: "free",
-    title: "免費",
-    desc: "活動免費，不需要填收費。",
-  },
-  {
-    key: "fixed",
-    title: "固定價",
-    desc: "例如 HK$50，不會顯示「起」。",
-  },
-  {
-    key: "early_bird",
-    title: "優惠 / 早鳥",
-    desc: "例如 HK$50（原價 HK$90）。",
-  },
-  {
-    key: "range",
-    title: "價錢範圍",
-    desc: "例如 HK$50–HK$180。",
-  },
-  {
-    key: "from",
-    title: "HK$XX 起",
-    desc: "適合不同票種，最低價起。",
-  },
-  {
-    key: "quota",
-    title: "只顯示名額",
-    desc: "不顯示價錢，只顯示名額。",
-  },
+  { key: "unknown", title: "收費待確認", desc: "未確認收費，需商戶補充。" },
+  { key: "hidden", title: "不顯示價錢", desc: "公開頁不展示任何價錢。" },
+  { key: "free", title: "免費", desc: "活動免費，不需要填收費。" },
+  { key: "fixed", title: "固定價", desc: "例如 HK$50，不會顯示「起」。" },
+  { key: "early_bird", title: "優惠 / 早鳥", desc: "例如 HK$50（原價 HK$90）。" },
+  { key: "range", title: "價錢範圍", desc: "例如 HK$50–HK$180。" },
+  { key: "from", title: "HK$XX 起", desc: "適合不同票種，最低價起。" },
+  { key: "quota", title: "只顯示名額", desc: "不顯示價錢，只顯示名額。" },
 ];
 
 const ctaTypes = [
@@ -359,22 +330,10 @@ function activeCtaUrl(form: FormState) {
 
 function readiness(form: FormState) {
   const checks = [
-    {
-      key: "活動名稱",
-      done: !!safeText(form.title_tc),
-    },
-    {
-      key: "日期",
-      done: !!safeText(form.start_date),
-    },
-    {
-      key: "地點",
-      done: !!safeText(form.venue_name) || !!safeText(form.address),
-    },
-    {
-      key: "收費",
-      done: formatPricePreview(form) !== "收費待確認",
-    },
+    { key: "活動名稱", done: !!safeText(form.title_tc) },
+    { key: "日期", done: !!safeText(form.start_date) },
+    { key: "地點", done: !!safeText(form.venue_name) || !!safeText(form.address) },
+    { key: "收費", done: formatPricePreview(form) !== "收費待確認" },
     {
       key: "CTA",
       done:
@@ -501,6 +460,14 @@ function formFromEvent(event: EventRecord): FormState {
   };
 }
 
+function sanitizeFileName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9.-]/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 90);
+}
+
 export default function MerchantEventEditPage() {
   const params = useParams();
   const eventId = String(params?.id || "");
@@ -513,6 +480,7 @@ export default function MerchantEventEditPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [previewMode, setPreviewMode] = useState<"card" | "detail">("card");
+  const [uploadingKey, setUploadingKey] = useState("");
 
   const ready = useMemo(() => readiness(form), [form]);
   const galleryImages = useMemo(
@@ -525,6 +493,72 @@ export default function MerchantEventEditPage() {
       ...previous,
       [key]: value,
     }));
+  }
+
+  async function uploadImage(file: File, target: "cover" | "gallery", index = 0) {
+    const client = supabase;
+
+    if (!client) {
+      setMessage("Supabase client 未能初始化，暫時不能上載圖片。");
+      return;
+    }
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setMessage("請上載圖片檔案，例如 JPG、PNG 或 WebP。");
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      setMessage("圖片太大，請壓縮至 8MB 以下再上載。");
+      return;
+    }
+
+    const key = target === "cover" ? "cover" : `gallery-${index}`;
+    setUploadingKey(key);
+    setMessage("");
+
+    const extension = file.name.split(".").pop() || "jpg";
+    const path = `${eventId}/${Date.now()}-${target}-${index}-${sanitizeFileName(file.name || `image.${extension}`)}`;
+
+    const { error } = await client.storage.from(STORAGE_BUCKET).upload(path, file, {
+      cacheControl: "3600",
+      upsert: true,
+      contentType: file.type,
+    });
+
+    if (error) {
+      setMessage(
+        `圖片上載失敗：${error.message}。請確認 Supabase Storage 已建立 public bucket：${STORAGE_BUCKET}`
+      );
+      setUploadingKey("");
+      return;
+    }
+
+    const { data } = client.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    const publicUrl = data.publicUrl;
+
+    if (target === "cover") {
+      updateField("cover_image_url", publicUrl);
+      updateField("gallery_image_urls", ensureFiveImages([publicUrl, ...form.gallery_image_urls]).slice(0, 5));
+    } else {
+      updateField("gallery_image_urls", updateImageItem(form.gallery_image_urls, index, publicUrl));
+    }
+
+    setMessage("圖片已上載並加入 Preview。請記得按「儲存草稿」保存。");
+    setUploadingKey("");
+  }
+
+  async function handleFileChange(
+    event: ChangeEvent<HTMLInputElement>,
+    target: "cover" | "gallery",
+    index = 0
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    await uploadImage(file, target, index);
   }
 
   useEffect(() => {
@@ -775,7 +809,7 @@ export default function MerchantEventEditPage() {
                 編輯活動資料
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                支援 server-side 匯入資料、5 張 Gallery 圖、收費欄位鎖定及即時 Preview。
+                支援 server-side 匯入資料、圖片 URL、圖片檔案上載、5 張 Gallery 及即時 Preview。
               </p>
             </div>
 
@@ -926,7 +960,40 @@ export default function MerchantEventEditPage() {
           ) : null}
 
           {step === 2 ? (
-            <Section title="Step 3：圖片 Gallery" desc="支援封面圖 + Gallery，最多顯示 5 張。建議用橫圖。">
+            <Section title="Step 3：圖片 Gallery" desc="商戶可直接上載圖片，也可貼圖片 URL。最多顯示 5 張。">
+              <div className="md:col-span-2 rounded-3xl border border-purple-200 bg-purple-50 p-5">
+                <h3 className="text-lg font-black text-purple-950">圖片上載</h3>
+                <p className="mt-1 text-sm leading-6 text-purple-800">
+                  對普通商戶最重要：不用找圖片 URL，直接選擇電腦圖片即可。支援 JPG、PNG、WebP，建議每張 8MB 以下。
+                </p>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <UploadBox
+                    label="上載封面圖片"
+                    helper="主要顯示於活動卡及詳情頁"
+                    busy={uploadingKey === "cover"}
+                    onChange={(event) => handleFileChange(event, "cover")}
+                  />
+
+                  {[0, 1, 2, 3, 4].map((index) => (
+                    <UploadBox
+                      key={index}
+                      label={`上載 Gallery 圖片 ${index + 1}`}
+                      helper="補充活動海報、場地或詳情圖"
+                      busy={uploadingKey === `gallery-${index}`}
+                      onChange={(event) => handleFileChange(event, "gallery", index)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                <h3 className="text-lg font-black text-slate-950">圖片 URL 備用欄位</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  如圖片來自商戶官網或系統匯入，可保留 URL。上載圖片後，系統會自動填入 URL。
+                </p>
+              </div>
+
               <Input
                 label="封面圖片 URL"
                 value={form.cover_image_url}
@@ -952,9 +1019,9 @@ export default function MerchantEventEditPage() {
                   {galleryImages.map((image, index) => (
                     <div
                       key={`${image}-${index}`}
-                      className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50"
+                      className="overflow-hidden rounded-3xl border border-slate-200 bg-white"
                     >
-                      <div className="aspect-video flex items-center justify-center p-2">
+                      <div className="aspect-video flex items-center justify-center bg-slate-50 p-2">
                         <img
                           src={image}
                           alt={`活動圖片 ${index + 1}`}
@@ -969,7 +1036,7 @@ export default function MerchantEventEditPage() {
                 </div>
               ) : (
                 <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm font-bold text-slate-500">
-                  暫時未有圖片。請貼上封面或 Gallery 圖片 URL。
+                  暫時未有圖片。請上載封面或 Gallery 圖片。
                 </div>
               )}
             </Section>
@@ -1284,10 +1351,10 @@ export default function MerchantEventEditPage() {
           <div className="rounded-3xl border border-purple-200 bg-purple-50 p-5 text-sm leading-6 text-purple-900">
             <p className="font-black">商戶提示</p>
             <ul className="mt-3 list-disc space-y-2 pl-5">
-              <li>收費模式會自動鎖定不相關欄位，避免填錯。</li>
+              <li>商戶可直接上載圖片，不需要自己找圖片 URL。</li>
+              <li>上載後要按「儲存草稿」，圖片才會寫入活動資料。</li>
               <li>固定價 HK$50 只會顯示 HK$50，不會顯示「起」。</li>
               <li>只顯示名額時，價錢不會混入收費區。</li>
-              <li>Gallery 最多顯示 5 張，建議用清楚橫圖。</li>
             </ul>
           </div>
         </aside>
@@ -1445,6 +1512,37 @@ function Textarea({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="mt-1 min-h-32 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+      />
+    </label>
+  );
+}
+
+function UploadBox({
+  label,
+  helper,
+  busy,
+  onChange,
+}: {
+  label: string;
+  helper: string;
+  busy: boolean;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <label className="block cursor-pointer rounded-3xl border border-dashed border-purple-300 bg-white p-4 transition hover:bg-purple-50">
+      <span className="block text-sm font-black text-slate-950">
+        {busy ? "上載中..." : label}
+      </span>
+      <span className="mt-1 block text-xs leading-5 text-slate-500">{helper}</span>
+      <span className="mt-3 inline-flex rounded-full bg-purple-700 px-4 py-2 text-xs font-black text-white">
+        選擇圖片
+      </span>
+      <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        disabled={busy}
+        onChange={onChange}
       />
     </label>
   );
