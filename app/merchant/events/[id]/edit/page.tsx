@@ -54,6 +54,10 @@ type EventRecord = {
   cover_image_url?: string | null;
   gallery_image_urls?: unknown;
 
+  cover_image_offset_x?: string | number | null;
+  cover_image_offset_y?: string | number | null;
+  cover_image_zoom?: string | number | null;
+
   organizer_name?: string | null;
   merchant_name?: string | null;
   status?: string | null;
@@ -110,6 +114,9 @@ type FormState = {
 
   cover_image_url: string;
   gallery_image_urls: string[];
+  cover_image_offset_x: number;
+  cover_image_offset_y: number;
+  cover_image_zoom: number;
 
   organizer_name: string;
 };
@@ -159,6 +166,9 @@ const emptyForm: FormState = {
 
   cover_image_url: "",
   gallery_image_urls: ["", "", "", "", ""],
+  cover_image_offset_x: 0,
+  cover_image_offset_y: 0,
+  cover_image_zoom: 1,
 
   organizer_name: "",
 };
@@ -184,53 +194,24 @@ const priceModes = [
 ];
 
 const ctaTypes = [
-  {
-    key: "official",
-    title: "官方活動頁",
-    desc: "家長前往主辦方活動頁。",
-    label: "查看官方活動頁",
-  },
-  {
-    key: "external",
-    title: "外部連結報名",
-    desc: "Klook / Eventbrite / Ticketing Partner。",
-    label: "前往報名",
-  },
-  {
-    key: "google_form",
-    title: "Google Form",
-    desc: "直接填寫 Google Form。",
-    label: "Google Form 報名",
-  },
-  {
-    key: "whatsapp",
-    title: "WhatsApp",
-    desc: "以 WhatsApp 查詢或報名。",
-    label: "WhatsApp 報名",
-  },
-  {
-    key: "contact",
-    title: "向主辦查詢",
-    desc: "電話、Email 或 WhatsApp 查詢。",
-    label: "請向主辦查詢",
-  },
-  {
-    key: "none",
-    title: "無需報名",
-    desc: "活動可直接到場。",
-    label: "無需報名",
-  },
+  { key: "official", title: "官方活動頁", desc: "家長前往主辦方活動頁。", label: "查看官方活動頁" },
+  { key: "external", title: "外部連結報名", desc: "Klook / Eventbrite / Ticketing Partner。", label: "前往報名" },
+  { key: "google_form", title: "Google Form", desc: "直接填寫 Google Form。", label: "Google Form 報名" },
+  { key: "whatsapp", title: "WhatsApp", desc: "以 WhatsApp 查詢或報名。", label: "WhatsApp 報名" },
+  { key: "contact", title: "向主辦查詢", desc: "電話、Email 或 WhatsApp 查詢。", label: "請向主辦查詢" },
+  { key: "none", title: "無需報名", desc: "活動可直接到場。", label: "無需報名" },
 ];
 
-const SCHEMA_UNSAFE_FIELDS = new Set([
-  "category",
-]);
+const SCHEMA_UNSAFE_FIELDS = new Set(["category"]);
 
 function safeText(value: unknown, fallback = "") {
   if (value === null || value === undefined) return fallback;
+
   if (Array.isArray(value)) {
-    return value.map((item) => String(item || "").trim()).filter(Boolean).join(", ") || fallback;
+    const joined = value.map((item) => String(item || "").trim()).filter(Boolean).join(", ");
+    return joined || fallback;
   }
+
   const text = String(value).trim();
   return text.length ? text : fallback;
 }
@@ -238,6 +219,15 @@ function safeText(value: unknown, fallback = "") {
 function toInputValue(value: unknown) {
   if (value === null || value === undefined) return "";
   return String(value);
+}
+
+function toNumber(value: unknown, fallback: number) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function getGalleryArray(value: unknown) {
@@ -262,7 +252,7 @@ function getGalleryArray(value: unknown) {
   return [];
 }
 
-function normalizeGallery(images: string[]) {
+function normalizeImages(images: string[]) {
   return Array.from(new Set(images.map((item) => item.trim()).filter(Boolean))).slice(0, 5);
 }
 
@@ -317,7 +307,6 @@ function formatPricePreview(form: FormState) {
   }
 
   if (form.price_label) return form.price_label;
-
   return "收費待確認";
 }
 
@@ -352,7 +341,7 @@ function readiness(form: FormState) {
       key: "圖片",
       done:
         !!safeText(form.cover_image_url) ||
-        normalizeGallery(form.gallery_image_urls).length > 0,
+        normalizeImages(form.gallery_image_urls).length > 0,
     },
     {
       key: "Google Map",
@@ -382,9 +371,7 @@ function isDisabledPriceField(mode: string, field: string) {
     return ["max_price", "original_price", "offer_price", "quota_label"].includes(field);
   }
 
-  if (mode === "early_bird") {
-    return ["max_price"].includes(field);
-  }
+  if (mode === "early_bird") return ["max_price"].includes(field);
 
   if (mode === "range") {
     return ["original_price", "offer_price", "quota_label"].includes(field);
@@ -416,20 +403,29 @@ function readActivityCategory(event: EventRecord) {
   if (direct) return direct;
 
   const legacy = event.category;
-  if (Array.isArray(legacy)) {
-    return safeText(legacy[0], "親子活動");
-  }
+  if (Array.isArray(legacy)) return safeText(legacy[0], "親子活動");
 
   return safeText(legacy, "親子活動");
 }
 
+function getAllImagesFromForm(form: FormState) {
+  return normalizeImages([form.cover_image_url, ...form.gallery_image_urls]);
+}
+
+function applyImageOrderToForm(images: string[], previous: FormState) {
+  const cleanImages = normalizeImages(images);
+  return {
+    ...previous,
+    cover_image_url: cleanImages[0] || "",
+    gallery_image_urls: ensureFiveImages(cleanImages.slice(1)),
+  };
+}
+
 function formFromEvent(event: EventRecord): FormState {
-  const gallery = ensureFiveImages(
-    normalizeGallery([
-      safeText(event.cover_image_url),
-      ...getGalleryArray(event.gallery_image_urls),
-    ])
-  );
+  const images = normalizeImages([
+    safeText(event.cover_image_url),
+    ...getGalleryArray(event.gallery_image_urls),
+  ]);
 
   return {
     title_tc: safeText(event.title_tc || event.title),
@@ -472,8 +468,11 @@ function formFromEvent(event: EventRecord): FormState {
     contact_email: safeText(event.contact_email),
     whatsapp: safeText(event.whatsapp),
 
-    cover_image_url: safeText(event.cover_image_url || gallery[0]),
-    gallery_image_urls: gallery,
+    cover_image_url: images[0] || safeText(event.cover_image_url),
+    gallery_image_urls: ensureFiveImages(images.slice(1)),
+    cover_image_offset_x: clamp(toNumber(event.cover_image_offset_x, 0), -50, 50),
+    cover_image_offset_y: clamp(toNumber(event.cover_image_offset_y, 0), -50, 50),
+    cover_image_zoom: clamp(toNumber(event.cover_image_zoom, 1), 1, 2.5),
 
     organizer_name: safeText(event.organizer_name || event.merchant_name),
   };
@@ -500,6 +499,12 @@ function extractMissingColumn(errorMessage: string) {
   return match?.[1] || "";
 }
 
+function coverCropStyle(form: FormState) {
+  return {
+    transform: `translate(${form.cover_image_offset_x}%, ${form.cover_image_offset_y}%) scale(${form.cover_image_zoom})`,
+  };
+}
+
 export default function MerchantEventEditPage() {
   const params = useParams();
   const eventId = String(params?.id || "");
@@ -520,16 +525,50 @@ export default function MerchantEventEditPage() {
   const lastSerializedFormRef = useRef("");
 
   const ready = useMemo(() => readiness(form), [form]);
-  const galleryImages = useMemo(
-    () => normalizeGallery([form.cover_image_url, ...form.gallery_image_urls]),
-    [form.cover_image_url, form.gallery_image_urls]
-  );
+  const orderedImages = useMemo(() => getAllImagesFromForm(form), [form]);
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((previous) => ({
       ...previous,
       [key]: value,
     }));
+  }
+
+  function setImageOrder(images: string[]) {
+    setForm((previous) => applyImageOrderToForm(images, previous));
+  }
+
+  function moveImage(index: number, direction: "up" | "down") {
+    const images = [...orderedImages];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+    if (targetIndex < 0 || targetIndex >= images.length) return;
+
+    const current = images[index];
+    images[index] = images[targetIndex];
+    images[targetIndex] = current;
+
+    setImageOrder(images);
+  }
+
+  function setAsCover(image: string) {
+    const images = [image, ...orderedImages.filter((item) => item !== image)];
+    setImageOrder(images);
+
+    updateField("cover_image_offset_x", 0);
+    updateField("cover_image_offset_y", 0);
+    updateField("cover_image_zoom", 1);
+  }
+
+  function removeImage(image: string) {
+    const images = orderedImages.filter((item) => item !== image);
+    setImageOrder(images);
+  }
+
+  function resetCoverCrop() {
+    updateField("cover_image_offset_x", 0);
+    updateField("cover_image_offset_y", 0);
+    updateField("cover_image_zoom", 1);
   }
 
   async function uploadImage(file: File, target: "cover" | "gallery", index = 0) {
@@ -578,10 +617,15 @@ export default function MerchantEventEditPage() {
     const publicUrl = data.publicUrl;
 
     if (target === "cover") {
-      updateField("cover_image_url", publicUrl);
-      updateField("gallery_image_urls", ensureFiveImages([publicUrl, ...form.gallery_image_urls]));
+      setImageOrder([publicUrl, ...orderedImages.filter((item) => item !== publicUrl)]);
+      resetCoverCrop();
     } else {
-      updateField("gallery_image_urls", updateImageItem(form.gallery_image_urls, index, publicUrl));
+      const current = [...form.gallery_image_urls];
+      current[index] = publicUrl;
+      setForm((previous) => ({
+        ...previous,
+        gallery_image_urls: ensureFiveImages(current),
+      }));
     }
 
     setMessage("圖片已上載並加入 Preview，系統會自動儲存。");
@@ -676,7 +720,7 @@ export default function MerchantEventEditPage() {
   }, [eventId]);
 
   function buildPayload(nextStatus?: string) {
-    const finalGallery = normalizeGallery([form.cover_image_url, ...form.gallery_image_urls]);
+    const finalImages = normalizeImages([form.cover_image_url, ...form.gallery_image_urls]);
     const priceSummary = formatPricePreview(form);
     const ctaSummary = getCtaPreview(form);
     const now = new Date().toISOString();
@@ -715,18 +759,14 @@ export default function MerchantEventEditPage() {
         form.price_display_mode === "quota"
           ? null
           : form.min_price || null,
-      max_price:
-        form.price_display_mode === "range" && form.max_price ? form.max_price : null,
+      max_price: form.price_display_mode === "range" && form.max_price ? form.max_price : null,
       original_price:
         form.price_display_mode === "early_bird" && form.original_price
           ? form.original_price
           : null,
       offer_price:
-        form.price_display_mode === "early_bird" && form.offer_price
-          ? form.offer_price
-          : null,
-      quota_label:
-        form.price_display_mode === "quota" || form.quota_label ? form.quota_label : "",
+        form.price_display_mode === "early_bird" && form.offer_price ? form.offer_price : null,
+      quota_label: form.price_display_mode === "quota" || form.quota_label ? form.quota_label : "",
 
       cta_type: form.cta_type,
       cta_label: ctaSummary,
@@ -738,8 +778,11 @@ export default function MerchantEventEditPage() {
       contact_email: form.contact_email,
       whatsapp: form.whatsapp,
 
-      cover_image_url: form.cover_image_url || finalGallery[0] || "",
-      gallery_image_urls: finalGallery,
+      cover_image_url: finalImages[0] || "",
+      gallery_image_urls: finalImages.slice(1),
+      cover_image_offset_x: form.cover_image_offset_x,
+      cover_image_offset_y: form.cover_image_offset_y,
+      cover_image_zoom: form.cover_image_zoom,
 
       organizer_name: form.organizer_name || merchant?.business_name || "",
       merchant_name: merchant?.business_name || eventRecord?.merchant_name || "",
@@ -755,15 +798,12 @@ export default function MerchantEventEditPage() {
     const client = supabase;
 
     if (!client) {
-      return {
-        data: null,
-        errorMessage: "Supabase client 未能初始化。",
-      };
+      return { data: null, errorMessage: "Supabase client 未能初始化。" };
     }
 
     let safePayload = { ...payload };
 
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
       const { data, error } = await client
         .from("events")
         .update(safePayload)
@@ -772,15 +812,12 @@ export default function MerchantEventEditPage() {
         .maybeSingle();
 
       if (!error) {
-        return {
-          data: data as EventRecord | null,
-          errorMessage: "",
-        };
+        return { data: data as EventRecord | null, errorMessage: "" };
       }
 
       const messageText = error.message || "";
-
       const missingColumn = extractMissingColumn(messageText);
+
       if (missingColumn && Object.prototype.hasOwnProperty.call(safePayload, missingColumn)) {
         delete safePayload[missingColumn];
         continue;
@@ -789,19 +826,14 @@ export default function MerchantEventEditPage() {
       if (messageText.includes("malformed array literal")) {
         delete safePayload.category;
         delete safePayload.tags;
+        delete safePayload.activity_category;
         continue;
       }
 
-      return {
-        data: null,
-        errorMessage: messageText,
-      };
+      return { data: null, errorMessage: messageText };
     }
 
-    return {
-      data: null,
-      errorMessage: "儲存失敗：資料庫欄位不一致，已重試多次仍未成功。",
-    };
+    return { data: null, errorMessage: "儲存失敗：資料庫欄位不一致，已重試多次仍未成功。" };
   }
 
   async function saveEvent(nextStatus?: string, silent = false) {
@@ -826,9 +858,7 @@ export default function MerchantEventEditPage() {
     const result = await updateEventWithSchemaFallback(payload);
 
     if (result.errorMessage) {
-      if (silent) {
-        setAutosaveState("error");
-      }
+      if (silent) setAutosaveState("error");
       setMessage(`儲存失敗：${result.errorMessage}`);
       setSaving(false);
       return false;
@@ -918,17 +948,14 @@ export default function MerchantEventEditPage() {
         <div className="mx-auto max-w-[1500px] px-4 py-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <Link
-                href="/merchant/dashboard"
-                className="text-sm font-black text-purple-700 hover:text-purple-900"
-              >
+              <Link href="/merchant/dashboard" className="text-sm font-black text-purple-700 hover:text-purple-900">
                 ← 返回 Merchant Dashboard
               </Link>
               <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
                 編輯活動資料
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                支援 URL 匯入、圖片上載、5 張 Gallery、Auto Save、收費鎖定及即時 Preview。
+                支援圖片上載、排序、設為封面、移除圖片、封面裁切、Auto Save 及即時 Preview。
               </p>
             </div>
 
@@ -1023,96 +1050,31 @@ export default function MerchantEventEditPage() {
 
           {step === 0 ? (
             <Section title="Step 1：基本資料" desc="先確認活動名稱、分類及簡介。">
-              <Input
-                label="活動名稱"
-                value={form.title_tc}
-                onChange={(value) => updateField("title_tc", value)}
-              />
-              <Input
-                label="活動分類"
-                value={form.activity_category}
-                onChange={(value) => updateField("activity_category", value)}
-              />
-              <Textarea
-                label="短簡介"
-                value={form.short_description_tc}
-                onChange={(value) => updateField("short_description_tc", value)}
-              />
-              <Input
-                label="標籤"
-                value={form.tags}
-                onChange={(value) => updateField("tags", value)}
-                placeholder="AIRSIDE, 親子活動, 健康活動"
-              />
+              <Input label="活動名稱" value={form.title_tc} onChange={(value) => updateField("title_tc", value)} />
+              <Input label="活動分類" value={form.activity_category} onChange={(value) => updateField("activity_category", value)} />
+              <Textarea label="短簡介" value={form.short_description_tc} onChange={(value) => updateField("short_description_tc", value)} />
+              <Input label="標籤" value={form.tags} onChange={(value) => updateField("tags", value)} placeholder="AIRSIDE, 親子活動, 健康活動" />
             </Section>
           ) : null}
 
           {step === 1 ? (
             <Section title="Step 2：時間及地點" desc="日期、時間、地點和 Google Map 會直接影響家長搜尋。">
-              <Input
-                label="開始日期"
-                type="date"
-                value={form.start_date}
-                onChange={(value) => updateField("start_date", value)}
-              />
-              <Input
-                label="結束日期"
-                type="date"
-                value={form.end_date}
-                onChange={(value) => updateField("end_date", value)}
-              />
-              <Input
-                label="開始時間"
-                type="time"
-                value={form.start_time}
-                onChange={(value) => updateField("start_time", value)}
-              />
-              <Input
-                label="結束時間"
-                type="time"
-                value={form.end_time}
-                onChange={(value) => updateField("end_time", value)}
-              />
-              <Input
-                label="場地名稱"
-                value={form.venue_name}
-                onChange={(value) => updateField("venue_name", value)}
-              />
-              <Input
-                label="詳細地址"
-                value={form.address}
-                onChange={(value) => updateField("address", value)}
-              />
-              <Input
-                label="地區"
-                value={form.area}
-                onChange={(value) => updateField("area", value)}
-              />
-              <Input
-                label="分區"
-                value={form.district}
-                onChange={(value) => updateField("district", value)}
-              />
-              <Input
-                label="港鐵站"
-                value={form.mtr_station}
-                onChange={(value) => updateField("mtr_station", value)}
-              />
-              <Input
-                label="Google Map URL"
-                value={form.google_map_url}
-                onChange={(value) => updateField("google_map_url", value)}
-              />
-              <Input
-                label="Google Map Embed URL"
-                value={form.google_map_embed_url}
-                onChange={(value) => updateField("google_map_embed_url", value)}
-              />
+              <Input label="開始日期" type="date" value={form.start_date} onChange={(value) => updateField("start_date", value)} />
+              <Input label="結束日期" type="date" value={form.end_date} onChange={(value) => updateField("end_date", value)} />
+              <Input label="開始時間" type="time" value={form.start_time} onChange={(value) => updateField("start_time", value)} />
+              <Input label="結束時間" type="time" value={form.end_time} onChange={(value) => updateField("end_time", value)} />
+              <Input label="場地名稱" value={form.venue_name} onChange={(value) => updateField("venue_name", value)} />
+              <Input label="詳細地址" value={form.address} onChange={(value) => updateField("address", value)} />
+              <Input label="地區" value={form.area} onChange={(value) => updateField("area", value)} />
+              <Input label="分區" value={form.district} onChange={(value) => updateField("district", value)} />
+              <Input label="港鐵站" value={form.mtr_station} onChange={(value) => updateField("mtr_station", value)} />
+              <Input label="Google Map URL" value={form.google_map_url} onChange={(value) => updateField("google_map_url", value)} />
+              <Input label="Google Map Embed URL" value={form.google_map_embed_url} onChange={(value) => updateField("google_map_embed_url", value)} />
             </Section>
           ) : null}
 
           {step === 2 ? (
-            <Section title="Step 3：圖片 Gallery" desc="商戶可直接上載圖片，也可貼圖片 URL。最多顯示 5 張。">
+            <Section title="Step 3：圖片 Gallery" desc="商戶可上載圖片、調整封面裁切、排序、設為封面或移除圖片。">
               <div className="md:col-span-2 rounded-3xl border border-purple-200 bg-purple-50 p-5">
                 <h3 className="text-lg font-black text-purple-950">圖片上載</h3>
                 <p className="mt-1 text-sm leading-6 text-purple-800">
@@ -1122,7 +1084,7 @@ export default function MerchantEventEditPage() {
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <UploadBox
                     label="上載封面圖片"
-                    helper="主要顯示於活動卡及詳情頁"
+                    helper="封面會顯示於活動卡及主圖"
                     busy={uploadingKey === "cover"}
                     onChange={(event) => handleFileChange(event, "cover")}
                   />
@@ -1139,50 +1101,127 @@ export default function MerchantEventEditPage() {
                 </div>
               </div>
 
+              {form.cover_image_url ? (
+                <div className="md:col-span-2 rounded-3xl border border-slate-200 bg-white p-5">
+                  <div className="flex flex-col gap-4 lg:flex-row">
+                    <div className="lg:w-[58%]">
+                      <h3 className="text-lg font-black text-slate-950">封面裁切預覽</h3>
+                      <p className="mt-1 text-sm leading-6 text-slate-500">
+                        此設定只影響活動卡及 Hero 封面顯示，不會破壞原圖。
+                      </p>
+
+                      <div className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
+                        <div className="relative aspect-video overflow-hidden bg-slate-200">
+                          <img
+                            src={form.cover_image_url}
+                            alt="封面裁切預覽"
+                            className="h-full w-full object-cover transition-transform duration-200"
+                            style={coverCropStyle(form)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 space-y-4">
+                      <h3 className="text-lg font-black text-slate-950">調整封面位置</h3>
+
+                      <Slider
+                        label={`放大 ${form.cover_image_zoom.toFixed(2)}x`}
+                        min={1}
+                        max={2.5}
+                        step={0.05}
+                        value={form.cover_image_zoom}
+                        onChange={(value) => updateField("cover_image_zoom", value)}
+                      />
+                      <Slider
+                        label={`左右 ${form.cover_image_offset_x}%`}
+                        min={-50}
+                        max={50}
+                        step={1}
+                        value={form.cover_image_offset_x}
+                        onChange={(value) => updateField("cover_image_offset_x", value)}
+                      />
+                      <Slider
+                        label={`上下 ${form.cover_image_offset_y}%`}
+                        min={-50}
+                        max={50}
+                        step={1}
+                        value={form.cover_image_offset_y}
+                        onChange={(value) => updateField("cover_image_offset_y", value)}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={resetCoverCrop}
+                        className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+                      >
+                        重設裁切
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="md:col-span-2 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                <h3 className="text-lg font-black text-slate-950">圖片 URL 備用欄位</h3>
+                <h3 className="text-lg font-black text-slate-950">圖片排序及管理</h3>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                  如圖片來自商戶官網或系統匯入，可保留 URL。上載圖片後，系統會自動填入 URL。
+                  第一張會成為封面。可按「上移 / 下移」調整順序，或按「設為封面」。
                 </p>
               </div>
 
-              <Input
-                label="封面圖片 URL"
-                value={form.cover_image_url}
-                onChange={(value) => updateField("cover_image_url", value)}
-              />
+              {orderedImages.length ? (
+                <div className="md:col-span-2 grid gap-4 lg:grid-cols-2">
+                  {orderedImages.map((image, index) => (
+                    <div key={`${image}-${index}`} className="rounded-3xl border border-slate-200 bg-white p-3">
+                      <div className="flex gap-4">
+                        <div className="flex aspect-[4/3] w-44 shrink-0 items-center justify-center rounded-2xl bg-slate-50 p-2">
+                          <img src={image} alt={`活動圖片 ${index + 1}`} className="max-h-full max-w-full rounded-xl object-contain" />
+                        </div>
 
-              {form.gallery_image_urls.map((image, index) => (
-                <Input
-                  key={index}
-                  label={`Gallery 圖片 ${index + 1}`}
-                  value={image}
-                  onChange={(value) =>
-                    updateField(
-                      "gallery_image_urls",
-                      updateImageItem(form.gallery_image_urls, index, value)
-                    )
-                  }
-                />
-              ))}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap gap-2">
+                            <span className={index === 0 ? "rounded-full bg-purple-700 px-3 py-1 text-xs font-black text-white" : "rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600"}>
+                              {index === 0 ? "封面" : `圖片 ${index + 1}`}
+                            </span>
+                          </div>
 
-              {galleryImages.length ? (
-                <div className="md:col-span-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {galleryImages.map((image, index) => (
-                    <div
-                      key={`${image}-${index}`}
-                      className="overflow-hidden rounded-3xl border border-slate-200 bg-white"
-                    >
-                      <div className="aspect-video flex items-center justify-center bg-slate-50 p-2">
-                        <img
-                          src={image}
-                          alt={`活動圖片 ${index + 1}`}
-                          className="max-h-full max-w-full rounded-2xl object-contain"
-                        />
+                          <p className="mt-3 truncate text-xs font-bold text-slate-400">{image}</p>
+
+                          <div className="mt-4 grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => moveImage(index, "up")}
+                              disabled={index === 0}
+                              className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-30"
+                            >
+                              上移
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveImage(index, "down")}
+                              disabled={index === orderedImages.length - 1}
+                              className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-30"
+                            >
+                              下移
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAsCover(image)}
+                              disabled={index === 0}
+                              className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white disabled:bg-slate-300"
+                            >
+                              設為封面
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeImage(image)}
+                              className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white hover:bg-rose-700"
+                            >
+                              移除
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <p className="border-t border-slate-100 px-3 py-2 text-xs font-bold text-slate-500">
-                        圖片 {index + 1}
-                      </p>
                     </div>
                   ))}
                 </div>
@@ -1191,14 +1230,31 @@ export default function MerchantEventEditPage() {
                   暫時未有圖片。請上載封面或 Gallery 圖片。
                 </div>
               )}
+
+              <div className="md:col-span-2 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                <h3 className="text-lg font-black text-slate-950">圖片 URL 備用欄位</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  如圖片來自商戶官網或系統匯入，可保留 URL。上載圖片後，系統會自動填入 URL。
+                </p>
+              </div>
+
+              <Input label="封面圖片 URL" value={form.cover_image_url} onChange={(value) => updateField("cover_image_url", value)} />
+
+              {form.gallery_image_urls.map((image, index) => (
+                <Input
+                  key={index}
+                  label={`Gallery 圖片 ${index + 1}`}
+                  value={image}
+                  onChange={(value) =>
+                    updateField("gallery_image_urls", updateImageItem(form.gallery_image_urls, index, value))
+                  }
+                />
+              ))}
             </Section>
           ) : null}
 
           {step === 3 ? (
-            <Section
-              title="Step 4：收費、優惠、票種及名額"
-              desc="選擇收費模式後，不需要填的欄位會變灰，避免商戶混淆。"
-            >
+            <Section title="Step 4：收費、優惠、票種及名額" desc="選擇收費模式後，不需要填的欄位會變灰，避免商戶混淆。">
               <div className="md:col-span-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {priceModes.map((mode) => (
                   <button
@@ -1223,44 +1279,12 @@ export default function MerchantEventEditPage() {
                 {formatPricePreview(form)}
               </div>
 
-              <Input
-                label="公開價錢摘要"
-                value={form.price_label}
-                disabled={isDisabledPriceField(form.price_display_mode, "price_label")}
-                onChange={(value) => updateField("price_label", value)}
-                placeholder="例如：早鳥優惠價 HK$50（原價 HK$90）"
-              />
-              <Input
-                label="最低 / 固定收費 HK$"
-                value={form.min_price}
-                disabled={isDisabledPriceField(form.price_display_mode, "min_price")}
-                onChange={(value) => updateField("min_price", value)}
-              />
-              <Input
-                label="最高收費 HK$"
-                value={form.max_price}
-                disabled={isDisabledPriceField(form.price_display_mode, "max_price")}
-                onChange={(value) => updateField("max_price", value)}
-              />
-              <Input
-                label="優惠價 HK$"
-                value={form.offer_price}
-                disabled={isDisabledPriceField(form.price_display_mode, "offer_price")}
-                onChange={(value) => updateField("offer_price", value)}
-              />
-              <Input
-                label="原價 HK$"
-                value={form.original_price}
-                disabled={isDisabledPriceField(form.price_display_mode, "original_price")}
-                onChange={(value) => updateField("original_price", value)}
-              />
-              <Input
-                label="名額 / quota 摘要"
-                value={form.quota_label}
-                disabled={isDisabledPriceField(form.price_display_mode, "quota_label")}
-                onChange={(value) => updateField("quota_label", value)}
-                placeholder="例如：名額有限，先到先得，額滿即止"
-              />
+              <Input label="公開價錢摘要" value={form.price_label} disabled={isDisabledPriceField(form.price_display_mode, "price_label")} onChange={(value) => updateField("price_label", value)} placeholder="例如：早鳥優惠價 HK$50（原價 HK$90）" />
+              <Input label="最低 / 固定收費 HK$" value={form.min_price} disabled={isDisabledPriceField(form.price_display_mode, "min_price")} onChange={(value) => updateField("min_price", value)} />
+              <Input label="最高收費 HK$" value={form.max_price} disabled={isDisabledPriceField(form.price_display_mode, "max_price")} onChange={(value) => updateField("max_price", value)} />
+              <Input label="優惠價 HK$" value={form.offer_price} disabled={isDisabledPriceField(form.price_display_mode, "offer_price")} onChange={(value) => updateField("offer_price", value)} />
+              <Input label="原價 HK$" value={form.original_price} disabled={isDisabledPriceField(form.price_display_mode, "original_price")} onChange={(value) => updateField("original_price", value)} />
+              <Input label="名額 / quota 摘要" value={form.quota_label} disabled={isDisabledPriceField(form.price_display_mode, "quota_label")} onChange={(value) => updateField("quota_label", value)} placeholder="例如：名額有限，先到先得，額滿即止" />
             </Section>
           ) : null}
 
@@ -1293,82 +1317,24 @@ export default function MerchantEventEditPage() {
                 {getCtaPreview(form)}
               </div>
 
-              <Input
-                label="CTA 按鈕文字"
-                value={form.cta_label}
-                onChange={(value) => updateField("cta_label", value)}
-              />
-              <Input
-                label="報名 URL"
-                value={form.registration_url}
-                disabled={form.cta_type === "none" || form.cta_type === "contact"}
-                onChange={(value) => updateField("registration_url", value)}
-              />
-              <Input
-                label="Booking URL"
-                value={form.booking_url}
-                disabled={form.cta_type === "none" || form.cta_type === "contact"}
-                onChange={(value) => updateField("booking_url", value)}
-              />
-              <Input
-                label="官方活動頁"
-                value={form.official_url}
-                disabled={form.cta_type === "none"}
-                onChange={(value) => updateField("official_url", value)}
-              />
-              <Input
-                label="來源 URL"
-                value={form.source_url}
-                onChange={(value) => updateField("source_url", value)}
-              />
-              <Input
-                label="聯絡電話"
-                value={form.contact_phone}
-                disabled={form.cta_type !== "contact"}
-                onChange={(value) => updateField("contact_phone", value)}
-              />
-              <Input
-                label="聯絡 Email"
-                value={form.contact_email}
-                disabled={form.cta_type !== "contact"}
-                onChange={(value) => updateField("contact_email", value)}
-              />
-              <Input
-                label="WhatsApp"
-                value={form.whatsapp}
-                disabled={form.cta_type !== "whatsapp" && form.cta_type !== "contact"}
-                onChange={(value) => updateField("whatsapp", value)}
-              />
+              <Input label="CTA 按鈕文字" value={form.cta_label} onChange={(value) => updateField("cta_label", value)} />
+              <Input label="報名 URL" value={form.registration_url} disabled={form.cta_type === "none" || form.cta_type === "contact"} onChange={(value) => updateField("registration_url", value)} />
+              <Input label="Booking URL" value={form.booking_url} disabled={form.cta_type === "none" || form.cta_type === "contact"} onChange={(value) => updateField("booking_url", value)} />
+              <Input label="官方活動頁" value={form.official_url} disabled={form.cta_type === "none"} onChange={(value) => updateField("official_url", value)} />
+              <Input label="來源 URL" value={form.source_url} onChange={(value) => updateField("source_url", value)} />
+              <Input label="聯絡電話" value={form.contact_phone} disabled={form.cta_type !== "contact"} onChange={(value) => updateField("contact_phone", value)} />
+              <Input label="聯絡 Email" value={form.contact_email} disabled={form.cta_type !== "contact"} onChange={(value) => updateField("contact_email", value)} />
+              <Input label="WhatsApp" value={form.whatsapp} disabled={form.cta_type !== "whatsapp" && form.cta_type !== "contact"} onChange={(value) => updateField("whatsapp", value)} />
             </Section>
           ) : null}
 
           {step === 5 ? (
             <Section title="Step 6：內容細節及提交" desc="最後檢查活動內容、注意事項、主辦資料及完整度。">
-              <Textarea
-                label="詳細介紹"
-                value={form.description_tc}
-                onChange={(value) => updateField("description_tc", value)}
-              />
-              <Textarea
-                label="活動亮點（一行一項）"
-                value={form.highlights}
-                onChange={(value) => updateField("highlights", value)}
-              />
-              <Textarea
-                label="注意事項（一行一項）"
-                value={form.terms}
-                onChange={(value) => updateField("terms", value)}
-              />
-              <Textarea
-                label="備註"
-                value={form.remarks}
-                onChange={(value) => updateField("remarks", value)}
-              />
-              <Input
-                label="主辦方"
-                value={form.organizer_name}
-                onChange={(value) => updateField("organizer_name", value)}
-              />
+              <Textarea label="詳細介紹" value={form.description_tc} onChange={(value) => updateField("description_tc", value)} />
+              <Textarea label="活動亮點（一行一項）" value={form.highlights} onChange={(value) => updateField("highlights", value)} />
+              <Textarea label="注意事項（一行一項）" value={form.terms} onChange={(value) => updateField("terms", value)} />
+              <Textarea label="備註" value={form.remarks} onChange={(value) => updateField("remarks", value)} />
+              <Input label="主辦方" value={form.organizer_name} onChange={(value) => updateField("organizer_name", value)} />
             </Section>
           ) : null}
 
@@ -1428,9 +1394,7 @@ export default function MerchantEventEditPage() {
                 onClick={() => setPreviewMode("card")}
                 className={[
                   "rounded-full px-3 py-2 text-xs font-black",
-                  previewMode === "card"
-                    ? "bg-purple-700 text-white"
-                    : "bg-slate-100 text-slate-600",
+                  previewMode === "card" ? "bg-purple-700 text-white" : "bg-slate-100 text-slate-600",
                 ].join(" ")}
               >
                 Card
@@ -1440,16 +1404,14 @@ export default function MerchantEventEditPage() {
                 onClick={() => setPreviewMode("detail")}
                 className={[
                   "rounded-full px-3 py-2 text-xs font-black",
-                  previewMode === "detail"
-                    ? "bg-purple-700 text-white"
-                    : "bg-slate-100 text-slate-600",
+                  previewMode === "detail" ? "bg-purple-700 text-white" : "bg-slate-100 text-slate-600",
                 ].join(" ")}
               >
                 Detail
               </button>
             </div>
 
-            <PreviewCard form={form} images={galleryImages} mode={previewMode} />
+            <PreviewCard form={form} images={orderedImages} mode={previewMode} />
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1471,17 +1433,9 @@ export default function MerchantEventEditPage() {
 
             <div className="mt-4 space-y-2">
               {ready.checks.map((item) => (
-                <div
-                  key={item.key}
-                  className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm"
-                >
+                <div key={item.key} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm">
                   <span className="font-black text-slate-500">{item.key}</span>
-                  <span
-                    className={[
-                      "font-black",
-                      item.done ? "text-emerald-700" : "text-rose-700",
-                    ].join(" ")}
-                  >
+                  <span className={["font-black", item.done ? "text-emerald-700" : "text-rose-700"].join(" ")}>
                     {item.done ? "已完成" : "未完成"}
                   </span>
                 </div>
@@ -1501,12 +1455,12 @@ export default function MerchantEventEditPage() {
           </div>
 
           <div className="rounded-3xl border border-purple-200 bg-purple-50 p-5 text-sm leading-6 text-purple-900">
-            <p className="font-black">商戶提示</p>
+            <p className="font-black">圖片管理提示</p>
             <ul className="mt-3 list-disc space-y-2 pl-5">
-              <li>商戶可直接上載圖片，不需要自己找圖片 URL。</li>
-              <li>系統會自動儲存，亦可手動按「儲存草稿」。</li>
-              <li>固定價 HK$50 只會顯示 HK$50，不會顯示「起」。</li>
-              <li>只顯示名額時，價錢不會混入收費區。</li>
+              <li>第一張圖片會成為封面。</li>
+              <li>可按「設為封面」快速更換主圖。</li>
+              <li>可用「上移 / 下移」調整 Gallery 順序。</li>
+              <li>封面裁切設定只影響顯示，不會破壞原圖。</li>
             </ul>
           </div>
         </aside>
@@ -1530,11 +1484,12 @@ function PreviewCard({
     <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className={mode === "detail" ? "aspect-video bg-slate-50" : "aspect-[4/3] bg-slate-50"}>
         {hero ? (
-          <div className="flex h-full w-full items-center justify-center p-2">
+          <div className="relative h-full w-full overflow-hidden bg-slate-100">
             <img
               src={hero}
               alt={form.title_tc || "活動圖片"}
-              className="max-h-full max-w-full rounded-2xl object-contain"
+              className="h-full w-full object-cover transition-transform duration-200"
+              style={coverCropStyle(form)}
             />
           </div>
         ) : (
@@ -1563,10 +1518,7 @@ function PreviewCard({
         </p>
 
         <div className="mt-4 grid gap-2 text-xs text-slate-600">
-          <PreviewRow
-            label="日期"
-            value={`${form.start_date || "未填"}${form.end_date ? ` 至 ${form.end_date}` : ""}`}
-          />
+          <PreviewRow label="日期" value={`${form.start_date || "未填"}${form.end_date ? ` 至 ${form.end_date}` : ""}`} />
           <PreviewRow label="地點" value={form.venue_name || form.address || "未填"} />
           <PreviewRow label="收費" value={formatPricePreview(form)} />
           <PreviewRow label="報名方式" value={getCtaPreview(form)} />
@@ -1582,10 +1534,7 @@ function PreviewCard({
           </div>
         ) : null}
 
-        <button
-          type="button"
-          className="mt-5 w-full rounded-2xl bg-purple-700 px-4 py-3 text-sm font-black text-white"
-        >
+        <button type="button" className="mt-5 w-full rounded-2xl bg-purple-700 px-4 py-3 text-sm font-black text-white">
           {getCtaPreview(form)}
         </button>
       </div>
@@ -1692,12 +1641,37 @@ function UploadBox({
       <span className="mt-3 inline-flex rounded-full bg-purple-700 px-4 py-2 text-xs font-black text-white">
         選擇圖片
       </span>
+      <input type="file" accept="image/*" className="hidden" disabled={busy} onChange={onChange} />
+    </label>
+  );
+}
+
+function Slider({
+  label,
+  min,
+  max,
+  step,
+  value,
+  onChange,
+}: {
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-black text-slate-600">{label}</span>
       <input
-        type="file"
-        accept="image/*"
-        className="hidden"
-        disabled={busy}
-        onChange={onChange}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="mt-2 w-full accent-purple-700"
       />
     </label>
   );
