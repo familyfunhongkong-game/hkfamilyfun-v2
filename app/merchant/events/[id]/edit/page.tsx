@@ -1,6 +1,12 @@
 ﻿"use client";
 
-import type { ChangeEvent, ReactNode } from "react";
+import type {
+  ChangeEvent,
+  DragEvent,
+  PointerEvent,
+  ReactNode,
+  WheelEvent,
+} from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -16,9 +22,9 @@ type EventRecord = {
   highlights?: string | null;
   terms?: string | null;
   remarks?: string | null;
-  tags?: string | null;
+  tags?: unknown;
   category?: unknown;
-  activity_category?: string | null;
+  activity_category?: unknown;
 
   start_date?: string | null;
   end_date?: string | null;
@@ -119,6 +125,15 @@ type FormState = {
   cover_image_zoom: number;
 
   organizer_name: string;
+};
+
+type CropDragState = {
+  active: boolean;
+  startX: number;
+  startY: number;
+  startOffsetX: number;
+  startOffsetY: number;
+  pointerId: number | null;
 };
 
 const STORAGE_BUCKET = "event-images";
@@ -302,12 +317,6 @@ function ensureGalleryFields(images: string[]) {
   return next;
 }
 
-function updateGalleryItem(images: string[], index: number, value: string) {
-  const next = [...images];
-  next[index] = value;
-  return ensureGalleryFields(next);
-}
-
 function getAllImagesFromForm(form: FormState) {
   return normalizeImages([form.cover_image_url, ...form.gallery_image_urls]);
 }
@@ -320,6 +329,18 @@ function applyImageOrderToForm(images: string[], previous: FormState) {
     cover_image_url: cleanImages[0] || "",
     gallery_image_urls: ensureGalleryFields(cleanImages.slice(1)),
   };
+}
+
+function reorderImages(images: string[], fromIndex: number, toIndex: number) {
+  if (fromIndex === toIndex) return images;
+  if (fromIndex < 0 || fromIndex >= images.length) return images;
+  if (toIndex < 0 || toIndex >= images.length) return images;
+
+  const next = [...images];
+  const [removed] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, removed);
+
+  return normalizeImages(next);
 }
 
 function formatPricePreview(form: FormState) {
@@ -543,6 +564,7 @@ function extractMissingColumn(errorMessage: string) {
 function coverCropStyle(form: FormState) {
   return {
     transform: `translate(${form.cover_image_offset_x}%, ${form.cover_image_offset_y}%) scale(${form.cover_image_zoom})`,
+    transformOrigin: "center",
   };
 }
 
@@ -568,9 +590,20 @@ export default function MerchantEventEditPage() {
     "idle"
   );
   const [showAdvancedUrls, setShowAdvancedUrls] = useState(false);
+  const [draggingImageIndex, setDraggingImageIndex] = useState<number | null>(null);
+  const [dragOverImageIndex, setDragOverImageIndex] = useState<number | null>(null);
+  const [isCropDragging, setIsCropDragging] = useState(false);
 
   const loadedRef = useRef(false);
   const lastSerializedFormRef = useRef("");
+  const cropDragRef = useRef<CropDragState>({
+    active: false,
+    startX: 0,
+    startY: 0,
+    startOffsetX: 0,
+    startOffsetY: 0,
+    pointerId: null,
+  });
 
   const ready = useMemo(() => readiness(form), [form]);
   const orderedImages = useMemo(() => getAllImagesFromForm(form), [form]);
@@ -585,19 +618,6 @@ export default function MerchantEventEditPage() {
 
   function setImageOrder(images: string[]) {
     setForm((previous) => applyImageOrderToForm(images, previous));
-  }
-
-  function moveImage(index: number, direction: "up" | "down") {
-    const images = [...orderedImages];
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-
-    if (targetIndex < 0 || targetIndex >= images.length) return;
-
-    const current = images[index];
-    images[index] = images[targetIndex];
-    images[targetIndex] = current;
-
-    setImageOrder(images);
   }
 
   function setAsCover(image: string) {
@@ -615,6 +635,117 @@ export default function MerchantEventEditPage() {
     updateField("cover_image_offset_x", 0);
     updateField("cover_image_offset_y", 0);
     updateField("cover_image_zoom", 1);
+  }
+
+  function handleCoverPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (!form.cover_image_url) return;
+
+    event.preventDefault();
+
+    cropDragRef.current = {
+      active: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      startOffsetX: form.cover_image_offset_x,
+      startOffsetY: form.cover_image_offset_y,
+      pointerId: event.pointerId,
+    };
+
+    setIsCropDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handleCoverPointerMove(event: PointerEvent<HTMLDivElement>) {
+    const state = cropDragRef.current;
+    if (!state.active) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const width = Math.max(rect.width, 1);
+    const height = Math.max(rect.height, 1);
+
+    const deltaX = ((event.clientX - state.startX) / width) * 100;
+    const deltaY = ((event.clientY - state.startY) / height) * 100;
+
+    const nextX = clamp(Math.round(state.startOffsetX + deltaX), -50, 50);
+    const nextY = clamp(Math.round(state.startOffsetY + deltaY), -50, 50);
+
+    setForm((previous) => ({
+      ...previous,
+      cover_image_offset_x: nextX,
+      cover_image_offset_y: nextY,
+    }));
+  }
+
+  function handleCoverPointerEnd(event: PointerEvent<HTMLDivElement>) {
+    const state = cropDragRef.current;
+
+    if (state.pointerId !== null) {
+      try {
+        event.currentTarget.releasePointerCapture(state.pointerId);
+      } catch {
+        // Ignore pointer capture release error.
+      }
+    }
+
+    cropDragRef.current = {
+      active: false,
+      startX: 0,
+      startY: 0,
+      startOffsetX: 0,
+      startOffsetY: 0,
+      pointerId: null,
+    };
+
+    setIsCropDragging(false);
+  }
+
+  function handleCoverWheel(event: WheelEvent<HTMLDivElement>) {
+    if (!form.cover_image_url) return;
+
+    event.preventDefault();
+
+    const direction = event.deltaY > 0 ? -0.05 : 0.05;
+    const nextZoom = clamp(Number((form.cover_image_zoom + direction).toFixed(2)), 1, 2.5);
+
+    updateField("cover_image_zoom", nextZoom);
+  }
+
+  function handleImageDragStart(event: DragEvent<HTMLDivElement>, index: number) {
+    setDraggingImageIndex(index);
+    setDragOverImageIndex(index);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+  }
+
+  function handleImageDragOver(event: DragEvent<HTMLDivElement>, index: number) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragOverImageIndex(index);
+  }
+
+  function handleImageDrop(event: DragEvent<HTMLDivElement>, index: number) {
+    event.preventDefault();
+
+    const fromText = event.dataTransfer.getData("text/plain");
+    const fromIndex =
+      draggingImageIndex !== null ? draggingImageIndex : Number.parseInt(fromText, 10);
+
+    if (!Number.isFinite(fromIndex)) {
+      setDraggingImageIndex(null);
+      setDragOverImageIndex(null);
+      return;
+    }
+
+    const nextImages = reorderImages(orderedImages, fromIndex, index);
+    setImageOrder(nextImages);
+
+    setDraggingImageIndex(null);
+    setDragOverImageIndex(null);
+  }
+
+  function handleImageDragEnd() {
+    setDraggingImageIndex(null);
+    setDragOverImageIndex(null);
   }
 
   async function uploadFiles(files: FileList | File[]) {
@@ -707,7 +838,8 @@ export default function MerchantEventEditPage() {
   }
 
   function addImageFromUrl(url: string, index: number) {
-    const nextGallery = updateGalleryItem(form.gallery_image_urls, index, url);
+    const nextGallery = [...form.gallery_image_urls];
+    nextGallery[index] = url;
     const nextImages = normalizeImages([form.cover_image_url, ...nextGallery]);
     setImageOrder(nextImages);
   }
@@ -1026,7 +1158,7 @@ export default function MerchantEventEditPage() {
                 編輯活動資料
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Smart Image Manager：一次上載、去重、最多 5 張、第一張封面、排序、裁切及即時 Preview。
+                Smart Image Manager：拖拉封面位置、拖拉圖片排序、第一張自動成為封面、最多 5 張。
               </p>
             </div>
 
@@ -1212,7 +1344,7 @@ export default function MerchantEventEditPage() {
           {step === 2 ? (
             <Section
               title="Step 3：Smart Image Manager"
-              desc="一個入口管理所有圖片。第一張自動成為封面，最多 5 張，重複圖片會自動去除。"
+              desc="拖拉封面可調整位置；拖拉圖片卡可改排序。第一張會自動成為封面。"
             >
               <div className="md:col-span-2 rounded-3xl border border-purple-200 bg-purple-50 p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1247,8 +1379,8 @@ export default function MerchantEventEditPage() {
                 <div className="mt-4 rounded-2xl border border-purple-200 bg-white/70 p-4 text-sm leading-6 text-purple-900">
                   <p className="font-black">圖片規則</p>
                   <p>
-                    第一張 = 封面；其餘 = Gallery。系統會自動去重。建議 JPG / PNG /
-                    WebP，單張 8MB 以下。
+                    第一張 = 封面；其餘 = Gallery。拖拉圖片可改排序。系統會自動去重。
+                    建議 JPG / PNG / WebP，單張 8MB 以下。
                   </p>
                 </div>
               </div>
@@ -1256,27 +1388,45 @@ export default function MerchantEventEditPage() {
               {form.cover_image_url ? (
                 <div className="md:col-span-2 rounded-3xl border border-slate-200 bg-white p-5">
                   <div className="flex flex-col gap-5 xl:flex-row">
-                    <div className="xl:w-[58%]">
-                      <h3 className="text-lg font-black text-slate-950">封面裁切預覽</h3>
+                    <div className="xl:w-[62%]">
+                      <h3 className="text-lg font-black text-slate-950">拖拉封面裁切</h3>
                       <p className="mt-1 text-sm leading-6 text-slate-500">
-                        只影響活動卡及 Hero 封面顯示，不會破壞原圖。Gallery
-                        會保留完整圖片。
+                        用 mouse 直接拖動圖片位置。滾輪可放大縮小。Gallery 會保留完整圖片。
                       </p>
 
                       <div className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
-                        <div className="relative aspect-video overflow-hidden bg-slate-200">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onPointerDown={handleCoverPointerDown}
+                          onPointerMove={handleCoverPointerMove}
+                          onPointerUp={handleCoverPointerEnd}
+                          onPointerCancel={handleCoverPointerEnd}
+                          onWheel={handleCoverWheel}
+                          className={[
+                            "relative aspect-video select-none overflow-hidden bg-slate-200 touch-none",
+                            isCropDragging ? "cursor-grabbing" : "cursor-grab",
+                          ].join(" ")}
+                        >
                           <img
                             src={form.cover_image_url}
                             alt="封面裁切預覽"
-                            className="h-full w-full object-cover transition-transform duration-200"
+                            draggable={false}
+                            className="h-full w-full select-none object-cover transition-transform duration-100"
                             style={coverCropStyle(form)}
                           />
+
+                          <div className="pointer-events-none absolute inset-0 rounded-none ring-1 ring-inset ring-black/5" />
+
+                          <div className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-black/65 px-3 py-1 text-xs font-black text-white">
+                            拖拉圖片可移動封面位置
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex-1 space-y-4">
-                      <h3 className="text-lg font-black text-slate-950">調整封面位置</h3>
+                      <h3 className="text-lg font-black text-slate-950">封面微調</h3>
 
                       <Slider
                         label={`放大 ${form.cover_image_zoom.toFixed(2)}x`}
@@ -1286,22 +1436,12 @@ export default function MerchantEventEditPage() {
                         value={form.cover_image_zoom}
                         onChange={(value) => updateField("cover_image_zoom", value)}
                       />
-                      <Slider
-                        label={`左右 ${form.cover_image_offset_x}%`}
-                        min={-50}
-                        max={50}
-                        step={1}
-                        value={form.cover_image_offset_x}
-                        onChange={(value) => updateField("cover_image_offset_x", value)}
-                      />
-                      <Slider
-                        label={`上下 ${form.cover_image_offset_y}%`}
-                        min={-50}
-                        max={50}
-                        step={1}
-                        value={form.cover_image_offset_y}
-                        onChange={(value) => updateField("cover_image_offset_y", value)}
-                      />
+
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                        <p className="font-black text-slate-800">目前位置</p>
+                        <p>左右：{form.cover_image_offset_x}%</p>
+                        <p>上下：{form.cover_image_offset_y}%</p>
+                      </div>
 
                       <button
                         type="button"
@@ -1322,7 +1462,7 @@ export default function MerchantEventEditPage() {
                       圖片庫 {orderedImages.length} / {MAX_IMAGES}
                     </h3>
                     <p className="mt-1 text-sm leading-6 text-slate-500">
-                      第一張會成為封面。用上移 / 下移控制順序，或直接設為封面。
+                      拖拉圖片卡可改排序。拖到第一張會即時成為封面。
                     </p>
                   </div>
 
@@ -1339,79 +1479,92 @@ export default function MerchantEventEditPage() {
 
                 {orderedImages.length ? (
                   <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                    {orderedImages.map((image, index) => (
-                      <div
-                        key={`${image}-${index}`}
-                        className="rounded-3xl border border-slate-200 bg-slate-50 p-3"
-                      >
-                        <div className="flex flex-col gap-4 sm:flex-row">
-                          <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl bg-white p-2 sm:w-52">
-                            <img
-                              src={image}
-                              alt={`活動圖片 ${index + 1}`}
-                              className="max-h-full max-w-full rounded-xl object-contain"
-                            />
-                          </div>
+                    {orderedImages.map((image, index) => {
+                      const isDragging = draggingImageIndex === index;
+                      const isDropTarget =
+                        dragOverImageIndex === index && draggingImageIndex !== null;
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap gap-2">
-                              <span
-                                className={
-                                  index === 0
-                                    ? "rounded-full bg-purple-700 px-3 py-1 text-xs font-black text-white"
-                                    : "rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600"
-                                }
-                              >
-                                {index === 0 ? "封面" : `圖片 ${index + 1}`}
-                              </span>
-                              {index === 0 ? (
-                                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
-                                  用於活動卡
-                                </span>
-                              ) : null}
+                      return (
+                        <div
+                          key={`${image}-${index}`}
+                          draggable
+                          onDragStart={(event) => handleImageDragStart(event, index)}
+                          onDragOver={(event) => handleImageDragOver(event, index)}
+                          onDrop={(event) => handleImageDrop(event, index)}
+                          onDragEnd={handleImageDragEnd}
+                          className={[
+                            "rounded-3xl border bg-slate-50 p-3 transition",
+                            isDragging
+                              ? "scale-[0.98] border-purple-500 opacity-60 ring-4 ring-purple-100"
+                              : isDropTarget
+                              ? "border-purple-500 ring-4 ring-purple-100"
+                              : "border-slate-200 hover:border-purple-300",
+                          ].join(" ")}
+                        >
+                          <div className="flex flex-col gap-4 sm:flex-row">
+                            <div className="relative flex aspect-[4/3] w-full cursor-grab items-center justify-center rounded-2xl bg-white p-2 active:cursor-grabbing sm:w-56">
+                              <img
+                                src={image}
+                                alt={`活動圖片 ${index + 1}`}
+                                draggable={false}
+                                className="max-h-full max-w-full rounded-xl object-contain"
+                              />
+
+                              <div className="absolute left-3 top-3 rounded-full bg-black/65 px-3 py-1 text-xs font-black text-white">
+                                拖拉排序
+                              </div>
                             </div>
 
-                            <p className="mt-3 truncate text-xs font-bold text-slate-400">
-                              {image}
-                            </p>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap gap-2">
+                                <span
+                                  className={
+                                    index === 0
+                                      ? "rounded-full bg-purple-700 px-3 py-1 text-xs font-black text-white"
+                                      : "rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600"
+                                  }
+                                >
+                                  {index === 0 ? "封面" : `圖片 ${index + 1}`}
+                                </span>
+                                {index === 0 ? (
+                                  <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                                    用於活動卡
+                                  </span>
+                                ) : null}
+                              </div>
 
-                            <div className="mt-4 grid grid-cols-2 gap-2">
-                              <button
-                                type="button"
-                                onClick={() => moveImage(index, "up")}
-                                disabled={index === 0}
-                                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-30"
-                              >
-                                上移
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => moveImage(index, "down")}
-                                disabled={index === orderedImages.length - 1}
-                                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-30"
-                              >
-                                下移
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setAsCover(image)}
-                                disabled={index === 0}
-                                className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white disabled:bg-slate-300"
-                              >
-                                設為封面
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => removeImage(image)}
-                                className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white hover:bg-rose-700"
-                              >
-                                移除
-                              </button>
+                              <p className="mt-3 truncate text-xs font-bold text-slate-400">
+                                {image}
+                              </p>
+
+                              <div className="mt-4 grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setAsCover(image)}
+                                  disabled={index === 0}
+                                  className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white disabled:bg-slate-300"
+                                >
+                                  設為封面
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage(image)}
+                                  className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white hover:bg-rose-700"
+                                >
+                                  移除
+                                </button>
+                              </div>
+
+                              <p className="mt-3 text-xs leading-5 text-slate-500">
+                                {index === 0
+                                  ? "這張是公開頁及活動卡封面。"
+                                  : "可直接拖到第一位成為封面。"}
+                              </p>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
@@ -1779,12 +1932,12 @@ export default function MerchantEventEditPage() {
           </div>
 
           <div className="rounded-3xl border border-purple-200 bg-purple-50 p-5 text-sm leading-6 text-purple-900">
-            <p className="font-black">Smart Image Manager</p>
+            <p className="font-black">新版圖片操作</p>
             <ul className="mt-3 list-disc space-y-2 pl-5">
-              <li>一個上載入口，避免商戶搞錯欄位。</li>
+              <li>直接拖拉封面圖片調整顯示位置。</li>
+              <li>拖拉圖片卡改排序。</li>
               <li>第一張圖片自動成為封面。</li>
-              <li>系統自動去重，最多保留 5 張。</li>
-              <li>URL 欄位已收起，減少非技術商戶混亂。</li>
+              <li>不需要再用上移 / 下移按鈕。</li>
             </ul>
           </div>
         </aside>
