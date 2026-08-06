@@ -126,6 +126,8 @@ type ChecklistItem = {
   note: string;
 };
 
+type StatusTone = "purple" | "green" | "amber" | "slate" | "rose";
+
 const FALLBACK_IMAGE =
   "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
 
@@ -138,6 +140,10 @@ function safeText(value: unknown, fallback = ""): string {
       .filter(Boolean)
       .join(", ");
     return joined || fallback;
+  }
+
+  if (typeof value === "object") {
+    return fallback;
   }
 
   const text = String(value).trim();
@@ -295,7 +301,9 @@ function formatTimeRange(event: EventRecord): string {
 }
 
 function formatPrice(event: EventRecord): string {
-  const priceMode = safeText(event.price_display_mode || event.price_type).toLowerCase();
+  const priceMode = safeText(
+    event.price_display_mode || event.price_type,
+  ).toLowerCase();
   const priceLabel = safeText(event.price_label || event.price_text);
   const minPrice = safeText(event.min_price);
   const maxPrice = safeText(event.max_price);
@@ -308,6 +316,7 @@ function formatPrice(event: EventRecord): string {
   if (priceMode === "hidden") return "不顯示價錢";
   if (priceMode === "free") return "免費";
   if (priceMode === "quota") return quotaLabel || "名額有限";
+
   if (priceMode === "early_bird") {
     if (offerPrice && originalPrice) {
       return `早鳥優惠 HK$${offerPrice}（原價 HK$${originalPrice}）`;
@@ -315,15 +324,20 @@ function formatPrice(event: EventRecord): string {
     if (offerPrice) return `早鳥優惠 HK$${offerPrice}`;
     return "早鳥優惠待確認";
   }
+
   if (priceMode === "range") {
-    if (minPrice && maxPrice && minPrice !== maxPrice) return `HK$${minPrice}–HK$${maxPrice}`;
+    if (minPrice && maxPrice && minPrice !== maxPrice) {
+      return `HK$${minPrice}–HK$${maxPrice}`;
+    }
     if (minPrice) return `HK$${minPrice} 起`;
     return "價錢範圍待確認";
   }
+
   if (priceMode === "fixed") {
     if (minPrice) return `HK$${minPrice}`;
     return "固定收費待確認";
   }
+
   if (priceMode === "from" || priceMode === "paid") {
     if (minPrice) return `HK$${minPrice} 起`;
     return "收費活動";
@@ -334,7 +348,10 @@ function formatPrice(event: EventRecord): string {
 
 function getCategoryLabel(event: EventRecord): string {
   const raw = safeText(
-    event.activity_category || event.category || event.activity_type || event.age_group,
+    event.activity_category ||
+      event.category ||
+      event.activity_type ||
+      event.age_group,
     "親子活動",
   );
 
@@ -398,8 +415,12 @@ function getPrimaryActionLabel(event: EventRecord): string {
   if (ctaType === "contact") return "請向主辦查詢";
   if (ctaType === "whatsapp") return "WhatsApp 報名";
   if (ctaType === "google_form") return "Google Form 報名";
-  if (isValidUrl(event.registration_url) || isValidUrl(event.booking_url)) return "前往報名";
-  if (isValidUrl(event.official_url) || isValidUrl(event.source_url)) return "查看官方活動頁";
+  if (isValidUrl(event.registration_url) || isValidUrl(event.booking_url)) {
+    return "前往報名";
+  }
+  if (isValidUrl(event.official_url) || isValidUrl(event.source_url)) {
+    return "查看官方活動頁";
+  }
   if (event.registration_required) return "請向主辦查詢";
 
   return "無需報名";
@@ -407,9 +428,18 @@ function getPrimaryActionLabel(event: EventRecord): string {
 
 function getCoverTransform(event: EventRecord): CSSProperties {
   const zoom = Math.min(Math.max(toNumber(event.cover_image_zoom, 1), 0.8), 3);
-  const offsetX = Math.min(Math.max(toNumber(event.cover_image_offset_x, 0), -100), 100);
-  const offsetY = Math.min(Math.max(toNumber(event.cover_image_offset_y, 0), -100), 100);
-  const focusY = Math.min(Math.max(toNumber(event.cover_image_focus_y, 50), 0), 100);
+  const offsetX = Math.min(
+    Math.max(toNumber(event.cover_image_offset_x, 0), -100),
+    100,
+  );
+  const offsetY = Math.min(
+    Math.max(toNumber(event.cover_image_offset_y, 0), -100),
+    100,
+  );
+  const focusY = Math.min(
+    Math.max(toNumber(event.cover_image_focus_y, 50), 0),
+    100,
+  );
   const rotate = toNumber(event.cover_image_rotate, 0);
   const flipX = event.cover_image_flip_x ? -1 : 1;
   const flipY = event.cover_image_flip_y ? -1 : 1;
@@ -421,16 +451,27 @@ function getCoverTransform(event: EventRecord): CSSProperties {
 }
 
 function getCoverFilter(event: EventRecord): CSSProperties {
-  const brightness = Math.min(Math.max(toNumber(event.cover_image_brightness, 100), 40), 180);
-  const contrast = Math.min(Math.max(toNumber(event.cover_image_contrast, 100), 40), 180);
-  const saturation = Math.min(Math.max(toNumber(event.cover_image_saturation, 100), 0), 220);
+  const brightness = Math.min(
+    Math.max(toNumber(event.cover_image_brightness, 100), 40),
+    180,
+  );
+  const contrast = Math.min(
+    Math.max(toNumber(event.cover_image_contrast, 100), 40),
+    180,
+  );
+  const saturation = Math.min(
+    Math.max(toNumber(event.cover_image_saturation, 100), 0),
+    220,
+  );
   const filterName = safeText(event.cover_image_filter, "none");
 
   let extraFilter = "";
   if (filterName === "warm") extraFilter = "sepia(0.16)";
   if (filterName === "cool") extraFilter = "hue-rotate(8deg) saturate(0.95)";
   if (filterName === "mono") extraFilter = "grayscale(1)";
-  if (filterName === "soft") extraFilter = "contrast(0.94) brightness(1.04)";
+  if (filterName === "soft") {
+    extraFilter = "contrast(0.94) brightness(1.04)";
+  }
 
   return {
     filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${extraFilter}`,
@@ -440,7 +481,9 @@ function getCoverFilter(event: EventRecord): CSSProperties {
 function getStatusLabel(status?: string | null): string {
   const text = safeText(status, "draft").toLowerCase();
 
-  if (["submitted", "pending", "review", "pending_review"].includes(text)) return "審批中";
+  if (["submitted", "pending", "review", "pending_review"].includes(text)) {
+    return "審批中";
+  }
   if (["approved", "published", "live"].includes(text)) return "已發布";
   if (["rejected", "declined"].includes(text)) return "已拒絕";
   if (["archived", "hidden", "offline"].includes(text)) return "已封存";
@@ -448,10 +491,12 @@ function getStatusLabel(status?: string | null): string {
   return "草稿";
 }
 
-function getStatusTone(status?: string | null): "purple" | "green" | "amber" | "slate" | "rose" {
+function getStatusTone(status?: string | null): StatusTone {
   const text = safeText(status, "draft").toLowerCase();
 
-  if (["submitted", "pending", "review", "pending_review"].includes(text)) return "amber";
+  if (["submitted", "pending", "review", "pending_review"].includes(text)) {
+    return "amber";
+  }
   if (["approved", "published", "live"].includes(text)) return "green";
   if (["rejected", "declined"].includes(text)) return "rose";
   if (["archived", "hidden", "offline"].includes(text)) return "slate";
@@ -489,7 +534,13 @@ function buildChecklist(event: EventRecord, images: GalleryImage[]): ChecklistIt
     {
       key: "venue",
       label: "地點",
-      done: Boolean(event.venue_name_tc || event.venue_name || event.address_tc || event.address || event.district),
+      done: Boolean(
+        event.venue_name_tc ||
+          event.venue_name ||
+          event.address_tc ||
+          event.address ||
+          event.district,
+      ),
       level: "critical",
       note: "至少要有場地、地址或地區。",
     },
@@ -509,7 +560,7 @@ function buildChecklist(event: EventRecord, images: GalleryImage[]): ChecklistIt
         safeText(event.cta_type).toLowerCase() === "contact" ||
         event.registration_required === false,
       level: "critical",
-      note: "要清楚知道家長是否需報名及去哪裡報名。",
+      note: "要清楚知道家長是否需要報名及去哪裡報名。",
     },
     {
       key: "price",
@@ -557,7 +608,7 @@ function Badge({
   tone = "purple",
 }: {
   children: ReactNode;
-  tone?: "purple" | "green" | "amber" | "slate" | "rose";
+  tone?: StatusTone;
 }) {
   const className =
     tone === "green"
@@ -571,7 +622,9 @@ function Badge({
             : "bg-purple-50 text-purple-700 ring-purple-100";
 
   return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}
+    >
       {children}
     </span>
   );
@@ -669,6 +722,7 @@ export default function AdminEventReviewPage() {
 
   useEffect(() => {
     loadEvent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
   const images = useMemo(() => {
@@ -691,7 +745,9 @@ export default function AdminEventReviewPage() {
     return getTagArray(event.tags);
   }, [event]);
 
-  async function updateEventStatus(nextStatus: "published" | "approved" | "rejected" | "archived" | "draft") {
+  async function updateEventStatus(
+    nextStatus: "published" | "rejected" | "archived" | "draft",
+  ) {
     const client = supabase;
 
     if (!client || !event) {
@@ -699,7 +755,7 @@ export default function AdminEventReviewPage() {
       return;
     }
 
-    if ((nextStatus === "published" || nextStatus === "approved") && blocked) {
+    if (nextStatus === "published" && blocked) {
       setMessage("仍有關鍵資料未完成，請先補齊活動名稱、日期、地點、圖片及 CTA。");
       return;
     }
@@ -711,9 +767,9 @@ export default function AdminEventReviewPage() {
     const now = new Date().toISOString();
 
     let payload: Record<string, unknown> = {
-      status: nextStatus === "approved" ? "published" : nextStatus,
+      status: nextStatus,
       approval_status:
-        nextStatus === "published" || nextStatus === "approved"
+        nextStatus === "published"
           ? "approved"
           : nextStatus === "rejected"
             ? "rejected"
@@ -724,12 +780,13 @@ export default function AdminEventReviewPage() {
       updated_at: now,
     };
 
-    if (nextStatus === "published" || nextStatus === "approved") {
+    if (nextStatus === "published") {
       payload.published_at = now;
     }
 
     if (nextStatus === "rejected") {
-      payload.rejection_reason = adminNote || "資料未符合發布要求，請商戶補充後再提交。";
+      payload.rejection_reason =
+        adminNote || "資料未符合發布要求，請商戶補充後再提交。";
     }
 
     for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -746,15 +803,10 @@ export default function AdminEventReviewPage() {
         setAdminNote(safeText(updated.admin_note || updated.rejection_reason));
         setSaving(false);
 
-        if (nextStatus === "published" || nextStatus === "approved") {
-          setMessage("活動已批准並發布。");
-        } else if (nextStatus === "rejected") {
-          setMessage("活動已拒絕，商戶需要修改後再提交。");
-        } else if (nextStatus === "archived") {
-          setMessage("活動已封存。");
-        } else {
-          setMessage("活動已轉回草稿。");
-        }
+        if (nextStatus === "published") setMessage("活動已批准並發布。");
+        if (nextStatus === "rejected") setMessage("活動已拒絕，商戶需要修改後再提交。");
+        if (nextStatus === "archived") setMessage("活動已封存。");
+        if (nextStatus === "draft") setMessage("活動已轉回草稿。");
 
         return;
       }
@@ -782,7 +834,9 @@ export default function AdminEventReviewPage() {
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-7xl">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">正在載入 Admin Review...</p>
+            <p className="text-sm font-bold text-slate-500">
+              正在載入 Admin Review...
+            </p>
           </div>
         </div>
       </main>
@@ -812,10 +866,7 @@ export default function AdminEventReviewPage() {
   if (!event) return null;
 
   const title = safeText(event.title_tc || event.title, "未命名活動");
-  const shortDescription = safeText(
-    event.short_description_tc,
-    "商戶未提供短簡介。",
-  );
+  const shortDescription = safeText(event.short_description_tc, "商戶未提供短簡介。");
   const description = safeText(event.description_tc, "暫未提供詳細活動內容。");
   const venue = safeText(
     event.venue_name_tc || event.venue_name,
@@ -862,8 +913,9 @@ export default function AdminEventReviewPage() {
               <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
                 活動最終審批 Review
               </h1>
+
               <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-                此頁會顯示商戶最終圖片排序、封面裁切、Gallery、CTA、地點及收費。批准後活動會變成公開狀態。
+                此頁顯示商戶最終圖片排序、封面裁切、Gallery、CTA、地點及收費。批准後活動會變成公開狀態。
               </p>
             </div>
 
@@ -876,12 +928,14 @@ export default function AdminEventReviewPage() {
               >
                 重新整理
               </button>
+
               <Link
                 href={`/merchant/events/${event.id}/preview`}
                 className="rounded-full border border-purple-200 bg-white px-5 py-2 text-sm font-black text-purple-700 hover:bg-purple-50"
               >
                 商戶 Preview
               </Link>
+
               <Link
                 href={`/events/${event.id}`}
                 className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
@@ -1115,8 +1169,12 @@ export default function AdminEventReviewPage() {
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-black text-purple-700">Final Publish Checklist</p>
-                <h2 className="mt-1 text-lg font-black text-slate-950">發布前檢查</h2>
+                <p className="text-xs font-black text-purple-700">
+                  Final Publish Checklist
+                </p>
+                <h2 className="mt-1 text-lg font-black text-slate-950">
+                  發布前檢查
+                </h2>
               </div>
               <Badge tone={blocked ? "rose" : "green"}>{checklistScore}%</Badge>
             </div>
@@ -1139,10 +1197,18 @@ export default function AdminEventReviewPage() {
                     <span
                       className={[
                         "text-xs font-black",
-                        item.done ? "text-emerald-700" : item.level === "critical" ? "text-rose-700" : "text-amber-700",
+                        item.done
+                          ? "text-emerald-700"
+                          : item.level === "critical"
+                            ? "text-rose-700"
+                            : "text-amber-700",
                       ].join(" ")}
                     >
-                      {item.done ? "通過" : item.level === "critical" ? "必須修正" : "建議修正"}
+                      {item.done
+                        ? "通過"
+                        : item.level === "critical"
+                          ? "必須修正"
+                          : "建議修正"}
                     </span>
                   </div>
                   <p className="mt-2 text-xs font-medium leading-5 text-slate-600">
@@ -1171,7 +1237,7 @@ export default function AdminEventReviewPage() {
 
             <textarea
               value={adminNote}
-              onChange={(eventChange) => setAdminNote(eventChange.target.value)}
+              onChange={(changeEvent) => setAdminNote(changeEvent.target.value)}
               placeholder="例如：請補充正確報名連結、活動日期、收費資料或更清晰圖片。"
               className="mt-4 min-h-32 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             />
@@ -1187,7 +1253,7 @@ export default function AdminEventReviewPage() {
                 disabled={saving || blocked}
                 className="rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-slate-300"
               >
-                批准並發布
+                {saving ? "處理中..." : "批准並發布"}
               </button>
 
               <button
