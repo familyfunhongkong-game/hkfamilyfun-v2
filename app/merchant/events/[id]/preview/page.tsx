@@ -1,863 +1,1064 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 type EventRecord = {
   id: string;
-  title?: string | null;
+
   title_tc?: string | null;
+  title_en?: string | null;
   short_description_tc?: string | null;
   description_tc?: string | null;
-  highlights?: string | null;
-  terms?: string | null;
-  remarks?: string | null;
-  tags?: string | null;
-  category?: unknown;
-  activity_category?: string | null;
+
+  status?: string | null;
+  approval_status?: string | null;
+
+  merchant_id?: string | null;
+  merchant_name?: string | null;
+  organizer_name?: string | null;
+
+  cover_image_url?: string | null;
+  gallery_image_urls?: string[] | JsonValue | null;
+  images?: string[] | JsonValue | null;
+
+  cover_image_zoom?: number | string | null;
+  cover_image_offset_x?: number | string | null;
+  cover_image_offset_y?: number | string | null;
+  cover_image_focus_y?: number | string | null;
+  cover_image_rotate?: number | string | null;
+  cover_image_flip_x?: boolean | null;
+  cover_image_flip_y?: boolean | null;
+  cover_image_filter?: string | null;
+  cover_image_brightness?: number | string | null;
+  cover_image_contrast?: number | string | null;
+  cover_image_saturation?: number | string | null;
 
   start_date?: string | null;
   end_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
 
-  venue_name?: string | null;
-  address?: string | null;
+  venue_name_tc?: string | null;
+  venue_name_en?: string | null;
+  address_tc?: string | null;
+  address_en?: string | null;
   area?: string | null;
   district?: string | null;
   mtr_station?: string | null;
+
+  price_type?: string | null;
+  price_text?: string | null;
+  price_note?: string | null;
+  min_price?: number | string | null;
+
+  age_group?: string | null;
+  activity_type?: string | null;
+  category?: string | null;
+  tags?: string[] | JsonValue | null;
+
+  registration_required?: boolean | null;
+  registration_url?: string | null;
+  source_url?: string | null;
+  booking_method?: string | null;
+  cta_text?: string | null;
+
   google_map_url?: string | null;
   google_map_embed_url?: string | null;
 
-  price_display_mode?: string | null;
-  price_label?: string | null;
-  min_price?: string | number | null;
-  max_price?: string | number | null;
-  original_price?: string | number | null;
-  offer_price?: string | number | null;
-  quota_label?: string | null;
+  parent_note_tc?: string | null;
+  safety_note_tc?: string | null;
+  cancellation_policy_tc?: string | null;
 
-  cta_type?: string | null;
-  cta_label?: string | null;
-  registration_url?: string | null;
-  booking_url?: string | null;
-  official_url?: string | null;
-  source_url?: string | null;
-  contact_phone?: string | null;
-  contact_email?: string | null;
-  whatsapp?: string | null;
-
-  cover_image_url?: string | null;
-  gallery_image_urls?: unknown;
-
-  organizer_name?: string | null;
-  merchant_name?: string | null;
-  status?: string | null;
+  source_type?: string | null;
+  created_at?: string | null;
   updated_at?: string | null;
 };
 
-type ReadinessItem = {
-  key: string;
+type GalleryImage = {
+  url: string;
+  label: string;
+  isCover: boolean;
+};
+
+type CompletenessItem = {
   label: string;
   done: boolean;
 };
 
-function safeText(value: unknown, fallback = "") {
-  if (value === null || value === undefined) return fallback;
+const FALLBACK_IMAGE =
+  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
 
-  if (Array.isArray(value)) {
-    const joined = value
-      .map((item) => String(item || "").trim())
-      .filter(Boolean)
-      .join(", ");
-    return joined || fallback;
+function safeText(value: unknown, fallback = "未填寫"): string {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function toNumber(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
   }
-
-  const text = String(value).trim();
-  return text.length ? text : fallback;
+  return fallback;
 }
 
-function splitLines(value: unknown) {
-  return safeText(value)
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+function isValidUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  return /^https?:\/\//i.test(trimmed);
 }
 
-function getGalleryArray(value: unknown) {
+function normalizeImageArray(value: unknown): string[] {
+  if (!value) return [];
+
   if (Array.isArray(value)) {
-    return value.map((item) => String(item || "").trim()).filter(Boolean);
+    return value
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (
+          item &&
+          typeof item === "object" &&
+          "url" in item &&
+          typeof (item as { url?: unknown }).url === "string"
+        ) {
+          return String((item as { url: string }).url);
+        }
+        if (
+          item &&
+          typeof item === "object" &&
+          "src" in item &&
+          typeof (item as { src?: unknown }).src === "string"
+        ) {
+          return String((item as { src: string }).src);
+        }
+        return "";
+      })
+      .map((item) => item.trim())
+      .filter((item) => isValidUrl(item));
   }
 
   if (typeof value === "string") {
-    const text = value.trim();
-    if (!text) return [];
+    const trimmed = value.trim();
+
+    if (!trimmed) return [];
+
+    if (isValidUrl(trimmed)) return [trimmed];
 
     try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        return parsed.map((item) => String(item || "").trim()).filter(Boolean);
-      }
+      const parsed = JSON.parse(trimmed);
+      return normalizeImageArray(parsed);
     } catch {
-      return text
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
+      return [];
     }
   }
 
   return [];
 }
 
-function uniqueImages(images: string[]) {
-  return Array.from(new Set(images.map((item) => item.trim()).filter(Boolean))).slice(0, 5);
+function uniqueImages(input: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+
+  for (const raw of input) {
+    const url = raw.trim();
+    if (!isValidUrl(url)) continue;
+
+    const key = url.toLowerCase();
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    output.push(url);
+  }
+
+  return output;
 }
 
-function getAllImages(event: EventRecord) {
-  return uniqueImages([
-    safeText(event.cover_image_url),
-    ...getGalleryArray(event.gallery_image_urls),
-  ]);
+function getGalleryImages(event: EventRecord): GalleryImage[] {
+  const cover = isValidUrl(event.cover_image_url)
+    ? event.cover_image_url.trim()
+    : "";
+
+  const galleryFromMain = normalizeImageArray(event.gallery_image_urls);
+  const galleryFromImages = normalizeImageArray(event.images);
+
+  const ordered = uniqueImages([
+    cover,
+    ...galleryFromMain,
+    ...galleryFromImages,
+  ]).slice(0, 6);
+
+  if (ordered.length === 0) {
+    return [
+      {
+        url: FALLBACK_IMAGE,
+        label: "預設圖片",
+        isCover: true,
+      },
+    ];
+  }
+
+  return ordered.map((url, index) => ({
+    url,
+    label: index === 0 ? "封面圖片" : `Gallery 圖片 ${index}`,
+    isCover: index === 0,
+  }));
 }
 
-function getHeroImage(event: EventRecord) {
-  return safeText(event.cover_image_url) || getAllImages(event)[0] || "";
+function formatDate(value?: string | null): string {
+  if (!value) return "日期待定";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("zh-HK", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 }
 
-function getTitle(event: EventRecord) {
-  return safeText(event.title_tc || event.title, "未命名活動");
-}
-
-function getActivityCategory(event: EventRecord) {
-  const direct = safeText(event.activity_category);
-  if (direct) return direct;
-
-  const legacy = event.category;
-  if (Array.isArray(legacy)) return safeText(legacy[0], "親子活動");
-
-  return safeText(legacy, "親子活動");
-}
-
-function formatDate(value?: string | null) {
-  const text = safeText(value);
-  if (!text) return "";
-  return text.slice(0, 10);
-}
-
-function formatDateRange(event: EventRecord) {
+function formatDateRange(event: EventRecord): string {
   const start = formatDate(event.start_date);
   const end = formatDate(event.end_date);
 
-  if (start && end && start !== end) return `${start} 至 ${end}`;
-  if (start) return start;
-  if (end) return end;
-  return "日期待確認";
+  if (!event.start_date && !event.end_date) return "日期待定";
+  if (!event.end_date || start === end) return start;
+  return `${start} 至 ${end}`;
 }
 
-function formatTimeRange(event: EventRecord) {
-  const start = safeText(event.start_time).slice(0, 5);
-  const end = safeText(event.end_time).slice(0, 5);
+function formatTimeRange(event: EventRecord): string {
+  const start = safeText(event.start_time, "");
+  const end = safeText(event.end_time, "");
 
-  if (start && end) return `${start}–${end}`;
-  if (start) return `${start} 開始`;
-  return "時間待確認";
+  if (!start && !end) return "時間待定";
+  if (start && end) return `${start} - ${end}`;
+  return start || end || "時間待定";
 }
 
-function formatPrice(event: EventRecord) {
-  const mode = safeText(event.price_display_mode, "unknown");
-  const label = safeText(event.price_label);
-  const min = safeText(event.min_price);
-  const max = safeText(event.max_price);
-  const original = safeText(event.original_price);
-  const offer = safeText(event.offer_price);
-  const quota = safeText(event.quota_label);
+function formatPrice(event: EventRecord): string {
+  const priceType = safeText(event.price_type, "").toLowerCase();
+  const priceText = safeText(event.price_text, "");
+  const minPrice = toNumber(event.min_price, NaN);
 
-  if (mode === "hidden") return "不顯示價錢";
-  if (mode === "free") return "免費";
-  if (mode === "quota") return quota || "名額有限，詳情請向主辦查詢";
+  if (priceText) return priceText;
 
-  if (mode === "early_bird") {
-    if (offer && original) return `早鳥優惠價 HK$${offer}（原價 HK$${original}）`;
-    if (offer) return `早鳥優惠價 HK$${offer}`;
-    return label || "早鳥優惠價待確認";
+  if (priceType === "free") return "免費";
+  if (priceType === "paid" && Number.isFinite(minPrice)) {
+    return `HK$${minPrice} 起`;
+  }
+  if (priceType === "paid") return "收費活動";
+  if (priceType === "early_bird") return "早鳥 / 優惠價";
+  if (priceType === "contact") return "請向主辦查詢";
+  return "收費待確認";
+}
+
+function getStatusLabel(status?: string | null): string {
+  switch (status) {
+    case "draft":
+      return "草稿";
+    case "submitted":
+      return "審批中";
+    case "approved":
+      return "已批准";
+    case "published":
+      return "已發布";
+    case "rejected":
+      return "已拒絕";
+    case "archived":
+      return "已封存";
+    default:
+      return "未確認";
+  }
+}
+
+function getCategoryLabel(event: EventRecord): string {
+  const raw =
+    safeText(event.category, "") ||
+    safeText(event.activity_type, "") ||
+    safeText(event.age_group, "");
+
+  if (!raw) return "親子活動";
+
+  const map: Record<string, string> = {
+    kids: "親子活動",
+    parent_child: "親子活動",
+    workshop: "工作坊",
+    market: "市集",
+    exhibition: "展覽",
+    sports: "運動",
+    music: "音樂",
+    theatre: "劇場",
+    outdoor: "戶外活動",
+    indoor: "室內活動",
+    sen: "SEN 友善",
+    free: "免費活動",
+  };
+
+  return map[raw] || raw;
+}
+
+function getTagArray(value: unknown): string[] {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter(Boolean)
+      .slice(0, 6);
   }
 
-  if (mode === "fixed") {
-    if (min) return `HK$${min}`;
-    return label || "固定收費待確認";
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return getTagArray(parsed);
+    } catch {
+      return value
+        .split(/[,\n，、]/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 6);
+    }
   }
 
-  if (mode === "range") {
-    if (min && max && min !== max) return `HK$${min}–HK$${max}`;
-    if (min) return `HK$${min}`;
-    return label || "價錢範圍待確認";
-  }
-
-  if (mode === "from") {
-    if (min) return `HK$${min} 起`;
-    return label || "HK$XX 起";
-  }
-
-  return label || "收費待確認";
+  return [];
 }
 
-function getCtaLabel(event: EventRecord) {
-  const label = safeText(event.cta_label);
-  if (label) return label;
-
-  const type = safeText(event.cta_type, "official");
-
-  if (type === "external") return "前往報名";
-  if (type === "google_form") return "Google Form 報名";
-  if (type === "whatsapp") return "WhatsApp 報名";
-  if (type === "contact") return "請向主辦查詢";
-  if (type === "none") return "無需報名";
-  return "查看官方活動頁";
+function getPrimaryActionUrl(event: EventRecord): string | null {
+  if (isValidUrl(event.registration_url)) return event.registration_url.trim();
+  if (isValidUrl(event.source_url)) return event.source_url.trim();
+  return null;
 }
 
-function getCtaUrl(event: EventRecord) {
-  const type = safeText(event.cta_type, "official");
+function getPrimaryActionLabel(event: EventRecord): string {
+  const custom = safeText(event.cta_text, "");
+  if (custom) return custom;
 
-  if (type === "whatsapp") return safeText(event.whatsapp);
-  if (type === "google_form") return safeText(event.registration_url || event.booking_url);
-  if (type === "external") return safeText(event.registration_url || event.booking_url);
-  if (type === "official") return safeText(event.official_url || event.source_url);
-  return "";
+  if (isValidUrl(event.registration_url)) return "前往報名";
+  if (isValidUrl(event.source_url)) return "查看官方活動頁";
+  if (event.registration_required) return "請向主辦查詢";
+  return "無需報名";
 }
 
-function isExternalUrl(value: string) {
-  return /^https?:\/\//i.test(value);
+function getCoverTransform(event: EventRecord): CSSProperties {
+  const zoom = Math.min(Math.max(toNumber(event.cover_image_zoom, 1), 0.8), 3);
+  const offsetX = Math.min(
+    Math.max(toNumber(event.cover_image_offset_x, 0), -100),
+    100,
+  );
+  const offsetY = Math.min(
+    Math.max(toNumber(event.cover_image_offset_y, 0), -100),
+    100,
+  );
+  const focusY = Math.min(
+    Math.max(toNumber(event.cover_image_focus_y, 50), 0),
+    100,
+  );
+  const rotate = toNumber(event.cover_image_rotate, 0);
+  const flipX = event.cover_image_flip_x ? -1 : 1;
+  const flipY = event.cover_image_flip_y ? -1 : 1;
+
+  return {
+    transform: `translate(${offsetX}%, ${offsetY}%) scale(${zoom}) rotate(${rotate}deg) scaleX(${flipX}) scaleY(${flipY})`,
+    transformOrigin: `50% ${focusY}%`,
+  };
 }
 
-function statusLabel(status?: string | null) {
-  const value = safeText(status, "draft").toLowerCase();
+function getCoverFilter(event: EventRecord): CSSProperties {
+  const brightness = Math.min(
+    Math.max(toNumber(event.cover_image_brightness, 100), 40),
+    180,
+  );
+  const contrast = Math.min(
+    Math.max(toNumber(event.cover_image_contrast, 100), 40),
+    180,
+  );
+  const saturation = Math.min(
+    Math.max(toNumber(event.cover_image_saturation, 100), 0),
+    220,
+  );
 
-  if (["submitted", "pending", "review", "pending_review"].includes(value)) return "審批中";
-  if (["published", "approved", "live"].includes(value)) return "已發布";
-  if (["rejected", "declined"].includes(value)) return "已拒絕";
-  if (["archived", "hidden", "offline"].includes(value)) return "已封存";
-  return "草稿";
+  const filterName = safeText(event.cover_image_filter, "none");
+
+  let extraFilter = "";
+  if (filterName === "warm") extraFilter = "sepia(0.16)";
+  if (filterName === "cool") extraFilter = "hue-rotate(8deg) saturate(0.95)";
+  if (filterName === "mono") extraFilter = "grayscale(1)";
+  if (filterName === "soft") extraFilter = "contrast(0.94) brightness(1.04)";
+
+  return {
+    filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${extraFilter}`,
+  };
 }
 
-function getReadiness(event: EventRecord): ReadinessItem[] {
-  const images = getAllImages(event);
-  const ctaUrl = getCtaUrl(event);
-  const ctaType = safeText(event.cta_type, "official");
-
+function getCompleteness(event: EventRecord, images: GalleryImage[]): CompletenessItem[] {
   return [
-    { key: "title", label: "活動名稱", done: !!safeText(event.title_tc || event.title) },
-    { key: "date", label: "日期", done: !!safeText(event.start_date) },
-    { key: "location", label: "地點", done: !!safeText(event.venue_name || event.address) },
-    { key: "price", label: "收費", done: formatPrice(event) !== "收費待確認" },
     {
-      key: "cta",
-      label: "CTA",
-      done: ctaType === "none" || ctaType === "contact" || isExternalUrl(ctaUrl),
+      label: "活動名稱",
+      done: Boolean(safeText(event.title_tc, "")),
     },
-    { key: "images", label: `圖片 ${images.length} / 5`, done: images.length > 0 },
     {
-      key: "map",
-      label: "Google Map",
-      done: !!safeText(event.google_map_url || event.google_map_embed_url),
+      label: "日期",
+      done: Boolean(event.start_date),
+    },
+    {
+      label: "時間",
+      done: Boolean(event.start_time || event.end_time),
+    },
+    {
+      label: "地點",
+      done: Boolean(event.venue_name_tc || event.address_tc || event.district),
+    },
+    {
+      label: "收費",
+      done: Boolean(event.price_text || event.price_type || event.min_price),
+    },
+    {
+      label: "CTA",
+      done: Boolean(
+        event.registration_url ||
+          event.source_url ||
+          event.booking_method ||
+          event.registration_required === false,
+      ),
+    },
+    {
+      label: "圖片",
+      done: images.length > 0 && images[0].url !== FALLBACK_IMAGE,
+    },
+    {
+      label: "活動內容",
+      done: Boolean(event.short_description_tc || event.description_tc),
     },
   ];
 }
 
-function readinessScore(items: ReadinessItem[]) {
-  if (!items.length) return 0;
-  return Math.round((items.filter((item) => item.done).length / items.length) * 100);
+function getCompletenessPercent(items: CompletenessItem[]): number {
+  if (items.length === 0) return 0;
+  const done = items.filter((item) => item.done).length;
+  return Math.round((done / items.length) * 100);
 }
 
-function getGoogleMapEmbed(event: EventRecord) {
-  const embed = safeText(event.google_map_embed_url);
-  if (embed) return embed;
+function PreviewBadge({
+  children,
+  tone = "purple",
+}: {
+  children: React.ReactNode;
+  tone?: "purple" | "green" | "amber" | "slate";
+}) {
+  const className =
+    tone === "green"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+      : tone === "amber"
+        ? "bg-amber-50 text-amber-700 ring-amber-100"
+        : tone === "slate"
+          ? "bg-slate-100 text-slate-700 ring-slate-200"
+          : "bg-purple-50 text-purple-700 ring-purple-100";
 
-  const mapUrl = safeText(event.google_map_url);
-  if (mapUrl && mapUrl.includes("google.com/maps")) return mapUrl;
-
-  return "";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}
+    >
+      {children}
+    </span>
+  );
 }
 
-function getImageFrameClass(mode: "hero" | "gallery" | "side" = "gallery") {
-  if (mode === "hero") {
-    return "flex min-h-[420px] w-full items-center justify-center bg-gradient-to-br from-slate-100 via-white to-purple-50 p-4";
-  }
-
-  if (mode === "side") {
-    return "flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-br from-slate-100 via-white to-purple-50 p-3";
-  }
-
-  return "flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-br from-slate-100 via-white to-purple-50 p-3";
+function InfoPill({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+      <p className="text-xs font-bold text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-extrabold text-slate-800">{value}</p>
+    </div>
+  );
 }
 
-function getImageClass(mode: "hero" | "gallery" | "side" = "gallery") {
-  if (mode === "hero") {
-    return "max-h-[620px] max-w-full rounded-2xl object-contain shadow-sm";
-  }
-
-  return "max-h-full max-w-full rounded-2xl object-contain";
+function SectionCard({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center gap-2">
+        <span className="grid h-8 w-8 place-items-center rounded-2xl bg-purple-50 text-sm">
+          {icon}
+        </span>
+        <h2 className="text-base font-extrabold text-slate-950">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export default function MerchantEventPreviewPage() {
   const params = useParams();
+  const router = useRouter();
   const eventId = String(params?.id || "");
 
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [selectedImage, setSelectedImage] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const images = useMemo(() => (event ? getAllImages(event) : []), [event]);
-  const heroImage = useMemo(() => {
-    if (selectedImage) return selectedImage;
-    if (!event) return "";
-    return getHeroImage(event);
-  }, [event, selectedImage]);
-
-  const readiness = useMemo(() => (event ? getReadiness(event) : []), [event]);
-  const score = readinessScore(readiness);
-  const missing = readiness.filter((item) => !item.done).map((item) => item.label);
-
-  async function loadEvent() {
-    const client = supabase;
-
-    setLoading(true);
-    setMessage("");
-
-    if (!client) {
-      setMessage("Supabase client 未能初始化。");
-      setLoading(false);
-      return;
-    }
-
-    if (!eventId) {
-      setMessage("找不到活動 ID。");
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await client
-      .from("events")
-      .select("*")
-      .eq("id", eventId)
-      .maybeSingle();
-
-    if (error) {
-      setMessage(`讀取活動失敗：${error.message}`);
-      setLoading(false);
-      return;
-    }
-
-    if (!data) {
-      setMessage("找不到活動。");
-      setLoading(false);
-      return;
-    }
-
-    const currentEvent = data as EventRecord;
-    const currentImages = getAllImages(currentEvent);
-
-    setEvent(currentEvent);
-    setSelectedImage(currentImages[0] || "");
-    setLoading(false);
-  }
-
-  async function submitForReview() {
-    const client = supabase;
-
-    if (!client || !event) return;
-
-    if (missing.length) {
-      setMessage(`提交前請先補齊：${missing.join("、")}。`);
-      return;
-    }
-
-    setSubmitting(true);
-    setMessage("");
-
-    const { data, error } = await client
-      .from("events")
-      .update({
-        status: "submitted",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", event.id)
-      .select("*")
-      .maybeSingle();
-
-    if (error) {
-      setMessage(`提交失敗：${error.message}`);
-      setSubmitting(false);
-      return;
-    }
-
-    if (data) {
-      setEvent(data as EventRecord);
-    }
-
-    setMessage("已提交 HK Family Fun 審批。");
-    setSubmitting(false);
-  }
+  const [errorText, setErrorText] = useState("");
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<"market" | "detail">("market");
 
   useEffect(() => {
+    let ignore = false;
+
+    async function loadEvent() {
+      setLoading(true);
+      setErrorText("");
+
+      if (!supabase) {
+        setErrorText("Supabase 尚未初始化，請檢查 .env.local。");
+        setLoading(false);
+        return;
+      }
+
+      if (!eventId) {
+        setErrorText("找不到活動 ID。");
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("events")
+        .select("*")
+        .eq("id", eventId)
+        .maybeSingle();
+
+      if (ignore) return;
+
+      if (error) {
+        setErrorText(error.message || "讀取活動資料失敗。");
+        setEvent(null);
+        setLoading(false);
+        return;
+      }
+
+      if (!data) {
+        setErrorText("找不到此活動。");
+        setEvent(null);
+        setLoading(false);
+        return;
+      }
+
+      setEvent(data as EventRecord);
+      setSelectedImageIndex(0);
+      setLoading(false);
+    }
+
     loadEvent();
+
+    return () => {
+      ignore = true;
+    };
   }, [eventId]);
+
+  const images = useMemo(() => {
+    if (!event) return [];
+    return getGalleryImages(event);
+  }, [event]);
+
+  const selectedImage = images[selectedImageIndex] || images[0];
+
+  const completeness = useMemo(() => {
+    if (!event) return [];
+    return getCompleteness(event, images);
+  }, [event, images]);
+
+  const completenessPercent = getCompletenessPercent(completeness);
+
+  const tags = useMemo(() => {
+    if (!event) return [];
+    return getTagArray(event.tags);
+  }, [event]);
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-[1500px] px-4 py-16">
-          <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-3xl">
-              親
-            </div>
-            <p className="font-black text-slate-700">正在讀取 Preview...</p>
+      <main className="min-h-screen bg-slate-50 px-4 py-10">
+        <div className="mx-auto max-w-6xl">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+            <p className="text-sm font-bold text-slate-500">正在載入 Preview...</p>
           </div>
         </div>
       </main>
     );
   }
 
-  if (!event) {
+  if (errorText || !event) {
     return (
-      <main className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-4xl px-4 py-16">
-          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8">
-            <h1 className="text-2xl font-black text-slate-950">找不到活動</h1>
-            <p className="mt-3 text-sm leading-6 text-amber-800">
-              {message || "請返回 Dashboard 重新選擇活動。"}
-            </p>
-            <Link
-              href="/merchant/dashboard"
-              className="mt-6 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
+      <main className="min-h-screen bg-slate-50 px-4 py-10">
+        <div className="mx-auto max-w-4xl">
+          <div className="rounded-3xl border border-rose-200 bg-white p-8 shadow-sm">
+            <p className="text-sm font-extrabold text-rose-600">Preview 讀取失敗</p>
+            <p className="mt-2 text-sm text-slate-600">{errorText}</p>
+            <button
+              type="button"
+              onClick={() => router.push("/merchant/dashboard")}
+              className="mt-6 rounded-full bg-slate-950 px-5 py-3 text-sm font-extrabold text-white"
             >
-              返回 Dashboard
-            </Link>
+              返回 Merchant Dashboard
+            </button>
           </div>
         </div>
       </main>
     );
   }
 
-  const ctaLabel = getCtaLabel(event);
-  const ctaUrl = getCtaUrl(event);
-  const mapEmbed = getGoogleMapEmbed(event);
-  const highlights = splitLines(event.highlights);
-  const terms = splitLines(event.terms);
-  const tags = splitLines(event.tags).length
-    ? splitLines(event.tags)
-    : safeText(event.tags)
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean);
+  const title = safeText(event.title_tc, "未命名活動");
+  const shortDescription = safeText(
+    event.short_description_tc,
+    "系統已根據商戶資料建立活動草稿，請商戶在正式提交審批前確認內容。",
+  );
+  const description = safeText(
+    event.description_tc,
+    "暫未提供詳細活動內容。",
+  );
+  const venue = safeText(
+    event.venue_name_tc,
+    safeText(event.address_tc, safeText(event.district, "地點待定")),
+  );
+  const address = safeText(event.address_tc, "");
+  const district = safeText(event.district, "");
+  const mtr = safeText(event.mtr_station, "");
+  const merchantName = safeText(
+    event.merchant_name,
+    safeText(event.organizer_name, "HK Family Fun 商戶"),
+  );
+  const actionUrl = getPrimaryActionUrl(event);
+  const actionLabel = getPrimaryActionLabel(event);
+  const statusLabel = getStatusLabel(event.status);
+  const approvalStatus = getStatusLabel(event.approval_status || event.status);
+
+  const coverStyle: CSSProperties = {
+    ...getCoverTransform(event),
+    ...getCoverFilter(event),
+  };
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1500px] px-4 py-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <Link
-                href="/merchant/dashboard"
-                className="text-sm font-black text-purple-700 hover:text-purple-900"
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <button
+              type="button"
+              onClick={() => router.push("/merchant/dashboard")}
+              className="mb-3 text-sm font-extrabold text-purple-700 hover:text-purple-900"
+            >
+              ← 返回 Merchant Dashboard
+            </button>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <PreviewBadge tone="purple">Preview</PreviewBadge>
+              <PreviewBadge tone="slate">狀態：{statusLabel}</PreviewBadge>
+              <PreviewBadge
+                tone={
+                  completenessPercent >= 90
+                    ? "green"
+                    : completenessPercent >= 70
+                      ? "amber"
+                      : "slate"
+                }
               >
-                ← 返回 Merchant Dashboard
-              </Link>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl font-black tracking-tight text-slate-950">
-                  活動提交前預覽
-                </h1>
-                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
-                  {statusLabel(event.status)}
-                </span>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                這裡會即時讀取已儲存的圖片、5 張 Gallery、收費、CTA 及 Google Map。
-              </p>
+                完成度 {completenessPercent}%
+              </PreviewBadge>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={loadEvent}
-                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
-              >
-                重新讀取
-              </button>
-              <Link
-                href={`/merchant/events/${event.id}/edit`}
-                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
-              >
-                返回編輯
-              </Link>
-              <button
-                type="button"
-                onClick={submitForReview}
-                disabled={submitting || missing.length > 0}
-                className="rounded-full bg-purple-700 px-5 py-2 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
-              >
-                {submitting ? "提交中..." : "提交 HK Family Fun 審批"}
-              </button>
-            </div>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+              活動提交前預覽
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm font-medium text-slate-500">
+              此頁會同步 edit page 的封面裁切、圖片排序及 Gallery 圖片。提交審批前請檢查圖片、日期、地點、收費及報名連結。
+            </p>
           </div>
 
-          {message ? (
-            <div
-              className={[
-                "mt-5 rounded-2xl border px-4 py-3 text-sm font-bold",
-                message.includes("失敗") || message.includes("補齊")
-                  ? "border-amber-200 bg-amber-50 text-amber-800"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-800",
-              ].join(" ")}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => router.push(`/merchant/events/${eventId}/edit`)}
+              className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-extrabold text-slate-700 hover:bg-slate-50"
             >
-              {message}
-            </div>
-          ) : null}
+              返回編輯
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/merchant/dashboard")}
+              className="rounded-full bg-purple-700 px-5 py-3 text-sm font-extrabold text-white hover:bg-purple-800"
+            >
+              返回 Dashboard
+            </button>
+          </div>
         </div>
-      </section>
+      </header>
 
-      <section className="mx-auto grid max-w-[1500px] gap-6 px-4 py-6 xl:grid-cols-[1fr_390px]">
-        <div className="space-y-6">
-          <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="bg-slate-100">
-              {heroImage ? (
-                <div className={getImageFrameClass("hero")}>
+      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="space-y-6">
+          <div className="flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setViewMode("market")}
+              className={`flex-1 rounded-xl px-4 py-3 text-sm font-extrabold ${
+                viewMode === "market"
+                  ? "bg-purple-700 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Market Card Preview
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("detail")}
+              className={`flex-1 rounded-xl px-4 py-3 text-sm font-extrabold ${
+                viewMode === "detail"
+                  ? "bg-purple-700 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Detail Page Preview
+            </button>
+          </div>
+
+          {viewMode === "market" ? (
+            <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+              <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+                <img
+                  src={images[0]?.url || FALLBACK_IMAGE}
+                  alt={title}
+                  className="h-full w-full object-cover"
+                  style={coverStyle}
+                />
+
+                <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-purple-700 shadow-sm backdrop-blur">
+                    {getCategoryLabel(event)}
+                  </span>
+                  <span className="rounded-full bg-amber-100/95 px-3 py-1 text-xs font-black text-amber-700 shadow-sm backdrop-blur">
+                    {formatPrice(event)}
+                  </span>
+                </div>
+
+                <div className="absolute bottom-4 left-4 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+                  封面已同步裁切設定
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-3 flex flex-wrap gap-2">
+                  <PreviewBadge tone="purple">{getCategoryLabel(event)}</PreviewBadge>
+                  <PreviewBadge tone="amber">{formatPrice(event)}</PreviewBadge>
+                  {mtr ? <PreviewBadge tone="slate">{mtr}</PreviewBadge> : null}
+                </div>
+
+                <h2 className="text-2xl font-black leading-tight text-slate-950">
+                  {title}
+                </h2>
+
+                <p className="mt-3 text-sm font-medium leading-7 text-slate-600">
+                  {shortDescription}
+                </p>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  <InfoPill label="日期" value={formatDateRange(event)} />
+                  <InfoPill label="時間" value={formatTimeRange(event)} />
+                  <InfoPill label="地點" value={venue} />
+                  <InfoPill label="收費" value={formatPrice(event)} />
+                </div>
+
+                {tags.length > 0 ? (
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="mt-6">
+                  {actionUrl ? (
+                    <a
+                      href={actionUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex w-full items-center justify-center rounded-2xl bg-purple-700 px-5 py-4 text-sm font-black text-white hover:bg-purple-800 md:w-auto"
+                    >
+                      {actionLabel}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-200 px-5 py-4 text-sm font-black text-slate-500 md:w-auto"
+                    >
+                      {actionLabel}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+          ) : (
+            <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+              <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+                <div className="relative aspect-[16/10] overflow-hidden bg-slate-100 lg:aspect-auto lg:min-h-[520px]">
                   <img
-                    src={heroImage}
-                    alt={getTitle(event)}
-                    className={getImageClass("hero")}
+                    src={images[0]?.url || FALLBACK_IMAGE}
+                    alt={title}
+                    className="h-full w-full object-cover"
+                    style={coverStyle}
                   />
                 </div>
-              ) : (
-                <div className="flex min-h-[420px] items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-6xl">
-                  親
-                </div>
-              )}
-            </div>
 
-            <div className="p-6">
-              <div className="flex flex-wrap gap-2">
-                <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
-                  {getActivityCategory(event)}
-                </span>
-                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
-                  {statusLabel(event.status)}
-                </span>
-              </div>
-
-              <h2 className="mt-4 text-3xl font-black leading-tight text-slate-950">
-                {getTitle(event)}
-              </h2>
-
-              <p className="mt-4 text-sm leading-7 text-slate-600">
-                {safeText(
-                  event.short_description_tc || event.description_tc,
-                  "活動簡介尚未填寫。"
-                )}
-              </p>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <InfoCard label="日期" value={formatDateRange(event)} icon="🗓️" />
-                <InfoCard label="時間" value={formatTimeRange(event)} icon="⏰" />
-                <InfoCard
-                  label="地點"
-                  value={safeText(event.venue_name || event.address, "地點待確認")}
-                  icon="📍"
-                />
-                <InfoCard label="收費" value={formatPrice(event)} icon="🎟️" />
-              </div>
-
-              {tags.length ? (
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {tags.slice(0, 10).map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-
-              <div className="mt-6">
-                {isExternalUrl(ctaUrl) ? (
-                  <a
-                    href={ctaUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex w-full items-center justify-center rounded-2xl bg-purple-700 px-5 py-4 text-sm font-black text-white hover:bg-purple-800 md:w-auto"
-                  >
-                    {ctaLabel}
-                  </a>
-                ) : (
-                  <div className="rounded-2xl bg-slate-100 px-5 py-4 text-sm font-black text-slate-600">
-                    {ctaLabel}
+                <div className="p-6 lg:p-8">
+                  <div className="flex flex-wrap gap-2">
+                    <PreviewBadge tone="purple">{getCategoryLabel(event)}</PreviewBadge>
+                    <PreviewBadge tone="amber">{formatPrice(event)}</PreviewBadge>
                   </div>
-                )}
-              </div>
-            </div>
-          </article>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-2xl font-black text-slate-950">活動圖片 Gallery</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  已讀取 {images.length} 張圖片。點擊圖片可切換上方主圖。
-                </p>
-              </div>
-              <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
-                {images.length} / 5
-              </span>
-            </div>
+                  <h2 className="mt-4 text-3xl font-black leading-tight text-slate-950">
+                    {title}
+                  </h2>
 
-            {images.length ? (
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
+                  <p className="mt-4 text-sm font-medium leading-7 text-slate-600">
+                    {shortDescription}
+                  </p>
+
+                  <div className="mt-6 grid gap-3">
+                    <InfoPill label="日期" value={formatDateRange(event)} />
+                    <InfoPill label="時間" value={formatTimeRange(event)} />
+                    <InfoPill label="地點" value={venue} />
+                    <InfoPill label="主辦商戶" value={merchantName} />
+                  </div>
+
+                  <div className="mt-6">
+                    {actionUrl ? (
+                      <a
+                        href={actionUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex w-full items-center justify-center rounded-2xl bg-purple-700 px-5 py-4 text-sm font-black text-white hover:bg-purple-800"
+                      >
+                        {actionLabel}
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-200 px-5 py-4 text-sm font-black text-slate-500"
+                      >
+                        {actionLabel}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          <SectionCard title="活動圖片 Gallery" icon="🖼️">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
+                <div className="relative aspect-[16/9] overflow-hidden">
+                  <img
+                    src={selectedImage?.url || FALLBACK_IMAGE}
+                    alt={selectedImage?.label || title}
+                    className="h-full w-full object-cover"
+                    style={selectedImage?.isCover ? coverStyle : undefined}
+                  />
+
+                  <div className="absolute left-4 top-4 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+                    {selectedImage?.label || "圖片"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
                 {images.map((image, index) => (
                   <button
-                    key={`${image}-${index}`}
+                    key={`${image.url}-${index}`}
                     type="button"
-                    onClick={() => setSelectedImage(image)}
-                    className={[
-                      "overflow-hidden rounded-3xl border bg-white text-left transition",
-                      selectedImage === image
-                        ? "border-purple-500 ring-4 ring-purple-100"
-                        : "border-slate-200 hover:border-purple-300",
-                    ].join(" ")}
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={`group overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition ${
+                      selectedImageIndex === index
+                        ? "border-purple-500 ring-2 ring-purple-200"
+                        : "border-slate-200 hover:border-purple-200"
+                    }`}
                   >
-                    <div className={getImageFrameClass("gallery")}>
+                    <div className="aspect-[16/10] overflow-hidden bg-slate-100">
                       <img
-                        src={image}
-                        alt={`Gallery 圖片 ${index + 1}`}
-                        className={getImageClass("gallery")}
+                        src={image.url}
+                        alt={image.label}
+                        className="h-full w-full object-cover transition group-hover:scale-[1.03]"
+                        style={image.isCover ? coverStyle : undefined}
                       />
                     </div>
-                    <div className="border-t border-slate-100 px-3 py-2 text-xs font-black text-slate-500">
-                      圖片 {index + 1}
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-xs font-extrabold text-slate-700">
+                        {image.label}
+                      </span>
+                      {image.isCover ? (
+                        <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-black text-purple-700">
+                          Cover
+                        </span>
+                      ) : null}
                     </div>
                   </button>
                 ))}
               </div>
-            ) : (
-              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm font-bold text-slate-500">
-                暫時沒有 Gallery 圖片。請返回編輯頁 Step 3 上載圖片並等候 Auto Save 成功。
-              </div>
-            )}
-          </section>
+            </div>
+          </SectionCard>
 
-          <ContentSection title="活動亮點" icon="✨" lines={highlights} fallback="活動亮點尚未填寫。" />
+          <SectionCard title="活動資料" icon="📝">
+            <div className="prose prose-sm max-w-none text-slate-700">
+              <p className="whitespace-pre-wrap leading-7">{description}</p>
+            </div>
+          </SectionCard>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-black text-slate-950">活動詳情</h2>
-            <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-600">
-              {safeText(event.description_tc, "詳細介紹尚未填寫。")}
-            </p>
-          </section>
-
-          <ContentSection title="注意事項" icon="⚠️" lines={terms} fallback="注意事項尚未填寫。" />
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-black text-slate-950">交通及地圖</h2>
-
-            <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-              <p>
-                <span className="font-black text-slate-500">場地：</span>
-                {safeText(event.venue_name, "未填")}
-              </p>
-              <p>
-                <span className="font-black text-slate-500">地址：</span>
-                {safeText(event.address, "未填")}
-              </p>
-              <p>
-                <span className="font-black text-slate-500">港鐵站：</span>
-                {safeText(event.mtr_station, "未填")}
-              </p>
+          <SectionCard title="地點及交通" icon="📍">
+            <div className="grid gap-3 md:grid-cols-2">
+              <InfoPill label="場地" value={venue} />
+              <InfoPill label="地區" value={district || "地區待定"} />
+              <InfoPill label="港鐵站" value={mtr || "港鐵站待定"} />
+              <InfoPill label="地址" value={address || "地址待定"} />
             </div>
 
-            {mapEmbed ? (
-              <div className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
+            {isValidUrl(event.google_map_embed_url) ? (
+              <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200">
                 <iframe
-                  src={mapEmbed}
+                  src={event.google_map_embed_url}
                   className="h-[320px] w-full"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                 />
               </div>
+            ) : isValidUrl(event.google_map_url) ? (
+              <a
+                href={event.google_map_url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-5 inline-flex rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-extrabold text-slate-700 hover:bg-slate-50"
+              >
+                開啟 Google Map
+              </a>
             ) : (
-              <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm font-bold text-slate-500">
-                Google Map 尚未設定。
+              <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm font-bold text-slate-500">
+                尚未加入 Google Map。
               </div>
             )}
-          </section>
+          </SectionCard>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-black text-slate-950">主辦機構及聯絡方式</h2>
+          <SectionCard title="家長留意事項" icon="⚠️">
+            <div className="grid gap-4">
+              <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-100">
+                <p className="text-xs font-black text-amber-700">家長提示</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-7 text-amber-900">
+                  {safeText(event.parent_note_tc, "請出發前再次向主辦方確認活動日期、時間、名額、收費及報名安排。")}
+                </p>
+              </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <InfoCard
-                label="主辦方"
-                value={safeText(event.organizer_name || event.merchant_name, "未填")}
-                icon="🏢"
-              />
-              <InfoCard label="電話" value={safeText(event.contact_phone, "未填")} icon="☎️" />
-              <InfoCard label="Email" value={safeText(event.contact_email, "未填")} icon="✉️" />
-              <InfoCard label="WhatsApp" value={safeText(event.whatsapp, "未填")} icon="💬" />
+              <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
+                <p className="text-xs font-black text-sky-700">安全提示</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-7 text-sky-900">
+                  {safeText(event.safety_note_tc, "請按小朋友年齡、體力及現場人流情況評估是否適合參加。")}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                <p className="text-xs font-black text-slate-700">取消及退款政策</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-7 text-slate-700">
+                  {safeText(event.cancellation_policy_tc, "請以主辦方公布的最新安排為準。")}
+                </p>
+              </div>
             </div>
-          </section>
+          </SectionCard>
+        </section>
 
-          <section className="rounded-3xl border border-blue-200 bg-blue-50 p-6 text-sm leading-7 text-blue-900">
-            <h2 className="text-lg font-black">平台免責聲明</h2>
-            <p className="mt-2">
-              HK Family Fun 只作活動資訊展示及整理，實際日期、時間、名額、收費及安排以主辦方公布為準。
-              家長報名前應自行核對主辦方官方資料。
-            </p>
-          </section>
-        </div>
-
-        <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+        <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black text-slate-950">提交前檢查</h2>
-              <span
-                className={[
-                  "rounded-full px-3 py-1 text-xs font-black",
-                  score >= 80
-                    ? "bg-emerald-50 text-emerald-700"
-                    : score >= 60
-                    ? "bg-amber-50 text-amber-700"
-                    : "bg-rose-50 text-rose-700",
-                ].join(" ")}
+              <h3 className="text-sm font-black text-slate-950">公開頁關鍵資料</h3>
+              <PreviewBadge
+                tone={
+                  completenessPercent >= 90
+                    ? "green"
+                    : completenessPercent >= 70
+                      ? "amber"
+                      : "slate"
+                }
               >
-                {score}%
-              </span>
+                {completenessPercent}%
+              </PreviewBadge>
             </div>
 
             <div className="mt-4 space-y-2">
-              {readiness.map((item) => (
+              {completeness.map((item) => (
                 <div
-                  key={item.key}
-                  className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm"
+                  key={item.label}
+                  className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2"
                 >
-                  <span className="font-black text-slate-600">{item.label}</span>
+                  <span className="text-xs font-bold text-slate-500">
+                    {item.label}
+                  </span>
                   <span
-                    className={[
-                      "font-black",
-                      item.done ? "text-emerald-700" : "text-rose-700",
-                    ].join(" ")}
+                    className={`text-xs font-black ${
+                      item.done ? "text-emerald-600" : "text-rose-600"
+                    }`}
                   >
                     {item.done ? "已完成" : "未完成"}
                   </span>
                 </div>
               ))}
             </div>
-
-            {missing.length ? (
-              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                <p className="font-black">提交前要補齊：</p>
-                <p>{missing.join("、")}</p>
-              </div>
-            ) : (
-              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">
-                主要資料已齊，可以提交審批。
-              </div>
-            )}
           </div>
 
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="bg-slate-50 p-3">
-              {heroImage ? (
-                <div className={getImageFrameClass("side")}>
-                  <img
-                    src={heroImage}
-                    alt={getTitle(event)}
-                    className={getImageClass("side")}
-                  />
-                </div>
-              ) : null}
-            </div>
-            <div className="p-4">
-              <p className="text-xs font-black text-purple-700">家長看到的活動 Card</p>
-              <h3 className="mt-2 line-clamp-2 text-base font-black text-slate-950">
-                {getTitle(event)}
-              </h3>
-              <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-500">
-                {safeText(event.short_description_tc || event.description_tc)}
-              </p>
-              <p className="mt-3 text-xs font-black text-slate-700">{formatPrice(event)}</p>
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-sm font-black text-slate-950">審批狀態</h3>
+
+            <div className="mt-4 grid gap-3">
+              <InfoPill label="活動狀態" value={statusLabel} />
+              <InfoPill label="審批狀態" value={approvalStatus} />
+              <InfoPill label="圖片數量" value={`${images.length} 張`} />
+              <InfoPill
+                label="來源"
+                value={safeText(event.source_type, "商戶手動建立")}
+              />
             </div>
           </div>
 
-          <div className="rounded-3xl border border-purple-200 bg-purple-50 p-5 text-sm leading-6 text-purple-900">
-            <p className="font-black">圖片顯示設計</p>
-            <ul className="mt-3 list-disc space-y-2 pl-5">
-              <li>主圖使用大尺寸顯示，方便看清活動海報。</li>
-              <li>Gallery 使用 2-column 大圖，不再壓成細 thumbnail。</li>
-              <li>圖片使用 object-contain，不會裁走海報文字。</li>
-              <li>點擊 Gallery 圖片可切換上方主圖。</li>
+          <div className="rounded-3xl border border-purple-100 bg-purple-50 p-5">
+            <h3 className="text-sm font-black text-purple-950">圖片檢查重點</h3>
+            <ul className="mt-3 space-y-2 text-xs font-bold leading-6 text-purple-800">
+              <li>• 第一張圖片會作為封面圖片。</li>
+              <li>• Preview 已按 edit page 圖片排序顯示。</li>
+              <li>• 封面圖會同步 zoom、左右、上下裁切設定。</li>
+              <li>• Gallery 已自動移除重複圖片。</li>
+              <li>• 建議封面使用 16:9 橫圖，海報可放 Gallery。</li>
             </ul>
           </div>
         </aside>
-      </section>
-    </main>
-  );
-}
-
-function InfoCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-slate-50 p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-lg shadow-sm">
-          {icon}
-        </div>
-        <div>
-          <p className="text-xs font-black text-slate-400">{label}</p>
-          <p className="mt-1 text-sm font-black leading-5 text-slate-800">{value}</p>
-        </div>
       </div>
-    </div>
-  );
-}
-
-function ContentSection({
-  title,
-  icon,
-  lines,
-  fallback,
-}: {
-  title: string;
-  icon: string;
-  lines: string[];
-  fallback: string;
-}) {
-  return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-black text-slate-950">
-        {icon} {title}
-      </h2>
-
-      {lines.length ? (
-        <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-7 text-slate-600">
-          {lines.map((line, index) => (
-            <li key={`${line}-${index}`}>{line}</li>
-          ))}
-        </ul>
-      ) : (
-        <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm font-bold text-slate-500">
-          {fallback}
-        </div>
-      )}
-    </section>
+    </main>
   );
 }
