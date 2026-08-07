@@ -1,151 +1,313 @@
 "use client";
 
-import Link from "next/link";
+import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 
-type EventRow = {
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+type EventRecord = {
   id: string;
-  title_tc?: string | null;
+
   title?: string | null;
+  title_tc?: string | null;
+  title_en?: string | null;
   short_description_tc?: string | null;
   description_tc?: string | null;
+  highlights?: string | null;
+  terms?: string | null;
+  remarks?: string | null;
+  tags?: string[] | JsonValue | null;
+
+  status?: string | null;
+  approval_status?: string | null;
+
+  merchant_id?: string | null;
+  merchant_name?: string | null;
+  organizer_name?: string | null;
+
   cover_image_url?: string | null;
-  venue_name?: string | null;
-  address?: string | null;
-  district?: string | null;
-  mtr_station?: string | null;
+  gallery_image_urls?: string[] | JsonValue | null;
+  images?: string[] | JsonValue | null;
+
+  cover_image_zoom?: number | string | null;
+  cover_image_offset_x?: number | string | null;
+  cover_image_offset_y?: number | string | null;
+  cover_image_focus_y?: number | string | null;
+  cover_image_rotate?: number | string | null;
+  cover_image_flip_x?: boolean | null;
+  cover_image_flip_y?: boolean | null;
+  cover_image_filter?: string | null;
+  cover_image_brightness?: number | string | null;
+  cover_image_contrast?: number | string | null;
+  cover_image_saturation?: number | string | null;
+
   start_date?: string | null;
   end_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+
+  venue_name?: string | null;
+  venue_name_tc?: string | null;
+  address?: string | null;
+  address_tc?: string | null;
+  area?: string | null;
+  district?: string | null;
+  mtr_station?: string | null;
+
   price_type?: string | null;
-  price_min?: number | null;
-  price_max?: number | null;
-  category?: string | null;
-  tags?: string[] | string | null;
-  age_groups?: string[] | string | null;
-  is_sen_friendly?: boolean | null;
-  is_indoor?: boolean | null;
-  is_outdoor?: boolean | null;
+  price_display_mode?: string | null;
+  price_text?: string | null;
+  price_label?: string | null;
+  min_price?: number | string | null;
+  max_price?: number | string | null;
+  original_price?: number | string | null;
+  offer_price?: number | string | null;
+  quota_label?: string | null;
+
+  age_group?: string | null;
+  activity_type?: string | null;
+  activity_category?: string | null;
+  category?: string | JsonValue | null;
+
   registration_required?: boolean | null;
-  status?: string | null;
-  publish_status?: string | null;
+  registration_url?: string | null;
+  booking_url?: string | null;
+  official_url?: string | null;
+  source_url?: string | null;
+  cta_type?: string | null;
+  cta_text?: string | null;
+  cta_label?: string | null;
+
+  google_map_url?: string | null;
+  google_map_embed_url?: string | null;
+
+  source_type?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  published_at?: string | null;
 };
 
-type PublicEvent = {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string | null;
-  venue: string;
-  address: string;
-  district: string;
-  mtrStation: string;
-  startDate: string | null;
-  endDate: string | null;
-  dateText: string;
-  timeText: string;
-  priceText: string;
-  category: string;
-  tags: string[];
-  ageText: string;
-  isSenFriendly: boolean;
-  isIndoor: boolean;
-  isOutdoor: boolean;
+type GalleryImage = {
+  url: string;
+  label: string;
+  isCover: boolean;
 };
 
-const fallbackEvents: PublicEvent[] = [
-  {
-    id: "25ba737b-219e-4770-91cb-f6cbe73898e3",
-    title: "Pixar Summer Fest 2026",
-    description: "走進 Pixar 動畫世界，親子打卡、互動遊戲及限定活動。",
-    imageUrl: null,
-    venue: "海港城",
-    address: "尖沙咀海港城",
-    district: "油尖旺區",
-    mtrStation: "尖沙咀",
-    startDate: "2026-07-01",
-    endDate: "2026-08-31",
-    dateText: "2026-07-01 至 2026-08-31",
-    timeText: "10:00 - 22:00",
-    priceText: "免費",
-    category: "親子活動",
-    tags: ["親子", "打卡", "免費"],
-    ageText: "3歲以上",
-    isSenFriendly: false,
-    isIndoor: true,
-    isOutdoor: false,
-  },
-  {
-    id: "sample-apm-workshop",
-    title: "APM 復活節親子工作坊",
-    description: "適合親子一同參與的商場手作活動。",
-    imageUrl: null,
-    venue: "APM 購物中心",
-    address: "觀塘 APM",
-    district: "觀塘區",
-    mtrStation: "觀塘",
-    startDate: null,
-    endDate: null,
-    dateText: "今日",
-    timeText: "15:00 - 16:30",
-    priceText: "免費",
-    category: "親子工作坊",
-    tags: ["免費", "3-6歲", "室內"],
-    ageText: "3-6歲",
-    isSenFriendly: false,
-    isIndoor: true,
-    isOutdoor: false,
-  },
-  {
-    id: "sample-shatin-family",
-    title: "沙田親子手作體驗",
-    description: "親子手作及互動體驗活動。",
-    imageUrl: null,
-    venue: "沙田商場",
-    address: "沙田",
-    district: "沙田區",
-    mtrStation: "沙田",
-    startDate: null,
-    endDate: null,
-    dateText: "今個週末",
-    timeText: "14:00 - 17:00",
-    priceText: "HK$50 起",
-    category: "親子活動",
-    tags: ["親子", "室內"],
-    ageText: "4-8歲",
-    isSenFriendly: false,
-    isIndoor: true,
-    isOutdoor: false,
-  },
+type PriceFilter = "all" | "free" | "paid";
+type DateFilter = "all" | "today" | "tomorrow" | "weekend" | "month";
+type SortMode = "newest" | "date_asc" | "date_desc";
+
+const FALLBACK_IMAGE =
+  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+
+const dateFilters: { key: DateFilter; label: string }[] = [
+  { key: "all", label: "全部日期" },
+  { key: "today", label: "今日" },
+  { key: "tomorrow", label: "明日" },
+  { key: "weekend", label: "今個週末" },
+  { key: "month", label: "本月" },
 ];
 
-function normalizeText(value: unknown, fallback = "待確認") {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : fallback;
+const priceFilters: { key: PriceFilter; label: string }[] = [
+  { key: "all", label: "全部收費" },
+  { key: "free", label: "免費" },
+  { key: "paid", label: "收費" },
+];
+
+function safeText(value: unknown, fallback = ""): string {
+  if (value === null || value === undefined) return fallback;
+
+  if (Array.isArray(value)) {
+    const joined = value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .join(", ");
+    return joined || fallback;
+  }
+
+  if (typeof value === "object") return fallback;
+
+  const text = String(value).trim();
+  return text.length ? text : fallback;
 }
 
-function normalizeList(value: unknown) {
+function toNumber(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return fallback;
+}
+
+function isValidUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  return /^https?:\/\//i.test(value.trim());
+}
+
+function normalizeImageArray(value: unknown): string[] {
+  if (!value) return [];
+
   if (Array.isArray(value)) {
     return value
-      .map((item) => String(item).trim())
-      .filter((item) => item.length > 0);
+      .map((item) => {
+        if (typeof item === "string") return item;
+
+        if (
+          item &&
+          typeof item === "object" &&
+          "url" in item &&
+          typeof (item as { url?: unknown }).url === "string"
+        ) {
+          return String((item as { url: string }).url);
+        }
+
+        if (
+          item &&
+          typeof item === "object" &&
+          "src" in item &&
+          typeof (item as { src?: unknown }).src === "string"
+        ) {
+          return String((item as { src: string }).src);
+        }
+
+        return "";
+      })
+      .map((item) => item.trim())
+      .filter((item) => isValidUrl(item));
   }
 
   if (typeof value === "string") {
-    return value
-      .split(/[,\n，、|]/)
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
+    const trimmed = value.trim();
+
+    if (!trimmed) return [];
+    if (isValidUrl(trimmed)) return [trimmed];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      return normalizeImageArray(parsed);
+    } catch {
+      return trimmed
+        .split(/[,\n，、]/)
+        .map((item) => item.trim())
+        .filter((item) => isValidUrl(item));
+    }
   }
 
   return [];
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return "日期待確認";
+function uniqueImages(input: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+
+  for (const raw of input) {
+    const url = raw.trim();
+    if (!isValidUrl(url)) continue;
+
+    const key = url.toLowerCase();
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    output.push(url);
+  }
+
+  return output;
+}
+
+function getGalleryImages(event: EventRecord): GalleryImage[] {
+  const cover = isValidUrl(event.cover_image_url)
+    ? event.cover_image_url.trim()
+    : "";
+
+  const galleryFromMain = normalizeImageArray(event.gallery_image_urls);
+  const galleryFromImages = normalizeImageArray(event.images);
+
+  const ordered = uniqueImages([
+    cover,
+    ...galleryFromMain,
+    ...galleryFromImages,
+  ]).slice(0, 6);
+
+  if (ordered.length === 0) {
+    return [
+      {
+        url: FALLBACK_IMAGE,
+        label: "預設圖片",
+        isCover: true,
+      },
+    ];
+  }
+
+  return ordered.map((url, index) => ({
+    url,
+    label: index === 0 ? "封面圖片" : `圖片 ${index}`,
+    isCover: index === 0,
+  }));
+}
+
+function getCoverTransform(event: EventRecord): CSSProperties {
+  const zoom = Math.min(Math.max(toNumber(event.cover_image_zoom, 1), 0.8), 3);
+  const offsetX = Math.min(
+    Math.max(toNumber(event.cover_image_offset_x, 0), -100),
+    100,
+  );
+  const offsetY = Math.min(
+    Math.max(toNumber(event.cover_image_offset_y, 0), -100),
+    100,
+  );
+  const focusY = Math.min(
+    Math.max(toNumber(event.cover_image_focus_y, 50), 0),
+    100,
+  );
+  const rotate = toNumber(event.cover_image_rotate, 0);
+  const flipX = event.cover_image_flip_x ? -1 : 1;
+  const flipY = event.cover_image_flip_y ? -1 : 1;
+
+  return {
+    transform: `translate(${offsetX}%, ${offsetY}%) scale(${zoom}) rotate(${rotate}deg) scaleX(${flipX}) scaleY(${flipY})`,
+    transformOrigin: `50% ${focusY}%`,
+  };
+}
+
+function getCoverFilter(event: EventRecord): CSSProperties {
+  const brightness = Math.min(
+    Math.max(toNumber(event.cover_image_brightness, 100), 40),
+    180,
+  );
+  const contrast = Math.min(
+    Math.max(toNumber(event.cover_image_contrast, 100), 40),
+    180,
+  );
+  const saturation = Math.min(
+    Math.max(toNumber(event.cover_image_saturation, 100), 0),
+    220,
+  );
+  const filterName = safeText(event.cover_image_filter, "none");
+
+  let extraFilter = "";
+  if (filterName === "warm") extraFilter = "sepia(0.16)";
+  if (filterName === "cool") extraFilter = "hue-rotate(8deg) saturate(0.95)";
+  if (filterName === "mono") extraFilter = "grayscale(1)";
+  if (filterName === "soft") extraFilter = "contrast(0.94) brightness(1.04)";
+
+  return {
+    filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${extraFilter}`,
+  };
+}
+
+function formatDate(value?: string | null): string {
+  if (!value) return "日期待定";
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -157,584 +319,813 @@ function formatDate(value?: string | null) {
   });
 }
 
-function formatDateRange(startDate?: string | null, endDate?: string | null) {
-  const start = formatDate(startDate);
-  const end = formatDate(endDate);
+function formatDateRange(event: EventRecord): string {
+  const start = formatDate(event.start_date);
+  const end = formatDate(event.end_date);
 
-  if (!startDate && !endDate) return "日期待確認";
-  if (startDate && endDate && start !== end) return `${start} 至 ${end}`;
+  if (!event.start_date && !event.end_date) return "日期待定";
+  if (!event.end_date || start === end) return start;
 
-  return start;
+  return `${start} 至 ${end}`;
 }
 
-function formatTimeRange(startTime?: string | null, endTime?: string | null) {
-  if (startTime && endTime) return `${startTime} - ${endTime}`;
-  if (startTime) return startTime;
-  return "時間待確認";
+function formatTimeRange(event: EventRecord): string {
+  const start = safeText(event.start_time);
+  const end = safeText(event.end_time);
+
+  if (!start && !end) return "時間待定";
+  if (start && end) return `${start} - ${end}`;
+
+  return start || end || "時間待定";
 }
 
-function formatPrice(event: EventRow) {
-  if (event.price_type === "free") return "免費";
+function formatPrice(event: EventRecord): string {
+  const priceMode = safeText(
+    event.price_display_mode || event.price_type,
+  ).toLowerCase();
+  const priceLabel = safeText(event.price_label || event.price_text);
+  const minPrice = safeText(event.min_price);
+  const maxPrice = safeText(event.max_price);
+  const offerPrice = safeText(event.offer_price);
+  const originalPrice = safeText(event.original_price);
+  const quotaLabel = safeText(event.quota_label);
 
-  const min = typeof event.price_min === "number" ? event.price_min : null;
-  const max = typeof event.price_max === "number" ? event.price_max : null;
+  if (priceLabel) return priceLabel;
 
-  if (min !== null && max !== null) return `HK$${min} - HK$${max}`;
-  if (min !== null) return `HK$${min} 起`;
-  if (max !== null) return `最高 HK$${max}`;
+  if (priceMode === "hidden") return "不顯示價錢";
+  if (priceMode === "free") return "免費";
+  if (priceMode === "quota") return quotaLabel || "名額有限";
+
+  if (priceMode === "early_bird") {
+    if (offerPrice && originalPrice) {
+      return `早鳥優惠 HK$${offerPrice}（原價 HK$${originalPrice}）`;
+    }
+    if (offerPrice) return `早鳥優惠 HK$${offerPrice}`;
+    return "早鳥優惠待確認";
+  }
+
+  if (priceMode === "range") {
+    if (minPrice && maxPrice && minPrice !== maxPrice) {
+      return `HK$${minPrice}–HK$${maxPrice}`;
+    }
+    if (minPrice) return `HK$${minPrice} 起`;
+    return "價錢範圍待確認";
+  }
+
+  if (priceMode === "fixed") {
+    if (minPrice) return `HK$${minPrice}`;
+    return "固定收費待確認";
+  }
+
+  if (priceMode === "from" || priceMode === "paid") {
+    if (minPrice) return `HK$${minPrice} 起`;
+    return "收費活動";
+  }
 
   return "收費待確認";
 }
 
-function isPublished(event: EventRow) {
-  return event.status === "published" || event.publish_status === "published";
-}
+function getCategoryLabel(event: EventRecord): string {
+  const raw = safeText(
+    event.activity_category ||
+      event.category ||
+      event.activity_type ||
+      event.age_group,
+    "親子活動",
+  );
 
-function buildPublicEvent(event: EventRow): PublicEvent {
-  const rawTags = normalizeList(event.tags);
-  const ageGroups = normalizeList(event.age_groups);
-
-  const tags = [
-    ...rawTags,
-    event.price_type === "free" ? "免費" : "",
-    event.is_sen_friendly ? "SEN友善" : "",
-    event.is_indoor ? "室內" : "",
-    event.is_outdoor ? "戶外" : "",
-  ].filter(Boolean);
-
-  return {
-    id: String(event.id),
-    title: normalizeText(event.title_tc ?? event.title, "未命名活動"),
-    description: normalizeText(
-      event.short_description_tc ?? event.description_tc,
-      "活動資料由商戶或公開來源提供，請出發前向主辦方確認最新安排。",
-    ),
-    imageUrl: event.cover_image_url ?? null,
-    venue: normalizeText(event.venue_name, "場地待確認"),
-    address: normalizeText(event.address, "地址待確認"),
-    district: normalizeText(event.district, "地區待確認"),
-    mtrStation: normalizeText(event.mtr_station, "港鐵站待確認"),
-    startDate: event.start_date ?? null,
-    endDate: event.end_date ?? null,
-    dateText: formatDateRange(event.start_date, event.end_date),
-    timeText: formatTimeRange(event.start_time, event.end_time),
-    priceText: formatPrice(event),
-    category: normalizeText(event.category, "親子活動"),
-    tags: tags.length > 0 ? tags.slice(0, 5) : ["親子活動"],
-    ageText: ageGroups.length > 0 ? ageGroups.join("、") : "年齡待確認",
-    isSenFriendly: Boolean(event.is_sen_friendly),
-    isIndoor: Boolean(event.is_indoor),
-    isOutdoor: Boolean(event.is_outdoor),
+  const map: Record<string, string> = {
+    kids: "親子活動",
+    parent_child: "親子活動",
+    workshop: "工作坊",
+    market: "市集",
+    exhibition: "展覽",
+    sports: "運動",
+    music: "音樂",
+    theatre: "劇場",
+    outdoor: "戶外活動",
+    indoor: "室內活動",
+    sen: "SEN 友善",
+    free: "免費活動",
   };
+
+  return map[raw] || raw;
 }
 
-function getPlaceholderText(category: string) {
-  if (category.includes("工作坊")) return "工作坊";
-  if (category.includes("教育")) return "閱讀";
-  if (category.includes("藝術")) return "藝術";
-  if (category.includes("運動")) return "運動";
-  if (category.includes("商場")) return "商場";
-  return "親子";
+function getPrimaryActionUrl(event: EventRecord): string | null {
+  if (isValidUrl(event.registration_url)) return event.registration_url.trim();
+  if (isValidUrl(event.booking_url)) return event.booking_url.trim();
+  if (isValidUrl(event.official_url)) return event.official_url.trim();
+  if (isValidUrl(event.source_url)) return event.source_url.trim();
+
+  return null;
 }
 
-function getPlaceholderStyle(category: string) {
-  if (category.includes("工作坊")) return "bg-violet-100 text-violet-700";
-  if (category.includes("教育")) return "bg-blue-100 text-blue-700";
-  if (category.includes("藝術")) return "bg-pink-100 text-pink-700";
-  if (category.includes("運動")) return "bg-emerald-100 text-emerald-700";
-  if (category.includes("商場")) return "bg-orange-100 text-orange-700";
-  return "bg-purple-100 text-purple-700";
+function getPrimaryActionLabel(event: EventRecord): string {
+  const custom = safeText(event.cta_label || event.cta_text);
+  if (custom) return custom;
+
+  const ctaType = safeText(event.cta_type).toLowerCase();
+
+  if (ctaType === "none") return "無需報名";
+  if (ctaType === "contact") return "請向主辦查詢";
+  if (ctaType === "whatsapp") return "WhatsApp 報名";
+  if (ctaType === "google_form") return "Google Form 報名";
+  if (isValidUrl(event.registration_url) || isValidUrl(event.booking_url)) {
+    return "前往報名";
+  }
+  if (isValidUrl(event.official_url) || isValidUrl(event.source_url)) {
+    return "查看官方活動頁";
+  }
+  if (event.registration_required) return "請向主辦查詢";
+
+  return "查看詳情";
 }
 
-function isTodayEvent(event: PublicEvent) {
-  if (event.dateText.includes("今日")) return true;
-  if (!event.startDate && !event.endDate) return false;
+function getTagArray(value: unknown): string[] {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value.map((item) => safeText(item)).filter(Boolean).slice(0, 6);
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return getTagArray(parsed);
+    } catch {
+      return value
+        .split(/[,\n，、]/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 6);
+    }
+  }
+
+  return [];
+}
+
+function normalizedStatus(event: EventRecord): string {
+  return safeText(event.status || event.approval_status, "draft").toLowerCase();
+}
+
+function canShowPublic(event: EventRecord): boolean {
+  const status = normalizedStatus(event);
+  return ["published", "approved", "live"].includes(status);
+}
+
+function isFreeEvent(event: EventRecord): boolean {
+  const priceMode = safeText(event.price_display_mode || event.price_type).toLowerCase();
+  const priceText = formatPrice(event);
+
+  return priceMode === "free" || priceText === "免費";
+}
+
+function parseDateOnly(value?: string | null): Date | null {
+  if (!value) return null;
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date;
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function eventOverlapsDate(event: EventRecord, target: Date): boolean {
+  const start = parseDateOnly(event.start_date);
+  const end = parseDateOnly(event.end_date) || start;
+
+  if (!start) return false;
+
+  const targetTime = target.getTime();
+  return start.getTime() <= targetTime && targetTime <= end!.getTime();
+}
+
+function isWeekendDate(date: Date): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
+function eventMatchesDateFilter(event: EventRecord, filter: DateFilter): boolean {
+  if (filter === "all") return true;
 
   const today = new Date();
-  const todayText = today.toISOString().slice(0, 10);
+  today.setHours(0, 0, 0, 0);
 
-  const start = event.startDate ?? event.endDate;
-  const end = event.endDate ?? event.startDate;
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
 
-  if (!start || !end) return false;
+  if (filter === "today") return eventOverlapsDate(event, today);
+  if (filter === "tomorrow") return eventOverlapsDate(event, tomorrow);
 
-  return start <= todayText && todayText <= end;
-}
+  if (filter === "month") {
+    const start = parseDateOnly(event.start_date);
+    if (!start) return false;
 
-export default function EventsPage() {
-  const [events, setEvents] = useState<PublicEvent[]>(fallbackEvents);
-  const [loading, setLoading] = useState(true);
-  const [keyword, setKeyword] = useState("");
-  const [selectedDistrict, setSelectedDistrict] = useState("全部地區");
-  const [selectedPrice, setSelectedPrice] = useState("全部收費");
-  const [selectedCategory, setSelectedCategory] = useState("全部分類");
-  const [showSenOnly, setShowSenOnly] = useState(false);
-  const [todayOnly, setTodayOnly] = useState(false);
-  const [calendarMode, setCalendarMode] = useState(false);
+    return (
+      start.getFullYear() === today.getFullYear() &&
+      start.getMonth() === today.getMonth()
+    );
+  }
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setTodayOnly(params.get("date") === "today");
-    setCalendarMode(params.get("view") === "calendar");
-  }, []);
+  if (filter === "weekend") {
+    const start = parseDateOnly(event.start_date);
+    const end = parseDateOnly(event.end_date) || start;
 
-  useEffect(() => {
-    let active = true;
+    if (!start || !end) return false;
 
-    async function loadEvents() {
-      setLoading(true);
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
 
-      if (!supabase) {
-        setEvents(fallbackEvents);
-        setLoading(false);
-        return;
-      }
+    const final = new Date(end);
+    final.setHours(0, 0, 0, 0);
 
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .order("start_date", { ascending: true });
-
-      if (!active) return;
-
-      if (error || !data || data.length === 0) {
-        setEvents(fallbackEvents);
-        setLoading(false);
-        return;
-      }
-
-      const publishedRows = (data as EventRow[]).filter(isPublished);
-
-      if (publishedRows.length === 0) {
-        setEvents(fallbackEvents);
-        setLoading(false);
-        return;
-      }
-
-      setEvents(publishedRows.map(buildPublicEvent));
-      setLoading(false);
+    while (cursor.getTime() <= final.getTime()) {
+      if (isWeekendDate(cursor)) return true;
+      cursor.setDate(cursor.getDate() + 1);
     }
 
-    loadEvents();
+    return false;
+  }
 
-    return () => {
-      active = false;
-    };
+  return true;
+}
+
+function getDistrictOptions(events: EventRecord[]): string[] {
+  return Array.from(
+    new Set(
+      events
+        .map((event) => safeText(event.district || event.area))
+        .filter(Boolean),
+    ),
+  ).sort();
+}
+
+function getCategoryOptions(events: EventRecord[]): string[] {
+  return Array.from(
+    new Set(events.map((event) => getCategoryLabel(event)).filter(Boolean)),
+  ).sort();
+}
+
+function Badge({
+  children,
+  tone = "purple",
+}: {
+  children: ReactNode;
+  tone?: "purple" | "green" | "amber" | "slate" | "rose";
+}) {
+  const className =
+    tone === "green"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+      : tone === "amber"
+        ? "bg-amber-50 text-amber-700 ring-amber-100"
+        : tone === "rose"
+          ? "bg-rose-50 text-rose-700 ring-rose-100"
+          : tone === "slate"
+            ? "bg-slate-100 text-slate-700 ring-slate-200"
+            : "bg-purple-50 text-purple-700 ring-purple-100";
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function QuickEntry({
+  href,
+  icon,
+  title,
+  desc,
+}: {
+  href: string;
+  icon: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md"
+    >
+      <div className="flex items-start gap-3">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-purple-50 text-xl">
+          {icon}
+        </span>
+        <div>
+          <p className="font-black text-slate-950">{title}</p>
+          <p className="mt-1 text-xs font-medium leading-5 text-slate-500">{desc}</p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function EventCard({ event }: { event: EventRecord }) {
+  const images = getGalleryImages(event);
+  const hero = images[0]?.url || FALLBACK_IMAGE;
+  const coverStyle: CSSProperties = {
+    ...getCoverTransform(event),
+    ...getCoverFilter(event),
+  };
+  const title = safeText(event.title_tc || event.title, "未命名活動");
+  const shortDescription = safeText(
+    event.short_description_tc,
+    safeText(event.description_tc, "活動詳情請參閱主辦方公布資料。"),
+  );
+  const venue = safeText(
+    event.venue_name_tc || event.venue_name,
+    safeText(event.address_tc || event.address, safeText(event.district, "地點待定")),
+  );
+  const district = safeText(event.district || event.area);
+  const mtr = safeText(event.mtr_station);
+  const price = formatPrice(event);
+  const category = getCategoryLabel(event);
+  const tags = getTagArray(event.tags);
+  const ctaLabel = getPrimaryActionLabel(event);
+  const hasRegistrationUrl = Boolean(getPrimaryActionUrl(event));
+
+  return (
+    <article className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md">
+      <Link href={`/events/${event.id}`} className="block">
+        <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
+          <img
+            src={hero}
+            alt={title}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            style={coverStyle}
+          />
+
+          <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-purple-700 shadow-sm backdrop-blur">
+              {category}
+            </span>
+            <span className="rounded-full bg-amber-100/95 px-3 py-1 text-xs font-black text-amber-700 shadow-sm backdrop-blur">
+              {price}
+            </span>
+          </div>
+
+          <div className="absolute bottom-3 left-3 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+            {images.length} 張圖片
+          </div>
+        </div>
+      </Link>
+
+      <div className="p-5">
+        <div className="flex flex-wrap gap-2">
+          <Badge tone="purple">{category}</Badge>
+          <Badge tone={isFreeEvent(event) ? "green" : "amber"}>{price}</Badge>
+          {mtr ? <Badge tone="slate">{mtr}</Badge> : null}
+        </div>
+
+        <Link href={`/events/${event.id}`} className="mt-4 block">
+          <h2 className="line-clamp-2 text-2xl font-black leading-tight text-slate-950 group-hover:text-purple-800">
+            {title}
+          </h2>
+        </Link>
+
+        <p className="mt-3 line-clamp-3 text-sm font-medium leading-6 text-slate-600">
+          {shortDescription}
+        </p>
+
+        <div className="mt-4 grid gap-2 text-sm">
+          <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+            <p className="text-xs font-black text-slate-400">日期</p>
+            <p className="mt-1 font-extrabold text-slate-800">{formatDateRange(event)}</p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+              <p className="text-xs font-black text-slate-400">時間</p>
+              <p className="mt-1 font-extrabold text-slate-800">{formatTimeRange(event)}</p>
+            </div>
+
+            <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+              <p className="text-xs font-black text-slate-400">地點</p>
+              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+                {district || venue}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+            <p className="text-xs font-black text-slate-400">場地</p>
+            <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">{venue}</p>
+          </div>
+        </div>
+
+        {tags.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {tags.slice(0, 4).map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]">
+          <Link
+            href={`/events/${event.id}`}
+            className="inline-flex items-center justify-center rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
+          >
+            查看詳情
+          </Link>
+
+          <span
+            className={[
+              "inline-flex items-center justify-center rounded-2xl px-4 py-3 text-xs font-black",
+              hasRegistrationUrl
+                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+                : "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
+            ].join(" ")}
+          >
+            {ctaLabel}
+          </span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export default function PublicEventsPage() {
+  const [events, setEvents] = useState<EventRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState("");
+
+  const [keyword, setKeyword] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
+  const [districtFilter, setDistrictFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [sortMode, setSortMode] = useState<SortMode>("date_asc");
+
+  async function loadEvents() {
+    const client = supabase;
+
+    setLoading(true);
+    setErrorText("");
+
+    if (!client) {
+      setErrorText("網站暫時未能連接資料庫，請稍後再試。");
+      setEvents([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await client
+      .from("events")
+      .select("*")
+      .order("start_date", { ascending: true });
+
+    if (error) {
+      setErrorText(error.message || "讀取活動資料失敗。");
+      setEvents([]);
+      setLoading(false);
+      return;
+    }
+
+    setEvents(((data || []) as EventRecord[]).filter(canShowPublic));
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadEvents();
   }, []);
 
-  const districts = useMemo(() => {
-    return ["全部地區", ...Array.from(new Set(events.map((item) => item.district)))];
-  }, [events]);
-
-  const categories = useMemo(() => {
-    return ["全部分類", ...Array.from(new Set(events.map((item) => item.category)))];
-  }, [events]);
+  const districtOptions = useMemo(() => getDistrictOptions(events), [events]);
+  const categoryOptions = useMemo(() => getCategoryOptions(events), [events]);
 
   const filteredEvents = useMemo(() => {
-    const search = keyword.trim().toLowerCase();
+    const text = keyword.trim().toLowerCase();
 
-    return events.filter((event) => {
-      const searchableText = [
-        event.title,
-        event.description,
-        event.venue,
-        event.address,
-        event.district,
-        event.mtrStation,
-        event.category,
-        event.tags.join(" "),
-      ]
-        .join(" ")
-        .toLowerCase();
+    let next = [...events];
 
-      const matchKeyword =
-        search.length === 0 || searchableText.includes(search);
+    if (text) {
+      next = next.filter((event) => {
+        const haystack = [
+          event.title_tc,
+          event.title,
+          event.short_description_tc,
+          event.description_tc,
+          event.merchant_name,
+          event.organizer_name,
+          event.venue_name_tc,
+          event.venue_name,
+          event.address_tc,
+          event.address,
+          event.district,
+          event.area,
+          event.mtr_station,
+          event.activity_category,
+          event.category,
+          event.activity_type,
+          event.tags,
+        ]
+          .map((item) => safeText(item))
+          .join(" ")
+          .toLowerCase();
 
-      const matchDistrict =
-        selectedDistrict === "全部地區" || event.district === selectedDistrict;
+        return haystack.includes(text);
+      });
+    }
 
-      const matchPrice =
-        selectedPrice === "全部收費" ||
-        (selectedPrice === "免費" && event.priceText.includes("免費")) ||
-        (selectedPrice === "收費" && !event.priceText.includes("免費"));
+    if (dateFilter !== "all") {
+      next = next.filter((event) => eventMatchesDateFilter(event, dateFilter));
+    }
 
-      const matchCategory =
-        selectedCategory === "全部分類" || event.category === selectedCategory;
+    if (priceFilter === "free") {
+      next = next.filter(isFreeEvent);
+    }
 
-      const matchSen =
-        !showSenOnly || event.isSenFriendly || event.tags.some((tag) => tag.includes("SEN"));
+    if (priceFilter === "paid") {
+      next = next.filter((event) => !isFreeEvent(event));
+    }
 
-      const matchToday = !todayOnly || isTodayEvent(event);
-
-      return (
-        matchKeyword &&
-        matchDistrict &&
-        matchPrice &&
-        matchCategory &&
-        matchSen &&
-        matchToday
+    if (districtFilter !== "all") {
+      next = next.filter(
+        (event) => safeText(event.district || event.area) === districtFilter,
       );
-    });
+    }
+
+    if (categoryFilter !== "all") {
+      next = next.filter((event) => getCategoryLabel(event) === categoryFilter);
+    }
+
+    if (sortMode === "date_asc") {
+      next.sort((a, b) => {
+        const aTime = parseDateOnly(a.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const bTime = parseDateOnly(b.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+      });
+    }
+
+    if (sortMode === "date_desc") {
+      next.sort((a, b) => {
+        const aTime = parseDateOnly(a.start_date)?.getTime() || 0;
+        const bTime = parseDateOnly(b.start_date)?.getTime() || 0;
+        return bTime - aTime;
+      });
+    }
+
+    if (sortMode === "newest") {
+      next.sort((a, b) => {
+        const aTime = new Date(a.published_at || a.updated_at || a.created_at || 0).getTime();
+        const bTime = new Date(b.published_at || b.updated_at || b.created_at || 0).getTime();
+        return bTime - aTime;
+      });
+    }
+
+    return next;
   }, [
     events,
     keyword,
-    selectedDistrict,
-    selectedPrice,
-    selectedCategory,
-    showSenOnly,
-    todayOnly,
+    dateFilter,
+    priceFilter,
+    districtFilter,
+    categoryFilter,
+    sortMode,
   ]);
 
-  const totalPublished = events.length;
+  const todayCount = useMemo(
+    () => events.filter((event) => eventMatchesDateFilter(event, "today")).length,
+    [events],
+  );
+
+  const freeCount = useMemo(() => events.filter(isFreeEvent).length, [events]);
+
+  const imageReadyCount = useMemo(
+    () =>
+      events.filter((event) => {
+        const images = getGalleryImages(event);
+        return images.length > 0 && images[0]?.url !== FALLBACK_IMAGE;
+      }).length,
+    [events],
+  );
+
+  function clearFilters() {
+    setKeyword("");
+    setDateFilter("all");
+    setPriceFilter("all");
+    setDistrictFilter("all");
+    setCategoryFilter("all");
+    setSortMode("date_asc");
+  }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
+    <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="mb-6 grid gap-4 md:grid-cols-3">
-            <button
-              type="button"
-              onClick={() => {
-                setTodayOnly(true);
-                setCalendarMode(false);
-              }}
-              className={`rounded-3xl border p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
-                todayOnly
-                  ? "border-pink-300 bg-pink-100 ring-2 ring-pink-100"
-                  : "border-pink-100 bg-pink-50"
-              }`}
-            >
-              <p className="text-sm font-black text-pink-700">今日活動</p>
-              <h2 className="mt-2 text-xl font-black text-slate-950">
-                今日帶小朋友去邊？
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                快速查看今日仍可參加的親子活動。
-              </p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setCalendarMode(true);
-                setTodayOnly(false);
-              }}
-              className={`rounded-3xl border p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
-                calendarMode
-                  ? "border-blue-300 bg-blue-100 ring-2 ring-blue-100"
-                  : "border-blue-100 bg-blue-50"
-              }`}
-            >
-              <p className="text-sm font-black text-blue-700">活動日曆</p>
-              <h2 className="mt-2 text-xl font-black text-slate-950">
-                按日期計劃親子時間
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                用日曆方式查看今日、今個週末、本週及本月活動。
-              </p>
-            </button>
-
-            <Link
-              href="/events/map"
-              className="rounded-3xl border border-teal-100 bg-teal-50 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md"
-            >
-              <p className="text-sm font-black text-teal-700">尋找附近活動地圖</p>
-              <h2 className="mt-2 text-xl font-black text-slate-950">
-                用地圖找附近親子活動
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                按地區、港鐵站及位置快速搵適合活動。
-              </p>
-            </Link>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-black text-purple-700">
-                  HK Family Fun Public Events
-                </p>
-                <h1 className="mt-2 text-3xl font-black tracking-tight">
-                  搜尋香港親子活動
-                </h1>
-                <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
-                  以下只顯示已經 HK Family Fun 審批及發布的活動。草稿、審批中、已退回或已封存活動不會公開顯示。
-                </p>
+        <div className="mx-auto max-w-[1500px] px-4 py-8">
+          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
+            <div>
+              <div className="flex flex-wrap gap-2">
+                <Badge tone="purple">香港親子活動</Badge>
+                <Badge tone="green">{events.length} 個公開活動</Badge>
+                <Badge tone="amber">今日 {todayCount} 個</Badge>
               </div>
 
-              <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-700">
-                已發布活動：{totalPublished}
-              </div>
+              <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-950 lg:text-5xl">
+                搜尋香港親子活動
+              </h1>
+
+              <p className="mt-4 max-w-3xl text-base font-medium leading-8 text-slate-600">
+                一站式搜尋香港親子市集、工作坊、展覽、商場活動、免費活動及家庭好去處。
+                活動圖片已同步商戶封面設定，家長可以更清楚預覽活動內容。
+              </p>
             </div>
 
-            <div className="mt-6 grid gap-3 lg:grid-cols-[1.5fr_0.9fr_0.9fr_0.9fr_auto]">
-              <input
-                value={keyword}
-                onChange={(event) => setKeyword(event.target.value)}
-                placeholder="搜尋活動名稱、地點、港鐵站、分類、標籤..."
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+            <div className="grid gap-3">
+              <QuickEntry
+                href="/today"
+                icon="☀️"
+                title="今日活動"
+                desc="快速查看今日適合帶小朋友去的活動。"
               />
-
-              <select
-                value={selectedDistrict}
-                onChange={(event) => setSelectedDistrict(event.target.value)}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-              >
-                {districts.map((district) => (
-                  <option key={district} value={district}>
-                    {district}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedCategory}
-                onChange={(event) => setSelectedCategory(event.target.value)}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-              >
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedPrice}
-                onChange={(event) => setSelectedPrice(event.target.value)}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-              >
-                <option value="全部收費">全部收費</option>
-                <option value="免費">免費</option>
-                <option value="收費">收費</option>
-              </select>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setKeyword("");
-                  setSelectedDistrict("全部地區");
-                  setSelectedCategory("全部分類");
-                  setSelectedPrice("全部收費");
-                  setShowSenOnly(false);
-                  setTodayOnly(false);
-                  setCalendarMode(false);
-                }}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 hover:border-purple-300 hover:text-purple-700"
-              >
-                清除
-              </button>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => setTodayOnly((current) => !current)}
-                className={`rounded-full px-4 py-2 text-sm font-bold ${
-                  todayOnly
-                    ? "bg-pink-600 text-white"
-                    : "border border-slate-200 bg-white text-slate-600 hover:border-pink-300 hover:text-pink-700"
-                }`}
-              >
-                今日
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCalendarMode((current) => !current)}
-                className={`rounded-full px-4 py-2 text-sm font-bold ${
-                  calendarMode
-                    ? "bg-blue-600 text-white"
-                    : "border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700"
-                }`}
-              >
-                活動日曆
-              </button>
-
-              <Link
+              <QuickEntry
+                href="/calendar"
+                icon="🗓️"
+                title="活動日曆"
+                desc="按日期及時間瀏覽活動。"
+              />
+              <QuickEntry
                 href="/events/map"
-                className="rounded-full border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-bold text-teal-700 hover:bg-teal-100"
-              >
-                附近活動地圖
-              </Link>
-
-              <button
-                type="button"
-                onClick={() => setSelectedPrice("免費")}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
-              >
-                免費活動
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowSenOnly((current) => !current)}
-                className={`rounded-full px-4 py-2 text-sm font-bold ${
-                  showSenOnly
-                    ? "bg-purple-600 text-white"
-                    : "border border-slate-200 bg-white text-slate-600 hover:border-purple-300 hover:text-purple-700"
-                }`}
-              >
-                SEN友善
-              </button>
-
-              <button
-                type="button"
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:border-orange-300 hover:text-orange-700"
-              >
-                今個週末
-              </button>
+                icon="🗺️"
+                title="附近活動地圖"
+                desc="按地點搜尋附近親子活動。"
+              />
             </div>
           </div>
         </div>
       </section>
 
-      {calendarMode ? (
-        <section className="border-b border-blue-100 bg-blue-50">
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <div className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-black text-blue-700">活動日曆模式</p>
-                  <h2 className="mt-1 text-xl font-black">
-                    按日期 / 上午 / 下午 / 晚上快速計劃
-                  </h2>
-                </div>
-                <p className="text-sm font-semibold text-slate-500">
-                  目前先以列表分組展示，下一階段可升級為完整月曆。
-                </p>
-              </div>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-4">
-                {["上午", "下午", "晚上", "全日 / 長時間"].map((slot) => (
-                  <div
-                    key={slot}
-                    className="rounded-2xl border border-slate-100 bg-slate-50 p-4"
-                  >
-                    <p className="text-sm font-black text-slate-700">{slot}</p>
-                    <p className="mt-2 text-xs leading-5 text-slate-500">
-                      商戶活動會按時間自動分組，方便家長快速安排。
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
+      <section className="mx-auto max-w-[1500px] px-4 py-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <p className="text-xs font-black text-slate-400">公開活動</p>
+            <p className="mt-2 text-3xl font-black text-slate-950">{events.length}</p>
+            <p className="mt-1 text-xs font-bold text-slate-500">
+              只顯示已發布或已批准活動
+            </p>
           </div>
-        </section>
-      ) : null}
 
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-black">
-            活動列表{" "}
-            <span className="text-base font-bold text-slate-500">
-              顯示 {filteredEvents.length} / {totalPublished} 個已發布活動
-            </span>
-          </h2>
+          <div className="rounded-3xl bg-emerald-50 p-5 shadow-sm ring-1 ring-emerald-100">
+            <p className="text-xs font-black text-emerald-700">免費活動</p>
+            <p className="mt-2 text-3xl font-black text-emerald-900">{freeCount}</p>
+            <p className="mt-1 text-xs font-bold text-emerald-700">
+              適合想控制預算的家庭
+            </p>
+          </div>
 
-          <Link
-            href="/events/map"
-            className="rounded-full border border-teal-200 bg-white px-4 py-2 text-sm font-bold text-teal-700 hover:bg-teal-50"
-          >
-            前往附近活動地圖
-          </Link>
+          <div className="rounded-3xl bg-purple-50 p-5 shadow-sm ring-1 ring-purple-100">
+            <p className="text-xs font-black text-purple-700">圖片完成</p>
+            <p className="mt-2 text-3xl font-black text-purple-950">{imageReadyCount}</p>
+            <p className="mt-1 text-xs font-bold text-purple-700">
+              已有活動封面或 Gallery
+            </p>
+          </div>
         </div>
 
-        {loading ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-sm font-bold text-slate-500">
-            正在載入活動...
+        <div className="mt-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-4 xl:grid-cols-[1fr_180px]">
+            <input
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              placeholder="搜尋活動名稱、商戶、地點、分類、港鐵站..."
+              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            />
+
+            <select
+              value={sortMode}
+              onChange={(event) => setSortMode(event.target.value as SortMode)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="date_asc">活動日期近至遠</option>
+              <option value="date_desc">活動日期遠至近</option>
+              <option value="newest">最新發布</option>
+            </select>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {dateFilters.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                onClick={() => setDateFilter(filter.key)}
+                className={[
+                  "rounded-full px-4 py-2 text-sm font-black transition",
+                  dateFilter === filter.key
+                    ? "bg-purple-700 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                ].join(" ")}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <select
+              value={priceFilter}
+              onChange={(event) => setPriceFilter(event.target.value as PriceFilter)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              {priceFilters.map((filter) => (
+                <option key={filter.key} value={filter.key}>
+                  {filter.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={districtFilter}
+              onChange={(event) => setDistrictFilter(event.target.value)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="all">全部地區</option>
+              {districtOptions.map((district) => (
+                <option key={district} value={district}>
+                  {district}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="all">全部分類</option>
+              {categoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-bold text-slate-500">
+              顯示 {filteredEvents.length} / {events.length} 個公開活動
+            </p>
+
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+              清除篩選
+            </button>
+          </div>
+        </div>
+
+        {errorText ? (
+          <div className="mt-5 rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm font-bold text-rose-800">
+            {errorText}
           </div>
         ) : null}
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {filteredEvents.map((event) => (
-            <article
-              key={event.id}
-              className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md"
-            >
-              <div className="relative h-44 bg-slate-100">
-                {event.imageUrl ? (
-                  <img
-                    src={event.imageUrl}
-                    alt={event.title}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div
-                    className={`flex h-full w-full items-center justify-center text-lg font-black ${getPlaceholderStyle(
-                      event.category,
-                    )}`}
-                  >
-                    {getPlaceholderText(event.category)}
-                  </div>
-                )}
+        {loading ? (
+          <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-2xl">
+              親
+            </div>
+            <p className="text-sm font-black text-slate-700">正在讀取活動資料...</p>
+          </div>
+        ) : null}
 
-                <div className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700 shadow-sm">
-                  {event.category}
-                </div>
-
-                <div className="absolute right-3 top-3 rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white shadow-sm">
-                  {event.district}
-                </div>
-              </div>
-
-              <div className="p-5">
-                <h3 className="line-clamp-2 text-lg font-black leading-7 text-slate-950">
-                  {event.title}
-                </h3>
-
-                <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
-                  {event.description}
-                </p>
-
-                <div className="mt-4 space-y-2 text-sm leading-6 text-slate-600">
-                  <p>日期：{event.dateText} · {event.timeText}</p>
-                  <p>
-                    地點：{event.venue} · {event.mtrStation}
-                  </p>
-                  <p>
-                    收費：{event.priceText} · {event.ageText}
-                  </p>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {event.tags.slice(0, 4).map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-5 flex gap-3">
-                  <Link
-                    href={`/events/${event.id}`}
-                    className="flex-1 rounded-2xl bg-purple-700 px-4 py-3 text-center text-sm font-bold text-white hover:bg-purple-800"
-                  >
-                    查看詳情
-                  </Link>
-                  <Link
-                    href="/events/map"
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:border-teal-300 hover:text-teal-700"
-                  >
-                    地圖
-                  </Link>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {filteredEvents.length === 0 ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center">
-            <h3 className="text-lg font-black text-slate-950">
-              暫時找不到符合條件的活動
-            </h3>
-            <p className="mt-2 text-sm text-slate-500">
-              請嘗試清除搜尋字眼，或改用其他地區、分類及收費條件。
+        {!loading && filteredEvents.length === 0 ? (
+          <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <p className="text-xl font-black text-slate-950">暫時沒有符合條件的活動</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              請更改日期、地區、分類或關鍵字再試。
             </p>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-5 rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
+            >
+              清除全部篩選
+            </button>
+          </div>
+        ) : null}
+
+        {!loading && filteredEvents.length > 0 ? (
+          <div className="mt-6 grid gap-6 lg:grid-cols-2 2xl:grid-cols-3">
+            {filteredEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
           </div>
         ) : null}
       </section>
