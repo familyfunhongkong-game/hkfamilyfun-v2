@@ -103,7 +103,7 @@ type GalleryImage = {
 
 type PriceFilter = "all" | "free" | "paid";
 type DateFilter = "all" | "today" | "tomorrow" | "weekend" | "month";
-type SortMode = "newest" | "date_asc" | "date_desc";
+type SortMode = "recommended" | "date_asc" | "date_desc" | "newest";
 
 const FALLBACK_IMAGE =
   "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
@@ -184,23 +184,26 @@ function normalizeImageArray(value: unknown): string[] {
         return "";
       })
       .map((item) => item.trim())
-      .filter((item) => isValidUrl(item));
+      .filter((item) => /^https?:\/\//i.test(item));
   }
 
   if (typeof value === "string") {
-    const trimmed = value.trim();
+    const trimmed: string = value.trim();
 
     if (!trimmed) return [];
-    if (isValidUrl(trimmed)) return [trimmed];
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      return [trimmed];
+    }
 
     try {
-      const parsed = JSON.parse(trimmed);
+      const parsed: unknown = JSON.parse(trimmed);
       return normalizeImageArray(parsed);
     } catch {
       return trimmed
         .split(/[,\n，、]/)
         .map((item) => item.trim())
-        .filter((item) => isValidUrl(item));
+        .filter((item) => /^https?:\/\//i.test(item));
     }
   }
 
@@ -239,11 +242,11 @@ function getGalleryImages(event: EventRecord): GalleryImage[] {
     ...galleryFromImages,
   ]).slice(0, 6);
 
-  if (ordered.length === 0) {
+  if (!ordered.length) {
     return [
       {
         url: FALLBACK_IMAGE,
-        label: "預設圖片",
+        label: "HK Family Fun 預設圖片",
         isCover: true,
       },
     ];
@@ -304,6 +307,11 @@ function getCoverFilter(event: EventRecord): CSSProperties {
   return {
     filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${extraFilter}`,
   };
+}
+
+function hasRealImage(event: EventRecord): boolean {
+  const images = getGalleryImages(event);
+  return Boolean(images.length && images[0]?.url !== FALLBACK_IMAGE);
 }
 
 function formatDate(value?: string | null): string {
@@ -446,19 +454,19 @@ function getTagArray(value: unknown): string[] {
   if (!value) return [];
 
   if (Array.isArray(value)) {
-    return value.map((item) => safeText(item)).filter(Boolean).slice(0, 6);
+    return value.map((item) => safeText(item)).filter(Boolean).slice(0, 5);
   }
 
   if (typeof value === "string") {
     try {
-      const parsed = JSON.parse(value);
+      const parsed: unknown = JSON.parse(value);
       return getTagArray(parsed);
     } catch {
       return value
         .split(/[,\n，、]/)
         .map((item) => item.trim())
         .filter(Boolean)
-        .slice(0, 6);
+        .slice(0, 5);
     }
   }
 
@@ -475,7 +483,9 @@ function canShowPublic(event: EventRecord): boolean {
 }
 
 function isFreeEvent(event: EventRecord): boolean {
-  const priceMode = safeText(event.price_display_mode || event.price_type).toLowerCase();
+  const priceMode = safeText(
+    event.price_display_mode || event.price_type,
+  ).toLowerCase();
   const priceText = formatPrice(event);
 
   return priceMode === "free" || priceText === "免費";
@@ -490,22 +500,14 @@ function parseDateOnly(value?: string | null): Date | null {
   return date;
 }
 
-function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
 function eventOverlapsDate(event: EventRecord, target: Date): boolean {
   const start = parseDateOnly(event.start_date);
   const end = parseDateOnly(event.end_date) || start;
 
-  if (!start) return false;
+  if (!start || !end) return false;
 
   const targetTime = target.getTime();
-  return start.getTime() <= targetTime && targetTime <= end!.getTime();
+  return start.getTime() <= targetTime && targetTime <= end.getTime();
 }
 
 function isWeekendDate(date: Date): boolean {
@@ -574,27 +576,43 @@ function getCategoryOptions(events: EventRecord[]): string[] {
   ).sort();
 }
 
+function scoreEvent(event: EventRecord): number {
+  let score = 0;
+
+  if (hasRealImage(event)) score += 30;
+  if (event.start_date) score += 20;
+  if (getPrimaryActionUrl(event)) score += 15;
+  if (safeText(event.short_description_tc || event.description_tc)) score += 15;
+  if (event.google_map_url || event.google_map_embed_url) score += 10;
+  if (isFreeEvent(event)) score += 5;
+  if (safeText(event.published_at || event.updated_at)) score += 5;
+
+  return score;
+}
+
 function Badge({
   children,
   tone = "purple",
 }: {
   children: ReactNode;
-  tone?: "purple" | "green" | "amber" | "slate" | "rose";
+  tone?: "purple" | "green" | "amber" | "slate" | "rose" | "orange";
 }) {
   const className =
     tone === "green"
       ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
       : tone === "amber"
         ? "bg-amber-50 text-amber-700 ring-amber-100"
-        : tone === "rose"
-          ? "bg-rose-50 text-rose-700 ring-rose-100"
-          : tone === "slate"
-            ? "bg-slate-100 text-slate-700 ring-slate-200"
-            : "bg-purple-50 text-purple-700 ring-purple-100";
+        : tone === "orange"
+          ? "bg-orange-50 text-orange-700 ring-orange-100"
+          : tone === "rose"
+            ? "bg-rose-50 text-rose-700 ring-rose-100"
+            : tone === "slate"
+              ? "bg-slate-100 text-slate-700 ring-slate-200"
+              : "bg-purple-50 text-purple-700 ring-purple-100";
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-black ring-1 ${className}`}
     >
       {children}
     </span>
@@ -623,20 +641,56 @@ function QuickEntry({
         </span>
         <div>
           <p className="font-black text-slate-950">{title}</p>
-          <p className="mt-1 text-xs font-medium leading-5 text-slate-500">{desc}</p>
+          <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
+            {desc}
+          </p>
         </div>
       </div>
     </Link>
   );
 }
 
+function StatCard({
+  label,
+  value,
+  note,
+  tone = "slate",
+}: {
+  label: string;
+  value: number | string;
+  note: string;
+  tone?: "slate" | "green" | "purple" | "amber";
+}) {
+  const className =
+    tone === "green"
+      ? "bg-emerald-50 text-emerald-900 ring-emerald-100"
+      : tone === "purple"
+        ? "bg-purple-50 text-purple-950 ring-purple-100"
+        : tone === "amber"
+          ? "bg-amber-50 text-amber-900 ring-amber-100"
+          : "bg-white text-slate-950 ring-slate-200";
+
+  return (
+    <div className={`rounded-3xl p-5 shadow-sm ring-1 ${className}`}>
+      <p className="text-xs font-black opacity-70">{label}</p>
+      <p className="mt-2 text-3xl font-black">{value}</p>
+      <p className="mt-1 text-xs font-bold leading-5 opacity-70">{note}</p>
+    </div>
+  );
+}
+
 function EventCard({ event }: { event: EventRecord }) {
   const images = getGalleryImages(event);
   const hero = images[0]?.url || FALLBACK_IMAGE;
-  const coverStyle: CSSProperties = {
-    ...getCoverTransform(event),
-    ...getCoverFilter(event),
-  };
+  const isFallback = hero === FALLBACK_IMAGE;
+
+  const coverStyle: CSSProperties = isFallback
+    ? {}
+    : {
+        ...getCoverTransform(event),
+        ...getCoverFilter(event),
+      };
+
   const title = safeText(event.title_tc || event.title, "未命名活動");
   const shortDescription = safeText(
     event.short_description_tc,
@@ -652,80 +706,120 @@ function EventCard({ event }: { event: EventRecord }) {
   const category = getCategoryLabel(event);
   const tags = getTagArray(event.tags);
   const ctaLabel = getPrimaryActionLabel(event);
-  const hasRegistrationUrl = Boolean(getPrimaryActionUrl(event));
+  const actionUrl = getPrimaryActionUrl(event);
+  const imageCount = images.filter((image) => image.url !== FALLBACK_IMAGE).length;
 
   return (
-    <article className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md">
+    <article className="group flex h-full flex-col overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg">
       <Link href={`/events/${event.id}`} className="block">
-        <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
-          <img
-            src={hero}
-            alt={title}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-            style={coverStyle}
-          />
+        <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
+          {isFallback ? (
+            <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
+              <div className="grid h-16 w-16 place-items-center rounded-3xl bg-purple-700 text-2xl font-black text-white shadow-sm">
+                親
+              </div>
+              <p className="mt-3 text-sm font-black text-purple-900">
+                HK Family Fun
+              </p>
+              <p className="mt-1 text-xs font-bold text-slate-500">
+                活動圖片準備中
+              </p>
+            </div>
+          ) : (
+            <img
+              src={hero}
+              alt={title}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+              style={coverStyle}
+            />
+          )}
 
-          <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-purple-700 shadow-sm backdrop-blur">
+          <div className="absolute left-3 top-3 flex max-w-[88%] flex-wrap gap-2">
+            <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-black text-purple-700 shadow-sm backdrop-blur">
               {category}
             </span>
-            <span className="rounded-full bg-amber-100/95 px-3 py-1 text-xs font-black text-amber-700 shadow-sm backdrop-blur">
+            <span
+              className={[
+                "rounded-full px-3 py-1 text-xs font-black shadow-sm backdrop-blur",
+                isFreeEvent(event)
+                  ? "bg-emerald-100/95 text-emerald-700"
+                  : "bg-amber-100/95 text-amber-700",
+              ].join(" ")}
+            >
               {price}
             </span>
           </div>
 
-          <div className="absolute bottom-3 left-3 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
-            {images.length} 張圖片
+          <div className="absolute bottom-3 left-3 flex flex-wrap gap-2">
+            {district ? (
+              <span className="rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+                📍 {district}
+              </span>
+            ) : null}
+
+            <span className="rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+              🖼️ {Math.max(imageCount, 1)} 張圖片
+            </span>
+          </div>
+
+          <div className="absolute right-3 top-3 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-slate-700 shadow-sm backdrop-blur">
+            ♡
           </div>
         </div>
       </Link>
 
-      <div className="p-5">
+      <div className="flex flex-1 flex-col p-5">
         <div className="flex flex-wrap gap-2">
           <Badge tone="purple">{category}</Badge>
-          <Badge tone={isFreeEvent(event) ? "green" : "amber"}>{price}</Badge>
+          <Badge tone={isFreeEvent(event) ? "green" : "orange"}>{price}</Badge>
           {mtr ? <Badge tone="slate">{mtr}</Badge> : null}
         </div>
 
         <Link href={`/events/${event.id}`} className="mt-4 block">
-          <h2 className="line-clamp-2 text-2xl font-black leading-tight text-slate-950 group-hover:text-purple-800">
+          <h2 className="line-clamp-2 min-h-[3.6rem] text-xl font-black leading-tight text-slate-950 group-hover:text-purple-800">
             {title}
           </h2>
         </Link>
 
-        <p className="mt-3 line-clamp-3 text-sm font-medium leading-6 text-slate-600">
+        <p className="mt-3 line-clamp-2 min-h-[3rem] text-sm font-medium leading-6 text-slate-600">
           {shortDescription}
         </p>
 
         <div className="mt-4 grid gap-2 text-sm">
           <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
             <p className="text-xs font-black text-slate-400">日期</p>
-            <p className="mt-1 font-extrabold text-slate-800">{formatDateRange(event)}</p>
+            <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+              {formatDateRange(event)}
+            </p>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
               <p className="text-xs font-black text-slate-400">時間</p>
-              <p className="mt-1 font-extrabold text-slate-800">{formatTimeRange(event)}</p>
+              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+                {formatTimeRange(event)}
+              </p>
             </div>
 
             <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-              <p className="text-xs font-black text-slate-400">地點</p>
+              <p className="text-xs font-black text-slate-400">地區</p>
               <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
-                {district || venue}
+                {district || "地區待定"}
               </p>
             </div>
           </div>
 
           <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
             <p className="text-xs font-black text-slate-400">場地</p>
-            <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">{venue}</p>
+            <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+              {venue}
+            </p>
           </div>
         </div>
 
         {tags.length > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {tags.slice(0, 4).map((tag) => (
+          <div className="mt-4 flex min-h-[2rem] flex-wrap gap-2">
+            {tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
                 className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"
@@ -734,26 +828,34 @@ function EventCard({ event }: { event: EventRecord }) {
               </span>
             ))}
           </div>
-        ) : null}
+        ) : (
+          <div className="mt-4 min-h-[2rem]" />
+        )}
 
-        <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]">
-          <Link
-            href={`/events/${event.id}`}
-            className="inline-flex items-center justify-center rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
-          >
-            查看詳情
-          </Link>
+        <div className="mt-auto pt-5">
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <Link
+              href={`/events/${event.id}`}
+              className="inline-flex items-center justify-center rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
+            >
+              查看詳情
+            </Link>
 
-          <span
-            className={[
-              "inline-flex items-center justify-center rounded-2xl px-4 py-3 text-xs font-black",
-              hasRegistrationUrl
-                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
-                : "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
-            ].join(" ")}
-          >
-            {ctaLabel}
-          </span>
+            {actionUrl ? (
+              <a
+                href={actionUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-2xl bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100"
+              >
+                {ctaLabel}
+              </a>
+            ) : (
+              <span className="inline-flex items-center justify-center rounded-2xl bg-slate-100 px-4 py-3 text-xs font-black text-slate-600 ring-1 ring-slate-200">
+                {ctaLabel}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </article>
@@ -770,7 +872,7 @@ export default function PublicEventsPage() {
   const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
   const [districtFilter, setDistrictFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortMode, setSortMode] = useState<SortMode>("date_asc");
+  const [sortMode, setSortMode] = useState<SortMode>("recommended");
 
   async function loadEvents() {
     const client = supabase;
@@ -864,6 +966,17 @@ export default function PublicEventsPage() {
       next = next.filter((event) => getCategoryLabel(event) === categoryFilter);
     }
 
+    if (sortMode === "recommended") {
+      next.sort((a, b) => {
+        const scoreDiff = scoreEvent(b) - scoreEvent(a);
+        if (scoreDiff !== 0) return scoreDiff;
+
+        const aDate = parseDateOnly(a.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const bDate = parseDateOnly(b.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        return aDate - bDate;
+      });
+    }
+
     if (sortMode === "date_asc") {
       next.sort((a, b) => {
         const aTime = parseDateOnly(a.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
@@ -907,11 +1020,7 @@ export default function PublicEventsPage() {
   const freeCount = useMemo(() => events.filter(isFreeEvent).length, [events]);
 
   const imageReadyCount = useMemo(
-    () =>
-      events.filter((event) => {
-        const images = getGalleryImages(event);
-        return images.length > 0 && images[0]?.url !== FALLBACK_IMAGE;
-      }).length,
+    () => events.filter(hasRealImage).length,
     [events],
   );
 
@@ -921,7 +1030,7 @@ export default function PublicEventsPage() {
     setPriceFilter("all");
     setDistrictFilter("all");
     setCategoryFilter("all");
-    setSortMode("date_asc");
+    setSortMode("recommended");
   }
 
   return (
@@ -942,7 +1051,7 @@ export default function PublicEventsPage() {
 
               <p className="mt-4 max-w-3xl text-base font-medium leading-8 text-slate-600">
                 一站式搜尋香港親子市集、工作坊、展覽、商場活動、免費活動及家庭好去處。
-                活動圖片已同步商戶封面設定，家長可以更清楚預覽活動內容。
+                活動卡已同步商戶圖片排序及封面裁切設定。
               </p>
             </div>
 
@@ -972,45 +1081,41 @@ export default function PublicEventsPage() {
 
       <section className="mx-auto max-w-[1500px] px-4 py-6">
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <p className="text-xs font-black text-slate-400">公開活動</p>
-            <p className="mt-2 text-3xl font-black text-slate-950">{events.length}</p>
-            <p className="mt-1 text-xs font-bold text-slate-500">
-              只顯示已發布或已批准活動
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-emerald-50 p-5 shadow-sm ring-1 ring-emerald-100">
-            <p className="text-xs font-black text-emerald-700">免費活動</p>
-            <p className="mt-2 text-3xl font-black text-emerald-900">{freeCount}</p>
-            <p className="mt-1 text-xs font-bold text-emerald-700">
-              適合想控制預算的家庭
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-purple-50 p-5 shadow-sm ring-1 ring-purple-100">
-            <p className="text-xs font-black text-purple-700">圖片完成</p>
-            <p className="mt-2 text-3xl font-black text-purple-950">{imageReadyCount}</p>
-            <p className="mt-1 text-xs font-bold text-purple-700">
-              已有活動封面或 Gallery
-            </p>
-          </div>
+          <StatCard
+            label="公開活動"
+            value={events.length}
+            note="只顯示已發布或已批准活動"
+            tone="slate"
+          />
+          <StatCard
+            label="免費活動"
+            value={freeCount}
+            note="適合想控制預算的家庭"
+            tone="green"
+          />
+          <StatCard
+            label="圖片完成"
+            value={imageReadyCount}
+            note="已有活動封面或 Gallery"
+            tone="purple"
+          />
         </div>
 
         <div className="mt-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="grid gap-4 xl:grid-cols-[1fr_180px]">
+          <div className="grid gap-4 xl:grid-cols-[1fr_220px]">
             <input
               value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
+              onChange={(changeEvent) => setKeyword(changeEvent.target.value)}
               placeholder="搜尋活動名稱、商戶、地點、分類、港鐵站..."
               className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             />
 
             <select
               value={sortMode}
-              onChange={(event) => setSortMode(event.target.value as SortMode)}
+              onChange={(changeEvent) => setSortMode(changeEvent.target.value as SortMode)}
               className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
+              <option value="recommended">推薦排序</option>
               <option value="date_asc">活動日期近至遠</option>
               <option value="date_desc">活動日期遠至近</option>
               <option value="newest">最新發布</option>
@@ -1038,7 +1143,7 @@ export default function PublicEventsPage() {
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <select
               value={priceFilter}
-              onChange={(event) => setPriceFilter(event.target.value as PriceFilter)}
+              onChange={(changeEvent) => setPriceFilter(changeEvent.target.value as PriceFilter)}
               className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
               {priceFilters.map((filter) => (
@@ -1050,7 +1155,7 @@ export default function PublicEventsPage() {
 
             <select
               value={districtFilter}
-              onChange={(event) => setDistrictFilter(event.target.value)}
+              onChange={(changeEvent) => setDistrictFilter(changeEvent.target.value)}
               className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
               <option value="all">全部地區</option>
@@ -1063,7 +1168,7 @@ export default function PublicEventsPage() {
 
             <select
               value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
+              onChange={(changeEvent) => setCategoryFilter(changeEvent.target.value)}
               className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
               <option value="all">全部分類</option>
@@ -1107,7 +1212,9 @@ export default function PublicEventsPage() {
 
         {!loading && filteredEvents.length === 0 ? (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-            <p className="text-xl font-black text-slate-950">暫時沒有符合條件的活動</p>
+            <p className="text-xl font-black text-slate-950">
+              暫時沒有符合條件的活動
+            </p>
             <p className="mt-2 text-sm leading-6 text-slate-500">
               請更改日期、地區、分類或關鍵字再試。
             </p>
@@ -1122,7 +1229,7 @@ export default function PublicEventsPage() {
         ) : null}
 
         {!loading && filteredEvents.length > 0 ? (
-          <div className="mt-6 grid gap-6 lg:grid-cols-2 2xl:grid-cols-3">
+          <div className="mt-6 grid items-stretch gap-6 md:grid-cols-2 2xl:grid-cols-3">
             {filteredEvents.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}
