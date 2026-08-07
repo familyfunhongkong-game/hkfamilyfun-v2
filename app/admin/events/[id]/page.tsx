@@ -142,9 +142,7 @@ function safeText(value: unknown, fallback = ""): string {
     return joined || fallback;
   }
 
-  if (typeof value === "object") {
-    return fallback;
-  }
+  if (typeof value === "object") return fallback;
 
   const text = String(value).trim();
   return text.length ? text : fallback;
@@ -195,23 +193,26 @@ function normalizeImageArray(value: unknown): string[] {
         return "";
       })
       .map((item) => item.trim())
-      .filter((item) => isValidUrl(item));
+      .filter((item) => /^https?:\/\//i.test(item));
   }
 
   if (typeof value === "string") {
-    const trimmed = value.trim();
+    const trimmed: string = value.trim();
 
     if (!trimmed) return [];
-    if (isValidUrl(trimmed)) return [trimmed];
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      return [trimmed];
+    }
 
     try {
-      const parsed = JSON.parse(trimmed);
+      const parsed: unknown = JSON.parse(trimmed);
       return normalizeImageArray(parsed);
     } catch {
       return trimmed
         .split(/[,\n，、]/)
         .map((item) => item.trim())
-        .filter((item) => isValidUrl(item));
+        .filter((item) => /^https?:\/\//i.test(item));
     }
   }
 
@@ -469,9 +470,7 @@ function getCoverFilter(event: EventRecord): CSSProperties {
   if (filterName === "warm") extraFilter = "sepia(0.16)";
   if (filterName === "cool") extraFilter = "hue-rotate(8deg) saturate(0.95)";
   if (filterName === "mono") extraFilter = "grayscale(1)";
-  if (filterName === "soft") {
-    extraFilter = "contrast(0.94) brightness(1.04)";
-  }
+  if (filterName === "soft") extraFilter = "contrast(0.94) brightness(1.04)";
 
   return {
     filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${extraFilter}`,
