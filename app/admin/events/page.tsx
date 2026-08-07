@@ -115,6 +115,8 @@ type StatusFilter =
 
 type SortMode = "newest" | "oldest" | "date";
 
+type BadgeTone = "purple" | "green" | "amber" | "slate" | "rose";
+
 const FALLBACK_IMAGE =
   "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
 
@@ -137,6 +139,8 @@ function safeText(value: unknown, fallback = ""): string {
       .join(", ");
     return joined || fallback;
   }
+
+  if (typeof value === "object") return fallback;
 
   const text = String(value).trim();
   return text.length ? text : fallback;
@@ -187,23 +191,26 @@ function normalizeImageArray(value: unknown): string[] {
         return "";
       })
       .map((item) => item.trim())
-      .filter((item) => isValidUrl(item));
+      .filter((item) => /^https?:\/\//i.test(item));
   }
 
   if (typeof value === "string") {
-    const trimmed = value.trim();
+    const trimmed: string = value.trim();
 
     if (!trimmed) return [];
-    if (isValidUrl(trimmed)) return [trimmed];
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      return [trimmed];
+    }
 
     try {
-      const parsed = JSON.parse(trimmed);
+      const parsed: unknown = JSON.parse(trimmed);
       return normalizeImageArray(parsed);
     } catch {
       return trimmed
         .split(/[,\n，、]/)
         .map((item) => item.trim())
-        .filter((item) => isValidUrl(item));
+        .filter((item) => /^https?:\/\//i.test(item));
     }
   }
 
@@ -293,7 +300,9 @@ function formatTimeRange(event: EventRecord): string {
 }
 
 function formatPrice(event: EventRecord): string {
-  const priceMode = safeText(event.price_display_mode || event.price_type).toLowerCase();
+  const priceMode = safeText(
+    event.price_display_mode || event.price_type,
+  ).toLowerCase();
   const priceLabel = safeText(event.price_label || event.price_text);
   const minPrice = safeText(event.min_price);
   const maxPrice = safeText(event.max_price);
@@ -306,6 +315,7 @@ function formatPrice(event: EventRecord): string {
   if (priceMode === "hidden") return "不顯示價錢";
   if (priceMode === "free") return "免費";
   if (priceMode === "quota") return quotaLabel || "名額有限";
+
   if (priceMode === "early_bird") {
     if (offerPrice && originalPrice) {
       return `早鳥優惠 HK$${offerPrice}（原價 HK$${originalPrice}）`;
@@ -313,6 +323,7 @@ function formatPrice(event: EventRecord): string {
     if (offerPrice) return `早鳥優惠 HK$${offerPrice}`;
     return "早鳥優惠待確認";
   }
+
   if (priceMode === "range") {
     if (minPrice && maxPrice && minPrice !== maxPrice) {
       return `HK$${minPrice}–HK$${maxPrice}`;
@@ -320,10 +331,12 @@ function formatPrice(event: EventRecord): string {
     if (minPrice) return `HK$${minPrice} 起`;
     return "價錢範圍待確認";
   }
+
   if (priceMode === "fixed") {
     if (minPrice) return `HK$${minPrice}`;
     return "固定收費待確認";
   }
+
   if (priceMode === "from" || priceMode === "paid") {
     if (minPrice) return `HK$${minPrice} 起`;
     return "收費活動";
@@ -334,7 +347,10 @@ function formatPrice(event: EventRecord): string {
 
 function getCategoryLabel(event: EventRecord): string {
   const raw = safeText(
-    event.activity_category || event.category || event.activity_type || event.age_group,
+    event.activity_category ||
+      event.category ||
+      event.activity_type ||
+      event.age_group,
     "親子活動",
   );
 
@@ -375,8 +391,12 @@ function getPrimaryActionLabel(event: EventRecord): string {
   if (ctaType === "contact") return "請向主辦查詢";
   if (ctaType === "whatsapp") return "WhatsApp 報名";
   if (ctaType === "google_form") return "Google Form 報名";
-  if (isValidUrl(event.registration_url) || isValidUrl(event.booking_url)) return "前往報名";
-  if (isValidUrl(event.official_url) || isValidUrl(event.source_url)) return "查看官方活動頁";
+  if (isValidUrl(event.registration_url) || isValidUrl(event.booking_url)) {
+    return "前往報名";
+  }
+  if (isValidUrl(event.official_url) || isValidUrl(event.source_url)) {
+    return "查看官方活動頁";
+  }
   if (event.registration_required) return "請向主辦查詢";
 
   return "無需報名";
@@ -384,9 +404,18 @@ function getPrimaryActionLabel(event: EventRecord): string {
 
 function getCoverTransform(event: EventRecord): CSSProperties {
   const zoom = Math.min(Math.max(toNumber(event.cover_image_zoom, 1), 0.8), 3);
-  const offsetX = Math.min(Math.max(toNumber(event.cover_image_offset_x, 0), -100), 100);
-  const offsetY = Math.min(Math.max(toNumber(event.cover_image_offset_y, 0), -100), 100);
-  const focusY = Math.min(Math.max(toNumber(event.cover_image_focus_y, 50), 0), 100);
+  const offsetX = Math.min(
+    Math.max(toNumber(event.cover_image_offset_x, 0), -100),
+    100,
+  );
+  const offsetY = Math.min(
+    Math.max(toNumber(event.cover_image_offset_y, 0), -100),
+    100,
+  );
+  const focusY = Math.min(
+    Math.max(toNumber(event.cover_image_focus_y, 50), 0),
+    100,
+  );
   const rotate = toNumber(event.cover_image_rotate, 0);
   const flipX = event.cover_image_flip_x ? -1 : 1;
   const flipY = event.cover_image_flip_y ? -1 : 1;
@@ -398,9 +427,18 @@ function getCoverTransform(event: EventRecord): CSSProperties {
 }
 
 function getCoverFilter(event: EventRecord): CSSProperties {
-  const brightness = Math.min(Math.max(toNumber(event.cover_image_brightness, 100), 40), 180);
-  const contrast = Math.min(Math.max(toNumber(event.cover_image_contrast, 100), 40), 180);
-  const saturation = Math.min(Math.max(toNumber(event.cover_image_saturation, 100), 0), 220);
+  const brightness = Math.min(
+    Math.max(toNumber(event.cover_image_brightness, 100), 40),
+    180,
+  );
+  const contrast = Math.min(
+    Math.max(toNumber(event.cover_image_contrast, 100), 40),
+    180,
+  );
+  const saturation = Math.min(
+    Math.max(toNumber(event.cover_image_saturation, 100), 0),
+    220,
+  );
   const filterName = safeText(event.cover_image_filter, "none");
 
   let extraFilter = "";
@@ -417,7 +455,9 @@ function getCoverFilter(event: EventRecord): CSSProperties {
 function normalizedStatus(event: EventRecord): StatusFilter {
   const status = safeText(event.status || event.approval_status, "draft").toLowerCase();
 
-  if (["submitted", "pending", "review", "pending_review"].includes(status)) return "submitted";
+  if (["submitted", "pending", "review", "pending_review"].includes(status)) {
+    return "submitted";
+  }
   if (["approved", "published", "live"].includes(status)) return "published";
   if (["rejected", "declined"].includes(status)) return "rejected";
   if (["archived", "hidden", "offline"].includes(status)) return "archived";
@@ -436,7 +476,7 @@ function getStatusLabel(event: EventRecord): string {
   return "草稿";
 }
 
-function getStatusTone(status: StatusFilter): "purple" | "green" | "amber" | "slate" | "rose" {
+function getStatusTone(status: StatusFilter): BadgeTone {
   if (status === "submitted") return "amber";
   if (status === "published") return "green";
   if (status === "rejected") return "rose";
@@ -473,10 +513,17 @@ function hasCriticalReady(event: EventRecord) {
 
 function getCompleteness(event: EventRecord) {
   const images = getGalleryImages(event);
+
   const checks = [
     Boolean(safeText(event.title_tc || event.title)),
     Boolean(event.start_date),
-    Boolean(event.venue_name_tc || event.venue_name || event.address_tc || event.address || event.district),
+    Boolean(
+      event.venue_name_tc ||
+        event.venue_name ||
+        event.address_tc ||
+        event.address ||
+        event.district,
+    ),
     images.length > 0 && images[0]?.url !== FALLBACK_IMAGE,
     Boolean(getPrimaryActionUrl(event)) ||
       safeText(event.cta_type).toLowerCase() === "none" ||
@@ -495,7 +542,7 @@ function Badge({
   tone = "purple",
 }: {
   children: ReactNode;
-  tone?: "purple" | "green" | "amber" | "slate" | "rose";
+  tone?: BadgeTone;
 }) {
   const className =
     tone === "green"
@@ -509,7 +556,9 @@ function Badge({
             : "bg-purple-50 text-purple-700 ring-purple-100";
 
   return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}
+    >
       {children}
     </span>
   );
@@ -524,7 +573,7 @@ function AnalyticsCard({
   label: string;
   value: string | number;
   note: string;
-  tone?: "purple" | "green" | "amber" | "slate" | "rose";
+  tone?: BadgeTone;
 }) {
   const bg =
     tone === "green"
@@ -689,23 +738,19 @@ export default function AdminEventsPage() {
     const submitted = events.filter((item) => normalizedStatus(item) === "submitted").length;
     const draft = events.filter((item) => normalizedStatus(item) === "draft").length;
     const published = events.filter((item) => normalizedStatus(item) === "published").length;
-    const rejected = events.filter((item) => normalizedStatus(item) === "rejected").length;
-    const archived = events.filter((item) => normalizedStatus(item) === "archived").length;
-    const readyToPublish = events.filter((item) => hasCriticalReady(item)).length;
     const imageReady = events.filter((item) => {
       const images = getGalleryImages(item);
       return images.length > 0 && images[0]?.url !== FALLBACK_IMAGE;
     }).length;
+    const readyToPublish = events.filter((item) => hasCriticalReady(item)).length;
 
     return {
       total,
       submitted,
       draft,
       published,
-      rejected,
-      archived,
-      readyToPublish,
       imageReady,
+      readyToPublish,
     };
   }, [events]);
 
@@ -886,7 +931,7 @@ export default function AdminEventsPage() {
 
             <select
               value={sortMode}
-              onChange={(event) => setSortMode(event.target.value as SortMode)}
+              onChange={(eventChange) => setSortMode(eventChange.target.value as SortMode)}
               className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
               <option value="newest">最新更新</option>
@@ -897,7 +942,7 @@ export default function AdminEventsPage() {
 
           <input
             value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
+            onChange={(eventChange) => setSearchText(eventChange.target.value)}
             placeholder="搜尋活動名稱、商戶、地點、分類、港鐵站..."
             className="mt-4 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
           />
@@ -939,10 +984,13 @@ export default function AdminEventsPage() {
                 safeText(event.address_tc || event.address, safeText(event.district, "地點待定")),
               );
               const ctaUrl = getPrimaryActionUrl(event);
-              const coverStyle: CSSProperties = {
-                ...getCoverTransform(event),
-                ...getCoverFilter(event),
-              };
+              const coverStyle: CSSProperties =
+                images[0]?.url === FALLBACK_IMAGE
+                  ? {}
+                  : {
+                      ...getCoverTransform(event),
+                      ...getCoverFilter(event),
+                    };
               const ready = hasCriticalReady(event);
               const completeness = getCompleteness(event);
               const isSaving = savingId === event.id;
@@ -963,9 +1011,7 @@ export default function AdminEventsPage() {
 
                       <div className="absolute left-3 top-3 flex flex-wrap gap-2">
                         <Badge tone={tone}>{getStatusLabel(event)}</Badge>
-                        <Badge tone={ready ? "green" : "rose"}>
-                          {completeness}%
-                        </Badge>
+                        <Badge tone={ready ? "green" : "rose"}>{completeness}%</Badge>
                       </div>
 
                       <div className="absolute bottom-3 left-3 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
