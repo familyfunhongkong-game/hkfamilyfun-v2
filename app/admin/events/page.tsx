@@ -115,7 +115,7 @@ type StatusFilter =
 
 type SortMode = "newest" | "oldest" | "date";
 
-type BadgeTone = "purple" | "green" | "amber" | "slate" | "rose";
+type Tone = "purple" | "green" | "amber" | "slate" | "rose";
 
 const FALLBACK_IMAGE =
   "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
@@ -137,6 +137,7 @@ function safeText(value: unknown, fallback = ""): string {
       .map((item) => String(item || "").trim())
       .filter(Boolean)
       .join(", ");
+
     return joined || fallback;
   }
 
@@ -157,7 +158,7 @@ function toNumber(value: unknown, fallback: number): number {
   return fallback;
 }
 
-function isValidUrl(value: unknown): value is string {
+function isHttpUrl(value: unknown): boolean {
   if (typeof value !== "string") return false;
   return /^https?:\/\//i.test(value.trim());
 }
@@ -223,7 +224,7 @@ function uniqueImages(input: string[]): string[] {
 
   for (const raw of input) {
     const url = raw.trim();
-    if (!isValidUrl(url)) continue;
+    if (!/^https?:\/\//i.test(url)) continue;
 
     const key = url.toLowerCase();
     if (seen.has(key)) continue;
@@ -236,9 +237,11 @@ function uniqueImages(input: string[]): string[] {
 }
 
 function getGalleryImages(event: EventRecord): GalleryImage[] {
-  const cover = isValidUrl(event.cover_image_url)
-    ? event.cover_image_url.trim()
-    : "";
+  const cover =
+    typeof event.cover_image_url === "string" &&
+    /^https?:\/\//i.test(event.cover_image_url.trim())
+      ? event.cover_image_url.trim()
+      : "";
 
   const galleryFromMain = normalizeImageArray(event.gallery_image_urls);
   const galleryFromImages = normalizeImageArray(event.images);
@@ -264,6 +267,56 @@ function getGalleryImages(event: EventRecord): GalleryImage[] {
     label: index === 0 ? "封面圖片" : `Gallery 圖片 ${index}`,
     isCover: index === 0,
   }));
+}
+
+function getCoverTransform(event: EventRecord): CSSProperties {
+  const zoom = Math.min(Math.max(toNumber(event.cover_image_zoom, 1), 0.8), 3);
+  const offsetX = Math.min(
+    Math.max(toNumber(event.cover_image_offset_x, 0), -100),
+    100,
+  );
+  const offsetY = Math.min(
+    Math.max(toNumber(event.cover_image_offset_y, 0), -100),
+    100,
+  );
+  const focusY = Math.min(
+    Math.max(toNumber(event.cover_image_focus_y, 50), 0),
+    100,
+  );
+  const rotate = toNumber(event.cover_image_rotate, 0);
+  const flipX = event.cover_image_flip_x ? -1 : 1;
+  const flipY = event.cover_image_flip_y ? -1 : 1;
+
+  return {
+    transform: `translate(${offsetX}%, ${offsetY}%) scale(${zoom}) rotate(${rotate}deg) scaleX(${flipX}) scaleY(${flipY})`,
+    transformOrigin: `50% ${focusY}%`,
+  };
+}
+
+function getCoverFilter(event: EventRecord): CSSProperties {
+  const brightness = Math.min(
+    Math.max(toNumber(event.cover_image_brightness, 100), 40),
+    180,
+  );
+  const contrast = Math.min(
+    Math.max(toNumber(event.cover_image_contrast, 100), 40),
+    180,
+  );
+  const saturation = Math.min(
+    Math.max(toNumber(event.cover_image_saturation, 100), 0),
+    220,
+  );
+  const filterName = safeText(event.cover_image_filter, "none");
+
+  let extraFilter = "";
+  if (filterName === "warm") extraFilter = "sepia(0.16)";
+  if (filterName === "cool") extraFilter = "hue-rotate(8deg) saturate(0.95)";
+  if (filterName === "mono") extraFilter = "grayscale(1)";
+  if (filterName === "soft") extraFilter = "contrast(0.94) brightness(1.04)";
+
+  return {
+    filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${extraFilter}`,
+  };
 }
 
 function formatDate(value?: string | null): string {
@@ -373,10 +426,10 @@ function getCategoryLabel(event: EventRecord): string {
 }
 
 function getPrimaryActionUrl(event: EventRecord): string | null {
-  if (isValidUrl(event.registration_url)) return event.registration_url.trim();
-  if (isValidUrl(event.booking_url)) return event.booking_url.trim();
-  if (isValidUrl(event.official_url)) return event.official_url.trim();
-  if (isValidUrl(event.source_url)) return event.source_url.trim();
+  if (isHttpUrl(event.registration_url)) return String(event.registration_url).trim();
+  if (isHttpUrl(event.booking_url)) return String(event.booking_url).trim();
+  if (isHttpUrl(event.official_url)) return String(event.official_url).trim();
+  if (isHttpUrl(event.source_url)) return String(event.source_url).trim();
 
   return null;
 }
@@ -391,65 +444,15 @@ function getPrimaryActionLabel(event: EventRecord): string {
   if (ctaType === "contact") return "請向主辦查詢";
   if (ctaType === "whatsapp") return "WhatsApp 報名";
   if (ctaType === "google_form") return "Google Form 報名";
-  if (isValidUrl(event.registration_url) || isValidUrl(event.booking_url)) {
+  if (isHttpUrl(event.registration_url) || isHttpUrl(event.booking_url)) {
     return "前往報名";
   }
-  if (isValidUrl(event.official_url) || isValidUrl(event.source_url)) {
+  if (isHttpUrl(event.official_url) || isHttpUrl(event.source_url)) {
     return "查看官方活動頁";
   }
   if (event.registration_required) return "請向主辦查詢";
 
   return "無需報名";
-}
-
-function getCoverTransform(event: EventRecord): CSSProperties {
-  const zoom = Math.min(Math.max(toNumber(event.cover_image_zoom, 1), 0.8), 3);
-  const offsetX = Math.min(
-    Math.max(toNumber(event.cover_image_offset_x, 0), -100),
-    100,
-  );
-  const offsetY = Math.min(
-    Math.max(toNumber(event.cover_image_offset_y, 0), -100),
-    100,
-  );
-  const focusY = Math.min(
-    Math.max(toNumber(event.cover_image_focus_y, 50), 0),
-    100,
-  );
-  const rotate = toNumber(event.cover_image_rotate, 0);
-  const flipX = event.cover_image_flip_x ? -1 : 1;
-  const flipY = event.cover_image_flip_y ? -1 : 1;
-
-  return {
-    transform: `translate(${offsetX}%, ${offsetY}%) scale(${zoom}) rotate(${rotate}deg) scaleX(${flipX}) scaleY(${flipY})`,
-    transformOrigin: `50% ${focusY}%`,
-  };
-}
-
-function getCoverFilter(event: EventRecord): CSSProperties {
-  const brightness = Math.min(
-    Math.max(toNumber(event.cover_image_brightness, 100), 40),
-    180,
-  );
-  const contrast = Math.min(
-    Math.max(toNumber(event.cover_image_contrast, 100), 40),
-    180,
-  );
-  const saturation = Math.min(
-    Math.max(toNumber(event.cover_image_saturation, 100), 0),
-    220,
-  );
-  const filterName = safeText(event.cover_image_filter, "none");
-
-  let extraFilter = "";
-  if (filterName === "warm") extraFilter = "sepia(0.16)";
-  if (filterName === "cool") extraFilter = "hue-rotate(8deg) saturate(0.95)";
-  if (filterName === "mono") extraFilter = "grayscale(1)";
-  if (filterName === "soft") extraFilter = "contrast(0.94) brightness(1.04)";
-
-  return {
-    filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${extraFilter}`,
-  };
 }
 
 function normalizedStatus(event: EventRecord): StatusFilter {
@@ -458,6 +461,7 @@ function normalizedStatus(event: EventRecord): StatusFilter {
   if (["submitted", "pending", "review", "pending_review"].includes(status)) {
     return "submitted";
   }
+
   if (["approved", "published", "live"].includes(status)) return "published";
   if (["rejected", "declined"].includes(status)) return "rejected";
   if (["archived", "hidden", "offline"].includes(status)) return "archived";
@@ -476,11 +480,12 @@ function getStatusLabel(event: EventRecord): string {
   return "草稿";
 }
 
-function getStatusTone(status: StatusFilter): BadgeTone {
+function getStatusTone(status: StatusFilter): Tone {
   if (status === "submitted") return "amber";
   if (status === "published") return "green";
   if (status === "rejected") return "rose";
   if (status === "archived") return "slate";
+
   return "purple";
 }
 
@@ -489,7 +494,7 @@ function extractMissingColumn(errorMessage: string) {
   return match?.[1] || "";
 }
 
-function hasCriticalReady(event: EventRecord) {
+function hasCriticalReady(event: EventRecord): boolean {
   const images = getGalleryImages(event);
   const hasRealImage = images.length > 0 && images[0]?.url !== FALLBACK_IMAGE;
 
@@ -511,7 +516,7 @@ function hasCriticalReady(event: EventRecord) {
   return hasTitle && hasDate && hasVenue && hasRealImage && hasCta;
 }
 
-function getCompleteness(event: EventRecord) {
+function getCompleteness(event: EventRecord): number {
   const images = getGalleryImages(event);
 
   const checks = [
@@ -542,7 +547,7 @@ function Badge({
   tone = "purple",
 }: {
   children: ReactNode;
-  tone?: BadgeTone;
+  tone?: Tone;
 }) {
   const className =
     tone === "green"
@@ -556,9 +561,7 @@ function Badge({
             : "bg-purple-50 text-purple-700 ring-purple-100";
 
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}
-    >
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
       {children}
     </span>
   );
@@ -573,7 +576,7 @@ function AnalyticsCard({
   label: string;
   value: string | number;
   note: string;
-  tone?: BadgeTone;
+  tone?: Tone;
 }) {
   const bg =
     tone === "green"
@@ -597,7 +600,7 @@ function AnalyticsCard({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[86px_1fr] gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm">
+    <div className="grid grid-cols-[76px_1fr] gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm">
       <span className="font-black text-slate-400">{label}</span>
       <span className="font-bold text-slate-800">{value}</span>
     </div>
@@ -738,19 +741,24 @@ export default function AdminEventsPage() {
     const submitted = events.filter((item) => normalizedStatus(item) === "submitted").length;
     const draft = events.filter((item) => normalizedStatus(item) === "draft").length;
     const published = events.filter((item) => normalizedStatus(item) === "published").length;
+    const rejected = events.filter((item) => normalizedStatus(item) === "rejected").length;
+    const archived = events.filter((item) => normalizedStatus(item) === "archived").length;
+    const readyToPublish = events.filter((item) => hasCriticalReady(item)).length;
+
     const imageReady = events.filter((item) => {
       const images = getGalleryImages(item);
       return images.length > 0 && images[0]?.url !== FALLBACK_IMAGE;
     }).length;
-    const readyToPublish = events.filter((item) => hasCriticalReady(item)).length;
 
     return {
       total,
       submitted,
       draft,
       published,
-      imageReady,
+      rejected,
+      archived,
       readyToPublish,
+      imageReady,
     };
   }, [events]);
 
@@ -931,7 +939,7 @@ export default function AdminEventsPage() {
 
             <select
               value={sortMode}
-              onChange={(eventChange) => setSortMode(eventChange.target.value as SortMode)}
+              onChange={(changeEvent) => setSortMode(changeEvent.target.value as SortMode)}
               className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
               <option value="newest">最新更新</option>
@@ -942,7 +950,7 @@ export default function AdminEventsPage() {
 
           <input
             value={searchText}
-            onChange={(eventChange) => setSearchText(eventChange.target.value)}
+            onChange={(changeEvent) => setSearchText(changeEvent.target.value)}
             placeholder="搜尋活動名稱、商戶、地點、分類、港鐵站..."
             className="mt-4 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
           />
@@ -981,19 +989,23 @@ export default function AdminEventsPage() {
               );
               const venue = safeText(
                 event.venue_name_tc || event.venue_name,
-                safeText(event.address_tc || event.address, safeText(event.district, "地點待定")),
+                safeText(
+                  event.address_tc || event.address,
+                  safeText(event.district, "地點待定"),
+                ),
               );
               const ctaUrl = getPrimaryActionUrl(event);
-              const coverStyle: CSSProperties =
-                images[0]?.url === FALLBACK_IMAGE
-                  ? {}
-                  : {
-                      ...getCoverTransform(event),
-                      ...getCoverFilter(event),
-                    };
               const ready = hasCriticalReady(event);
               const completeness = getCompleteness(event);
               const isSaving = savingId === event.id;
+              const isFallback = images[0]?.url === FALLBACK_IMAGE;
+
+              const coverStyle: CSSProperties = isFallback
+                ? {}
+                : {
+                    ...getCoverTransform(event),
+                    ...getCoverFilter(event),
+                  };
 
               return (
                 <article
@@ -1001,17 +1013,33 @@ export default function AdminEventsPage() {
                   className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm"
                 >
                   <div className="grid gap-0 lg:grid-cols-[300px_1fr]">
-                    <div className="relative min-h-[260px] overflow-hidden bg-slate-100">
-                      <img
-                        src={images[0]?.url || FALLBACK_IMAGE}
-                        alt={title}
-                        className="h-full min-h-[260px] w-full object-cover"
-                        style={coverStyle}
-                      />
+                    <div className="relative min-h-[260px] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
+                      {isFallback ? (
+                        <div className="flex h-full min-h-[260px] w-full flex-col items-center justify-center px-6 text-center">
+                          <div className="grid h-16 w-16 place-items-center rounded-3xl bg-purple-700 text-2xl font-black text-white shadow-sm">
+                            親
+                          </div>
+                          <p className="mt-3 text-sm font-black text-purple-900">
+                            HK Family Fun
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-slate-500">
+                            活動圖片準備中
+                          </p>
+                        </div>
+                      ) : (
+                        <img
+                          src={images[0]?.url || FALLBACK_IMAGE}
+                          alt={title}
+                          className="h-full min-h-[260px] w-full object-cover"
+                          style={coverStyle}
+                        />
+                      )}
 
                       <div className="absolute left-3 top-3 flex flex-wrap gap-2">
                         <Badge tone={tone}>{getStatusLabel(event)}</Badge>
-                        <Badge tone={ready ? "green" : "rose"}>{completeness}%</Badge>
+                        <Badge tone={ready ? "green" : "rose"}>
+                          {completeness}%
+                        </Badge>
                       </div>
 
                       <div className="absolute bottom-3 left-3 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">

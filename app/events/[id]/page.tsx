@@ -82,7 +82,7 @@ type EventRecord = {
   age_group?: string | null;
   activity_type?: string | null;
   activity_category?: string | null;
-  category?: string | null;
+  category?: string | JsonValue | null;
 
   registration_required?: boolean | null;
   registration_url?: string | null;
@@ -107,6 +107,7 @@ type EventRecord = {
   source_type?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  published_at?: string | null;
 };
 
 type GalleryImage = {
@@ -129,8 +130,10 @@ function safeText(value: unknown, fallback = ""): string {
     return joined || fallback;
   }
 
+  if (typeof value === "object") return fallback;
+
   const text = String(value).trim();
-  return text.length > 0 ? text : fallback;
+  return text.length ? text : fallback;
 }
 
 function toNumber(value: unknown, fallback: number): number {
@@ -144,7 +147,7 @@ function toNumber(value: unknown, fallback: number): number {
   return fallback;
 }
 
-function isValidUrl(value: unknown): value is string {
+function isHttpUrl(value: unknown): boolean {
   if (typeof value !== "string") return false;
   return /^https?:\/\//i.test(value.trim());
 }
@@ -178,23 +181,26 @@ function normalizeImageArray(value: unknown): string[] {
         return "";
       })
       .map((item) => item.trim())
-      .filter((item) => isValidUrl(item));
+      .filter((item) => /^https?:\/\//i.test(item));
   }
 
   if (typeof value === "string") {
-    const trimmed = value.trim();
+    const trimmed: string = value.trim();
 
     if (!trimmed) return [];
-    if (isValidUrl(trimmed)) return [trimmed];
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      return [trimmed];
+    }
 
     try {
-      const parsed = JSON.parse(trimmed);
+      const parsed: unknown = JSON.parse(trimmed);
       return normalizeImageArray(parsed);
     } catch {
       return trimmed
-        .split(",")
+        .split(/[,\n，、]/)
         .map((item) => item.trim())
-        .filter((item) => isValidUrl(item));
+        .filter((item) => /^https?:\/\//i.test(item));
     }
   }
 
@@ -207,7 +213,7 @@ function uniqueImages(input: string[]): string[] {
 
   for (const raw of input) {
     const url = raw.trim();
-    if (!isValidUrl(url)) continue;
+    if (!/^https?:\/\//i.test(url)) continue;
 
     const key = url.toLowerCase();
     if (seen.has(key)) continue;
@@ -220,9 +226,11 @@ function uniqueImages(input: string[]): string[] {
 }
 
 function getGalleryImages(event: EventRecord): GalleryImage[] {
-  const cover = isValidUrl(event.cover_image_url)
-    ? event.cover_image_url.trim()
-    : "";
+  const cover =
+    typeof event.cover_image_url === "string" &&
+    /^https?:\/\//i.test(event.cover_image_url.trim())
+      ? event.cover_image_url.trim()
+      : "";
 
   const galleryFromMain = normalizeImageArray(event.gallery_image_urls);
   const galleryFromImages = normalizeImageArray(event.images);
@@ -237,7 +245,7 @@ function getGalleryImages(event: EventRecord): GalleryImage[] {
     return [
       {
         url: FALLBACK_IMAGE,
-        label: "預設圖片",
+        label: "HK Family Fun 預設圖片",
         isCover: true,
       },
     ];
@@ -284,7 +292,9 @@ function formatTimeRange(event: EventRecord): string {
 }
 
 function formatPrice(event: EventRecord): string {
-  const priceMode = safeText(event.price_display_mode || event.price_type).toLowerCase();
+  const priceMode = safeText(
+    event.price_display_mode || event.price_type,
+  ).toLowerCase();
   const priceLabel = safeText(event.price_label || event.price_text);
   const minPrice = safeText(event.min_price);
   const maxPrice = safeText(event.max_price);
@@ -297,20 +307,28 @@ function formatPrice(event: EventRecord): string {
   if (priceMode === "hidden") return "不顯示價錢";
   if (priceMode === "free") return "免費";
   if (priceMode === "quota") return quotaLabel || "名額有限";
+
   if (priceMode === "early_bird") {
-    if (offerPrice && originalPrice) return `早鳥優惠 HK$${offerPrice}（原價 HK$${originalPrice}）`;
+    if (offerPrice && originalPrice) {
+      return `早鳥優惠 HK$${offerPrice}（原價 HK$${originalPrice}）`;
+    }
     if (offerPrice) return `早鳥優惠 HK$${offerPrice}`;
     return "早鳥優惠待確認";
   }
+
   if (priceMode === "range") {
-    if (minPrice && maxPrice && minPrice !== maxPrice) return `HK$${minPrice}–HK$${maxPrice}`;
+    if (minPrice && maxPrice && minPrice !== maxPrice) {
+      return `HK$${minPrice}–HK$${maxPrice}`;
+    }
     if (minPrice) return `HK$${minPrice} 起`;
     return "價錢範圍待確認";
   }
+
   if (priceMode === "fixed") {
     if (minPrice) return `HK$${minPrice}`;
     return "固定收費待確認";
   }
+
   if (priceMode === "from" || priceMode === "paid") {
     if (minPrice) return `HK$${minPrice} 起`;
     return "收費活動";
@@ -321,7 +339,10 @@ function formatPrice(event: EventRecord): string {
 
 function getCategoryLabel(event: EventRecord): string {
   const raw = safeText(
-    event.activity_category || event.category || event.activity_type || event.age_group,
+    event.activity_category ||
+      event.category ||
+      event.activity_type ||
+      event.age_group,
     "親子活動",
   );
 
@@ -347,15 +368,12 @@ function getTagArray(value: unknown): string[] {
   if (!value) return [];
 
   if (Array.isArray(value)) {
-    return value
-      .map((item) => safeText(item))
-      .filter(Boolean)
-      .slice(0, 8);
+    return value.map((item) => safeText(item)).filter(Boolean).slice(0, 8);
   }
 
   if (typeof value === "string") {
     try {
-      const parsed = JSON.parse(value);
+      const parsed: unknown = JSON.parse(value);
       return getTagArray(parsed);
     } catch {
       return value
@@ -370,10 +388,10 @@ function getTagArray(value: unknown): string[] {
 }
 
 function getPrimaryActionUrl(event: EventRecord): string | null {
-  if (isValidUrl(event.registration_url)) return event.registration_url.trim();
-  if (isValidUrl(event.booking_url)) return event.booking_url.trim();
-  if (isValidUrl(event.official_url)) return event.official_url.trim();
-  if (isValidUrl(event.source_url)) return event.source_url.trim();
+  if (isHttpUrl(event.registration_url)) return String(event.registration_url).trim();
+  if (isHttpUrl(event.booking_url)) return String(event.booking_url).trim();
+  if (isHttpUrl(event.official_url)) return String(event.official_url).trim();
+  if (isHttpUrl(event.source_url)) return String(event.source_url).trim();
 
   return null;
 }
@@ -388,8 +406,12 @@ function getPrimaryActionLabel(event: EventRecord): string {
   if (ctaType === "contact") return "請向主辦查詢";
   if (ctaType === "whatsapp") return "WhatsApp 報名";
   if (ctaType === "google_form") return "Google Form 報名";
-  if (isValidUrl(event.registration_url) || isValidUrl(event.booking_url)) return "前往報名";
-  if (isValidUrl(event.official_url) || isValidUrl(event.source_url)) return "查看官方活動頁";
+  if (isHttpUrl(event.registration_url) || isHttpUrl(event.booking_url)) {
+    return "前往報名";
+  }
+  if (isHttpUrl(event.official_url) || isHttpUrl(event.source_url)) {
+    return "查看官方活動頁";
+  }
   if (event.registration_required) return "請向主辦查詢";
 
   return "無需報名";
@@ -397,9 +419,18 @@ function getPrimaryActionLabel(event: EventRecord): string {
 
 function getCoverTransform(event: EventRecord): CSSProperties {
   const zoom = Math.min(Math.max(toNumber(event.cover_image_zoom, 1), 0.8), 3);
-  const offsetX = Math.min(Math.max(toNumber(event.cover_image_offset_x, 0), -100), 100);
-  const offsetY = Math.min(Math.max(toNumber(event.cover_image_offset_y, 0), -100), 100);
-  const focusY = Math.min(Math.max(toNumber(event.cover_image_focus_y, 50), 0), 100);
+  const offsetX = Math.min(
+    Math.max(toNumber(event.cover_image_offset_x, 0), -100),
+    100,
+  );
+  const offsetY = Math.min(
+    Math.max(toNumber(event.cover_image_offset_y, 0), -100),
+    100,
+  );
+  const focusY = Math.min(
+    Math.max(toNumber(event.cover_image_focus_y, 50), 0),
+    100,
+  );
   const rotate = toNumber(event.cover_image_rotate, 0);
   const flipX = event.cover_image_flip_x ? -1 : 1;
   const flipY = event.cover_image_flip_y ? -1 : 1;
@@ -411,9 +442,18 @@ function getCoverTransform(event: EventRecord): CSSProperties {
 }
 
 function getCoverFilter(event: EventRecord): CSSProperties {
-  const brightness = Math.min(Math.max(toNumber(event.cover_image_brightness, 100), 40), 180);
-  const contrast = Math.min(Math.max(toNumber(event.cover_image_contrast, 100), 40), 180);
-  const saturation = Math.min(Math.max(toNumber(event.cover_image_saturation, 100), 0), 220);
+  const brightness = Math.min(
+    Math.max(toNumber(event.cover_image_brightness, 100), 40),
+    180,
+  );
+  const contrast = Math.min(
+    Math.max(toNumber(event.cover_image_contrast, 100), 40),
+    180,
+  );
+  const saturation = Math.min(
+    Math.max(toNumber(event.cover_image_saturation, 100), 0),
+    220,
+  );
   const filterName = safeText(event.cover_image_filter, "none");
 
   let extraFilter = "";
@@ -428,8 +468,8 @@ function getCoverFilter(event: EventRecord): CSSProperties {
 }
 
 function canShowPublic(event: EventRecord): boolean {
-  const status = safeText(event.status).toLowerCase();
-  return status === "published" || status === "approved" || status === "live";
+  const status = safeText(event.status || event.approval_status, "draft").toLowerCase();
+  return ["published", "approved", "live"].includes(status);
 }
 
 function Badge({
@@ -451,7 +491,9 @@ function Badge({
             : "bg-purple-50 text-purple-700 ring-purple-100";
 
   return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}
+    >
       {children}
     </span>
   );
@@ -623,6 +665,7 @@ export default function PublicEventDetailPage() {
     "HK Family Fun 精選親子活動，出發前請向主辦方確認最新安排。",
   );
   const description = safeText(event.description_tc, "暫未提供詳細活動內容。");
+
   const venue = safeText(
     event.venue_name_tc || event.venue_name,
     safeText(event.address_tc || event.address, safeText(event.district, "地點待定")),
@@ -630,6 +673,7 @@ export default function PublicEventDetailPage() {
   const address = safeText(event.address_tc || event.address, "");
   const district = safeText(event.district, "");
   const mtr = safeText(event.mtr_station, "");
+
   const merchantName = safeText(
     event.merchant_name || event.organizer_name,
     "HK Family Fun 商戶",
@@ -639,10 +683,14 @@ export default function PublicEventDetailPage() {
   const actionLabel = getPrimaryActionLabel(event);
   const selectedImage = images[selectedImageIndex] || images[0];
 
-  const coverStyle: CSSProperties = {
-    ...getCoverTransform(event),
-    ...getCoverFilter(event),
-  };
+  const isFallbackCover = images[0]?.url === FALLBACK_IMAGE;
+
+  const coverStyle: CSSProperties = isFallbackCover
+    ? {}
+    : {
+        ...getCoverTransform(event),
+        ...getCoverFilter(event),
+      };
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -657,13 +705,27 @@ export default function PublicEventDetailPage() {
 
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-              <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
-                <img
-                  src={images[0]?.url || FALLBACK_IMAGE}
-                  alt={title}
-                  className="h-full w-full object-cover"
-                  style={coverStyle}
-                />
+              <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
+                {isFallbackCover ? (
+                  <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
+                    <div className="grid h-20 w-20 place-items-center rounded-3xl bg-purple-700 text-3xl font-black text-white shadow-sm">
+                      親
+                    </div>
+                    <p className="mt-4 text-lg font-black text-purple-950">
+                      HK Family Fun
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-slate-500">
+                      活動圖片準備中
+                    </p>
+                  </div>
+                ) : (
+                  <img
+                    src={images[0]?.url || FALLBACK_IMAGE}
+                    alt={title}
+                    className="h-full w-full object-cover"
+                    style={coverStyle}
+                  />
+                )}
 
                 <div className="absolute left-4 top-4 flex flex-wrap gap-2">
                   <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-purple-700 shadow-sm backdrop-blur">
@@ -755,14 +817,25 @@ export default function PublicEventDetailPage() {
         <section className="space-y-6">
           <SectionCard title="活動圖片 Gallery" icon="🖼️">
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-purple-50 via-white to-amber-50">
                 <div className="relative aspect-[16/9] overflow-hidden">
-                  <img
-                    src={selectedImage?.url || FALLBACK_IMAGE}
-                    alt={selectedImage?.label || title}
-                    className="h-full w-full object-cover"
-                    style={selectedImage?.isCover ? coverStyle : undefined}
-                  />
+                  {selectedImage?.url === FALLBACK_IMAGE ? (
+                    <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
+                      <div className="grid h-16 w-16 place-items-center rounded-3xl bg-purple-700 text-2xl font-black text-white shadow-sm">
+                        親
+                      </div>
+                      <p className="mt-3 text-sm font-black text-purple-950">
+                        活動圖片準備中
+                      </p>
+                    </div>
+                  ) : (
+                    <img
+                      src={selectedImage?.url || FALLBACK_IMAGE}
+                      alt={selectedImage?.label || title}
+                      className="h-full w-full object-cover"
+                      style={selectedImage?.isCover ? coverStyle : undefined}
+                    />
+                  )}
 
                   <div className="absolute left-4 top-4 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
                     {selectedImage?.label || "圖片"}
@@ -782,13 +855,19 @@ export default function PublicEventDetailPage() {
                         : "border-slate-200 hover:border-purple-200"
                     }`}
                   >
-                    <div className="aspect-[16/10] overflow-hidden bg-slate-100">
-                      <img
-                        src={image.url}
-                        alt={image.label}
-                        className="h-full w-full object-cover transition group-hover:scale-[1.03]"
-                        style={image.isCover ? coverStyle : undefined}
-                      />
+                    <div className="aspect-[16/10] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
+                      {image.url === FALLBACK_IMAGE ? (
+                        <div className="flex h-full w-full items-center justify-center text-sm font-black text-purple-800">
+                          HK Family Fun
+                        </div>
+                      ) : (
+                        <img
+                          src={image.url}
+                          alt={image.label}
+                          className="h-full w-full object-cover transition group-hover:scale-[1.03]"
+                          style={image.isCover ? coverStyle : undefined}
+                        />
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between px-3 py-2">
@@ -837,18 +916,18 @@ export default function PublicEventDetailPage() {
               <InfoPill label="地址" value={address || "地址待定"} />
             </div>
 
-            {isValidUrl(event.google_map_embed_url) ? (
+            {isHttpUrl(event.google_map_embed_url) ? (
               <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200">
                 <iframe
-                  src={event.google_map_embed_url}
+                  src={String(event.google_map_embed_url)}
                   className="h-[320px] w-full"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                 />
               </div>
-            ) : isValidUrl(event.google_map_url) ? (
+            ) : isHttpUrl(event.google_map_url) ? (
               <a
-                href={event.google_map_url}
+                href={String(event.google_map_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-5 inline-flex rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-extrabold text-slate-700 hover:bg-slate-50"
