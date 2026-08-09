@@ -130,6 +130,7 @@ function safeText(value: unknown, fallback = ""): string {
       .map((item) => String(item || "").trim())
       .filter(Boolean)
       .join(", ");
+
     return joined || fallback;
   }
 
@@ -150,7 +151,7 @@ function toNumber(value: unknown, fallback: number): number {
   return fallback;
 }
 
-function isValidUrl(value: unknown): value is string {
+function isHttpUrl(value: unknown): boolean {
   if (typeof value !== "string") return false;
   return /^https?:\/\//i.test(value.trim());
 }
@@ -216,7 +217,7 @@ function uniqueImages(input: string[]): string[] {
 
   for (const raw of input) {
     const url = raw.trim();
-    if (!isValidUrl(url)) continue;
+    if (!/^https?:\/\//i.test(url)) continue;
 
     const key = url.toLowerCase();
     if (seen.has(key)) continue;
@@ -229,9 +230,11 @@ function uniqueImages(input: string[]): string[] {
 }
 
 function getGalleryImages(event: EventRecord): GalleryImage[] {
-  const cover = isValidUrl(event.cover_image_url)
-    ? event.cover_image_url.trim()
-    : "";
+  const cover =
+    typeof event.cover_image_url === "string" &&
+    /^https?:\/\//i.test(event.cover_image_url.trim())
+      ? event.cover_image_url.trim()
+      : "";
 
   const galleryFromMain = normalizeImageArray(event.gallery_image_urls);
   const galleryFromImages = normalizeImageArray(event.images);
@@ -421,10 +424,10 @@ function getCategoryLabel(event: EventRecord): string {
 }
 
 function getPrimaryActionUrl(event: EventRecord): string | null {
-  if (isValidUrl(event.registration_url)) return event.registration_url.trim();
-  if (isValidUrl(event.booking_url)) return event.booking_url.trim();
-  if (isValidUrl(event.official_url)) return event.official_url.trim();
-  if (isValidUrl(event.source_url)) return event.source_url.trim();
+  if (isHttpUrl(event.registration_url)) return String(event.registration_url).trim();
+  if (isHttpUrl(event.booking_url)) return String(event.booking_url).trim();
+  if (isHttpUrl(event.official_url)) return String(event.official_url).trim();
+  if (isHttpUrl(event.source_url)) return String(event.source_url).trim();
 
   return null;
 }
@@ -439,15 +442,34 @@ function getPrimaryActionLabel(event: EventRecord): string {
   if (ctaType === "contact") return "請向主辦查詢";
   if (ctaType === "whatsapp") return "WhatsApp 報名";
   if (ctaType === "google_form") return "Google Form 報名";
-  if (isValidUrl(event.registration_url) || isValidUrl(event.booking_url)) {
+  if (isHttpUrl(event.registration_url) || isHttpUrl(event.booking_url)) {
     return "前往報名";
   }
-  if (isValidUrl(event.official_url) || isValidUrl(event.source_url)) {
+  if (isHttpUrl(event.official_url) || isHttpUrl(event.source_url)) {
     return "查看官方活動頁";
   }
   if (event.registration_required) return "請向主辦查詢";
 
-  return "查看詳情";
+  return "無需報名";
+}
+
+function getGoogleMapUrl(event: EventRecord): string | null {
+  if (isHttpUrl(event.google_map_url)) return String(event.google_map_url).trim();
+
+  const query = [
+    event.venue_name_tc || event.venue_name,
+    event.address_tc || event.address,
+    event.district,
+    event.mtr_station,
+    "香港",
+  ]
+    .map((item) => safeText(item))
+    .filter(Boolean)
+    .join(" ");
+
+  if (!query) return null;
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 function getTagArray(value: unknown): string[] {
@@ -680,6 +702,8 @@ function StatCard({
 }
 
 function EventCard({ event }: { event: EventRecord }) {
+  const [shareCopied, setShareCopied] = useState(false);
+
   const images = getGalleryImages(event);
   const hero = images[0]?.url || FALLBACK_IMAGE;
   const isFallback = hero === FALLBACK_IMAGE;
@@ -707,7 +731,34 @@ function EventCard({ event }: { event: EventRecord }) {
   const tags = getTagArray(event.tags);
   const ctaLabel = getPrimaryActionLabel(event);
   const actionUrl = getPrimaryActionUrl(event);
+  const mapUrl = getGoogleMapUrl(event);
   const imageCount = images.filter((image) => image.url !== FALLBACK_IMAGE).length;
+
+  async function shareEvent() {
+    const shareUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/events/${event.id}`
+        : `/events/${event.id}`;
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({
+          title,
+          text: shortDescription,
+          url: shareUrl,
+        });
+        return;
+      }
+
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareCopied(true);
+        window.setTimeout(() => setShareCopied(false), 1800);
+      }
+    } catch {
+      setShareCopied(false);
+    }
+  }
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg">
@@ -833,28 +884,55 @@ function EventCard({ event }: { event: EventRecord }) {
         )}
 
         <div className="mt-auto pt-5">
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-            <Link
-              href={`/events/${event.id}`}
-              className="inline-flex items-center justify-center rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
-            >
-              查看詳情
-            </Link>
-
-            {actionUrl ? (
-              <a
-                href={actionUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-2xl bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100"
+          <div className="grid gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Link
+                href={`/events/${event.id}`}
+                className="inline-flex items-center justify-center rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
               >
-                {ctaLabel}
-              </a>
-            ) : (
-              <span className="inline-flex items-center justify-center rounded-2xl bg-slate-100 px-4 py-3 text-xs font-black text-slate-600 ring-1 ring-slate-200">
-                {ctaLabel}
-              </span>
-            )}
+                查看詳情
+              </Link>
+
+              {actionUrl ? (
+                <a
+                  href={actionUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700"
+                >
+                  {ctaLabel}
+                </a>
+              ) : (
+                <span className="inline-flex items-center justify-center rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-600 ring-1 ring-slate-200">
+                  {ctaLabel}
+                </span>
+              )}
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              {mapUrl ? (
+                <a
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                >
+                  📍 Google Map
+                </a>
+              ) : (
+                <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
+                  📍 地圖待定
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={shareEvent}
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+              >
+                {shareCopied ? "已複製連結" : "🔗 分享"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1143,7 +1221,9 @@ export default function PublicEventsPage() {
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <select
               value={priceFilter}
-              onChange={(changeEvent) => setPriceFilter(changeEvent.target.value as PriceFilter)}
+              onChange={(changeEvent) =>
+                setPriceFilter(changeEvent.target.value as PriceFilter)
+              }
               className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
               {priceFilters.map((filter) => (
