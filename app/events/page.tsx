@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
@@ -107,6 +107,8 @@ type SortMode = "recommended" | "date_asc" | "date_desc" | "newest";
 
 const FALLBACK_IMAGE =
   "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+
+const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
 
 const dateFilters: { key: DateFilter; label: string }[] = [
   { key: "all", label: "全部日期" },
@@ -423,13 +425,22 @@ function getCategoryLabel(event: EventRecord): string {
   return map[raw] || raw;
 }
 
-function getPrimaryActionUrl(event: EventRecord): string | null {
+function getRegistrationUrl(event: EventRecord): string | null {
   if (isHttpUrl(event.registration_url)) return String(event.registration_url).trim();
   if (isHttpUrl(event.booking_url)) return String(event.booking_url).trim();
+
+  return null;
+}
+
+function getOfficialWebsiteUrl(event: EventRecord): string | null {
   if (isHttpUrl(event.official_url)) return String(event.official_url).trim();
   if (isHttpUrl(event.source_url)) return String(event.source_url).trim();
 
   return null;
+}
+
+function getPrimaryActionUrl(event: EventRecord): string | null {
+  return getRegistrationUrl(event) || getOfficialWebsiteUrl(event);
 }
 
 function getPrimaryActionLabel(event: EventRecord): string {
@@ -438,19 +449,14 @@ function getPrimaryActionLabel(event: EventRecord): string {
 
   const ctaType = safeText(event.cta_type).toLowerCase();
 
-  if (ctaType === "none") return "無需報名";
-  if (ctaType === "contact") return "請向主辦查詢";
+  if (getRegistrationUrl(event)) return "前往報名";
   if (ctaType === "whatsapp") return "WhatsApp 報名";
   if (ctaType === "google_form") return "Google Form 報名";
-  if (isHttpUrl(event.registration_url) || isHttpUrl(event.booking_url)) {
-    return "前往報名";
-  }
-  if (isHttpUrl(event.official_url) || isHttpUrl(event.source_url)) {
-    return "查看官方活動頁";
-  }
-  if (event.registration_required) return "請向主辦查詢";
+  if (getOfficialWebsiteUrl(event)) return "活動官網查看更多";
+  if (ctaType === "none" || event.registration_required === false) return "無需報名";
+  if (ctaType === "contact" || event.registration_required) return "請向主辦查詢";
 
-  return "無需報名";
+  return "活動官網查看更多";
 }
 
 function getGoogleMapUrl(event: EventRecord): string | null {
@@ -612,6 +618,31 @@ function scoreEvent(event: EventRecord): number {
   return score;
 }
 
+function readFavoriteIds(): string[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(FAVORITES_STORAGE_KEY);
+    if (!raw) return [];
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function writeFavoriteIds(ids: string[]) {
+  if (typeof window === "undefined") return;
+
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(unique));
+}
+
 function Badge({
   children,
   tone = "purple",
@@ -701,19 +732,33 @@ function StatCard({
   );
 }
 
-function EventCard({ event }: { event: EventRecord }) {
+function EventCard({
+  event,
+  favoriteIds,
+  onToggleFavorite,
+}: {
+  event: EventRecord;
+  favoriteIds: string[];
+  onToggleFavorite: (eventId: string) => void;
+}) {
   const [shareCopied, setShareCopied] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const images = getGalleryImages(event);
-  const hero = images[0]?.url || FALLBACK_IMAGE;
+  const safeActiveIndex =
+    activeImageIndex >= images.length ? 0 : activeImageIndex;
+  const hero = images[safeActiveIndex]?.url || FALLBACK_IMAGE;
   const isFallback = hero === FALLBACK_IMAGE;
+  const isCoverImage = images[safeActiveIndex]?.isCover;
+  const isFavorite = favoriteIds.includes(event.id);
 
-  const coverStyle: CSSProperties = isFallback
-    ? {}
-    : {
-        ...getCoverTransform(event),
-        ...getCoverFilter(event),
-      };
+  const coverStyle: CSSProperties =
+    isFallback || !isCoverImage
+      ? {}
+      : {
+          ...getCoverTransform(event),
+          ...getCoverFilter(event),
+        };
 
   const title = safeText(event.title_tc || event.title, "未命名活動");
   const shortDescription = safeText(
@@ -731,10 +776,48 @@ function EventCard({ event }: { event: EventRecord }) {
   const tags = getTagArray(event.tags);
   const ctaLabel = getPrimaryActionLabel(event);
   const actionUrl = getPrimaryActionUrl(event);
+  const officialUrl = getOfficialWebsiteUrl(event);
+  const registrationUrl = getRegistrationUrl(event);
   const mapUrl = getGoogleMapUrl(event);
   const imageCount = images.filter((image) => image.url !== FALLBACK_IMAGE).length;
 
-  async function shareEvent() {
+  function stopClick(eventObject: MouseEvent<HTMLElement>) {
+    eventObject.preventDefault();
+    eventObject.stopPropagation();
+  }
+
+  function goToPreviousImage(eventObject: MouseEvent<HTMLButtonElement>) {
+    stopClick(eventObject);
+    setActiveImageIndex((current) => {
+      if (images.length <= 1) return 0;
+      return current === 0 ? images.length - 1 : current - 1;
+    });
+  }
+
+  function goToNextImage(eventObject: MouseEvent<HTMLButtonElement>) {
+    stopClick(eventObject);
+    setActiveImageIndex((current) => {
+      if (images.length <= 1) return 0;
+      return current === images.length - 1 ? 0 : current + 1;
+    });
+  }
+
+  function selectImage(index: number, eventObject: MouseEvent<HTMLButtonElement>) {
+    stopClick(eventObject);
+    setActiveImageIndex(index);
+  }
+
+  function toggleFavorite(eventObject: MouseEvent<HTMLButtonElement>) {
+    stopClick(eventObject);
+    onToggleFavorite(event.id);
+  }
+
+  async function shareEvent(eventObject?: MouseEvent<HTMLButtonElement>) {
+    if (eventObject) {
+      eventObject.preventDefault();
+      eventObject.stopPropagation();
+    }
+
     const shareUrl =
       typeof window !== "undefined"
         ? `${window.location.origin}/events/${event.id}`
@@ -762,62 +845,113 @@ function EventCard({ event }: { event: EventRecord }) {
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg">
-      <Link href={`/events/${event.id}`} className="block">
-        <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
-          {isFallback ? (
-            <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
-              <div className="grid h-16 w-16 place-items-center rounded-3xl bg-purple-700 text-2xl font-black text-white shadow-sm">
-                親
-              </div>
-              <p className="mt-3 text-sm font-black text-purple-900">
-                HK Family Fun
-              </p>
-              <p className="mt-1 text-xs font-bold text-slate-500">
-                活動圖片準備中
-              </p>
+      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
+        <Link href={`/events/${event.id}`} className="absolute inset-0 z-0">
+          <span className="sr-only">查看 {title}</span>
+        </Link>
+
+        {isFallback ? (
+          <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
+            <div className="grid h-16 w-16 place-items-center rounded-3xl bg-purple-700 text-2xl font-black text-white shadow-sm">
+              親
             </div>
-          ) : (
-            <img
-              src={hero}
-              alt={title}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-              style={coverStyle}
-            />
-          )}
-
-          <div className="absolute left-3 top-3 flex max-w-[88%] flex-wrap gap-2">
-            <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-black text-purple-700 shadow-sm backdrop-blur">
-              {category}
-            </span>
-            <span
-              className={[
-                "rounded-full px-3 py-1 text-xs font-black shadow-sm backdrop-blur",
-                isFreeEvent(event)
-                  ? "bg-emerald-100/95 text-emerald-700"
-                  : "bg-amber-100/95 text-amber-700",
-              ].join(" ")}
-            >
-              {price}
-            </span>
+            <p className="mt-3 text-sm font-black text-purple-900">
+              HK Family Fun
+            </p>
+            <p className="mt-1 text-xs font-bold text-slate-500">
+              活動圖片準備中
+            </p>
           </div>
+        ) : (
+          <img
+            src={hero}
+            alt={title}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+            style={coverStyle}
+          />
+        )}
 
-          <div className="absolute bottom-3 left-3 flex flex-wrap gap-2">
-            {district ? (
-              <span className="rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
-                📍 {district}
-              </span>
-            ) : null}
-
-            <span className="rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
-              🖼️ {Math.max(imageCount, 1)} 張圖片
-            </span>
-          </div>
-
-          <div className="absolute right-3 top-3 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-slate-700 shadow-sm backdrop-blur">
-            ♡
-          </div>
+        <div className="absolute left-3 top-3 z-10 flex max-w-[82%] flex-wrap gap-2">
+          <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-black text-purple-700 shadow-sm backdrop-blur">
+            {category}
+          </span>
+          <span
+            className={[
+              "rounded-full px-3 py-1 text-xs font-black shadow-sm backdrop-blur",
+              isFreeEvent(event)
+                ? "bg-emerald-100/95 text-emerald-700"
+                : "bg-amber-100/95 text-amber-700",
+            ].join(" ")}
+          >
+            {price}
+          </span>
         </div>
-      </Link>
+
+        <button
+          type="button"
+          onClick={toggleFavorite}
+          className={[
+            "absolute right-3 top-3 z-20 rounded-full px-3 py-1 text-xs font-black shadow-sm backdrop-blur transition",
+            isFavorite
+              ? "bg-rose-500 text-white"
+              : "bg-white/95 text-slate-700 hover:bg-rose-50 hover:text-rose-600",
+          ].join(" ")}
+          aria-label={isFavorite ? "取消收藏" : "收藏活動"}
+        >
+          {isFavorite ? "❤️" : "♡"}
+        </button>
+
+        <div className="absolute bottom-3 left-3 z-10 flex flex-wrap gap-2">
+          {district ? (
+            <span className="rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+              📍 {district}
+            </span>
+          ) : null}
+
+          <span className="rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+            🖼️ {safeActiveIndex + 1}/{Math.max(imageCount, 1)}
+          </span>
+        </div>
+
+        {images.length > 1 ? (
+          <>
+            <button
+              type="button"
+              onClick={goToPreviousImage}
+              className="absolute left-3 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-sm font-black text-slate-700 shadow-sm backdrop-blur hover:bg-white"
+              aria-label="上一張圖片"
+            >
+              ‹
+            </button>
+
+            <button
+              type="button"
+              onClick={goToNextImage}
+              className="absolute right-3 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-sm font-black text-slate-700 shadow-sm backdrop-blur hover:bg-white"
+              aria-label="下一張圖片"
+            >
+              ›
+            </button>
+
+            <div className="absolute bottom-3 right-3 z-20 flex gap-1 rounded-full bg-white/90 px-2 py-1 shadow-sm backdrop-blur">
+              {images.slice(0, 5).map((image, index) => (
+                <button
+                  key={`${image.url}-${index}`}
+                  type="button"
+                  onClick={(eventObject) => selectImage(index, eventObject)}
+                  className={[
+                    "h-2 w-2 rounded-full transition",
+                    safeActiveIndex === index
+                      ? "bg-purple-700"
+                      : "bg-slate-300 hover:bg-slate-400",
+                  ].join(" ")}
+                  aria-label={`切換到圖片 ${index + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
 
       <div className="flex flex-1 flex-col p-5">
         <div className="flex flex-wrap gap-2">
@@ -898,7 +1032,12 @@ function EventCard({ event }: { event: EventRecord }) {
                   href={actionUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white hover:bg-emerald-700"
+                  className={[
+                    "inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-black text-white",
+                    registrationUrl
+                      ? "bg-emerald-600 hover:bg-emerald-700"
+                      : "bg-slate-950 hover:bg-slate-800",
+                  ].join(" ")}
                 >
                   {ctaLabel}
                 </a>
@@ -909,7 +1048,7 @@ function EventCard({ event }: { event: EventRecord }) {
               )}
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2 sm:grid-cols-3">
               {mapUrl ? (
                 <a
                   href={mapUrl}
@@ -925,12 +1064,27 @@ function EventCard({ event }: { event: EventRecord }) {
                 </span>
               )}
 
+              {officialUrl ? (
+                <a
+                  href={officialUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                >
+                  官網資料
+                </a>
+              ) : (
+                <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
+                  官網待定
+                </span>
+              )}
+
               <button
                 type="button"
-                onClick={shareEvent}
+                onClick={(eventObject) => shareEvent(eventObject)}
                 className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
               >
-                {shareCopied ? "已複製連結" : "🔗 分享"}
+                {shareCopied ? "已複製" : "🔗 分享"}
               </button>
             </div>
           </div>
@@ -944,6 +1098,7 @@ export default function PublicEventsPage() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   const [keyword, setKeyword] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
@@ -983,6 +1138,7 @@ export default function PublicEventsPage() {
 
   useEffect(() => {
     loadEvents();
+    setFavoriteIds(readFavoriteIds());
   }, []);
 
   const districtOptions = useMemo(() => getDistrictOptions(events), [events]);
@@ -1046,7 +1202,11 @@ export default function PublicEventsPage() {
 
     if (sortMode === "recommended") {
       next.sort((a, b) => {
-        const scoreDiff = scoreEvent(b) - scoreEvent(a);
+        const favoriteScoreA = favoriteIds.includes(a.id) ? 1000 : 0;
+        const favoriteScoreB = favoriteIds.includes(b.id) ? 1000 : 0;
+        const scoreDiff =
+          scoreEvent(b) + favoriteScoreB - (scoreEvent(a) + favoriteScoreA);
+
         if (scoreDiff !== 0) return scoreDiff;
 
         const aDate = parseDateOnly(a.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
@@ -1082,6 +1242,7 @@ export default function PublicEventsPage() {
     return next;
   }, [
     events,
+    favoriteIds,
     keyword,
     dateFilter,
     priceFilter,
@@ -1111,6 +1272,18 @@ export default function PublicEventsPage() {
     setSortMode("recommended");
   }
 
+  function toggleFavorite(eventId: string) {
+    setFavoriteIds((current) => {
+      const exists = current.includes(eventId);
+      const next = exists
+        ? current.filter((id) => id !== eventId)
+        : [...current, eventId];
+
+      writeFavoriteIds(next);
+      return next;
+    });
+  }
+
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
@@ -1121,6 +1294,7 @@ export default function PublicEventsPage() {
                 <Badge tone="purple">香港親子活動</Badge>
                 <Badge tone="green">{events.length} 個公開活動</Badge>
                 <Badge tone="amber">今日 {todayCount} 個</Badge>
+                <Badge tone="rose">已收藏 {favoriteIds.length}</Badge>
               </div>
 
               <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-950 lg:text-5xl">
@@ -1129,7 +1303,7 @@ export default function PublicEventsPage() {
 
               <p className="mt-4 max-w-3xl text-base font-medium leading-8 text-slate-600">
                 一站式搜尋香港親子市集、工作坊、展覽、商場活動、免費活動及家庭好去處。
-                活動卡已同步商戶圖片排序及封面裁切設定。
+                活動卡已支援圖片切換、收藏、Google Map、分享及官方連結。
               </p>
             </div>
 
@@ -1158,7 +1332,7 @@ export default function PublicEventsPage() {
       </section>
 
       <section className="mx-auto max-w-[1500px] px-4 py-6">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <StatCard
             label="公開活動"
             value={events.length}
@@ -1176,6 +1350,12 @@ export default function PublicEventsPage() {
             value={imageReadyCount}
             note="已有活動封面或 Gallery"
             tone="purple"
+          />
+          <StatCard
+            label="我的收藏"
+            value={favoriteIds.length}
+            note="暫存在此瀏覽器"
+            tone="amber"
           />
         </div>
 
@@ -1311,7 +1491,12 @@ export default function PublicEventsPage() {
         {!loading && filteredEvents.length > 0 ? (
           <div className="mt-6 grid items-stretch gap-6 md:grid-cols-2 2xl:grid-cols-3">
             {filteredEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard
+                key={event.id}
+                event={event}
+                favoriteIds={favoriteIds}
+                onToggleFavorite={toggleFavorite}
+              />
             ))}
           </div>
         ) : null}
