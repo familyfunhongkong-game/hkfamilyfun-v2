@@ -3,7 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 type JsonValue =
@@ -118,6 +118,9 @@ type GalleryImage = {
 
 const FALLBACK_IMAGE =
   "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function safeText(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;
@@ -564,8 +567,8 @@ function SectionCard({
 
 export default function PublicEventDetailPage() {
   const params = useParams();
-  const router = useRouter();
-  const eventId = String(params?.id || "");
+  const rawEventId = String(params?.id || "");
+  const eventId = decodeURIComponent(rawEventId);
 
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -581,14 +584,15 @@ export default function PublicEventDetailPage() {
       setLoading(true);
       setErrorText("");
 
-      if (!supabase) {
-        setErrorText("網站暫時未能連接資料庫，請稍後再試。");
+      if (!eventId || !UUID_REGEX.test(eventId)) {
+        setErrorText("活動連結格式不正確，請由活動列表重新進入。");
+        setEvent(null);
         setLoading(false);
         return;
       }
 
-      if (!eventId) {
-        setErrorText("找不到活動 ID。");
+      if (!supabase) {
+        setErrorText("網站暫時未能連接資料庫，請稍後再試。");
         setLoading(false);
         return;
       }
@@ -696,13 +700,12 @@ export default function PublicEventDetailPage() {
           <div className="rounded-3xl border border-rose-200 bg-white p-8 shadow-sm">
             <p className="text-sm font-extrabold text-rose-600">活動讀取失敗</p>
             <p className="mt-2 text-sm text-slate-600">{errorText}</p>
-            <button
-              type="button"
-              onClick={() => router.push("/events")}
-              className="mt-6 rounded-full bg-slate-950 px-5 py-3 text-sm font-extrabold text-white"
+            <Link
+              href="/events"
+              className="mt-6 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-extrabold text-white"
             >
               返回活動列表
-            </button>
+            </Link>
           </div>
         </div>
       </main>
