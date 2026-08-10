@@ -127,6 +127,7 @@ function safeText(value: unknown, fallback = ""): string {
       .map((item) => String(item || "").trim())
       .filter(Boolean)
       .join(", ");
+
     return joined || fallback;
   }
 
@@ -472,6 +473,37 @@ function canShowPublic(event: EventRecord): boolean {
   return ["published", "approved", "live"].includes(status);
 }
 
+function buildLocationText(event: EventRecord): string {
+  return [
+    event.venue_name_tc || event.venue_name,
+    event.address_tc || event.address,
+    event.district,
+    event.mtr_station,
+  ]
+    .map((item) => safeText(item))
+    .filter(Boolean)
+    .join("｜");
+}
+
+function getGoogleMapSearchUrl(event: EventRecord): string | null {
+  if (isHttpUrl(event.google_map_url)) return String(event.google_map_url).trim();
+
+  const query = [
+    event.venue_name_tc || event.venue_name,
+    event.address_tc || event.address,
+    event.district,
+    event.mtr_station,
+    "香港",
+  ]
+    .map((item) => safeText(item))
+    .filter(Boolean)
+    .join(" ");
+
+  if (!query) return null;
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
 function Badge({
   children,
   tone = "purple",
@@ -539,6 +571,8 @@ export default function PublicEventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  const [copiedShare, setCopiedShare] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -602,6 +636,46 @@ export default function PublicEventDetailPage() {
     if (!event) return [];
     return getTagArray(event.tags);
   }, [event]);
+
+  async function copyTextToClipboard(text: string, onSuccess: () => void) {
+    if (!text) return;
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        onSuccess();
+        window.setTimeout(() => {
+          setCopiedAddress(false);
+          setCopiedShare(false);
+        }, 1800);
+      }
+    } catch {
+      setCopiedAddress(false);
+      setCopiedShare(false);
+    }
+  }
+
+  async function shareEvent(title: string, description: string) {
+    const shareUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/events/${eventId}`
+        : `/events/${eventId}`;
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({
+          title,
+          text: description,
+          url: shareUrl,
+        });
+        return;
+      }
+
+      await copyTextToClipboard(shareUrl, () => setCopiedShare(true));
+    } catch {
+      setCopiedShare(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -691,6 +765,11 @@ export default function PublicEventDetailPage() {
         ...getCoverTransform(event),
         ...getCoverFilter(event),
       };
+
+  const mapUrl = getGoogleMapSearchUrl(event);
+  const locationText = buildLocationText(event);
+  const addressCopyText =
+    locationText || [venue, address, district, mtr].filter(Boolean).join("｜");
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -795,6 +874,31 @@ export default function PublicEventDetailPage() {
                     {actionLabel}
                   </div>
                 )}
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {mapUrl ? (
+                    <a
+                      href={mapUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                    >
+                      📍 Google Map
+                    </a>
+                  ) : (
+                    <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
+                      地圖待定
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => shareEvent(title, shortDescription)}
+                    className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                  >
+                    {copiedShare ? "已複製連結" : "🔗 分享"}
+                  </button>
+                </div>
 
                 <div className="mt-5 space-y-2">
                   <InfoPill label="主辦單位" value={merchantName} />
@@ -916,29 +1020,61 @@ export default function PublicEventDetailPage() {
               <InfoPill label="地址" value={address || "地址待定"} />
             </div>
 
+            <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <p className="text-sm font-black text-slate-950">前往活動地點</p>
+              <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
+                {venue}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                {address || buildLocationText(event) || "地址待定"}
+              </p>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                {mapUrl ? (
+                  <a
+                    href={mapUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800"
+                  >
+                    📍 開啟 Google Map
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center justify-center rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-400">
+                    地圖待定
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    copyTextToClipboard(addressCopyText, () => setCopiedAddress(true))
+                  }
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+                >
+                  {copiedAddress ? "已複製地址" : "複製地址"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => shareEvent(title, shortDescription)}
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+                >
+                  {copiedShare ? "已複製連結" : "分享活動"}
+                </button>
+              </div>
+            </div>
+
             {isHttpUrl(event.google_map_embed_url) ? (
               <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200">
                 <iframe
                   src={String(event.google_map_embed_url)}
-                  className="h-[320px] w-full"
+                  className="h-[340px] w-full"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                 />
               </div>
-            ) : isHttpUrl(event.google_map_url) ? (
-              <a
-                href={String(event.google_map_url)}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-5 inline-flex rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-extrabold text-slate-700 hover:bg-slate-50"
-              >
-                開啟 Google Map
-              </a>
-            ) : (
-              <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm font-bold text-slate-500">
-                尚未加入 Google Map。
-              </div>
-            )}
+            ) : null}
           </SectionCard>
 
           <SectionCard title="家長留意事項" icon="👨‍👩‍👧‍👦">
