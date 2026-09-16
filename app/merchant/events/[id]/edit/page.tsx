@@ -137,7 +137,7 @@ type CropDragState = {
 };
 
 const STORAGE_BUCKET = "event-images";
-const MAX_IMAGES = 5;
+const MAX_IMAGES = 6;
 
 const emptyForm: FormState = {
   title_tc: "",
@@ -171,7 +171,7 @@ const emptyForm: FormState = {
   quota_label: "",
 
   cta_type: "official",
-  cta_label: "查看官方活動頁",
+  cta_label: "活動官網查看更多",
   registration_url: "",
   booking_url: "",
   official_url: "",
@@ -181,7 +181,7 @@ const emptyForm: FormState = {
   whatsapp: "",
 
   cover_image_url: "",
-  gallery_image_urls: ["", "", "", ""],
+  gallery_image_urls: ["", "", "", "", ""],
   cover_image_offset_x: 0,
   cover_image_offset_y: 0,
   cover_image_zoom: 1,
@@ -214,7 +214,7 @@ const ctaTypes = [
     key: "official",
     title: "官方活動頁",
     desc: "家長前往主辦方活動頁。",
-    label: "查看官方活動頁",
+    label: "活動官網查看更多",
   },
   {
     key: "external",
@@ -521,7 +521,7 @@ function formFromEvent(event: EventRecord): FormState {
     quota_label: safeText(event.quota_label),
 
     cta_type: safeText(event.cta_type, "official"),
-    cta_label: safeText(event.cta_label, "查看官方活動頁"),
+    cta_label: safeText(event.cta_label, "活動官網查看更多"),
     registration_url: safeText(event.registration_url),
     booking_url: safeText(event.booking_url),
     official_url: safeText(event.official_url),

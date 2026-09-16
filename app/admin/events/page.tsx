@@ -458,7 +458,7 @@ function getPrimaryActionLabel(event: EventRecord): string {
 function normalizedStatus(event: EventRecord): StatusFilter {
   const status = safeText(event.status || event.approval_status, "draft").toLowerCase();
 
-  if (["submitted", "pending", "review", "pending_review"].includes(status)) {
+  if (["submitted", "pending", "審批詳情", "pending_審批詳情"].includes(status)) {
     return "submitted";
   }
 
@@ -663,7 +663,7 @@ export default function AdminEventsPage() {
     }
 
     if (nextStatus === "published" && !hasCriticalReady(event)) {
-      setMessage("此活動仍有關鍵資料未完成。請入 Review 頁檢查後再發布。");
+      setMessage("此活動仍有關鍵資料未完成。請入 審批詳情 頁檢查後再發布。");
       return;
     }
 
@@ -839,7 +839,7 @@ export default function AdminEventsPage() {
               </h1>
 
               <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-                管理商戶提交活動、快速審批、進入 Review 詳情頁檢查圖片排序、封面裁切、CTA、地點及發布清單。
+                管理商戶提交活動、快速審批、進入 審批詳情頁檢查圖片排序、封面裁切、CTA、地點及發布清單。
               </p>
             </div>
 
@@ -894,7 +894,7 @@ export default function AdminEventsPage() {
           <AnalyticsCard
             label="待審批"
             value={analytics.submitted}
-            note="需要 Admin Review"
+            note="需要管理員審批"
             tone="amber"
           />
           <AnalyticsCard
@@ -1088,28 +1088,28 @@ export default function AdminEventsPage() {
                           href={`/admin/events/${event.id}`}
                           className="rounded-2xl bg-purple-700 px-4 py-3 text-center text-sm font-black text-white hover:bg-purple-800"
                         >
-                          Review
+                          審批詳情
                         </Link>
 
                         <Link
-                          href={`/merchant/events/${event.id}/preview`}
+                          href={`/merchant/events/${event.id}/商戶預覽`}
                           className="rounded-2xl border border-purple-200 bg-white px-4 py-3 text-center text-sm font-black text-purple-700 hover:bg-purple-50"
                         >
-                          Preview
+                          商戶預覽
                         </Link>
 
                         <Link
-                          href={`/merchant/events/${event.id}/edit`}
+                          href={`/merchant/events/${event.id}/編輯`}
                           className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-center text-sm font-black text-slate-700 hover:bg-slate-50"
                         >
-                          Edit
+                          編輯
                         </Link>
 
                         <Link
                           href={`/events/${event.id}`}
                           className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-center text-sm font-black text-slate-700 hover:bg-slate-50"
                         >
-                          Public
+                          公開頁
                         </Link>
                       </div>
 
