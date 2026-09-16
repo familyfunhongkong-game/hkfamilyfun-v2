@@ -458,7 +458,7 @@ function getPrimaryActionLabel(event: EventRecord): string {
 function normalizedStatus(event: EventRecord): StatusFilter {
   const status = safeText(event.status || event.approval_status, "draft").toLowerCase();
 
-  if (["submitted", "pending", "審批詳情", "pending_審批詳情"].includes(status)) {
+  if (["submitted", "pending", "review", "pending_review"].includes(status)) {
     return "submitted";
   }
 
@@ -1092,14 +1092,14 @@ export default function AdminEventsPage() {
                         </Link>
 
                         <Link
-                          href={`/merchant/events/${event.id}/商戶預覽`}
+                          href={`/merchant/events/${event.id}/preview`}
                           className="rounded-2xl border border-purple-200 bg-white px-4 py-3 text-center text-sm font-black text-purple-700 hover:bg-purple-50"
                         >
                           商戶預覽
                         </Link>
 
                         <Link
-                          href={`/merchant/events/${event.id}/編輯`}
+                          href={`/merchant/events/${event.id}/edit`}
                           className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-center text-sm font-black text-slate-700 hover:bg-slate-50"
                         >
                           編輯
