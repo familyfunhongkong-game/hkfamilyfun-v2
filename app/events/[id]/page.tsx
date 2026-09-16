@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -122,6 +122,8 @@ const FALLBACK_IMAGE =
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
+
 function safeText(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;
 
@@ -229,7 +231,7 @@ function uniqueImages(input: string[]): string[] {
   return output;
 }
 
-function getGalleryImages(event: EventRecord): GalleryImage[] {
+function getBaseGalleryImages(event: EventRecord): GalleryImage[] {
   const cover =
     typeof event.cover_image_url === "string" &&
     /^https?:\/\//i.test(event.cover_image_url.trim())
@@ -259,6 +261,26 @@ function getGalleryImages(event: EventRecord): GalleryImage[] {
     url,
     label: index === 0 ? "封面圖片" : `Gallery 圖片 ${index}`,
     isCover: index === 0,
+  }));
+}
+
+function reorderGalleryImages(
+  baseImages: GalleryImage[],
+  imageOrder: string[],
+): GalleryImage[] {
+  if (!imageOrder.length) return baseImages;
+
+  const imageMap = new Map(baseImages.map((image) => [image.url, image]));
+
+  const ordered = imageOrder
+    .map((url) => imageMap.get(url))
+    .filter((image): image is GalleryImage => Boolean(image));
+
+  const missing = baseImages.filter((image) => !imageOrder.includes(image.url));
+
+  return [...ordered, ...missing].map((image, index) => ({
+    ...image,
+    label: index === 0 ? "目前主圖" : `圖片 ${index + 1}`,
   }));
 }
 
@@ -391,34 +413,43 @@ function getTagArray(value: unknown): string[] {
   return [];
 }
 
-function getPrimaryActionUrl(event: EventRecord): string | null {
+function getRegistrationUrl(event: EventRecord): string | null {
   if (isHttpUrl(event.registration_url)) return String(event.registration_url).trim();
   if (isHttpUrl(event.booking_url)) return String(event.booking_url).trim();
-  if (isHttpUrl(event.official_url)) return String(event.official_url).trim();
-  if (isHttpUrl(event.source_url)) return String(event.source_url).trim();
 
   return null;
 }
 
+function getOfficialWebsiteUrl(event: EventRecord): string | null {
+  if (isHttpUrl(event.official_url)) return String(event.official_url).trim();
+  if (isHttpUrl(event.source_url)) return String(event.source_url).trim();
+  if (isHttpUrl(event.organizer_website)) {
+    return String(event.organizer_website).trim();
+  }
+
+  return null;
+}
+
+function getPrimaryActionUrl(event: EventRecord): string | null {
+  return getRegistrationUrl(event) || getOfficialWebsiteUrl(event);
+}
+
 function getPrimaryActionLabel(event: EventRecord): string {
   const custom = safeText(event.cta_label || event.cta_text);
-  if (custom) return custom;
-
+  const registrationUrl = getRegistrationUrl(event);
+  const officialUrl = getOfficialWebsiteUrl(event);
   const ctaType = safeText(event.cta_type).toLowerCase();
 
-  if (ctaType === "none") return "無需報名";
-  if (ctaType === "contact") return "請向主辦查詢";
-  if (ctaType === "whatsapp") return "WhatsApp 報名";
-  if (ctaType === "google_form") return "Google Form 報名";
-  if (isHttpUrl(event.registration_url) || isHttpUrl(event.booking_url)) {
-    return "前往報名";
+  if (registrationUrl) return custom || "前往報名";
+  if (ctaType === "whatsapp") return custom || "WhatsApp 報名";
+  if (ctaType === "google_form") return custom || "Google Form 報名";
+  if (officialUrl) return custom || "活動官網查看更多";
+  if (ctaType === "none" || event.registration_required === false) {
+    return "無需報名";
   }
-  if (isHttpUrl(event.official_url) || isHttpUrl(event.source_url)) {
-    return "查看官方活動頁";
-  }
-  if (event.registration_required) return "請向主辦查詢";
+  if (ctaType === "contact" || event.registration_required) return "請向主辦查詢";
 
-  return "無需報名";
+  return custom || "活動官網查看更多";
 }
 
 function getCoverTransform(event: EventRecord): CSSProperties {
@@ -488,10 +519,8 @@ function buildLocationText(event: EventRecord): string {
     .join("｜");
 }
 
-function getGoogleMapSearchUrl(event: EventRecord): string | null {
-  if (isHttpUrl(event.google_map_url)) return String(event.google_map_url).trim();
-
-  const query = [
+function buildMapQuery(event: EventRecord): string {
+  return [
     event.venue_name_tc || event.venue_name,
     event.address_tc || event.address,
     event.district,
@@ -501,10 +530,53 @@ function getGoogleMapSearchUrl(event: EventRecord): string | null {
     .map((item) => safeText(item))
     .filter(Boolean)
     .join(" ");
+}
 
+function getGoogleMapSearchUrl(event: EventRecord): string | null {
+  if (isHttpUrl(event.google_map_url)) return String(event.google_map_url).trim();
+
+  const query = buildMapQuery(event);
   if (!query) return null;
 
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function getGoogleMapEmbedUrl(event: EventRecord): string | null {
+  if (isHttpUrl(event.google_map_embed_url)) {
+    return String(event.google_map_embed_url).trim();
+  }
+
+  const query = buildMapQuery(event);
+  if (!query) return null;
+
+  return `https://maps.google.com/maps?q=${encodeURIComponent(
+    query,
+  )}&output=embed`;
+}
+
+function readFavoriteIds(): string[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(FAVORITES_STORAGE_KEY);
+    if (!raw) return [];
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function writeFavoriteIds(ids: string[]) {
+  if (typeof window === "undefined") return;
+
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(unique));
 }
 
 function Badge({
@@ -512,18 +584,20 @@ function Badge({
   tone = "purple",
 }: {
   children: ReactNode;
-  tone?: "purple" | "green" | "amber" | "slate" | "rose";
+  tone?: "purple" | "green" | "amber" | "slate" | "rose" | "orange";
 }) {
   const className =
     tone === "green"
       ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
       : tone === "amber"
         ? "bg-amber-50 text-amber-700 ring-amber-100"
-        : tone === "rose"
-          ? "bg-rose-50 text-rose-700 ring-rose-100"
-          : tone === "slate"
-            ? "bg-slate-100 text-slate-700 ring-slate-200"
-            : "bg-purple-50 text-purple-700 ring-purple-100";
+        : tone === "orange"
+          ? "bg-orange-50 text-orange-700 ring-orange-100"
+          : tone === "rose"
+            ? "bg-rose-50 text-rose-700 ring-rose-100"
+            : tone === "slate"
+              ? "bg-slate-100 text-slate-700 ring-slate-200"
+              : "bg-purple-50 text-purple-700 ring-purple-100";
 
   return (
     <span
@@ -574,8 +648,15 @@ export default function PublicEventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [imageOrder, setImageOrder] = useState<string[]>([]);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setFavoriteIds(readFavoriteIds());
+  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -619,7 +700,11 @@ export default function PublicEventDetailPage() {
         return;
       }
 
-      setEvent(data as EventRecord);
+      const loadedEvent = data as EventRecord;
+      const loadedImages = getBaseGalleryImages(loadedEvent);
+
+      setEvent(loadedEvent);
+      setImageOrder(loadedImages.map((image) => image.url));
       setSelectedImageIndex(0);
       setLoading(false);
     }
@@ -631,15 +716,71 @@ export default function PublicEventDetailPage() {
     };
   }, [eventId]);
 
-  const images = useMemo(() => {
+  const baseImages = useMemo(() => {
     if (!event) return [];
-    return getGalleryImages(event);
+    return getBaseGalleryImages(event);
   }, [event]);
+
+  const images = useMemo(() => {
+    return reorderGalleryImages(baseImages, imageOrder);
+  }, [baseImages, imageOrder]);
+
+  const safeSelectedImageIndex =
+    selectedImageIndex >= images.length ? 0 : selectedImageIndex;
+
+  const selectedImage = images[safeSelectedImageIndex] || images[0];
 
   const tags = useMemo(() => {
     if (!event) return [];
     return getTagArray(event.tags);
   }, [event]);
+
+  const isFavorite = favoriteIds.includes(eventId);
+
+  function toggleFavorite() {
+    setFavoriteIds((current) => {
+      const exists = current.includes(eventId);
+      const next = exists
+        ? current.filter((id) => id !== eventId)
+        : [...current, eventId];
+
+      writeFavoriteIds(next);
+      return next;
+    });
+  }
+
+  function moveImage(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return;
+    if (fromIndex < 0 || toIndex < 0) return;
+    if (fromIndex >= images.length || toIndex >= images.length) return;
+
+    const nextImages = [...images];
+    const [moved] = nextImages.splice(fromIndex, 1);
+    if (!moved) return;
+
+    nextImages.splice(toIndex, 0, moved);
+    setImageOrder(nextImages.map((image) => image.url));
+    setSelectedImageIndex(toIndex);
+  }
+
+  function handleDragStart(index: number) {
+    setDraggingIndex(index);
+  }
+
+  function handleDragOver(eventObject: DragEvent<HTMLButtonElement>) {
+    eventObject.preventDefault();
+  }
+
+  function handleDrop(
+    targetIndex: number,
+    eventObject: DragEvent<HTMLButtonElement>,
+  ) {
+    eventObject.preventDefault();
+
+    if (draggingIndex === null) return;
+    moveImage(draggingIndex, targetIndex);
+    setDraggingIndex(null);
+  }
 
   async function copyTextToClipboard(text: string, onSuccess: () => void) {
     if (!text) return;
@@ -756,9 +897,10 @@ export default function PublicEventDetailPage() {
     "HK Family Fun 商戶",
   );
 
+  const registrationUrl = getRegistrationUrl(event);
+  const officialUrl = getOfficialWebsiteUrl(event);
   const actionUrl = getPrimaryActionUrl(event);
   const actionLabel = getPrimaryActionLabel(event);
-  const selectedImage = images[selectedImageIndex] || images[0];
 
   const isFallbackCover = images[0]?.url === FALLBACK_IMAGE;
 
@@ -769,7 +911,13 @@ export default function PublicEventDetailPage() {
         ...getCoverFilter(event),
       };
 
+  const selectedImageStyle: CSSProperties =
+    selectedImage?.isCover && selectedImage?.url !== FALLBACK_IMAGE
+      ? coverStyle
+      : {};
+
   const mapUrl = getGoogleMapSearchUrl(event);
+  const mapEmbedUrl = getGoogleMapEmbedUrl(event);
   const locationText = buildLocationText(event);
   const addressCopyText =
     locationText || [venue, address, district, mtr].filter(Boolean).join("｜");
@@ -817,6 +965,19 @@ export default function PublicEventDetailPage() {
                     {formatPrice(event)}
                   </span>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={toggleFavorite}
+                  className={[
+                    "absolute right-4 top-4 rounded-full px-4 py-2 text-sm font-black shadow-sm backdrop-blur transition",
+                    isFavorite
+                      ? "bg-rose-500 text-white"
+                      : "bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-600",
+                  ].join(" ")}
+                >
+                  {isFavorite ? "❤️ 已收藏" : "♡ 收藏"}
+                </button>
               </div>
 
               <div className="p-6 lg:p-8">
@@ -868,7 +1029,12 @@ export default function PublicEventDetailPage() {
                     href={actionUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-purple-700 px-5 py-4 text-sm font-black text-white hover:bg-purple-800"
+                    className={[
+                      "mt-5 inline-flex w-full items-center justify-center rounded-2xl px-5 py-4 text-sm font-black text-white",
+                      registrationUrl
+                        ? "bg-purple-700 hover:bg-purple-800"
+                        : "bg-slate-950 hover:bg-slate-800",
+                    ].join(" ")}
                   >
                     {actionLabel}
                   </a>
@@ -903,10 +1069,50 @@ export default function PublicEventDetailPage() {
                   </button>
                 </div>
 
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleFavorite}
+                    className={[
+                      "inline-flex items-center justify-center rounded-2xl px-4 py-3 text-xs font-black ring-1",
+                      isFavorite
+                        ? "bg-rose-50 text-rose-700 ring-rose-100"
+                        : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50",
+                    ].join(" ")}
+                  >
+                    {isFavorite ? "❤️ 已收藏" : "♡ 收藏"}
+                  </button>
+
+                  {officialUrl ? (
+                    <a
+                      href={officialUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                    >
+                      官網資料
+                    </a>
+                  ) : (
+                    <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
+                      官網待定
+                    </span>
+                  )}
+                </div>
+
                 <div className="mt-5 space-y-2">
                   <InfoPill label="主辦單位" value={merchantName} />
                   <InfoPill label="活動圖片" value={`${images.length} 張`} />
                 </div>
+              </div>
+
+              <div className="rounded-3xl border border-purple-100 bg-purple-50 p-5">
+                <p className="text-sm font-black text-purple-950">家長下一步</p>
+                <ol className="mt-3 space-y-2 text-xs font-bold leading-6 text-purple-800">
+                  <li>1. 查看日期、時間、地點及收費。</li>
+                  <li>2. 用 Google Map 預先規劃路線。</li>
+                  <li>3. 前往報名或活動官網確認名額。</li>
+                  <li>4. 收藏或分享給家人朋友。</li>
+                </ol>
               </div>
 
               <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
@@ -923,7 +1129,16 @@ export default function PublicEventDetailPage() {
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section className="space-y-6">
           <SectionCard title="活動圖片 Gallery" icon="🖼️">
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="mb-4 rounded-2xl border border-purple-100 bg-purple-50 p-4">
+              <p className="text-sm font-black text-purple-900">
+                圖片可拖曳排序
+              </p>
+              <p className="mt-1 text-xs font-bold leading-5 text-purple-700">
+                在公開頁拖拉圖片只會改變你目前瀏覽排序；真正永久圖片順序請由商戶後台 Edit 頁儲存。
+              </p>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
               <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-purple-50 via-white to-amber-50">
                 <div className="relative aspect-[16/9] overflow-hidden">
                   {selectedImage?.url === FALLBACK_IMAGE ? (
@@ -940,54 +1155,90 @@ export default function PublicEventDetailPage() {
                       src={selectedImage?.url || FALLBACK_IMAGE}
                       alt={selectedImage?.label || title}
                       className="h-full w-full object-cover"
-                      style={selectedImage?.isCover ? coverStyle : undefined}
+                      style={selectedImageStyle}
                     />
                   )}
 
                   <div className="absolute left-4 top-4 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
                     {selectedImage?.label || "圖片"}
                   </div>
+
+                  <div className="absolute bottom-4 right-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow-sm backdrop-blur">
+                    {safeSelectedImageIndex + 1}/{images.length}
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
                 {images.map((image, index) => (
-                  <button
+                  <div
                     key={`${image.url}-${index}`}
-                    type="button"
-                    onClick={() => setSelectedImageIndex(index)}
-                    className={`group overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition ${
-                      selectedImageIndex === index
+                    className={[
+                      "rounded-2xl border bg-white p-2 shadow-sm transition",
+                      safeSelectedImageIndex === index
                         ? "border-purple-500 ring-2 ring-purple-200"
-                        : "border-slate-200 hover:border-purple-200"
-                    }`}
+                        : "border-slate-200",
+                      draggingIndex === index ? "opacity-60" : "",
+                    ].join(" ")}
                   >
-                    <div className="aspect-[16/10] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
-                      {image.url === FALLBACK_IMAGE ? (
-                        <div className="flex h-full w-full items-center justify-center text-sm font-black text-purple-800">
-                          HK Family Fun
-                        </div>
-                      ) : (
-                        <img
-                          src={image.url}
-                          alt={image.label}
-                          className="h-full w-full object-cover transition group-hover:scale-[1.03]"
-                          style={image.isCover ? coverStyle : undefined}
-                        />
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      draggable
+                      onDragStart={() => handleDragStart(index)}
+                      onDragOver={handleDragOver}
+                      onDrop={(eventObject) => handleDrop(index, eventObject)}
+                      onDragEnd={() => setDraggingIndex(null)}
+                      onClick={() => setSelectedImageIndex(index)}
+                      className="group w-full overflow-hidden rounded-xl bg-white text-left"
+                    >
+                      <div className="aspect-[16/10] overflow-hidden rounded-xl bg-gradient-to-br from-purple-50 via-white to-amber-50">
+                        {image.url === FALLBACK_IMAGE ? (
+                          <div className="flex h-full w-full items-center justify-center text-sm font-black text-purple-800">
+                            HK Family Fun
+                          </div>
+                        ) : (
+                          <img
+                            src={image.url}
+                            alt={image.label}
+                            className="h-full w-full object-cover transition group-hover:scale-[1.03]"
+                            style={image.isCover ? coverStyle : undefined}
+                          />
+                        )}
+                      </div>
 
-                    <div className="flex items-center justify-between px-3 py-2">
-                      <span className="text-xs font-extrabold text-slate-700">
-                        {image.label}
-                      </span>
-                      {image.isCover ? (
-                        <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-black text-purple-700">
-                          Cover
+                      <div className="flex items-center justify-between px-1 py-2">
+                        <span className="text-xs font-extrabold text-slate-700">
+                          {image.label}
                         </span>
-                      ) : null}
+                        {image.isCover ? (
+                          <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-black text-purple-700">
+                            DB Cover
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => moveImage(index, Math.max(0, index - 1))}
+                        disabled={index === 0}
+                        className="rounded-xl border border-slate-200 px-2 py-2 text-xs font-black text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        上移
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          moveImage(index, Math.min(images.length - 1, index + 1))
+                        }
+                        disabled={index === images.length - 1}
+                        className="rounded-xl border border-slate-200 px-2 py-2 text-xs font-black text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        下移
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1068,16 +1319,35 @@ export default function PublicEventDetailPage() {
               </div>
             </div>
 
-            {isHttpUrl(event.google_map_embed_url) ? (
-              <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200">
+            {mapEmbedUrl ? (
+              <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-100 px-4 py-3">
+                  <p className="text-xs font-black text-slate-500">
+                    Google Map 預覽
+                  </p>
+                  <p className="mt-1 line-clamp-1 text-sm font-bold text-slate-800">
+                    {venue}
+                  </p>
+                </div>
+
                 <iframe
-                  src={String(event.google_map_embed_url)}
-                  className="h-[340px] w-full"
+                  title={`${title} Google Map`}
+                  src={mapEmbedUrl}
+                  className="h-[390px] w-full"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                 />
               </div>
-            ) : null}
+            ) : (
+              <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+                <p className="text-sm font-black text-slate-600">
+                  暫時未能顯示地圖預覽
+                </p>
+                <p className="mt-2 text-xs font-medium text-slate-500">
+                  請檢查活動地址、場地名稱或 Google Map URL。
+                </p>
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard title="家長留意事項" icon="👨‍👩‍👧‍👦">
