@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import type { CSSProperties, DragEvent, ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -261,26 +261,6 @@ function getBaseGalleryImages(event: EventRecord): GalleryImage[] {
     url,
     label: index === 0 ? "封面圖片" : `Gallery 圖片 ${index}`,
     isCover: index === 0,
-  }));
-}
-
-function reorderGalleryImages(
-  baseImages: GalleryImage[],
-  imageOrder: string[],
-): GalleryImage[] {
-  if (!imageOrder.length) return baseImages;
-
-  const imageMap = new Map(baseImages.map((image) => [image.url, image]));
-
-  const ordered = imageOrder
-    .map((url) => imageMap.get(url))
-    .filter((image): image is GalleryImage => Boolean(image));
-
-  const missing = baseImages.filter((image) => !imageOrder.includes(image.url));
-
-  return [...ordered, ...missing].map((image, index) => ({
-    ...image,
-    label: index === 0 ? "目前主圖" : `圖片 ${index + 1}`,
   }));
 }
 
@@ -648,8 +628,6 @@ export default function PublicEventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [imageOrder, setImageOrder] = useState<string[]>([]);
-  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
@@ -701,10 +679,8 @@ export default function PublicEventDetailPage() {
       }
 
       const loadedEvent = data as EventRecord;
-      const loadedImages = getBaseGalleryImages(loadedEvent);
 
       setEvent(loadedEvent);
-      setImageOrder(loadedImages.map((image) => image.url));
       setSelectedImageIndex(0);
       setLoading(false);
     }
@@ -716,14 +692,10 @@ export default function PublicEventDetailPage() {
     };
   }, [eventId]);
 
-  const baseImages = useMemo(() => {
+  const images = useMemo(() => {
     if (!event) return [];
     return getBaseGalleryImages(event);
   }, [event]);
-
-  const images = useMemo(() => {
-    return reorderGalleryImages(baseImages, imageOrder);
-  }, [baseImages, imageOrder]);
 
   const safeSelectedImageIndex =
     selectedImageIndex >= images.length ? 0 : selectedImageIndex;
@@ -747,39 +719,6 @@ export default function PublicEventDetailPage() {
       writeFavoriteIds(next);
       return next;
     });
-  }
-
-  function moveImage(fromIndex: number, toIndex: number) {
-    if (fromIndex === toIndex) return;
-    if (fromIndex < 0 || toIndex < 0) return;
-    if (fromIndex >= images.length || toIndex >= images.length) return;
-
-    const nextImages = [...images];
-    const [moved] = nextImages.splice(fromIndex, 1);
-    if (!moved) return;
-
-    nextImages.splice(toIndex, 0, moved);
-    setImageOrder(nextImages.map((image) => image.url));
-    setSelectedImageIndex(toIndex);
-  }
-
-  function handleDragStart(index: number) {
-    setDraggingIndex(index);
-  }
-
-  function handleDragOver(eventObject: DragEvent<HTMLButtonElement>) {
-    eventObject.preventDefault();
-  }
-
-  function handleDrop(
-    targetIndex: number,
-    eventObject: DragEvent<HTMLButtonElement>,
-  ) {
-    eventObject.preventDefault();
-
-    if (draggingIndex === null) return;
-    moveImage(draggingIndex, targetIndex);
-    setDraggingIndex(null);
   }
 
   async function copyTextToClipboard(text: string, onSuccess: () => void) {
@@ -1131,10 +1070,10 @@ export default function PublicEventDetailPage() {
           <SectionCard title="活動圖片 Gallery" icon="🖼️">
             <div className="mb-4 rounded-2xl border border-purple-100 bg-purple-50 p-4">
               <p className="text-sm font-black text-purple-900">
-                圖片可拖曳排序
+                點擊縮圖切換圖片
               </p>
               <p className="mt-1 text-xs font-bold leading-5 text-purple-700">
-                在公開頁拖拉圖片只會改變你目前瀏覽排序；真正永久圖片順序請由商戶後台 Edit 頁儲存。
+                瀏覽活動圖片；圖片排序由商戶後台管理。
               </p>
             </div>
 
@@ -1178,16 +1117,10 @@ export default function PublicEventDetailPage() {
                       safeSelectedImageIndex === index
                         ? "border-purple-500 ring-2 ring-purple-200"
                         : "border-slate-200",
-                      draggingIndex === index ? "opacity-60" : "",
                     ].join(" ")}
                   >
                     <button
                       type="button"
-                      draggable
-                      onDragStart={() => handleDragStart(index)}
-                      onDragOver={handleDragOver}
-                      onDrop={(eventObject) => handleDrop(index, eventObject)}
-                      onDragEnd={() => setDraggingIndex(null)}
                       onClick={() => setSelectedImageIndex(index)}
                       className="group w-full overflow-hidden rounded-xl bg-white text-left"
                     >
@@ -1217,27 +1150,6 @@ export default function PublicEventDetailPage() {
                         ) : null}
                       </div>
                     </button>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => moveImage(index, Math.max(0, index - 1))}
-                        disabled={index === 0}
-                        className="rounded-xl border border-slate-200 px-2 py-2 text-xs font-black text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        上移
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          moveImage(index, Math.min(images.length - 1, index + 1))
-                        }
-                        disabled={index === images.length - 1}
-                        className="rounded-xl border border-slate-200 px-2 py-2 text-xs font-black text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        下移
-                      </button>
-                    </div>
                   </div>
                 ))}
               </div>
