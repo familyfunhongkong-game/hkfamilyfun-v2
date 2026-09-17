@@ -15,43 +15,64 @@ export default function MerchantForgotPasswordPage() {
     setErrorMessage("");
     setSuccessMessage("");
 
-    if (!supabase) {
-      setErrorMessage("ç³»çµ±æš«æ™‚æœªèƒ½é€£æŽ¥å¸³æˆ¶æœå‹™ï¼Œè«‹ç¨å¾Œå†è©¦ã€‚");
+    const client = supabase;
+
+    if (!client) {
+      setErrorMessage("系統暫時未能連接帳戶服務，請稍後再試。");
       return;
     }
 
     setIsSubmitting(true);
+
     const redirectTo = `${window.location.origin}/merchant/update-password`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+
+    const { error } = await client.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo,
+    });
+
     setIsSubmitting(false);
 
     if (error) {
-      setErrorMessage("æš«æ™‚æœªèƒ½ç™¼é€é‡è¨­å¯†ç¢¼é›»éƒµï¼Œè«‹ç¨å¾Œå†è©¦ã€‚");
+      setErrorMessage("暫時未能發送重設密碼電郵，請稍後再試。");
       return;
     }
 
-    setSuccessMessage("å¦‚å¸³æˆ¶å­˜åœ¨ï¼Œæˆ‘å€‘å·²ç™¼é€é‡è¨­å¯†ç¢¼é€£çµåˆ°ä½ çš„é›»éƒµã€‚è«‹æª¢æŸ¥æ”¶ä»¶ç®±åŠåžƒåœ¾éƒµä»¶ã€‚");
+    setSuccessMessage(
+      "如帳戶存在，我們已發送重設密碼連結到你的電郵。請檢查收件箱及垃圾郵件。",
+    );
   };
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-12 sm:px-6">
       <div className="mx-auto max-w-md">
         <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-sm font-semibold text-primary-600">HK Family Fun Merchant Portal</p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-900">é‡è¨­å¯†ç¢¼</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">è¼¸å…¥ä½ çš„å•†æˆ¶å¸³æˆ¶é›»éƒµï¼Œæˆ‘å€‘æœƒç™¼é€é‡è¨­å¯†ç¢¼é€£çµã€‚</p>
+          <p className="text-sm font-semibold text-primary-600">
+            HK Family Fun Merchant Portal
+          </p>
+
+          <h1 className="mt-2 text-3xl font-bold text-slate-900">重設密碼</h1>
+
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            輸入你的商戶帳戶電郵，我們會發送重設密碼連結。
+          </p>
 
           {errorMessage ? (
-            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{errorMessage}</div>
+            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {errorMessage}
+            </div>
           ) : null}
 
           {successMessage ? (
-            <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">{successMessage}</div>
+            <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">
+              {successMessage}
+            </div>
           ) : null}
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-700">é›»éƒµ</span>
+              <span className="mb-2 block text-sm font-medium text-slate-700">
+                電郵
+              </span>
               <input
                 required
                 type="email"
@@ -67,12 +88,17 @@ export default function MerchantForgotPasswordPage() {
               disabled={isSubmitting}
               className="w-full rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? "ç™¼é€ä¸­â€¦" : "ç™¼é€é‡è¨­å¯†ç¢¼é›»éƒµ"}
+              {isSubmitting ? "發送中…" : "發送重設密碼電郵"}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-600">
-            <Link href="/merchant/login" className="font-semibold text-primary-600 hover:text-primary-700">è¿”å›žå•†æˆ¶ç™»å…¥</Link>
+            <Link
+              href="/merchant/login"
+              className="font-semibold text-primary-600 hover:text-primary-700"
+            >
+              返回商戶登入
+            </Link>
           </p>
         </div>
       </div>
