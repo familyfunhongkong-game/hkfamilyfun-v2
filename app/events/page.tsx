@@ -518,7 +518,15 @@ function normalizedStatus(event: EventRecord): string {
 
 function canShowPublic(event: EventRecord): boolean {
   const status = normalizedStatus(event);
-  return ["published", "approved", "live"].includes(status);
+  if (!["published", "approved", "live"].includes(status)) return false;
+
+  const end = parseDateOnly(event.end_date || event.start_date);
+  if (!end) return true;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return end.getTime() >= today.getTime();
 }
 
 function isFreeEvent(event: EventRecord): boolean {
