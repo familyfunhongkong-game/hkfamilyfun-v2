@@ -322,7 +322,15 @@ function getCoverFilter(event: EventRecord): CSSProperties {
 function formatDate(value?: string | null): string {
   if (!value) return "日期待定";
 
-  const date = new Date(value);
+  const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const date = dateOnly
+    ? new Date(
+        Number(dateOnly[1]),
+        Number(dateOnly[2]) - 1,
+        Number(dateOnly[3]),
+      )
+    : new Date(value);
+
   if (Number.isNaN(date.getTime())) return value;
 
   return date.toLocaleDateString("zh-HK", {
