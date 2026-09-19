@@ -31,6 +31,31 @@ type DatabaseEvent = {
   cover_image_url: string | null;
 };
 
+function parseCalendarDate(value: string | null) {
+  if (!value) return null;
+
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+
+  const date = new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+  );
+  date.setHours(0, 0, 0, 0);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isExpiredEvent(event: DatabaseEvent) {
+  const end = parseCalendarDate(event.end_date || event.start_date);
+  if (!end) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return end.getTime() < today.getTime();
+}
+
 function formatDate(date: string | null) {
   if (!date) return "日期待定";
   return date;
@@ -111,7 +136,9 @@ export async function getPublishedEvents(): Promise<Event[]> {
     return [];
   }
 
-  return ((data || []) as DatabaseEvent[]).map(mapDatabaseEvent);
+  return ((data || []) as DatabaseEvent[])
+    .filter((event) => !isExpiredEvent(event))
+    .map(mapDatabaseEvent);
 }
 
 export async function getPublishedEventById(
@@ -134,5 +161,8 @@ export async function getPublishedEventById(
     return null;
   }
 
-  return mapDatabaseEvent(data as DatabaseEvent);
+  const event = data as DatabaseEvent;
+  if (isExpiredEvent(event)) return null;
+
+  return mapDatabaseEvent(event);
 }
