@@ -13,7 +13,11 @@ type AccessState =
   | "error";
 
 function getAdminEmails(): string[] {
-  return (process.env.NEXT_PUBLIC_ADMIN_EMAILS || "")
+  const configured =
+    process.env.NEXT_PUBLIC_ADMIN_EMAILS ||
+    "familyfun.hongkong@gmail.com,info@hkfamilyfun.com";
+
+  return configured
     .split(",")
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
