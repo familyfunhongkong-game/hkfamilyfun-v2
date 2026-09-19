@@ -12,6 +12,11 @@ type AccessState =
   | "allowed"
   | "error";
 
+const ADMIN_EMAILS = new Set([
+  "familyfun.hongkong@gmail.com",
+  "info@hkfamilyfun.com",
+]);
+
 export default function AdminLayout({
   children,
 }: {
@@ -31,31 +36,20 @@ export default function AdminLayout({
 
       const {
         data: { user },
-        error: userError,
+        error,
       } = await supabase.auth.getUser();
 
       if (ignore) return;
 
-      if (userError || !user) {
+      if (error || !user) {
         setCurrentEmail("");
         setAccessState("signed_out");
         return;
       }
 
-      setCurrentEmail(String(user.email || "").trim().toLowerCase());
-
-      const { data: isAdmin, error: adminError } =
-        await supabase.rpc("is_platform_admin");
-
-      if (ignore) return;
-
-      if (adminError) {
-        console.error("Admin permission check failed:", adminError);
-        setAccessState("error");
-        return;
-      }
-
-      setAccessState(isAdmin === true ? "allowed" : "forbidden");
+      const email = String(user.email || "").trim().toLowerCase();
+      setCurrentEmail(email);
+      setAccessState(ADMIN_EMAILS.has(email) ? "allowed" : "forbidden");
     }
 
     void verifyAdmin();
@@ -87,7 +81,7 @@ export default function AdminLayout({
               正在驗證管理員權限
             </h1>
             <p className="mt-3 text-sm text-slate-600">
-              系統正在以 Supabase 權限規則確認登入狀態。
+              系統正在確認登入狀態。
             </p>
           </>
         ) : null}
@@ -126,7 +120,7 @@ export default function AdminLayout({
               目前登入帳戶：{currentEmail || "未知"}
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              權限由 Supabase 的 platform-admin 規則控制，而不是前端環境變數。
+              Admin 操作同時受前端白名單及 Supabase RLS 保護。
             </p>
           </>
         ) : null}
@@ -137,7 +131,7 @@ export default function AdminLayout({
               暫時無法驗證 Admin 權限
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              請重新登入後再試。如問題持續，需檢查 Supabase Auth / RLS 設定。
+              請重新登入後再試。
             </p>
           </>
         ) : null}
