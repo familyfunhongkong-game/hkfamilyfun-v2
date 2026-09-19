@@ -271,7 +271,18 @@ function getGalleryImages(event: EventRecord): GalleryImage[] {
 function formatDate(value?: string | null): string {
   if (!value) return "日期待定";
 
-  const date = new Date(value);
+  // Database event dates are calendar dates, not moments in time.
+  // Parse YYYY-MM-DD in local calendar space so UTC/timezone conversion
+  // can never move an event to the previous/next day.
+  const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const date = dateOnly
+    ? new Date(
+        Number(dateOnly[1]),
+        Number(dateOnly[2]) - 1,
+        Number(dateOnly[3]),
+      )
+    : new Date(value);
+
   if (Number.isNaN(date.getTime())) return value;
 
   return date.toLocaleDateString("zh-HK", {
