@@ -555,6 +555,53 @@ export default function MerchantDashboardPage() {
     );
   }
 
+  if (safeText(merchant.status, "pending") !== "approved") {
+    const status = safeText(merchant.status, "pending");
+    const statusCopy =
+      status === "rejected"
+        ? "商戶申請暫未獲批。請按平台通知修改資料後再聯絡 HK Family Fun。"
+        : status === "suspended"
+          ? "商戶帳戶目前已暫停，活動建立及修改功能暫時停用。"
+          : "商戶申請正在審批中。獲批後即可建立、修改及提交活動。";
+
+    return (
+      <main className="min-h-screen bg-slate-50">
+        <div className="mx-auto max-w-4xl px-4 py-16">
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 shadow-sm">
+            <p className="text-sm font-black text-amber-700">
+              HK Family Fun Merchant Portal
+            </p>
+            <h1 className="mt-2 text-2xl font-black text-slate-950">
+              商戶帳戶尚未啟用
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-slate-700">
+              {statusCopy}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              商戶：{safeText(merchant.business_name, "未命名商戶")} · 狀態：
+              {status}
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={loadDashboard}
+                className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
+              >
+                重新整理狀態
+              </button>
+              <Link
+                href="/events"
+                className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700"
+              >
+                查看公開活動
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
