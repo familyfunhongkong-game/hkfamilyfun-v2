@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+
+const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
+
 type ExtractedEvent = {
   source_url: string;
   title_tc: string;
@@ -327,7 +331,7 @@ function extractPrices(text: string) {
 }
 
 function extractVenueFromText(text: string) {
-  if (/AIRSIDE/i.test(text) || /啟德/i.test(text)) {
+  if (/AIRSIDE/i.test(text)) {
     return {
       venue_name: "AIRSIDE",
       address: "啟德 AIRSIDE",
@@ -337,7 +341,7 @@ function extractVenueFromText(text: string) {
     };
   }
 
-  if (/MegaBox/i.test(text) || /九龍灣/i.test(text)) {
+  if (/MegaBox/i.test(text)) {
     return {
       venue_name: "MegaBox",
       address: "九龍灣 MegaBox",
@@ -347,10 +351,40 @@ function extractVenueFromText(text: string) {
     };
   }
 
-  if (/新城市廣場|New Town Plaza|沙田/i.test(text)) {
+  if (/新城市廣場|New Town Plaza/i.test(text)) {
     return {
       venue_name: "新城市廣場",
       address: "沙田新城市廣場",
+      area: "新界",
+      district: "沙田區",
+      mtr_station: "沙田",
+    };
+  }
+
+  if (/啟德/i.test(text)) {
+    return {
+      venue_name: "",
+      address: "",
+      area: "九龍",
+      district: "九龍城區",
+      mtr_station: "啟德",
+    };
+  }
+
+  if (/九龍灣/i.test(text)) {
+    return {
+      venue_name: "",
+      address: "",
+      area: "九龍",
+      district: "觀塘區",
+      mtr_station: "九龍灣",
+    };
+  }
+
+  if (/沙田/i.test(text)) {
+    return {
+      venue_name: "",
+      address: "",
       area: "新界",
       district: "沙田區",
       mtr_station: "沙田",
@@ -409,59 +443,6 @@ function applyJsonLd(event: ExtractedEvent, jsonLdEvent: any, url: string) {
   };
 }
 
-function applyAirsideFallback(event: ExtractedEvent, url: string) {
-  const lower = url.toLowerCase();
-
-  if (!lower.includes("airside.com.hk") || !lower.includes("manulife-wellbeing-fest")) {
-    return event;
-  }
-
-  return {
-    ...event,
-    title_tc: "Manulife x AIRSIDE 樂活節奏健康節",
-    short_description_tc:
-      "AIRSIDE 與宏利打造大型年度身心體驗盛事，一連三天帶來運動、心理健康、情緒健康、健康知識分享及生活體驗活動。",
-    description_tc:
-      "今年 9 月，AIRSIDE 與宏利將攜手首次打造全港大型年度身心體驗盛事「Manulife x AIRSIDE 樂活節奏健康節」，一連三天帶來多場精彩活動，讓參加者一起探索身、心、靈健康。活動將匯聚超過 30 位星級導師及嘉賓，帶來運動、心理健康、情緒健康、健康知識分享及生活體驗等節目。",
-    activity_category: "健康活動",
-    start_date: "2026-09-04",
-    end_date: "2026-09-06",
-    venue_name: "AIRSIDE",
-    address: "啟德 AIRSIDE 2樓中庭",
-    area: "九龍",
-    district: "九龍城區",
-    mtr_station: "啟德",
-    price_display_mode: "early_bird",
-    price_label: "早鳥優惠價 HK$50（原價 HK$90）",
-    min_price: "50",
-    max_price: "50",
-    offer_price: "50",
-    original_price: "90",
-    quota_label: "名額有限，先到先得，額滿即止",
-    cta_type: "official",
-    cta_label: "查看官方票務資訊",
-    registration_url: url,
-    booking_url: url,
-    official_url: url,
-    organizer_name: "AIRSIDE / Manulife 宏利",
-    tags: "AIRSIDE, 宏利, Manulife, 健康活動, 親子活動, 啟德",
-    highlights:
-      "超過 30 位星級導師及嘉賓\n運動、心理健康、情緒健康及健康知識分享\n適合親子及家庭一起參與\n地點鄰近港鐵啟德站",
-    terms:
-      "活動名額有限，先到先得\n實際活動時間、導師及安排以主辦方最新公布為準\n部分活動或需另行報名或購票",
-    remarks:
-      "此活動資料根據 AIRSIDE 官方活動頁初步整理，收費、名額及報名詳情請以主辦方最新公布為準。",
-    google_map_url: "https://www.google.com/maps/search/?api=1&query=AIRSIDE%20Kai%20Tak",
-    google_map_embed_url:
-      "https://maps.google.com/maps?q=AIRSIDE%20Kai%20Tak&output=embed",
-    extraction_notes: [
-      ...event.extraction_notes,
-      "已套用 AIRSIDE Manulife Wellbeing Fest 專用 fallback rule。",
-      "早鳥優惠價、原價、日期及地點已根據官方頁面內容預填，仍需商戶最後確認。",
-    ],
-  };
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -492,6 +473,59 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (parsedUrl.username || parsedUrl.password) {
+      return NextResponse.json(
+        { ok: false, error: "活動網址不可包含登入帳號或密碼。" },
+        { status: 400 }
+      );
+    }
+
+    const blockedHost = (hostname: string) => {
+      const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+      if (
+        host === "localhost" ||
+        host.endsWith(".localhost") ||
+        host.endsWith(".local") ||
+        host.endsWith(".internal") ||
+        host === "0.0.0.0" ||
+        host === "::" ||
+        host === "::1"
+      ) {
+        return true;
+      }
+
+      if (/^127\./.test(host) || /^10\./.test(host) || /^169\.254\./.test(host)) {
+        return true;
+      }
+
+      const private172 = host.match(/^172\.(\d{1,3})\./);
+      if (private172) {
+        const second = Number(private172[1]);
+        if (second >= 16 && second <= 31) return true;
+      }
+
+      if (/^192\.168\./.test(host)) return true;
+      if (/^fc/i.test(host) || /^fd/i.test(host) || /^fe8/i.test(host) || /^fe9/i.test(host) || /^fea/i.test(host) || /^feb/i.test(host)) {
+        return true;
+      }
+
+      return false;
+    };
+
+    if (blockedHost(parsedUrl.hostname)) {
+      return NextResponse.json(
+        { ok: false, error: "基於安全原因，此網址不可匯入。" },
+        { status: 400 }
+      );
+    }
+
+    if (parsedUrl.port && !["80", "443"].includes(parsedUrl.port)) {
+      return NextResponse.json(
+        { ok: false, error: "只支援一般 HTTP / HTTPS 網站連接埠。" },
+        { status: 400 }
+      );
+    }
+
     let event = emptyEvent(parsedUrl.toString());
 
     let html = "";
@@ -504,16 +538,47 @@ export async function POST(request: NextRequest) {
           "user-agent":
             "Mozilla/5.0 (compatible; HKFamilyFunBot/1.0; +https://www.hkfamilyfun.com)",
           accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "text/html,application/xhtml+xml,application/xml,text/xml,text/plain;q=0.9,*/*;q=0.5",
           "accept-language": "zh-HK,zh;q=0.9,en;q=0.8",
         },
         cache: "no-store",
+        redirect: "follow",
+        signal: AbortSignal.timeout(12000),
       });
 
       if (!response.ok) {
-        fetchError = `網站回應 ${response.status}，未能完整讀取 HTML。`;
+        fetchError = `網站回應 ${response.status}，未能完整讀取內容。`;
       } else {
-        html = await response.text();
+        const finalUrl = new URL(response.url || parsedUrl.toString());
+        if (blockedHost(finalUrl.hostname)) {
+          fetchError = "重新導向至不安全網址，已停止匯入。";
+        } else {
+          const contentType = (response.headers.get("content-type") || "").toLowerCase();
+          const allowedContent =
+            contentType.includes("text/html") ||
+            contentType.includes("application/xhtml+xml") ||
+            contentType.includes("application/xml") ||
+            contentType.includes("text/xml") ||
+            contentType.includes("text/plain");
+
+          if (!allowedContent) {
+            fetchError = contentType.includes("application/pdf")
+              ? "PDF 網址暫未支援自動抽取；請先建立草稿，再於編輯頁補充資料及圖片。"
+              : `此網址內容格式暫未支援（${contentType || "unknown"}）。`;
+          } else {
+            const declaredLength = Number(response.headers.get("content-length") || "0");
+            if (declaredLength > MAX_SOURCE_BYTES) {
+              fetchError = "活動網頁內容超過 2MB，為保障系統效能已停止匯入。";
+            } else {
+              const buffer = await response.arrayBuffer();
+              if (buffer.byteLength > MAX_SOURCE_BYTES) {
+                fetchError = "活動網頁內容超過 2MB，為保障系統效能已停止匯入。";
+              } else {
+                html = new TextDecoder("utf-8").decode(buffer);
+              }
+            }
+          }
+        }
       }
     } catch (error) {
       fetchError =
@@ -573,10 +638,9 @@ export async function POST(request: NextRequest) {
         };
       }
 
-      event.extraction_notes.push("已完成 server-side HTML / meta / JSON-LD 初步抽取。");
+      event.extraction_notes.push("已完成 server-side HTML / meta / JSON-LD 結構化抽取。");
     }
 
-    event = applyAirsideFallback(event, parsedUrl.toString());
 
     if (!event.title_tc) {
       event.extraction_notes.push("未能抽取活動名稱，請商戶手動填寫。");
@@ -589,6 +653,10 @@ export async function POST(request: NextRequest) {
     if (!event.cover_image_url) {
       event.extraction_notes.push("未能抽取 og:image，請商戶手動貼圖片 URL 或稍後上載圖片。");
     }
+
+    event.extraction_notes.push(
+      "匯入結果只會建立草稿，不會自動發布；日期、地點、價格及報名資料必須由商戶 / Admin 最後確認。"
+    );
 
     return NextResponse.json({
       ok: true,
