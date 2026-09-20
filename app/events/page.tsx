@@ -1376,9 +1376,12 @@ export default function PublicEventsPage() {
   function clearFilters() {
     setKeyword("");
     setDateFilter("all");
+    setSpecificDate("");
     setPriceFilter("all");
     setDistrictFilter("all");
     setCategoryFilter("all");
+    setSenOnly(false);
+    setIndoorOnly(false);
     setSortMode("recommended");
   }
 
