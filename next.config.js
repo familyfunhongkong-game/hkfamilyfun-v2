@@ -14,6 +14,23 @@ const nextConfig = {
     ],
     unoptimized: process.env.NODE_ENV === 'development',
   },
+  redirects: async () => [
+    {
+      source: '/activities',
+      destination: '/events',
+      permanent: true,
+    },
+    {
+      source: '/activities/:path*',
+      destination: '/events/:path*',
+      permanent: true,
+    },
+    {
+      source: '/hk-family-fun-merchant-join.html',
+      destination: '/merchant-join',
+      permanent: true,
+    },
+  ],
   headers: async () => [
     {
       source: '/:path*',
@@ -29,6 +46,10 @@ const nextConfig = {
         {
           key: 'Referrer-Policy',
           value: 'strict-origin-when-cross-origin',
+        },
+        {
+          key: 'Permissions-Policy',
+          value: 'camera=(), microphone=(), geolocation=(self)',
         },
       ],
     },
