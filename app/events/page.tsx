@@ -3,7 +3,6 @@
 import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 type JsonValue =
@@ -1121,7 +1120,6 @@ function EventCard({
 }
 
 export default function PublicEventsPage() {
-  const searchParams = useSearchParams();
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
@@ -1172,11 +1170,12 @@ export default function PublicEventsPage() {
   }, []);
 
   useEffect(() => {
-    const queryKeyword = searchParams.get("q") || "";
-    const queryDate = searchParams.get("date") || "";
-    const queryPrice = searchParams.get("price") || "";
-    const queryDistrict = searchParams.get("district") || "all";
-    const queryCategory = searchParams.get("category") || "all";
+    const params = new URLSearchParams(window.location.search);
+    const queryKeyword = params.get("q") || "";
+    const queryDate = params.get("date") || "";
+    const queryPrice = params.get("price") || "";
+    const queryDistrict = params.get("district") || "all";
+    const queryCategory = params.get("category") || "all";
 
     setKeyword(queryKeyword);
     setDistrictFilter(queryDistrict || "all");
@@ -1219,9 +1218,9 @@ export default function PublicEventsPage() {
         ? "all"
         : categoryMap[queryCategory] || queryCategory,
     );
-    setSenOnly(searchParams.get("sen") === "true");
-    setIndoorOnly(searchParams.get("indoor") === "true");
-  }, [searchParams]);
+    setSenOnly(params.get("sen") === "true");
+    setIndoorOnly(params.get("indoor") === "true");
+  }, []);
 
   const districtOptions = useMemo(() => getDistrictOptions(events), [events]);
   const categoryOptions = useMemo(() => getCategoryOptions(events), [events]);
