@@ -35,7 +35,7 @@ const parentLinks = [
   },
   {
     href: "/events/map",
-    label: "附近活動地圖",
+    label: "地點探索",
     icon: "🗺️",
     hoverClass: "hover:bg-teal-50 hover:text-teal-700",
   },
@@ -141,7 +141,7 @@ function SiteFooter() {
               搜尋活動
             </Link>
             <Link href="/events/map" className="hover:text-purple-700">
-              附近活動地圖
+              地點探索
             </Link>
             <Link href="/tips" className="hover:text-purple-700">
               報料區
@@ -198,14 +198,37 @@ function SiteFooter() {
             </p>
           </div>
 
+          <div className="mt-4 flex flex-wrap gap-3 text-sm font-bold">
+            <a href="https://www.instagram.com/hk.familyfun" target="_blank" rel="noreferrer" className="text-purple-700 hover:text-purple-900">
+              Instagram
+            </a>
+            <a href="https://www.facebook.com/hk.familyfun1112" target="_blank" rel="noreferrer" className="text-purple-700 hover:text-purple-900">
+              Facebook
+            </a>
+            <a href="https://www.threads.com/@hk.familyfun" target="_blank" rel="noreferrer" className="text-purple-700 hover:text-purple-900">
+              Threads
+            </a>
+          </div>
+
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
             HK Family Fun 現階段不代收活動款項；家長會直接連到商戶官方報名渠道。
           </div>
         </div>
       </div>
 
-      <div className="border-t border-slate-100 px-4 py-5 text-center text-xs text-slate-500">
-        © 2026 HK Family Fun. 保留所有權利。
+      <div className="border-t border-slate-100 px-4 py-5">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-xs text-slate-500 md:flex-row">
+          <p>© 2026 HK Family Fun. 保留所有權利。</p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <Link href="/about" className="hover:text-purple-700">關於我們</Link>
+            <Link href="/contact" className="hover:text-purple-700">聯絡我們</Link>
+            <Link href="/report" className="hover:text-purple-700">報錯／舉報</Link>
+            <Link href="/terms" className="hover:text-purple-700">服務條款</Link>
+            <Link href="/privacy" className="hover:text-purple-700">私隱政策</Link>
+            <Link href="/disclaimer" className="hover:text-purple-700">免責聲明</Link>
+            <Link href="/merchant-terms" className="hover:text-purple-700">商戶條款</Link>
+          </div>
+        </div>
       </div>
     </footer>
   );
