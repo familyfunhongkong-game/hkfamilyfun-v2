@@ -1176,11 +1176,18 @@ export default function PublicEventsPage() {
     const queryPrice = params.get("price") || "";
     const queryDistrict = params.get("district") || "all";
     const queryCategory = params.get("category") || "all";
+    const legacyFree = params.get("is_free") === "true";
+    const legacySen =
+      params.get("is_sen") === "true" ||
+      params.get("is_sen_friendly") === "true";
 
     setKeyword(queryKeyword);
     setDistrictFilter(queryDistrict || "all");
 
-    if (["today", "tomorrow", "weekend", "month"].includes(queryDate)) {
+    if (queryCategory === "weekend") {
+      setDateFilter("weekend");
+      setSpecificDate("");
+    } else if (["today", "tomorrow", "weekend", "month"].includes(queryDate)) {
       setDateFilter(queryDate as DateFilter);
       setSpecificDate("");
     } else if (/^\d{4}-\d{2}-\d{2}$/.test(queryDate)) {
@@ -1192,9 +1199,11 @@ export default function PublicEventsPage() {
     }
 
     setPriceFilter(
-      queryPrice === "free" || queryPrice === "paid"
-        ? (queryPrice as PriceFilter)
-        : "all",
+      legacyFree
+        ? "free"
+        : queryPrice === "free" || queryPrice === "paid"
+          ? (queryPrice as PriceFilter)
+          : "all",
     );
 
     const categoryMap: Record<string, string> = {
@@ -1214,11 +1223,11 @@ export default function PublicEventsPage() {
     };
 
     setCategoryFilter(
-      queryCategory === "all"
+      queryCategory === "all" || queryCategory === "weekend"
         ? "all"
         : categoryMap[queryCategory] || queryCategory,
     );
-    setSenOnly(params.get("sen") === "true");
+    setSenOnly(params.get("sen") === "true" || legacySen);
     setIndoorOnly(params.get("indoor") === "true");
   }, []);
 
