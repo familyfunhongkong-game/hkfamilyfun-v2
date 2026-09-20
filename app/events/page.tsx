@@ -3,6 +3,7 @@
 import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 type JsonValue =
@@ -76,6 +77,8 @@ type EventRecord = {
   activity_type?: string | null;
   activity_category?: string | null;
   category?: string | JsonValue | null;
+  is_indoor?: boolean | null;
+  is_sen_friendly?: boolean | null;
 
   registration_required?: boolean | null;
   registration_url?: string | null;
@@ -429,6 +432,10 @@ function getCategoryLabel(event: EventRecord): string {
     theatre: "劇場",
     outdoor: "戶外活動",
     indoor: "室內活動",
+    mall: "商場活動",
+    education: "教育活動",
+    arts: "藝術創作",
+    cooking: "烹飪",
     sen: "SEN 友善",
     free: "免費活動",
   };
@@ -1114,6 +1121,7 @@ function EventCard({
 }
 
 export default function PublicEventsPage() {
+  const searchParams = useSearchParams();
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
@@ -1121,9 +1129,12 @@ export default function PublicEventsPage() {
 
   const [keyword, setKeyword] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [specificDate, setSpecificDate] = useState("");
   const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
   const [districtFilter, setDistrictFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [senOnly, setSenOnly] = useState(false);
+  const [indoorOnly, setIndoorOnly] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("recommended");
 
   async function loadEvents() {
@@ -1159,6 +1170,58 @@ export default function PublicEventsPage() {
     loadEvents();
     setFavoriteIds(readFavoriteIds());
   }, []);
+
+  useEffect(() => {
+    const queryKeyword = searchParams.get("q") || "";
+    const queryDate = searchParams.get("date") || "";
+    const queryPrice = searchParams.get("price") || "";
+    const queryDistrict = searchParams.get("district") || "all";
+    const queryCategory = searchParams.get("category") || "all";
+
+    setKeyword(queryKeyword);
+    setDistrictFilter(queryDistrict || "all");
+
+    if (["today", "tomorrow", "weekend", "month"].includes(queryDate)) {
+      setDateFilter(queryDate as DateFilter);
+      setSpecificDate("");
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(queryDate)) {
+      setDateFilter("all");
+      setSpecificDate(queryDate);
+    } else {
+      setDateFilter("all");
+      setSpecificDate("");
+    }
+
+    setPriceFilter(
+      queryPrice === "free" || queryPrice === "paid"
+        ? (queryPrice as PriceFilter)
+        : "all",
+    );
+
+    const categoryMap: Record<string, string> = {
+      workshop: "工作坊",
+      mall: "商場活動",
+      market: "市集",
+      exhibition: "展覽",
+      sports: "運動",
+      music: "音樂",
+      theatre: "劇場",
+      outdoor: "戶外活動",
+      indoor: "室內活動",
+      education: "教育活動",
+      arts: "藝術創作",
+      cooking: "烹飪",
+      sen: "SEN 友善",
+    };
+
+    setCategoryFilter(
+      queryCategory === "all"
+        ? "all"
+        : categoryMap[queryCategory] || queryCategory,
+    );
+    setSenOnly(searchParams.get("sen") === "true");
+    setIndoorOnly(searchParams.get("indoor") === "true");
+  }, [searchParams]);
 
   const districtOptions = useMemo(() => getDistrictOptions(events), [events]);
   const categoryOptions = useMemo(() => getCategoryOptions(events), [events]);
@@ -1201,6 +1264,13 @@ export default function PublicEventsPage() {
       next = next.filter((event) => eventMatchesDateFilter(event, dateFilter));
     }
 
+    if (specificDate) {
+      const target = parseDateOnly(specificDate);
+      if (target) {
+        next = next.filter((event) => eventOverlapsDate(event, target));
+      }
+    }
+
     if (priceFilter === "free") {
       next = next.filter(isFreeEvent);
     }
@@ -1217,6 +1287,24 @@ export default function PublicEventsPage() {
 
     if (categoryFilter !== "all") {
       next = next.filter((event) => getCategoryLabel(event) === categoryFilter);
+    }
+
+    if (senOnly) {
+      next = next.filter(
+        (event) =>
+          Boolean(event.is_sen_friendly) ||
+          getCategoryLabel(event) === "SEN 友善" ||
+          getTagArray(event.tags).some((tag) => tag.toUpperCase().includes("SEN")),
+      );
+    }
+
+    if (indoorOnly) {
+      next = next.filter(
+        (event) =>
+          Boolean(event.is_indoor) ||
+          getCategoryLabel(event) === "室內活動" ||
+          getTagArray(event.tags).some((tag) => tag.includes("室內")),
+      );
     }
 
     if (sortMode === "recommended") {
@@ -1264,9 +1352,12 @@ export default function PublicEventsPage() {
     favoriteIds,
     keyword,
     dateFilter,
+    specificDate,
     priceFilter,
     districtFilter,
     categoryFilter,
+    senOnly,
+    indoorOnly,
     sortMode,
   ]);
 
