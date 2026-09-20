@@ -237,6 +237,19 @@ export default function ImportEventPage() {
 
     const currentMerchant = data as MerchantRecord;
     setMerchant(currentMerchant);
+
+    if (safeText(currentMerchant.status, "pending") !== "approved") {
+      setMessage(
+        currentMerchant.status === "rejected"
+          ? "商戶申請暫未獲批，請先按平台通知修改資料。"
+          : currentMerchant.status === "suspended"
+            ? "商戶帳戶目前已暫停，暫時不能建立活動。"
+            : "商戶申請仍在審批中，獲批後才可建立活動草稿。"
+      );
+      setLoadingMerchant(false);
+      return null;
+    }
+
     setLoadingMerchant(false);
     return currentMerchant;
   }
@@ -294,7 +307,7 @@ export default function ImportEventPage() {
         extraction_notes: extracted.extraction_notes || [],
       });
 
-      setMessage("已完成 server-side URL 抽取。請檢查資料後儲存草稿。");
+      setMessage("已完成網址資料抽取。請逐項核對日期、地點、收費及報名資料後再儲存草稿。");
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -340,6 +353,7 @@ export default function ImportEventPage() {
       end_time: draft.end_time || null,
       venue_name: draft.venue_name,
       address: draft.address,
+      area: draft.area,
       district: draft.district,
       mtr_station: draft.mtr_station,
       price_display_mode: draft.price_display_mode,
@@ -354,7 +368,9 @@ export default function ImportEventPage() {
       registration_url: draft.registration_url || draft.booking_url || draft.official_url || draft.source_url,
       booking_url: draft.booking_url || draft.registration_url || draft.official_url || draft.source_url,
       official_url: draft.official_url || draft.source_url,
+      source_type: "url",
       source_url: draft.source_url || url,
+      ai_extraction_status: "not_available",
       google_map_url: draft.google_map_url,
       google_map_embed_url: draft.google_map_embed_url,
       cover_image_url: draft.cover_image_url || gallery[0] || "",
@@ -390,14 +406,14 @@ export default function ImportEventPage() {
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-[1400px] px-4 py-8">
           <p className="text-sm font-black text-purple-700">
-            Merchant Portal · 智能匯入活動
+            Merchant Portal · 智能網址匯入
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
             貼活動網址，自動建立可編輯草稿
           </h1>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
-            系統會用 server-side API 讀取活動網頁，抽取活動名稱、描述、圖片、日期、
-            地點、收費及 CTA。抽不到的資料會保留空白，讓商戶手動補充。
+            系統會讀取活動網頁的 HTML、Meta 及 JSON-LD 結構化資料，預填活動名稱、描述、
+            圖片、日期、地點、收費及 CTA。所有結果只會建立草稿，必須人工確認後才提交審批。
           </p>
         </div>
       </section>
