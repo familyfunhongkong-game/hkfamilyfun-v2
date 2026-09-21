@@ -198,7 +198,7 @@ export async function getPublishedEvents(): Promise<Event[]> {
   }
 
   const { data, error } = await supabase
-    .from("events")
+    .from("public_events")
     .select("*")
     .eq("status", "published")
     .order("start_date", { ascending: true });
@@ -222,7 +222,7 @@ export async function getPublishedEventById(
   }
 
   const { data, error } = await supabase
-    .from("events")
+    .from("public_events")
     .select("*")
     .eq("id", id)
     .eq("status", "published")
