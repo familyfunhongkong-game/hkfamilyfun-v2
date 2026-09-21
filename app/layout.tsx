@@ -1,24 +1,303 @@
 ﻿import type { Metadata } from "next";
+import Link from "next/link";
 import "./globals.css";
-import { SiteLayout } from "@/components/layout/SiteLayout";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.hkfamilyfun.com"),
   title: {
-    default: "HK Family Fun | 香港親子活動搜尋平台",
-    template: "%s | HK Family Fun",
+    default: "HK Family Fun｜香港親子活動平台",
+    template: "%s｜HK Family Fun",
   },
-  description: "一站式搜尋香港親子活動，包括免費活動、SEN 友善活動及週末好去處。",
+  description:
+    "HK Family Fun 是香港親子活動平台，幫助家長搜尋今日、週末、免費、室內、戶外、SEN 友善及不同地區的親子活動。",
+  keywords: [
+    "香港親子活動",
+    "親子好去處",
+    "香港週末活動",
+    "免費親子活動",
+    "兒童活動",
+    "SEN活動",
+    "親子工作坊",
+    "HK Family Fun",
+  ],
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "zh_HK",
+    siteName: "HK Family Fun",
+    url: "/",
+    title: "HK Family Fun｜香港親子活動平台",
+    description:
+      "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
+    images: [
+      {
+        url: "/logo.png",
+        width: 100,
+        height: 100,
+        alt: "HK Family Fun",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "HK Family Fun｜香港親子活動平台",
+    description:
+      "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
+    images: ["/logo.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
+
+const parentLinks = [
+  {
+    href: "/",
+    label: "首頁",
+    icon: "🏠",
+    hoverClass: "hover:bg-blue-50 hover:text-blue-700",
+  },
+  {
+    href: "/calendar",
+    label: "活動日曆",
+    icon: "🗓️",
+    hoverClass: "hover:bg-blue-50 hover:text-blue-700",
+  },
+  {
+    href: "/today",
+    label: "今日活動",
+    icon: "⏰",
+    hoverClass: "hover:bg-pink-50 hover:text-pink-700",
+  },
+  {
+    href: "/events",
+    label: "搜尋活動",
+    icon: "🔎",
+    hoverClass: "hover:bg-purple-50 hover:text-purple-700",
+  },
+  {
+    href: "/events/map",
+    label: "地點探索",
+    icon: "🗺️",
+    hoverClass: "hover:bg-teal-50 hover:text-teal-700",
+  },
+  {
+    href: "/tips",
+    label: "報料區",
+    icon: "💬",
+    hoverClass: "hover:bg-violet-50 hover:text-violet-700",
+  },
+  {
+    href: "/favorites",
+    label: "收藏",
+    icon: "💖",
+    hoverClass: "hover:bg-rose-50 hover:text-rose-700",
+  },
+];
+
+function SiteHeader() {
+  return (
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <Link href="/" className="flex items-center gap-3">
+          <img
+            src="/logo.png"
+            alt="HK Family Fun"
+            width={44}
+            height={44}
+            className="h-11 w-11 object-contain"
+          />
+          <span>
+            <span className="block text-lg font-black leading-tight text-slate-950">
+              HK Family Fun
+            </span>
+            <span className="block text-xs text-slate-500">
+              香港親子活動平台
+            </span>
+          </span>
+        </Link>
+
+        <nav className="flex flex-wrap items-center gap-1 text-sm font-bold text-slate-600">
+          {parentLinks.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`rounded-2xl px-3 py-2 transition ${item.hoverClass}`}
+            >
+              <span className="mr-1">{item.icon}</span>
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/merchant-join"
+            className="text-sm font-bold text-slate-600 hover:text-purple-700"
+          >
+            商戶加入
+          </Link>
+
+          <Link
+            href="/merchant/register"
+            className="rounded-full bg-purple-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-purple-800"
+          >
+            商戶免費登記
+          </Link>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer className="border-t border-slate-200 bg-white">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
+        <div>
+          <Link href="/" className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt="HK Family Fun"
+              width={40}
+              height={40}
+              className="h-10 w-10 object-contain"
+            />
+            <span>
+              <span className="block text-base font-black text-slate-950">
+                HK Family Fun
+              </span>
+              <span className="block text-xs text-slate-500">
+                香港親子活動平台
+              </span>
+            </span>
+          </Link>
+
+          <p className="mt-4 max-w-sm text-sm leading-7 text-slate-500">
+            一站式搜尋香港親子活動，幫助家長輕鬆找到適合小朋友的精彩體驗。
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-sm font-black text-slate-950">家長入口</h2>
+          <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-600">
+            <Link href="/today" className="hover:text-purple-700">
+              今日活動
+            </Link>
+            <Link href="/calendar" className="hover:text-purple-700">
+              活動日曆
+            </Link>
+            <Link href="/events" className="hover:text-purple-700">
+              搜尋活動
+            </Link>
+            <Link href="/events/map" className="hover:text-purple-700">
+              地點探索
+            </Link>
+            <Link href="/tips" className="hover:text-purple-700">
+              報料區
+            </Link>
+            <Link href="/favorites" className="hover:text-purple-700">
+              收藏
+            </Link>
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-sm font-black text-slate-950">商戶專區</h2>
+          <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-600">
+            <Link href="/merchant-join" className="hover:text-purple-700">
+              商戶加入
+            </Link>
+            <Link href="/merchant-pricing" className="hover:text-purple-700">
+              商戶方案
+            </Link>
+            <Link href="/merchant/register" className="hover:text-purple-700">
+              商戶免費登記
+            </Link>
+            <Link href="/merchant/login" className="hover:text-purple-700">
+              商戶登入
+            </Link>
+            <Link href="/merchant/events/import" className="hover:text-purple-700">
+              智能匯入活動
+            </Link>
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-sm font-black text-slate-950">聯絡我們</h2>
+          <div className="mt-4 space-y-2 text-sm leading-7 text-slate-600">
+            <p>
+              WhatsApp:{" "}
+              <a
+                href="https://wa.me/85257018297"
+                target="_blank"
+                rel="noreferrer"
+                className="font-bold text-purple-700 hover:text-purple-900"
+              >
+                5701 8297
+              </a>
+            </p>
+            <p>
+              Email:{" "}
+              <a
+                href="mailto:info@hkfamilyfun.com"
+                className="font-bold text-purple-700 hover:text-purple-900"
+              >
+                info@hkfamilyfun.com
+              </a>
+            </p>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3 text-sm font-bold">
+            <a href="https://www.instagram.com/hk.familyfun" target="_blank" rel="noreferrer" className="text-purple-700 hover:text-purple-900">
+              Instagram
+            </a>
+            <a href="https://www.facebook.com/hk.familyfun1112" target="_blank" rel="noreferrer" className="text-purple-700 hover:text-purple-900">
+              Facebook
+            </a>
+            <a href="https://www.threads.com/@hk.familyfun" target="_blank" rel="noreferrer" className="text-purple-700 hover:text-purple-900">
+              Threads
+            </a>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
+            HK Family Fun 現階段不代收活動款項；家長會直接連到商戶官方報名渠道。
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-100 px-4 py-5">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-xs text-slate-500 md:flex-row">
+          <p>© 2026 HK Family Fun. 保留所有權利。</p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <Link href="/about" className="hover:text-purple-700">關於我們</Link>
+            <Link href="/contact" className="hover:text-purple-700">聯絡我們</Link>
+            <Link href="/report" className="hover:text-purple-700">報錯／舉報</Link>
+            <Link href="/terms" className="hover:text-purple-700">服務條款</Link>
+            <Link href="/privacy" className="hover:text-purple-700">私隱政策</Link>
+            <Link href="/disclaimer" className="hover:text-purple-700">免責聲明</Link>
+            <Link href="/merchant-terms" className="hover:text-purple-700">商戶條款</Link>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <html lang="zh-HK">
-      <body className="min-h-screen font-sans">
-        <SiteLayout>{children}</SiteLayout>
+    <html lang="zh-Hant">
+      <body className="bg-slate-50 text-slate-950 antialiased">
+        <SiteHeader />
+        {children}
+        <SiteFooter />
       </body>
     </html>
   );
