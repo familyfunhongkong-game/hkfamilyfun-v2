@@ -413,8 +413,8 @@ function formatPrice(event: EventRecord): string {
 
 function getCategoryLabel(event: EventRecord): string {
   const raw = safeText(
-    event.activity_category ||
-      event.category ||
+    event.category ||
+      event.activity_category ||
       event.activity_type ||
       event.age_group,
     "親子活動",
