@@ -299,8 +299,13 @@ function formatDateRange(event: EventRecord): string {
 }
 
 function formatTimeRange(event: EventRecord): string {
-  const start = safeText(event.start_time);
-  const end = safeText(event.end_time);
+  const normalizeTime = (value: unknown) => {
+    const text = safeText(value);
+    return /^\d{2}:\d{2}/.test(text) ? text.slice(0, 5) : text;
+  };
+
+  const start = normalizeTime(event.start_time);
+  const end = normalizeTime(event.end_time);
 
   if (!start && !end) return "時間待定";
   if (start && end) return `${start} - ${end}`;
@@ -366,9 +371,14 @@ function getCategoryLabel(event: EventRecord): string {
   const map: Record<string, string> = {
     kids: "親子活動",
     parent_child: "親子活動",
+    family: "親子活動",
     workshop: "工作坊",
     market: "市集",
     exhibition: "展覽",
+    festival: "節慶活動",
+    education: "教育活動",
+    arts: "藝術創作",
+    cooking: "烹飪",
     sports: "運動",
     music: "音樂",
     theatre: "劇場",
