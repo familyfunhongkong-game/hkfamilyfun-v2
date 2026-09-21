@@ -655,6 +655,36 @@ export default function AdminEventsPage() {
     loadEvents();
   }, []);
 
+  async function createAdminDraft() {
+    const client = supabase;
+
+    if (!client) {
+      setErrorText("Supabase 尚未初始化，暫時不能建立活動。");
+      return;
+    }
+
+    setSavingId("new");
+    setErrorText("");
+    setMessage("");
+
+    const { data, error } = await client
+      .from("events")
+      .insert({
+        title_tc: "未命名活動",
+        status: "draft",
+      })
+      .select("id")
+      .single();
+
+    if (error || !data?.id) {
+      setErrorText(error?.message || "建立活動失敗。");
+      setSavingId("");
+      return;
+    }
+
+    window.location.href = `/merchant/events/${data.id}/edit`;
+  }
+
   async function updateEventStatus(
     event: EventRecord,
     nextStatus: "published" | "rejected" | "archived" | "draft",
@@ -838,12 +868,14 @@ export default function AdminEventsPage() {
                 {loading ? "讀取中..." : "重新整理"}
               </button>
 
-              <Link
-                href="/merchant/events/import"
-                className="rounded-full border border-purple-200 bg-white px-5 py-2 text-sm font-black text-purple-700 hover:bg-purple-50"
+              <button
+                type="button"
+                onClick={createAdminDraft}
+                disabled={savingId === "new"}
+                className="rounded-full border border-purple-200 bg-white px-5 py-2 text-sm font-black text-purple-700 hover:bg-purple-50 disabled:opacity-50"
               >
-                AI 匯入活動
-              </Link>
+                手動新增活動
+              </button>
 
               <Link
                 href="/merchant/dashboard"
