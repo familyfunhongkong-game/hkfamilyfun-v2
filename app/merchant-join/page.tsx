@@ -46,8 +46,8 @@ const platformActions = [
 
 const workflowSteps = [
   "貼上活動網址",
-  "上載活動海報 / PDF",
-  "AI 產生智能匯入草稿",
+  "補充活動圖片及資料",
+  "系統整理網址資料成草稿",
   "商戶檢查及補資料",
   "預覽活動頁",
   "提交 HK Family Fun 審批",
@@ -182,7 +182,7 @@ export default function MerchantJoinPage() {
               </div>
 
               <p className="mt-5 rounded-2xl bg-amber-50 p-4 text-xs leading-6 text-amber-900">
-                AI 匯入功能會以「智能匯入草稿」形式協助整理資料；
+                智能網址匯入會以「可編輯草稿」形式協助整理資料；
                 商戶仍需要檢查及確認後才提交審批，不會自動公開發布。
               </p>
             </div>
@@ -365,14 +365,14 @@ export default function MerchantJoinPage() {
       <section className="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8">
         <div className="rounded-[2rem] border border-purple-100 bg-white p-6 shadow-sm">
           <p className="text-sm font-black text-purple-700">
-            AI 減少重複輸入
+            智能網址匯入減少重複輸入
           </p>
           <h2 className="mt-2 text-2xl font-black text-slate-950">
-            貼網址或上載海報，先產生智能匯入草稿
+            貼官方網址，先產生可編輯活動草稿
           </h2>
           <p className="mt-4 text-sm leading-7 text-slate-600">
             商戶不應該重複把同一個活動資料在官網、社交平台及活動平台再填一次。
-            HK Family Fun 的方向是讓商戶貼上活動網址、上載海報或 PDF，
+            HK Family Fun 的方向是讓商戶貼上官方活動網址，
             系統協助整理成可編輯活動草稿。
           </p>
 
@@ -394,7 +394,7 @@ export default function MerchantJoinPage() {
 
         <div className="rounded-[2rem] border border-slate-200 bg-slate-900 p-6 text-white shadow-sm">
           <p className="text-sm font-black text-purple-200">
-            智能匯入草稿會嘗試整理
+            網址智能匯入會嘗試整理
           </p>
           <h2 className="mt-2 text-2xl font-black">
             活動資料不再由零開始填
