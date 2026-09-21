@@ -31,12 +31,21 @@ export const metadata: Metadata = {
     title: "HK Family Fun｜香港親子活動平台",
     description:
       "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
+    images: [
+      {
+        url: "/logo.png",
+        width: 100,
+        height: 100,
+        alt: "HK Family Fun",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "HK Family Fun｜香港親子活動平台",
     description:
       "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
+    images: ["/logo.png"],
   },
   robots: {
     index: true,
@@ -94,9 +103,13 @@ function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-black text-white shadow-sm">
-            親
-          </span>
+          <img
+            src="/logo.png"
+            alt="HK Family Fun"
+            width={44}
+            height={44}
+            className="h-11 w-11 object-contain"
+          />
           <span>
             <span className="block text-lg font-black leading-tight text-slate-950">
               HK Family Fun
@@ -146,9 +159,13 @@ function SiteFooter() {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
         <div>
           <Link href="/" className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-black text-white">
-              親
-            </span>
+            <img
+              src="/logo.png"
+              alt="HK Family Fun"
+              width={40}
+              height={40}
+              className="h-10 w-10 object-contain"
+            />
             <span>
               <span className="block text-base font-black text-slate-950">
                 HK Family Fun
