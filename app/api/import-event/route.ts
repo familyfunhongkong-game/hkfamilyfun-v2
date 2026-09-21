@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
@@ -445,6 +446,67 @@ function applyJsonLd(event: ExtractedEvent, jsonLdEvent: any, url: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    const authorization = request.headers.get("authorization") || "";
+    const accessToken = authorization.startsWith("Bearer ")
+      ? authorization.slice("Bearer ".length).trim()
+      : "";
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { ok: false, error: "請先登入已獲批准的商戶帳戶。" },
+        { status: 401 }
+      );
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey =
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json(
+        { ok: false, error: "活動匯入服務暫時未能連接資料庫。" },
+        { status: 503 }
+      );
+    }
+
+    const authClient = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    });
+
+    const {
+      data: { user },
+      error: userError,
+    } = await authClient.auth.getUser(accessToken);
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { ok: false, error: "登入狀態已失效，請重新登入。" },
+        { status: 401 }
+      );
+    }
+
+    const { data: merchant, error: merchantError } = await authClient
+      .from("merchants")
+      .select("id,status")
+      .eq("owner_user_id", user.id)
+      .maybeSingle();
+
+    if (merchantError || !merchant || merchant.status !== "approved") {
+      return NextResponse.json(
+        { ok: false, error: "商戶帳戶尚未獲批准，暫時不能使用智能網址匯入。" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const url = String(body?.url || "").trim();
 
