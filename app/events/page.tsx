@@ -1149,7 +1149,7 @@ export default function PublicEventsPage() {
     }
 
     const { data, error } = await client
-      .from("events")
+      .from("public_events")
       .select("*")
       .order("start_date", { ascending: true });
 
