@@ -67,6 +67,8 @@ type FilterKey =
   | "rejected"
   | "archived";
 
+const EVENT_IMAGE_BUCKET = "event-images";
+
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "全部" },
   { key: "draft", label: "草稿" },
@@ -482,6 +484,21 @@ export default function MerchantDashboardPage() {
 
     setBusyId(event.id);
     setMessage("");
+
+    const { data: storedFiles } = await client.storage
+      .from(EVENT_IMAGE_BUCKET)
+      .list(event.id, { limit: 100 });
+
+    if (storedFiles?.length) {
+      const paths = storedFiles
+        .map((file) => safeText(file.name, ""))
+        .filter(Boolean)
+        .map((name) => `${event.id}/${name}`);
+
+      if (paths.length) {
+        await client.storage.from(EVENT_IMAGE_BUCKET).remove(paths);
+      }
+    }
 
     const { error } = await client.from("events").delete().eq("id", event.id);
 
