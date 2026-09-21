@@ -267,10 +267,28 @@ export default function ImportEventPage() {
     setSavedId(null);
 
     try {
+      if (!supabase) {
+        setMessage("Supabase client 未能初始化，暫時不能匯入活動。");
+        setExtracting(false);
+        return;
+      }
+
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        setMessage("登入狀態已失效，請重新登入商戶帳戶。");
+        setExtracting(false);
+        return;
+      }
+
       const response = await fetch("/api/import-event", {
         method: "POST",
         headers: {
           "content-type": "application/json",
+          authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ url: targetUrl }),
       });
