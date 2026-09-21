@@ -987,7 +987,14 @@ export default function MerchantEventEditPage() {
       organizer_name: form.organizer_name || merchant?.business_name || "",
       merchant_name: merchant?.business_name || eventRecord?.merchant_name || "",
 
-      status: nextStatus || eventRecord?.status || "draft",
+      status:
+        nextStatus ||
+        (["rejected", "declined"].includes(
+          safeText(eventRecord?.status, "draft").toLowerCase(),
+        )
+          ? "draft"
+          : eventRecord?.status) ||
+        "draft",
       updated_at: now,
     };
 
