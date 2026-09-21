@@ -28,9 +28,9 @@ type EventRecord = {
   tags?: string[] | JsonValue | null;
 
   status?: string | null;
-  approval_status?: string | null;
-  admin_note?: string | null;
+  admin_review_note?: string | null;
   rejection_reason?: string | null;
+  reviewed_at?: string | null;
 
   merchant_id?: string | null;
   merchant_name?: string | null;
@@ -725,7 +725,11 @@ export default function AdminEventReviewPage() {
 
     const currentEvent = data as EventRecord;
     setEvent(currentEvent);
-    setAdminNote(safeText(currentEvent.admin_note || currentEvent.rejection_reason));
+    setAdminNote(
+      safeText(
+        currentEvent.admin_review_note || currentEvent.rejection_reason,
+      ),
+    );
     setSelectedImageIndex(0);
     setLoading(false);
   }
@@ -776,22 +780,16 @@ export default function AdminEventReviewPage() {
 
     const now = new Date().toISOString();
 
-    let payload: Record<string, unknown> = {
+    const payload: Record<string, unknown> = {
       status: nextStatus,
-      approval_status:
-        nextStatus === "published"
-          ? "approved"
-          : nextStatus === "rejected"
-            ? "rejected"
-            : nextStatus === "archived"
-              ? "archived"
-              : "draft",
-      admin_note: adminNote,
+      admin_review_note: adminNote || null,
+      reviewed_at: now,
       updated_at: now,
     };
 
     if (nextStatus === "published") {
       payload.published_at = now;
+      payload.rejection_reason = null;
     }
 
     if (nextStatus === "rejected") {
@@ -799,44 +797,32 @@ export default function AdminEventReviewPage() {
         adminNote || "資料未符合發布要求，請商戶補充後再提交。";
     }
 
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      const { data, error } = await client
-        .from("events")
-        .update(payload)
-        .eq("id", event.id)
-        .select("*")
-        .maybeSingle();
+    const { data, error } = await client
+      .from("events")
+      .update(payload)
+      .eq("id", event.id)
+      .select("*")
+      .maybeSingle();
 
-      if (!error) {
-        const updated = data as EventRecord;
-        setEvent(updated);
-        setAdminNote(safeText(updated.admin_note || updated.rejection_reason));
-        setSaving(false);
-
-        if (nextStatus === "published") setMessage("活動已批准並發布。");
-        if (nextStatus === "rejected") setMessage("活動已拒絕，商戶需要修改後再提交。");
-        if (nextStatus === "archived") setMessage("活動已封存。");
-        if (nextStatus === "draft") setMessage("活動已轉回草稿。");
-
-        return;
-      }
-
-      const missingColumn = extractMissingColumn(error.message || "");
-
-      if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
-        const nextPayload = { ...payload };
-        delete nextPayload[missingColumn];
-        payload = nextPayload;
-        continue;
-      }
-
+    if (error) {
       setErrorText(error.message || "更新審批狀態失敗。");
       setSaving(false);
       return;
     }
 
-    setErrorText("更新失敗：資料庫欄位不一致，重試後仍未成功。");
+    const updated = data as EventRecord;
+    setEvent(updated);
+    setAdminNote(
+      safeText(updated.admin_review_note || updated.rejection_reason),
+    );
     setSaving(false);
+
+    if (nextStatus === "published") setMessage("活動已批准並發布。");
+    if (nextStatus === "rejected") {
+      setMessage("活動已拒絕，商戶需要修改後再提交。");
+    }
+    if (nextStatus === "archived") setMessage("活動已封存。");
+    if (nextStatus === "draft") setMessage("活動已轉回草稿。");
   }
 
   if (loading) {
@@ -912,7 +898,7 @@ export default function AdminEventReviewPage() {
                   活動狀態：{getStatusLabel(event.status)}
                 </Badge>
                 <Badge tone={getStatusTone(event.approval_status || event.status)}>
-                  審批：{getStatusLabel(event.approval_status || event.status)}
+                  審批：{getStatusLabel(event.status)}
                 </Badge>
                 <Badge tone={blocked ? "rose" : "green"}>
                   發布檢查 {checklistScore}%
