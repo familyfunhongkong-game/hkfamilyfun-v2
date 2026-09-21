@@ -11,6 +11,7 @@ export default function MerchantRegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,6 +33,11 @@ export default function MerchantRegisterPage() {
 
     if (password !== confirmPassword) {
       setErrorMessage("兩次輸入的密碼不一致。");
+      return;
+    }
+
+    if (!acceptedTerms) {
+      setErrorMessage("請先閱讀並同意商戶條款及私隱政策。");
       return;
     }
 
@@ -175,9 +181,38 @@ export default function MerchantRegisterPage() {
               />
             </label>
 
+            <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <input
+                required
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(event) => setAcceptedTerms(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-slate-300"
+              />
+              <span className="text-sm leading-6 text-slate-600">
+                我已閱讀並同意{" "}
+                <Link
+                  href="/merchant-terms"
+                  target="_blank"
+                  className="font-semibold text-primary-600 hover:text-primary-700"
+                >
+                  商戶條款及活動提交政策
+                </Link>
+                {" "}及{" "}
+                <Link
+                  href="/privacy"
+                  target="_blank"
+                  className="font-semibold text-primary-600 hover:text-primary-700"
+                >
+                  私隱政策
+                </Link>
+                。
+              </span>
+            </label>
+
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !acceptedTerms}
               className="w-full rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? "正在建立帳戶…" : "建立商戶帳戶"}
