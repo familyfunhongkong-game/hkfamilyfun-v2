@@ -153,8 +153,13 @@ function dateOf(event: EventRecord) {
 }
 
 function timeOf(event: EventRecord) {
-  const start = safeText(event.start_time, "");
-  const end = safeText(event.end_time, "");
+  const normalize = (value: unknown) => {
+    const text = safeText(value, "");
+    return /^\d{2}:\d{2}/.test(text) ? text.slice(0, 5) : text;
+  };
+
+  const start = normalize(event.start_time);
+  const end = normalize(event.end_time);
 
   if (start && end) return `${start} - ${end}`;
   if (start) return start;
