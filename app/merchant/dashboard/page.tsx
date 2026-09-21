@@ -427,6 +427,74 @@ export default function MerchantDashboardPage() {
     return Math.round(total / events.length);
   }, [events]);
 
+  async function createBlankEvent() {
+    const client = supabase;
+
+    if (!client) {
+      setMessage("Supabase client 未能初始化，暫時不能建立活動。");
+      return;
+    }
+
+    if (!merchant || safeText(merchant.status, "pending") !== "approved") {
+      setMessage("商戶帳戶尚未獲批准，暫時不能建立活動。");
+      return;
+    }
+
+    setBusyId("new");
+    setMessage("");
+
+    const { data, error } = await client
+      .from("events")
+      .insert({
+        merchant_id: merchant.id,
+        title_tc: "未命名活動",
+        status: "draft",
+      })
+      .select("id")
+      .single();
+
+    if (error || !data?.id) {
+      setMessage(`建立活動失敗：${error?.message || "未能取得活動 ID"}`);
+      setBusyId(null);
+      return;
+    }
+
+    window.location.href = `/merchant/events/${data.id}/edit`;
+  }
+
+  async function deleteEditableEvent(event: EventRecord) {
+    const group = statusGroup(event.status);
+
+    if (!["draft", "rejected"].includes(group)) {
+      setMessage("只有草稿或已拒絕活動可以由商戶刪除。");
+      return;
+    }
+
+    if (!window.confirm(`確定永久刪除「${titleOf(event)}」？此操作不能復原。`)) {
+      return;
+    }
+
+    const client = supabase;
+    if (!client) {
+      setMessage("Supabase client 未能初始化，暫時不能刪除活動。");
+      return;
+    }
+
+    setBusyId(event.id);
+    setMessage("");
+
+    const { error } = await client.from("events").delete().eq("id", event.id);
+
+    if (error) {
+      setMessage(`刪除失敗：${error.message}`);
+    } else {
+      setEvents((current) => current.filter((item) => item.id !== event.id));
+      setMessage("活動草稿已永久刪除。");
+    }
+
+    setBusyId(null);
+  }
+
   async function updateStatus(id: string, nextStatus: string) {
     const client = supabase;
 
@@ -628,11 +696,19 @@ export default function MerchantDashboardPage() {
               >
                 重新整理
               </button>
+              <button
+                type="button"
+                onClick={createBlankEvent}
+                disabled={busyId === "new"}
+                className="rounded-full bg-slate-950 px-5 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
+              >
+                手動新增活動
+              </button>
               <Link
                 href="/merchant/events/import"
                 className="rounded-full bg-purple-700 px-5 py-2 text-sm font-bold text-white hover:bg-purple-800"
               >
-                智能匯入活動
+                智能網址匯入
               </Link>
             </div>
           </div>
@@ -725,12 +801,14 @@ export default function MerchantDashboardPage() {
                 </p>
               </div>
 
-              <Link
-                href="/merchant/events/import"
-                className="rounded-full bg-slate-950 px-4 py-2 text-center text-xs font-black text-white hover:bg-slate-800"
+              <button
+                type="button"
+                onClick={createBlankEvent}
+                disabled={busyId === "new"}
+                className="rounded-full bg-slate-950 px-4 py-2 text-center text-xs font-black text-white hover:bg-slate-800 disabled:opacity-50"
               >
-                新增活動
-              </Link>
+                手動新增活動
+              </button>
             </div>
 
             {filteredEvents.length === 0 ? (
@@ -742,14 +820,24 @@ export default function MerchantDashboardPage() {
                   暫時未有活動
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  你可以貼上活動網址、上載 poster 或 PDF，先建立可編輯草稿。
+                  你可以手動建立空白草稿，或使用官方活動網址智能匯入後再補充圖片及資料。
                 </p>
-                <Link
-                  href="/merchant/events/import"
-                  className="mt-5 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
-                >
-                  新增第一個活動
-                </Link>
+                <div className="mt-5 flex flex-wrap justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={createBlankEvent}
+                    disabled={busyId === "new"}
+                    className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    手動新增活動
+                  </button>
+                  <Link
+                    href="/merchant/events/import"
+                    className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
+                  >
+                    智能網址匯入
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
@@ -759,8 +847,7 @@ export default function MerchantDashboardPage() {
                     event={event}
                     busy={busyId === event.id}
                     onSubmit={() => updateStatus(event.id, "submitted")}
-                    onArchive={() => updateStatus(event.id, "archived")}
-                    onRestore={() => updateStatus(event.id, "draft")}
+                    onDelete={() => deleteEditableEvent(event)}
                     onDuplicate={() => duplicateEvent(event)}
                   />
                 ))}
@@ -773,11 +860,19 @@ export default function MerchantDashboardPage() {
           <div className="rounded-3xl border border-purple-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-black text-purple-700">快捷操作</p>
             <div className="mt-4 grid gap-2">
+              <button
+                type="button"
+                onClick={createBlankEvent}
+                disabled={busyId === "new"}
+                className="rounded-2xl bg-slate-950 px-4 py-3 text-center text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
+              >
+                手動新增活動
+              </button>
               <Link
                 href="/merchant/events/import"
                 className="rounded-2xl bg-purple-700 px-4 py-3 text-center text-sm font-black text-white hover:bg-purple-800"
               >
-                智能匯入活動
+                智能網址匯入
               </Link>
               <button
                 type="button"
@@ -792,7 +887,7 @@ export default function MerchantDashboardPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-black text-purple-700">商戶流程</p>
             <div className="mt-4 space-y-2">
-              <GuideStep number="1" title="建立草稿" text="網址、圖片或 PDF 先匯入。" />
+              <GuideStep number="1" title="建立草稿" text="手動新增，或用官方活動網址智能匯入。" />
               <GuideStep number="2" title="補齊資料" text="日期、地點、收費、CTA。" />
               <GuideStep number="3" title="Preview" text="檢查家長見到的效果。" />
               <GuideStep number="4" title="提交審批" text="通過後才會公開。" />
@@ -817,15 +912,13 @@ function EventCard({
   event,
   busy,
   onSubmit,
-  onArchive,
-  onRestore,
+  onDelete,
   onDuplicate,
 }: {
   event: EventRecord;
   busy: boolean;
   onSubmit: () => void;
-  onArchive: () => void;
-  onRestore: () => void;
+  onDelete: () => void;
   onDuplicate: () => void;
 }) {
   const group = statusGroup(event.status);
@@ -987,24 +1080,23 @@ function EventCard({
             </button>
           ) : null}
 
-          {group === "archived" ? (
+          {group === "draft" || group === "rejected" ? (
             <button
               type="button"
-              onClick={onRestore}
+              onClick={onDelete}
               disabled={busy}
-              className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white hover:bg-purple-800 disabled:opacity-50"
+              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50"
             >
-              還原草稿
+              永久刪除
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={onArchive}
-              disabled={busy}
-              className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              封存
-            </button>
+            <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-500">
+              {group === "published"
+                ? "已發布活動如需下架，請聯絡 HK Family Fun Admin。"
+                : group === "review"
+                  ? "活動審批期間不可修改或刪除。"
+                  : "已封存活動由 Admin 管理。"}
+            </p>
           )}
 
           {group === "draft" && !canSubmitForReview ? (

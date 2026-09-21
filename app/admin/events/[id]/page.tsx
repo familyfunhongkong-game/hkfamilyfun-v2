@@ -755,6 +755,37 @@ export default function AdminEventReviewPage() {
     return getTagArray(event.tags);
   }, [event]);
 
+  async function deleteEventPermanently() {
+    const client = supabase;
+
+    if (!client || !event) {
+      setErrorText("Supabase 尚未初始化或活動資料不存在。");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `確定永久刪除「${safeText(event.title_tc || event.title, "未命名活動")}」？此操作不能復原。`,
+      )
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    setErrorText("");
+    setMessage("");
+
+    const { error } = await client.from("events").delete().eq("id", event.id);
+
+    if (error) {
+      setErrorText(error.message || "永久刪除活動失敗。");
+      setSaving(false);
+      return;
+    }
+
+    router.push("/admin/events");
+  }
+
   async function updateEventStatus(
     nextStatus: "published" | "rejected" | "archived" | "draft",
   ) {
@@ -1273,6 +1304,15 @@ export default function AdminEventReviewPage() {
                 className="rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 封存活動
+              </button>
+
+              <button
+                type="button"
+                onClick={deleteEventPermanently}
+                disabled={saving}
+                className="rounded-2xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+              >
+                永久刪除活動
               </button>
             </div>
           </section>
