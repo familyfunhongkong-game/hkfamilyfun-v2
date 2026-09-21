@@ -3,9 +3,45 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HK Family Fun｜香港親子活動平台",
+  metadataBase: new URL("https://www.hkfamilyfun.com"),
+  title: {
+    default: "HK Family Fun｜香港親子活動平台",
+    template: "%s｜HK Family Fun",
+  },
   description:
-    "HK Family Fun 是香港親子活動平台，幫助家長搜尋今日活動、活動日曆、附近活動、免費活動、SEN 友善活動及商戶活動資訊。",
+    "HK Family Fun 是香港親子活動平台，幫助家長搜尋今日、週末、免費、室內、戶外、SEN 友善及不同地區的親子活動。",
+  keywords: [
+    "香港親子活動",
+    "親子好去處",
+    "香港週末活動",
+    "免費親子活動",
+    "兒童活動",
+    "SEN活動",
+    "親子工作坊",
+    "HK Family Fun",
+  ],
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "zh_HK",
+    siteName: "HK Family Fun",
+    url: "/",
+    title: "HK Family Fun｜香港親子活動平台",
+    description:
+      "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "HK Family Fun｜香港親子活動平台",
+    description:
+      "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 const parentLinks = [
