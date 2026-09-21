@@ -94,7 +94,7 @@ export default function NearbyEventsMapPage() {
       }
 
       const { data, error } = await supabase
-        .from("events")
+        .from("public_events")
         .select(
           "id,title_tc,short_description_tc,venue_name,address,district,mtr_station,start_date,end_date,start_time,end_time,price_display_mode,price_label,is_free,is_sen_friendly,category,activity_category,tags,cover_image_url,google_map_url",
         )
