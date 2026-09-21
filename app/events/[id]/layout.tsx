@@ -4,9 +4,10 @@ import { getPublishedEventById } from "@/lib/supabase/events";
 export async function generateMetadata({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const event = await getPublishedEventById(params.id);
+  const { id } = await params;
+  const event = await getPublishedEventById(id);
 
   if (!event) {
     return {
