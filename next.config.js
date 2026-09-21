@@ -26,6 +26,11 @@ const nextConfig = {
       permanent: true,
     },
     {
+      source: '/activity/:path*',
+      destination: '/events/:path*',
+      permanent: true,
+    },
+    {
       source: '/hk-family-fun-merchant-join.html',
       destination: '/merchant-join',
       permanent: true,
