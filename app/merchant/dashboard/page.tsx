@@ -552,7 +552,7 @@ export default function MerchantDashboardPage() {
 
     const { id, created_at, updated_at, ...copyableEvent } = event;
 
-    const newEvent = {
+    const newEvent: Record<string, unknown> = {
       ...copyableEvent,
       status: "draft",
       title_tc: `${titleOf(event)} 副本`,
@@ -560,6 +560,21 @@ export default function MerchantDashboardPage() {
       merchant_id: merchant.id,
       updated_at: new Date().toISOString(),
     };
+
+    [
+      "approved_at",
+      "published_at",
+      "submitted_at",
+      "reviewed_at",
+      "reviewed_by",
+      "rejected_at",
+      "rejection_reason",
+      "admin_review_note",
+    ].forEach((field) => {
+      delete newEvent[field];
+    });
+
+    newEvent.is_featured = false;
 
     const { error } = await client.from("events").insert(newEvent);
 
