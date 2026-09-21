@@ -668,7 +668,7 @@ export default function PublicEventDetailPage() {
       }
 
       const { data, error } = await supabase
-        .from("events")
+        .from("public_events")
         .select("*")
         .eq("id", eventId)
         .maybeSingle();
