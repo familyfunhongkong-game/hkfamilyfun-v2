@@ -497,10 +497,6 @@ function getStatusTone(status: StatusFilter): Tone {
   return "purple";
 }
 
-function extractMissingColumn(errorMessage: string) {
-  const match = errorMessage.match(/Could not find the '([^']+)' column/);
-  return match?.[1] || "";
-}
 
 function hasCriticalReady(event: EventRecord): boolean {
   const images = getGalleryImages(event);
