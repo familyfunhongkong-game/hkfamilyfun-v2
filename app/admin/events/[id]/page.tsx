@@ -514,10 +514,6 @@ function getStatusTone(status?: string | null): StatusTone {
   return "purple";
 }
 
-function extractMissingColumn(errorMessage: string) {
-  const match = errorMessage.match(/Could not find the '([^']+)' column/);
-  return match?.[1] || "";
-}
 
 function buildChecklist(event: EventRecord, images: GalleryImage[]): ChecklistItem[] {
   const actionUrl = getPrimaryActionUrl(event);
@@ -897,7 +893,7 @@ export default function AdminEventReviewPage() {
                 <Badge tone={getStatusTone(event.status)}>
                   活動狀態：{getStatusLabel(event.status)}
                 </Badge>
-                <Badge tone={getStatusTone(event.approval_status || event.status)}>
+                <Badge tone={getStatusTone(event.status)}>
                   審批：{getStatusLabel(event.status)}
                 </Badge>
                 <Badge tone={blocked ? "rose" : "green"}>
