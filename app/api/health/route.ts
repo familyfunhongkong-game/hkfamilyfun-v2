@@ -11,17 +11,8 @@ export async function GET() {
 
   if (!supabaseUrl || !publicKey) {
     return NextResponse.json(
-      {
-        ok: false,
-        service: "hkfamilyfun-v2",
-        error: "Public database configuration is missing.",
-        environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
-        checkedAt: new Date().toISOString(),
-      },
-      {
-        status: 503,
-        headers: { "Cache-Control": "no-store, max-age=0" },
-      },
+      { ok: false, service: "hkfamilyfun-v2", reason: "database_unavailable" },
+      { status: 503, headers: { "Cache-Control": "no-store, max-age=0" } },
     );
   }
 
@@ -33,18 +24,20 @@ export async function GET() {
     .from("public_events")
     .select("id", { count: "exact", head: true });
 
+  if (error) {
+    return NextResponse.json(
+      { ok: false, service: "hkfamilyfun-v2", reason: "database_query_failed" },
+      { status: 503, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
+  }
+
   return NextResponse.json(
     {
-      ok: !error,
+      ok: true,
       service: "hkfamilyfun-v2",
-      publicEventCount: count ?? null,
-      error: error?.message || null,
-      environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
+      publicEventCount: count ?? 0,
       checkedAt: new Date().toISOString(),
     },
-    {
-      status: error ? 503 : 200,
-      headers: { "Cache-Control": "no-store, max-age=0" },
-    },
+    { headers: { "Cache-Control": "no-store, max-age=0" } },
   );
 }
