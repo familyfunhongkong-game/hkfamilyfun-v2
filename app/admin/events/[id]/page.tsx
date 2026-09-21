@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
+const EVENT_IMAGE_BUCKET = "event-images";
+
 type JsonValue =
   | string
   | number
@@ -774,6 +776,21 @@ export default function AdminEventReviewPage() {
     setSaving(true);
     setErrorText("");
     setMessage("");
+
+    const { data: storedFiles } = await client.storage
+      .from(EVENT_IMAGE_BUCKET)
+      .list(event.id, { limit: 100 });
+
+    if (storedFiles?.length) {
+      const paths = storedFiles
+        .map((file) => safeText(file.name))
+        .filter(Boolean)
+        .map((name) => `${event.id}/${name}`);
+
+      if (paths.length) {
+        await client.storage.from(EVENT_IMAGE_BUCKET).remove(paths);
+      }
+    }
 
     const { error } = await client.from("events").delete().eq("id", event.id);
 
