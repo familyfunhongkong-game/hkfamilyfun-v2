@@ -26,9 +26,9 @@ type EventRecord = {
   tags?: string[] | JsonValue | null;
 
   status?: string | null;
-  approval_status?: string | null;
-  admin_note?: string | null;
+  admin_review_note?: string | null;
   rejection_reason?: string | null;
+  reviewed_at?: string | null;
 
   merchant_id?: string | null;
   merchant_name?: string | null;
@@ -464,7 +464,7 @@ function getPrimaryActionLabel(event: EventRecord): string {
 }
 
 function normalizedStatus(event: EventRecord): StatusFilter {
-  const status = safeText(event.status || event.approval_status, "draft").toLowerCase();
+  const status = safeText(event.status, "draft").toLowerCase();
 
   if (["submitted", "pending", "review", "pending_review"].includes(status)) {
     return "submitted";
@@ -681,66 +681,47 @@ export default function AdminEventsPage() {
 
     const now = new Date().toISOString();
 
-    let payload: Record<string, unknown> = {
+    const payload: Record<string, unknown> = {
       status: nextStatus,
-      approval_status:
-        nextStatus === "published"
-          ? "approved"
-          : nextStatus === "rejected"
-            ? "rejected"
-            : nextStatus === "archived"
-              ? "archived"
-              : "draft",
+      reviewed_at: now,
       updated_at: now,
     };
 
     if (nextStatus === "published") {
       payload.published_at = now;
+      payload.rejection_reason = null;
+      payload.admin_review_note = "Admin 已批准並發布活動。";
     }
 
     if (nextStatus === "rejected") {
       payload.rejection_reason = "Admin 已拒絕，請商戶修改資料後再提交。";
+      payload.admin_review_note = payload.rejection_reason;
     }
 
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      const { data, error } = await client
-        .from("events")
-        .update(payload)
-        .eq("id", event.id)
-        .select("*")
-        .maybeSingle();
+    const { data, error } = await client
+      .from("events")
+      .update(payload)
+      .eq("id", event.id)
+      .select("*")
+      .maybeSingle();
 
-      if (!error) {
-        const updated = data as EventRecord;
-
-        setEvents((previous) =>
-          previous.map((item) => (item.id === event.id ? updated : item)),
-        );
-
-        if (nextStatus === "published") setMessage("活動已發布。");
-        if (nextStatus === "rejected") setMessage("活動已拒絕。");
-        if (nextStatus === "archived") setMessage("活動已封存。");
-        if (nextStatus === "draft") setMessage("活動已轉回草稿。");
-
-        setSavingId("");
-        return;
-      }
-
-      const missingColumn = extractMissingColumn(error.message || "");
-
-      if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
-        const nextPayload = { ...payload };
-        delete nextPayload[missingColumn];
-        payload = nextPayload;
-        continue;
-      }
-
+    if (error) {
       setErrorText(error.message || "更新活動狀態失敗。");
       setSavingId("");
       return;
     }
 
-    setErrorText("更新活動狀態失敗：資料庫欄位不一致，已重試多次仍失敗。");
+    const updated = data as EventRecord;
+
+    setEvents((previous) =>
+      previous.map((item) => (item.id === event.id ? updated : item)),
+    );
+
+    if (nextStatus === "published") setMessage("活動已發布。");
+    if (nextStatus === "rejected") setMessage("活動已拒絕。");
+    if (nextStatus === "archived") setMessage("活動已封存。");
+    if (nextStatus === "draft") setMessage("活動已轉回草稿。");
+
     setSavingId("");
   }
 
