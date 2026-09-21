@@ -48,14 +48,14 @@ export async function GET() {
     });
 
     const countResult = await client
-      .from("events")
+      .from("public_events")
       .select("id", { count: "exact", head: true })
       .eq("status", "published");
 
     publicEventCount = countResult.count ?? null;
 
     const demoResult = await client
-      .from("events")
+      .from("public_events")
       .select("status")
       .eq("id", "bbbb3e2a-ea80-4acb-a70d-989b0f8577e2")
       .maybeSingle();
