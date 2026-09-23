@@ -441,7 +441,7 @@ export default function ImportEventPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-black text-slate-950">1. 輸入活動網址</h2>
             <p className="mt-1 text-sm text-slate-500">
-              支援商戶官網、商場活動頁、Google Form 或報名頁。
+              支援商戶官網、商場活動頁、PDF 新聞稿、Google Form 或報名頁。
             </p>
 
             <textarea
