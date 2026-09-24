@@ -9,7 +9,7 @@ export default function FamilyFunMotionHero() {
       <div className="relative z-10">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-purple-700 shadow-sm">
-            HK Family Fun Motion Hero
+            一家出發 · 玩盡香港
           </span>
           <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
             玩 · 食 · 飛
