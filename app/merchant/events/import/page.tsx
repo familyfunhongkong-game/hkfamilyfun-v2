@@ -373,6 +373,28 @@ export default function ImportEventPage() {
     setSaving(true);
     setMessage("");
 
+    const normalizedSourceUrl = (draft.source_url || url).trim();
+
+    if (normalizedSourceUrl) {
+      const { data: existingDraft, error: duplicateError } = await client
+        .from("events")
+        .select("id,title_tc,status")
+        .eq("merchant_id", currentMerchant.id)
+        .eq("source_url", normalizedSourceUrl)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!duplicateError && existingDraft?.id) {
+        setSavedId(existingDraft.id);
+        setMessage(
+          `這個來源網址已經建立過活動草稿：${existingDraft.title_tc || "未命名活動"}。系統沒有重複新增，請直接前往原有活動繼續編輯。`
+        );
+        setSaving(false);
+        return;
+      }
+    }
+
     const gallery = normalizeImages(draft.gallery_image_urls, 5);
 
     const insertPayload = {
@@ -406,7 +428,7 @@ export default function ImportEventPage() {
       booking_url: draft.booking_url || draft.registration_url || draft.official_url || draft.source_url,
       official_url: draft.official_url || draft.source_url,
       source_type: "url",
-      source_url: draft.source_url || url,
+      source_url: normalizedSourceUrl,
       ai_extraction_status: extractionEngine || "manual_required",
       google_map_url: draft.google_map_url,
       google_map_embed_url: draft.google_map_embed_url,
