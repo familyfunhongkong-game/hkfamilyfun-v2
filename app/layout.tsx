@@ -20,14 +20,10 @@ export const metadata: Metadata = {
     "親子工作坊",
     "HK Family Fun",
   ],
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     type: "website",
     locale: "zh_HK",
     siteName: "HK Family Fun",
-    url: "/",
     title: "HK Family Fun｜香港親子活動平台",
     description:
       "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
