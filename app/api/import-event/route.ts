@@ -727,7 +727,28 @@ function extractVenueFromText(text: string) {
     /(?:活動地點|開放地點|地點|Venue|Location)\s*[:：]\s*([^\n]{2,100})/i
   );
 
-  const venueName = venueLine?.[1]?.trim() || "";
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const locationHeaderIndex = lines.findIndex((line) =>
+    /^(活動地點|開放地點|地點|Venue|Location)$/i.test(line)
+  );
+
+  const nextLineVenue =
+    locationHeaderIndex >= 0 &&
+    lines[locationHeaderIndex + 1] &&
+    !/^(DATE|DATE AND TIME|TIME|PRICE|LANGUAGE|TERMS|活動日期|活動時間|收費)$/i.test(
+      lines[locationHeaderIndex + 1]
+    )
+      ? lines[locationHeaderIndex + 1]
+      : "";
+
+  const venueName =
+    venueLine?.[1]?.trim() ||
+    nextLineVenue ||
+    "";
 
   if (/AIRSIDE/i.test(normalized)) {
     return {
