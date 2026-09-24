@@ -120,10 +120,18 @@ function updateArrayItem(items: string[], index: number, value: string) {
   return next;
 }
 
-function normalizeImages(images: string[]) {
+function normalizeImages(images: string[], limit = 6) {
   return Array.from(
     new Set(images.map((item) => item.trim()).filter(Boolean))
-  ).slice(0, 5);
+  ).slice(0, limit);
+}
+
+function extractionEngineLabel(engine: string) {
+  if (engine === "pdf_parse") return "免費 PDF 文字解析";
+  if (engine === "tinyfish_fetch") return "智能後備抽取";
+  if (engine === "direct_html") return "網頁結構化抽取";
+  if (engine === "manual_required") return "需要人工補資料";
+  return "尚未抽取";
 }
 
 function formatPricePreview(draft: DraftEvent) {
@@ -186,6 +194,7 @@ export default function ImportEventPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [extractionEngine, setExtractionEngine] = useState("");
 
   const score = useMemo(() => readyScore(draft), [draft]);
 
@@ -265,6 +274,7 @@ export default function ImportEventPage() {
     setExtracting(true);
     setMessage("");
     setSavedId(null);
+    setExtractionEngine("");
 
     try {
       if (!supabase) {
@@ -302,30 +312,41 @@ export default function ImportEventPage() {
       }
 
       const extracted = json.event as DraftEvent;
-      const images = normalizeImages([
+      const engine = safeText(json.extraction_engine, "manual_required");
+      const allImages = normalizeImages([
         extracted.cover_image_url,
         ...(extracted.gallery_image_urls || []),
       ]);
+      const coverImage = extracted.cover_image_url || allImages[0] || "";
+      const galleryImages = allImages
+        .filter((image) => image !== coverImage)
+        .slice(0, 5);
+
+      setExtractionEngine(engine);
 
       setDraft({
         ...emptyDraft,
         ...extracted,
         source_url: extracted.source_url || targetUrl,
         official_url: extracted.official_url || targetUrl,
-        registration_url: extracted.registration_url || extracted.booking_url || targetUrl,
-        booking_url: extracted.booking_url || extracted.registration_url || targetUrl,
+        registration_url:
+          extracted.registration_url || extracted.booking_url || "",
+        booking_url:
+          extracted.booking_url || extracted.registration_url || "",
         gallery_image_urls: [
-          images[0] || "",
-          images[1] || "",
-          images[2] || "",
-          images[3] || "",
-          images[4] || "",
+          galleryImages[0] || "",
+          galleryImages[1] || "",
+          galleryImages[2] || "",
+          galleryImages[3] || "",
+          galleryImages[4] || "",
         ],
-        cover_image_url: extracted.cover_image_url || images[0] || "",
+        cover_image_url: coverImage,
         extraction_notes: extracted.extraction_notes || [],
       });
 
-      setMessage("已完成網址資料抽取。請逐項核對日期、地點、收費及報名資料後再儲存草稿。");
+      setMessage(
+        `已完成資料抽取（${extractionEngineLabel(engine)}）。請逐項核對日期、地點、收費及報名資料後再儲存草稿。`
+      );
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -351,10 +372,7 @@ export default function ImportEventPage() {
     setSaving(true);
     setMessage("");
 
-    const gallery = normalizeImages([
-      draft.cover_image_url,
-      ...draft.gallery_image_urls,
-    ]);
+    const gallery = normalizeImages(draft.gallery_image_urls, 5);
 
     const insertPayload = {
       merchant_id: currentMerchant.id,
@@ -388,7 +406,7 @@ export default function ImportEventPage() {
       official_url: draft.official_url || draft.source_url,
       source_type: "url",
       source_url: draft.source_url || url,
-      ai_extraction_status: "not_available",
+      ai_extraction_status: extractionEngine || "manual_required",
       google_map_url: draft.google_map_url,
       google_map_embed_url: draft.google_map_embed_url,
       cover_image_url: draft.cover_image_url || gallery[0] || "",
@@ -430,8 +448,9 @@ export default function ImportEventPage() {
             貼活動網址，自動建立可編輯草稿
           </h1>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
-            系統會讀取活動網頁的 HTML、Meta 及 JSON-LD 結構化資料，預填活動名稱、描述、
-            圖片、日期、地點、收費及 CTA。所有結果只會建立草稿，必須人工確認後才提交審批。
+            系統會讀取活動網頁的 HTML、Meta、JSON-LD；PDF 新聞稿會先使用免費 server-side PDF
+            文字解析，不需要付費 AI API。系統會預填活動名稱、描述、日期、地點、收費及 CTA。
+            所有結果只會建立草稿，必須人工確認後才提交審批。
           </p>
         </div>
       </section>
@@ -441,7 +460,7 @@ export default function ImportEventPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-black text-slate-950">1. 輸入活動網址</h2>
             <p className="mt-1 text-sm text-slate-500">
-              支援商戶官網、商場活動頁、PDF 新聞稿、Google Form 或報名頁。
+              支援商戶官網、商場活動頁、PDF 新聞稿、Google Form 或報名頁。PDF 會優先使用免費解析。
             </p>
 
             <textarea
@@ -514,8 +533,13 @@ export default function ImportEventPage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-700">
-                完整度 {score}%
+              <div className="flex flex-wrap gap-2">
+                <div className="rounded-2xl bg-purple-50 px-4 py-3 text-sm font-black text-purple-700">
+                  {extractionEngineLabel(extractionEngine)}
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-700">
+                  完整度 {score}%
+                </div>
               </div>
             </div>
 
@@ -603,7 +627,7 @@ export default function ImportEventPage() {
             <Input label="官方活動頁" value={draft.official_url} onChange={(value) => updateField("official_url", value)} />
           </FormSection>
 
-          <FormSection title="6. 圖片 URL（最多 5 張）">
+          <FormSection title="6. 圖片 URL（封面 + 最多 5 張 Gallery）">
             <Input label="封面圖片 URL" value={draft.cover_image_url} onChange={(value) => updateField("cover_image_url", value)} />
             {draft.gallery_image_urls.map((image, index) => (
               <Input
@@ -616,9 +640,9 @@ export default function ImportEventPage() {
               />
             ))}
 
-            {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls]).length ? (
+            {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls], 6).length ? (
               <div className="md:col-span-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls]).map((image) => (
+                {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls], 6).map((image) => (
                   <div key={image} className="aspect-video overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                     <img src={image} alt="活動圖片" className="h-full w-full object-contain" />
                   </div>
