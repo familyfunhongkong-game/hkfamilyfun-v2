@@ -7,6 +7,7 @@ export const maxDuration = 30;
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
 const MAX_PDF_BYTES = 12 * 1024 * 1024;
 const TINYFISH_FETCH_URL = "https://api.fetch.tinyfish.ai";
+const JINA_READER_BASE_URL = "https://r.jina.ai/";
 
 type ExtractedEvent = {
   source_url: string;
@@ -324,8 +325,123 @@ function ymd(year: string, month: string, day: string) {
   return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 }
 
+const ENGLISH_MONTHS: Record<string, string> = {
+  jan: "01",
+  january: "01",
+  feb: "02",
+  february: "02",
+  mar: "03",
+  march: "03",
+  apr: "04",
+  april: "04",
+  may: "05",
+  jun: "06",
+  june: "06",
+  jul: "07",
+  july: "07",
+  aug: "08",
+  august: "08",
+  sep: "09",
+  sept: "09",
+  september: "09",
+  oct: "10",
+  october: "10",
+  nov: "11",
+  november: "11",
+  dec: "12",
+  december: "12",
+};
+
+const ENGLISH_MONTH_PATTERN =
+  "(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)";
+
+function englishMonthNumber(value: string) {
+  return ENGLISH_MONTHS[value.trim().toLowerCase()] || "";
+}
+
+function extractEnglishDateRange(text: string) {
+  const normalized = normalizeDocumentText(text);
+
+  const monthFirstRange = normalized.match(
+    new RegExp(
+      `${ENGLISH_MONTH_PATTERN}\\s+(\\d{1,2})(?:,?\\s+(\\d{4}))?\\s*(?:to|until|through|－|-|–|—|~|～)\\s*${ENGLISH_MONTH_PATTERN}\\s+(\\d{1,2}),?\\s+(\\d{4})`,
+      "i"
+    )
+  );
+
+  if (monthFirstRange) {
+    const startMonth = englishMonthNumber(monthFirstRange[1]);
+    const startDay = monthFirstRange[2];
+    const startYear = monthFirstRange[3] || monthFirstRange[6];
+    const endMonth = englishMonthNumber(monthFirstRange[4]);
+    const endDay = monthFirstRange[5];
+    const endYear = monthFirstRange[6];
+
+    if (startMonth && endMonth) {
+      return {
+        start_date: ymd(startYear, startMonth, startDay),
+        end_date: ymd(endYear, endMonth, endDay),
+      };
+    }
+  }
+
+  const dayFirstRange = normalized.match(
+    new RegExp(
+      `(\\d{1,2})\\s+${ENGLISH_MONTH_PATTERN}(?:,?\\s+(\\d{4}))?\\s*(?:to|until|through|－|-|–|—|~|～)\\s*(\\d{1,2})\\s+${ENGLISH_MONTH_PATTERN},?\\s+(\\d{4})`,
+      "i"
+    )
+  );
+
+  if (dayFirstRange) {
+    const startDay = dayFirstRange[1];
+    const startMonth = englishMonthNumber(dayFirstRange[2]);
+    const startYear = dayFirstRange[3] || dayFirstRange[6];
+    const endDay = dayFirstRange[4];
+    const endMonth = englishMonthNumber(dayFirstRange[5]);
+    const endYear = dayFirstRange[6];
+
+    if (startMonth && endMonth) {
+      return {
+        start_date: ymd(startYear, startMonth, startDay),
+        end_date: ymd(endYear, endMonth, endDay),
+      };
+    }
+  }
+
+  const monthFirstSingle = normalized.match(
+    new RegExp(`${ENGLISH_MONTH_PATTERN}\\s+(\\d{1,2}),?\\s+(\\d{4})`, "i")
+  );
+
+  if (monthFirstSingle) {
+    const month = englishMonthNumber(monthFirstSingle[1]);
+    if (month) {
+      const single = ymd(monthFirstSingle[3], month, monthFirstSingle[2]);
+      return { start_date: single, end_date: single };
+    }
+  }
+
+  const dayFirstSingle = normalized.match(
+    new RegExp(`(\\d{1,2})\\s+${ENGLISH_MONTH_PATTERN},?\\s+(\\d{4})`, "i")
+  );
+
+  if (dayFirstSingle) {
+    const month = englishMonthNumber(dayFirstSingle[2]);
+    if (month) {
+      const single = ymd(dayFirstSingle[3], month, dayFirstSingle[1]);
+      return { start_date: single, end_date: single };
+    }
+  }
+
+  return { start_date: "", end_date: "" };
+}
+
 function extractDateRangeFromText(text: string) {
   const normalized = normalizeDocumentText(text);
+  const englishRange = extractEnglishDateRange(normalized);
+
+  if (englishRange.start_date) {
+    return englishRange;
+  }
 
   const chineseSameYear = normalized.match(
     /(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日?\s*(?:至|到|－|-|–|—|~|～)\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日?/
@@ -763,6 +879,24 @@ function extractRegistrationUrl(text: string) {
     : "";
 }
 
+function extractOfficialUrl(text: string) {
+  const urls = Array.from(
+    normalizeDocumentText(text).matchAll(/https?:\/\/[^\s)）>]+/gi)
+  )
+    .map((match) => match[0].replace(/[，。；;,]+$/, ""))
+    .filter(Boolean);
+
+  return (
+    urls.find((url) =>
+      /airside\.com\.hk\/(?:happenings|event)\//i.test(url)
+    ) ||
+    urls.find((url) =>
+      /\/(?:happenings|event)\//i.test(url)
+    ) ||
+    ""
+  );
+}
+
 function deriveTags(text: string) {
   const normalized = normalizeDocumentText(text);
   const tags: string[] = [];
@@ -882,6 +1016,7 @@ function applyTextExtraction(
   const fallbackVenue = extractVenueFromText(normalized);
   const price = extractPrices(primarySection);
   const registrationUrl = extractRegistrationUrl(primarySection);
+  const extractedOfficialUrl = extractOfficialUrl(normalized);
 
   const normalizedImages = Array.from(
     new Set(
@@ -937,6 +1072,8 @@ function applyTextExtraction(
       currentEvent.registration_url || registrationUrl,
     booking_url:
       currentEvent.booking_url || registrationUrl,
+    official_url:
+      extractedOfficialUrl || currentEvent.official_url,
     cover_image_url:
       currentEvent.cover_image_url ||
       normalizedImages[0] ||
@@ -975,6 +1112,62 @@ function applyTextExtraction(
   }
 
   return event;
+}
+
+async function fetchWithJinaReader(url: string) {
+  try {
+    const response = await fetch(
+      `${JINA_READER_BASE_URL}${url}`,
+      {
+        method: "GET",
+        headers: {
+          accept: "text/plain",
+          "user-agent":
+            "HKFamilyFun/2.0 (+https://www.hkfamilyfun.com)",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(18000),
+      }
+    );
+
+    if (!response.ok) {
+      return {
+        ok: false as const,
+        error: `Jina Reader 回應 ${response.status}，免費智能文件解析暫時未完成。`,
+      };
+    }
+
+    const rawText = await response.text();
+    const text = normalizeDocumentText(rawText);
+
+    if (!text || text.length < 40) {
+      return {
+        ok: false as const,
+        error: "Jina Reader 未能抽取足夠活動資料。",
+      };
+    }
+
+    const imageLinks = Array.from(
+      rawText.matchAll(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/gi)
+    )
+      .map((match) => match[1])
+      .filter(Boolean)
+      .slice(0, 12);
+
+    return {
+      ok: true as const,
+      text,
+      imageLinks,
+    };
+  } catch (error) {
+    return {
+      ok: false as const,
+      error:
+        error instanceof Error
+          ? `Jina Reader 失敗：${error.message}`
+          : "Jina Reader 失敗。",
+    };
+  }
 }
 
 async function fetchWithTinyFish(url: string) {
@@ -1367,6 +1560,8 @@ export async function POST(request: NextRequest) {
     let html = "";
     let documentText = "";
     let fetchError = "";
+    let jinaUsed = false;
+    let jinaAttempted = false;
     let tinyFishUsed = false;
     let tinyFishAttempted = false;
     let pdfUsed = false;
@@ -1520,14 +1715,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const shouldUseTinyFish =
-      !pdfUsed &&
-      (
-        Boolean(fetchError) ||
-        !html ||
-        !event.title_tc ||
-        !event.start_date
+    const shouldUseJina =
+      Boolean(fetchError) ||
+      !documentText ||
+      !event.title_tc ||
+      !event.start_date;
+
+    if (shouldUseJina) {
+      jinaAttempted = true;
+
+      const jina = await fetchWithJinaReader(
+        parsedUrl.toString()
       );
+
+      if (jina.ok) {
+        jinaUsed = true;
+        fetchError = "";
+        documentText = jina.text.slice(0, 50000);
+
+        event = applyTextExtraction(
+          event,
+          documentText,
+          {
+            imageLinks: jina.imageLinks,
+            sourceLabel:
+              "已使用 Jina Reader 免費智能文件解析作後備，毋須 API key。",
+          }
+        );
+      } else {
+        fetchError = jina.error;
+      }
+    }
+
+    const shouldUseTinyFish =
+      Boolean(fetchError) ||
+      !event.title_tc ||
+      !event.start_date;
 
     if (shouldUseTinyFish) {
       tinyFishAttempted = true;
@@ -1592,12 +1815,21 @@ export async function POST(request: NextRequest) {
     if (
       isPdfLike(parsedUrl) &&
       !pdfUsed &&
+      jinaAttempted &&
+      !jinaUsed
+    ) {
+      event.extraction_notes.push(
+        "PDF 直接解析及免費 Jina Reader 後備均未完成；請改用官方活動網頁或手動補資料。"
+      );
+    }
+
+    if (
       tinyFishAttempted &&
       !tinyFishUsed &&
       !process.env.TINYFISH_API_KEY?.trim()
     ) {
       event.extraction_notes.push(
-        "免費 PDF 文字抽取未能完成；TinyFish 只作可選後備，不是必需服務。"
+        "TinyFish 只作第三層可選後備；未設定 API key 不會影響免費 HTML / PDF / Jina Reader 抽取。"
       );
     }
 
@@ -1616,13 +1848,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       event,
-      extraction_engine: pdfUsed
-        ? "pdf_parse"
-        : tinyFishUsed
-          ? "tinyfish_fetch"
-          : html
-            ? "direct_html"
-            : "manual_required",
+      extraction_engine: jinaUsed
+        ? "jina_reader"
+        : pdfUsed
+          ? "pdf_parse"
+          : tinyFishUsed
+            ? "tinyfish_fetch"
+            : html
+              ? "direct_html"
+              : "manual_required",
     });
   } catch (error) {
     return NextResponse.json(
