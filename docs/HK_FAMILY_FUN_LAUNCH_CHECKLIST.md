@@ -27,9 +27,18 @@ Updated: 2026-09-24
 - Optional TinyFish third-level fallback
 - Duplicate source-URL protection when saving imported drafts
 - Motion hero using the original Family Fun logo asset
+- Merchant submission gate now requires title, date, location, fee/price state, CTA and at least one real event image
+- Event URL/PDF importer now validates DNS targets and manually validates redirects to reduce SSRF/private-network risk
+- Admin portal now emits noindex/nofollow metadata
+- Homepage / Today / Calendar / Location Explorer canonical metadata corrected
+- GitHub Actions quality gate added: dependency install -> TypeScript check -> production build
 
 ## Preview QA still required
 - ✅ Latest Vercel Preview build is Ready
+- ✅ 2026-09-24 automated TypeScript check passed
+- ✅ 2026-09-24 automated production build passed
+- ✅ Preview canonical metadata verified for Home / Today / Calendar / Location Explorer
+- ✅ Admin login Preview verified as noindex, nofollow, nocache
 - ✅ Public/support route smoke test passed (home, today, calendar, map, tips, merchant pages, legal pages)
 - ✅ Motion hero is visible on Preview using the original `/logo.png`
 - ✅ Dedicated `/admin/login` is live and database-RPC protected
@@ -49,6 +58,9 @@ Updated: 2026-09-24
 - Re-test password reset once after final main/production cutover
 
 ## Data / launch blockers
+- Regenerate and commit package-lock.json so CI can return from temporary `npm install` to deterministic `npm ci`
+- Reconnect ChatGPT Supabase access to the HK Family Fun rebuild project before live DB inventory / migration work
+- Reconnect ChatGPT Vercel access to the `hk-family-fun` team if direct deployment/runtime inspection is required
 - Read-only inventory of old HK Family Fun Supabase data
 - Migrate required legacy events / merchants / accounts where possible
 - Reconcile migrated counts and images
