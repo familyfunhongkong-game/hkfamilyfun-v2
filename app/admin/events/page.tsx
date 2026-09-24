@@ -456,7 +456,7 @@ function getPrimaryActionLabel(event: EventRecord): string {
     return "前往報名";
   }
   if (isHttpUrl(event.official_url) || isHttpUrl(event.source_url)) {
-    return "查看官方活動頁";
+    return "活動官網查看更多";
   }
   if (event.registration_required) return "請向主辦查詢";
 
