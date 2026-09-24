@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
+import FamilyFunMotionHero from "@/components/home/FamilyFunMotionHero";
 
 export const dynamic = "force-dynamic";
 
@@ -101,45 +102,53 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-purple-100 bg-white p-6 shadow-xl shadow-purple-100/60">
-            <p className="text-sm font-black text-purple-700">最新已發布活動</p>
-            <h2 className="mt-2 text-2xl font-black">
-              {events.length ? `現有 ${events.length} 個有效活動` : "新活動正在整理中"}
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-slate-600">
-              平台只顯示仍有效及已通過發布流程的活動。過期活動不會繼續出現在公開搜尋。
-            </p>
+          <div className="space-y-4">
+            <FamilyFunMotionHero />
 
-            {events[0] ? (
-              <Link
-                href={`/events/${events[0].id}`}
-                className="mt-5 block overflow-hidden rounded-3xl border border-slate-200 bg-slate-50"
-              >
-                <img
-                  src={events[0].image}
-                  alt=""
-                  className="h-56 w-full object-cover"
-                />
-                <div className="p-5">
-                  <p className="text-xs font-black text-purple-700">
-                    {events[0].date} · {events[0].district}
-                  </p>
-                  <h3 className="mt-2 text-xl font-black text-slate-950">
-                    {events[0].title}
-                  </h3>
-                  <p className="mt-2 text-sm text-slate-600">
-                    {events[0].organizer}
-                  </p>
+            <div className="rounded-[2rem] border border-purple-100 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-purple-700">最新已發布活動</p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">
+                    {events.length ? `現有 ${events.length} 個有效活動` : "新活動正在整理中"}
+                  </h2>
                 </div>
-              </Link>
-            ) : (
-              <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-                <p className="font-black text-slate-800">暫未有有效公開活動</p>
-                <p className="mt-2 text-sm text-slate-500">
-                  我們不會用示範活動冒充真實活動。
-                </p>
+                <Link
+                  href="/events"
+                  className="rounded-full bg-purple-50 px-4 py-2 text-xs font-black text-purple-700"
+                >
+                  查看全部
+                </Link>
               </div>
-            )}
+
+              {events[0] ? (
+                <Link
+                  href={`/events/${events[0].id}`}
+                  className="mt-4 grid gap-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[110px_1fr] sm:items-center"
+                >
+                  <img
+                    src={events[0].image}
+                    alt=""
+                    className="h-24 w-full rounded-xl object-cover sm:w-[110px]"
+                  />
+                  <div>
+                    <p className="text-xs font-black text-purple-700">
+                      {events[0].date} · {events[0].district}
+                    </p>
+                    <h3 className="mt-1 line-clamp-2 text-base font-black text-slate-950">
+                      {events[0].title}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {events[0].organizer}
+                    </p>
+                  </div>
+                </Link>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm text-slate-500">
+                  暫未有有效公開活動；平台不會以示範活動冒充真實活動。
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
