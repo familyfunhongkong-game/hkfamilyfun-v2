@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { lookup } from "node:dns/promises";
+import { BlockList, isIP } from "node:net";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -8,6 +10,25 @@ const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
 const MAX_PDF_BYTES = 12 * 1024 * 1024;
 const TINYFISH_FETCH_URL = "https://api.fetch.tinyfish.ai";
 const JINA_READER_BASE_URL = "https://r.jina.ai/";
+const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308]);
+
+const PRIVATE_NETWORKS = new BlockList();
+PRIVATE_NETWORKS.addSubnet("0.0.0.0", 8, "ipv4");
+PRIVATE_NETWORKS.addSubnet("10.0.0.0", 8, "ipv4");
+PRIVATE_NETWORKS.addSubnet("100.64.0.0", 10, "ipv4");
+PRIVATE_NETWORKS.addSubnet("127.0.0.0", 8, "ipv4");
+PRIVATE_NETWORKS.addSubnet("169.254.0.0", 16, "ipv4");
+PRIVATE_NETWORKS.addSubnet("172.16.0.0", 12, "ipv4");
+PRIVATE_NETWORKS.addSubnet("192.0.0.0", 24, "ipv4");
+PRIVATE_NETWORKS.addSubnet("192.168.0.0", 16, "ipv4");
+PRIVATE_NETWORKS.addSubnet("198.18.0.0", 15, "ipv4");
+PRIVATE_NETWORKS.addSubnet("224.0.0.0", 4, "ipv4");
+PRIVATE_NETWORKS.addSubnet("240.0.0.0", 4, "ipv4");
+PRIVATE_NETWORKS.addAddress("::", "ipv6");
+PRIVATE_NETWORKS.addAddress("::1", "ipv6");
+PRIVATE_NETWORKS.addSubnet("fc00::", 7, "ipv6");
+PRIVATE_NETWORKS.addSubnet("fe80::", 10, "ipv6");
+PRIVATE_NETWORKS.addSubnet("ff00::", 8, "ipv6");
 
 type ExtractedEvent = {
   source_url: string;
@@ -1303,18 +1324,20 @@ async function fetchWithTinyFish(url: string) {
 
 async function fetchPdfText(url: string) {
   try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "user-agent":
-          "Mozilla/5.0 (compatible; HKFamilyFunBot/2.0; +https://www.hkfamilyfun.com)",
-        accept: "application/pdf,*/*;q=0.5",
-        "accept-language": "zh-HK,zh;q=0.9,en;q=0.8",
+    const response = await safeRemoteFetch(
+      url,
+      {
+        method: "GET",
+        headers: {
+          "user-agent":
+            "Mozilla/5.0 (compatible; HKFamilyFunBot/2.0; +https://www.hkfamilyfun.com)",
+          accept: "application/pdf,*/*;q=0.5",
+          "accept-language": "zh-HK,zh;q=0.9,en;q=0.8",
+        },
+        cache: "no-store",
       },
-      cache: "no-store",
-      redirect: "follow",
-      signal: AbortSignal.timeout(20000),
-    });
+      20000,
+    );
 
     if (!response.ok) {
       return {
@@ -1446,6 +1469,87 @@ function blockedHost(hostname: string) {
   }
 
   return false;
+}
+
+function blockedIpAddress(address: string) {
+  const normalized = address
+    .replace(/^\[|\]$/g, "")
+    .toLowerCase();
+
+  const mappedIpv4 = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mappedIpv4) {
+    return PRIVATE_NETWORKS.check(mappedIpv4[1], "ipv4");
+  }
+
+  const version = isIP(normalized);
+  if (version === 4) return PRIVATE_NETWORKS.check(normalized, "ipv4");
+  if (version === 6) return PRIVATE_NETWORKS.check(normalized, "ipv6");
+
+  return false;
+}
+
+async function validateRemoteUrl(url: URL) {
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("只支援 http 或 https 網址。");
+  }
+
+  if (url.username || url.password) {
+    throw new Error("活動網址不可包含登入帳號或密碼。");
+  }
+
+  if (url.port && !["80", "443"].includes(url.port)) {
+    throw new Error("只支援一般 HTTP / HTTPS 網站連接埠。");
+  }
+
+  if (blockedHost(url.hostname) || blockedIpAddress(url.hostname)) {
+    throw new Error("基於安全原因，此網址不可匯入。");
+  }
+
+  const addresses = await lookup(url.hostname, {
+    all: true,
+    verbatim: true,
+  });
+
+  if (!addresses.length) {
+    throw new Error("未能解析活動網址。");
+  }
+
+  if (addresses.some((entry) => blockedIpAddress(entry.address))) {
+    throw new Error("基於安全原因，此網址解析到內部或保留網絡。");
+  }
+}
+
+async function safeRemoteFetch(
+  inputUrl: string,
+  init: RequestInit,
+  timeoutMs: number,
+) {
+  let currentUrl = new URL(inputUrl);
+
+  for (let redirectCount = 0; redirectCount <= 5; redirectCount += 1) {
+    await validateRemoteUrl(currentUrl);
+
+    const response = await fetch(currentUrl.toString(), {
+      ...init,
+      redirect: "manual",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+
+    if (!REDIRECT_STATUS.has(response.status)) {
+      return response;
+    }
+
+    const location = response.headers.get("location");
+    if (!location) return response;
+
+    if (redirectCount === 5) {
+      throw new Error("活動網址重新導向次數過多。");
+    }
+
+    currentUrl = new URL(location, currentUrl);
+  }
+
+  throw new Error("活動網址重新導向失敗。");
 }
 
 export async function POST(request: NextRequest) {
@@ -1609,6 +1713,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    try {
+      await validateRemoteUrl(parsedUrl);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "基於安全原因，此網址不可匯入。",
+        },
+        { status: 400 }
+      );
+    }
+
     let event = emptyEvent(parsedUrl.toString());
     let html = "";
     let documentText = "";
@@ -1622,20 +1741,22 @@ export async function POST(request: NextRequest) {
 
     if (!isPdfLike(parsedUrl)) {
       try {
-        const response = await fetch(parsedUrl.toString(), {
-          method: "GET",
-          headers: {
-            "user-agent":
-              "Mozilla/5.0 (compatible; HKFamilyFunBot/2.0; +https://www.hkfamilyfun.com)",
-            accept:
-              "text/html,application/xhtml+xml,application/xml,text/xml,text/plain,application/pdf;q=0.9,*/*;q=0.5",
-            "accept-language":
-              "zh-HK,zh;q=0.9,en;q=0.8",
+        const response = await safeRemoteFetch(
+          parsedUrl.toString(),
+          {
+            method: "GET",
+            headers: {
+              "user-agent":
+                "Mozilla/5.0 (compatible; HKFamilyFunBot/2.0; +https://www.hkfamilyfun.com)",
+              accept:
+                "text/html,application/xhtml+xml,application/xml,text/xml,text/plain,application/pdf;q=0.9,*/*;q=0.5",
+              "accept-language":
+                "zh-HK,zh;q=0.9,en;q=0.8",
+            },
+            cache: "no-store",
           },
-          cache: "no-store",
-          redirect: "follow",
-          signal: AbortSignal.timeout(12000),
-        });
+          12000,
+        );
 
         if (!response.ok) {
           fetchError = `網站回應 ${response.status}，將嘗試智能抽取。`;
