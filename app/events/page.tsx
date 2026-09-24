@@ -1290,11 +1290,8 @@ export default function PublicEventsPage() {
       next = next.filter((event) => eventMatchesDateFilter(event, dateFilter));
     }
 
-    if (specificDate) {
-      const target = parseDateOnly(specificDate);
-      if (target) {
-        next = next.filter((event) => eventOverlapsDate(event, target));
-      }
+    if (specificDate && /^\d{4}-\d{2}-\d{2}$/.test(specificDate)) {
+      next = next.filter((event) => eventOverlapsYmd(event, specificDate));
     }
 
     if (priceFilter === "free") {
