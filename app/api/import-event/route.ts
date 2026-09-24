@@ -346,6 +346,25 @@ function extractDateRangeFromText(text: string) {
     };
   }
 
+  const chineseSameMonth = normalized.match(
+    /(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日?\s*(?:至|到|－|-|–|—|~|～)\s*(\d{1,2})\s*日/
+  );
+
+  if (chineseSameMonth) {
+    return {
+      start_date: ymd(
+        chineseSameMonth[1],
+        chineseSameMonth[2],
+        chineseSameMonth[3]
+      ),
+      end_date: ymd(
+        chineseSameMonth[1],
+        chineseSameMonth[2],
+        chineseSameMonth[4]
+      ),
+    };
+  }
+
   const chineseFullRange = normalized.match(
     /(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日?\s*(?:至|到|－|-|–|—|~|～)\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日?/
   );
@@ -498,12 +517,14 @@ function extractTimeRangeFromText(text: string) {
 }
 
 function extractPrices(text: string) {
-  const hkPrices = Array.from(
-    text.matchAll(/HK\s*\$?\s*(\d{1,5}(?:\.\d{1,2})?)/gi)
+  const currencyPrices = Array.from(
+    text.matchAll(
+      /(?:HK\s*\$?|HKD\s*|港幣\s*|港元\s*|\$\s*)(\d{1,5}(?:\.\d{1,2})?)/gi
+    )
   ).map((match) => match[1]);
 
   const prices = Array.from(
-    new Set(hkPrices.map((item) => Number(item)))
+    new Set(currencyPrices.map((item) => Number(item)))
   )
     .filter((item) => Number.isFinite(item))
     .sort((a, b) => a - b);
@@ -841,6 +862,9 @@ function applyTextExtraction(
 
   if (!normalized) return currentEvent;
 
+  const detailSectionCount =
+    normalized.match(/活動詳情|event details/gi)?.length || 0;
+
   const primarySection = extractPrimaryEventSection(normalized);
   const title =
     cleanText(options?.title) ||
@@ -942,6 +966,12 @@ function applyTextExtraction(
 
   if (options?.sourceLabel) {
     event.extraction_notes.push(options.sourceLabel);
+  }
+
+  if (detailSectionCount > 1) {
+    event.extraction_notes.push(
+      `偵測到 ${detailSectionCount} 個活動資料區塊。新聞稿可能包含多個子活動，本草稿先以主要活動區塊預填，請商戶確認是否需要拆成多個活動。`
+    );
   }
 
   return event;
