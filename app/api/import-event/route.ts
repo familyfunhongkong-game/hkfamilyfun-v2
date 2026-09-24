@@ -633,8 +633,29 @@ function extractTimeRangeFromText(text: string) {
 }
 
 function extractPrices(text: string) {
+  const normalized = normalizeDocumentText(text);
+  const clearlyFree =
+    /免費入場|免費參觀|免費開放|free admission|free entry|admission is free/i.test(
+      normalized
+    );
+  const explicitPaidAdmission =
+    /票價|門票|參加費|收費|ticket price|admission fee|entry fee/i.test(
+      normalized
+    );
+
+  if (clearlyFree && !explicitPaidAdmission) {
+    return {
+      price_display_mode: "free",
+      price_label: "免費",
+      min_price: "",
+      max_price: "",
+      offer_price: "",
+      original_price: "",
+    };
+  }
+
   const currencyPrices = Array.from(
-    text.matchAll(
+    normalized.matchAll(
       /(?:HK\s*\$?|HKD\s*|港幣\s*|港元\s*|\$\s*)(\d{1,5}(?:\.\d{1,2})?)/gi
     )
   ).map((match) => match[1]);
@@ -820,16 +841,27 @@ function extractDocumentTitle(text: string) {
     if (stripped.length >= 4) return stripped;
   }
 
-  const candidates = lines.filter(
-    (line) =>
-      line.length >= 6 &&
-      line.length <= 140 &&
-      !/^(新聞稿|請即發布|下載高清相片|press release)$/i.test(line)
-  );
+  const candidates = lines
+    .filter(
+      (line) =>
+        line.length >= 6 &&
+        line.length <= 180 &&
+        !/^(新聞稿|請即發布|下載高清相片|press release)$/i.test(line) &&
+        !/^(URL Source|Published Time|Markdown Content|Author|Date)\s*:/i.test(
+          line
+        )
+    )
+    .map((line) =>
+      line
+        .replace(/^Title\s*:\s*/i, "")
+        .replace(/^#\s+/, "")
+        .trim()
+    )
+    .filter(Boolean);
 
   return (
     candidates.find((line) =>
-      /活動|派對|工作坊|嘉年華|市集|展覽|festival|workshop|event|AIRSIDE/i.test(
+      /活動|派對|工作坊|嘉年華|市集|展覽|festival|workshop|event|AIRSIDE|SpongeBob|海綿寶寶/i.test(
         line
       )
     ) ||
