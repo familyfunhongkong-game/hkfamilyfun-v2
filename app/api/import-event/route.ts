@@ -93,7 +93,7 @@ function emptyEvent(url: string): ExtractedEvent {
     offer_price: "",
     quota_label: "",
     cta_type: "official",
-    cta_label: "查看官方活動頁",
+    cta_label: "活動官網查看更多",
     registration_url: "",
     booking_url: "",
     official_url: url,
