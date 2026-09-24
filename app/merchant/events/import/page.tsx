@@ -73,7 +73,7 @@ const emptyDraft: DraftEvent = {
   offer_price: "",
   quota_label: "",
   cta_type: "official",
-  cta_label: "查看官方活動頁",
+  cta_label: "活動官網查看更多",
   registration_url: "",
   booking_url: "",
   official_url: "",
@@ -100,7 +100,7 @@ const priceModes = [
 ];
 
 const ctaTypes = [
-  { key: "official", title: "官方活動頁", label: "查看官方活動頁" },
+  { key: "official", title: "官方活動頁", label: "活動官網查看更多" },
   { key: "external", title: "外部連結報名", label: "前往報名" },
   { key: "google_form", title: "Google Form", label: "Google Form 報名" },
   { key: "whatsapp", title: "WhatsApp", label: "WhatsApp 報名" },
