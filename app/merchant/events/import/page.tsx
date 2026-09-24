@@ -127,8 +127,9 @@ function normalizeImages(images: string[], limit = 6) {
 }
 
 function extractionEngineLabel(engine: string) {
+  if (engine === "jina_reader") return "免費智能文件解析";
   if (engine === "pdf_parse") return "免費 PDF 文字解析";
-  if (engine === "tinyfish_fetch") return "智能後備抽取";
+  if (engine === "tinyfish_fetch") return "智能第三層後備";
   if (engine === "direct_html") return "網頁結構化抽取";
   if (engine === "manual_required") return "需要人工補資料";
   return "尚未抽取";
@@ -448,8 +449,9 @@ export default function ImportEventPage() {
             貼活動網址，自動建立可編輯草稿
           </h1>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
-            系統會讀取活動網頁的 HTML、Meta、JSON-LD；PDF 新聞稿會先使用免費 server-side PDF
-            文字解析，不需要付費 AI API。系統會預填活動名稱、描述、日期、地點、收費及 CTA。
+            系統會先讀取 HTML、Meta、JSON-LD；PDF 新聞稿會使用免費 server-side PDF 文字解析，
+            如官方網站封鎖直接讀取，會自動轉用免費 Jina Reader 作智能文件後備，不需要付費 AI API。
+            系統會預填活動名稱、描述、日期、時間、地點、收費、官方活動頁及 CTA。
             所有結果只會建立草稿，必須人工確認後才提交審批。
           </p>
         </div>
@@ -460,7 +462,7 @@ export default function ImportEventPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-black text-slate-950">1. 輸入活動網址</h2>
             <p className="mt-1 text-sm text-slate-500">
-              支援商戶官網、商場活動頁、PDF 新聞稿、Google Form 或報名頁。PDF 會優先使用免費解析。
+              支援商戶官網、商場活動頁、PDF 新聞稿、Google Form 或報名頁。系統會自動依次使用免費結構化抽取、PDF 解析及 Jina Reader 後備。
             </p>
 
             <textarea
