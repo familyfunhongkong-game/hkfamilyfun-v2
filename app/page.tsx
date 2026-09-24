@@ -1,6 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
 import FamilyFunMotionHero from "@/components/home/FamilyFunMotionHero";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    url: "/",
+  },
+};
 
 export const dynamic = "force-dynamic";
 
