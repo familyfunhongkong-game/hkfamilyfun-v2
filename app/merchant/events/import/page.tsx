@@ -295,14 +295,24 @@ export default function ImportEventPage() {
         return;
       }
 
-      const response = await fetch("/api/import-event", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ url: targetUrl }),
-      });
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 35000);
+
+      let response: Response;
+
+      try {
+        response = await fetch("/api/import-event", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ url: targetUrl }),
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
 
       const json = await response.json();
 
@@ -349,11 +359,20 @@ export default function ImportEventPage() {
         `已完成資料抽取（${extractionEngineLabel(engine)}）。請逐項核對日期、地點、收費及報名資料後再儲存草稿。`
       );
     } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "抽取活動資料時發生未知錯誤。"
-      );
+      if (
+        error instanceof DOMException &&
+        error.name === "AbortError"
+      ) {
+        setMessage(
+          "智能匯入超時。PDF 或受保護網站可能需要較長時間，請重試一次；如仍未完成，可改貼官方活動網頁 URL。"
+        );
+      } else {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "抽取活動資料時發生未知錯誤。"
+        );
+      }
     }
 
     setExtracting(false);
