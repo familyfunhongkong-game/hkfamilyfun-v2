@@ -1,5 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
+
+export const metadata: Metadata = {
+  title: "今日香港親子活動",
+  description: "查看今日仍然有效並已發布的香港親子活動、免費活動及家庭好去處。",
+  alternates: {
+    canonical: "/today",
+  },
+  openGraph: {
+    url: "/today",
+  },
+};
 
 export const dynamic = "force-dynamic";
 
