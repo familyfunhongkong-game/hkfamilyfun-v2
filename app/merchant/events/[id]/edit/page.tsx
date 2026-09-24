@@ -473,11 +473,6 @@ function statusLabel(status?: string | null) {
   return "草稿";
 }
 
-function isMerchantEditableStatus(status?: string | null) {
-  const text = safeText(status, "draft").toLowerCase();
-  return ["draft", "rejected", "declined"].includes(text);
-}
-
 function readActivityCategory(event: EventRecord) {
   const direct = safeText(event.activity_category);
   if (direct) return direct;
@@ -1047,15 +1042,6 @@ export default function MerchantEventEditPage() {
       return false;
     }
 
-    if (eventRecord && !isMerchantEditableStatus(eventRecord.status)) {
-      if (!silent) {
-        setMessage(
-          `此活動目前為「${statusLabel(eventRecord.status)}」。為保留審批紀錄，商戶只可修改草稿或已拒絕活動；如需修改已發布活動，請先複製成新草稿。`
-        );
-      }
-      return false;
-    }
-
     if (nextStatus === "submitted" && ready.missing.length) {
       setMessage(`提交前請先補齊：${ready.missing.join("、")}。`);
       return false;
@@ -1108,14 +1094,7 @@ export default function MerchantEventEditPage() {
   }
 
   useEffect(() => {
-    if (
-      !loadedRef.current ||
-      loading ||
-      !eventRecord ||
-      !isMerchantEditableStatus(eventRecord.status)
-    ) {
-      return;
-    }
+    if (!loadedRef.current || loading || !eventRecord) return;
 
     const serialized = JSON.stringify(form);
     if (serialized === lastSerializedFormRef.current) return;
@@ -1163,8 +1142,6 @@ export default function MerchantEventEditPage() {
     );
   }
 
-  const editable = isMerchantEditableStatus(eventRecord.status);
-
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
@@ -1178,7 +1155,7 @@ export default function MerchantEventEditPage() {
                 ← 返回 Merchant Dashboard
               </Link>
               <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                {editable ? "編輯活動資料" : "活動資料（唯讀）"}
+                編輯活動資料
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 Smart Image Manager：拖拉封面位置、拖拉圖片排序、第一張自動成為封面、最多 5 張。
@@ -1195,7 +1172,7 @@ export default function MerchantEventEditPage() {
               <button
                 type="button"
                 onClick={() => saveEvent()}
-                disabled={saving || !editable}
+                disabled={saving}
                 className="rounded-full bg-slate-950 px-5 py-2 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 {saving ? "儲存中..." : "儲存草稿"}
@@ -1203,7 +1180,7 @@ export default function MerchantEventEditPage() {
               <button
                 type="button"
                 onClick={() => saveEvent("submitted")}
-                disabled={saving || !editable || ready.missing.length > 0}
+                disabled={saving || ready.missing.length > 0}
                 className="rounded-full bg-purple-700 px-5 py-2 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
               >
                 提交審批
@@ -1236,13 +1213,6 @@ export default function MerchantEventEditPage() {
                 : "Auto Save 準備中"}
             </span>
           </div>
-
-          {!editable ? (
-            <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
-              此活動目前為「{statusLabel(eventRecord.status)}」，商戶頁以唯讀方式顯示。
-              為保留審批紀錄，已提交、已發布或已封存活動不能直接修改；請返回 Dashboard 複製成新草稿再調整。
-            </div>
-          ) : null}
 
           {message ? (
             <div

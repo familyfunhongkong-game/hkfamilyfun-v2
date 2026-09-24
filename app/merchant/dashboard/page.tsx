@@ -289,10 +289,7 @@ function missingItems(event: EventRecord) {
 }
 
 function canSubmit(event: EventRecord) {
-  return (
-    readyScore(event) >= 60 &&
-    ["draft", "rejected"].includes(statusGroup(event.status))
-  );
+  return readyScore(event) >= 60 && statusGroup(event.status) === "draft";
 }
 
 export default function MerchantDashboardPage() {
@@ -762,6 +759,8 @@ export default function MerchantDashboardPage() {
                     event={event}
                     busy={busyId === event.id}
                     onSubmit={() => updateStatus(event.id, "submitted")}
+                    onArchive={() => updateStatus(event.id, "archived")}
+                    onRestore={() => updateStatus(event.id, "draft")}
                     onDuplicate={() => duplicateEvent(event)}
                   />
                 ))}
@@ -818,11 +817,15 @@ function EventCard({
   event,
   busy,
   onSubmit,
+  onArchive,
+  onRestore,
   onDuplicate,
 }: {
   event: EventRecord;
   busy: boolean;
   onSubmit: () => void;
+  onArchive: () => void;
+  onRestore: () => void;
   onDuplicate: () => void;
 }) {
   const group = statusGroup(event.status);
@@ -938,22 +941,12 @@ function EventCard({
             Preview
           </Link>
 
-          {["draft", "rejected"].includes(group) ? (
-            <Link
-              href={`/merchant/events/${event.id}/edit`}
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
-            >
-              編輯
-            </Link>
-          ) : (
-            <button
-              type="button"
-              disabled
-              className="rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-black text-slate-400"
-            >
-              唯讀
-            </button>
-          )}
+          <Link
+            href={`/merchant/events/${event.id}/edit`}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
+          >
+            編輯
+          </Link>
 
           {published ? (
             <Link
@@ -983,28 +976,38 @@ function EventCard({
         </div>
 
         <div className="grid gap-2">
-          {["draft", "rejected"].includes(group) ? (
+          {group === "draft" ? (
             <button
               type="button"
               onClick={onSubmit}
               disabled={busy || !canSubmitForReview}
               className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
             >
-              {group === "rejected" ? "重新提交審批" : "提交審批"}
+              提交審批
+            </button>
+          ) : null}
+
+          {group === "archived" ? (
+            <button
+              type="button"
+              onClick={onRestore}
+              disabled={busy}
+              className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white hover:bg-purple-800 disabled:opacity-50"
+            >
+              還原草稿
             </button>
           ) : (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-bold leading-5 text-slate-600">
-              {group === "submitted"
-                ? "審批中，暫停編輯"
-                : group === "published"
-                  ? "已發布；如需修改請複製為新草稿"
-                  : group === "archived"
-                    ? "已封存；如需重用請複製為新草稿"
-                    : "此狀態暫停編輯"}
-            </div>
+            <button
+              type="button"
+              onClick={onArchive}
+              disabled={busy}
+              className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              封存
+            </button>
           )}
 
-          {["draft", "rejected"].includes(group) && !canSubmitForReview ? (
+          {group === "draft" && !canSubmitForReview ? (
             <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-700">
               資料完整度未夠，請先補齊重點資料。
             </p>
