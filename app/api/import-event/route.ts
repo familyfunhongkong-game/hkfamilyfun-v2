@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
+const MAX_PDF_BYTES = 12 * 1024 * 1024;
 const TINYFISH_FETCH_URL = "https://api.fetch.tinyfish.ai";
 
 type ExtractedEvent = {
@@ -1024,6 +1025,101 @@ async function fetchWithTinyFish(url: string) {
   }
 }
 
+async function fetchPdfText(url: string) {
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (compatible; HKFamilyFunBot/2.0; +https://www.hkfamilyfun.com)",
+        accept: "application/pdf,*/*;q=0.5",
+        "accept-language": "zh-HK,zh;q=0.9,en;q=0.8",
+      },
+      cache: "no-store",
+      redirect: "follow",
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false as const,
+        error: `PDF 回應 ${response.status}，未能讀取檔案。`,
+      };
+    }
+
+    const finalUrl = new URL(response.url || url);
+
+    if (blockedHost(finalUrl.hostname)) {
+      return {
+        ok: false as const,
+        error: "PDF 重新導向至不安全網址，已停止讀取。",
+      };
+    }
+
+    const declaredLength = Number(
+      response.headers.get("content-length") || "0"
+    );
+
+    if (declaredLength > MAX_PDF_BYTES) {
+      return {
+        ok: false as const,
+        error: "PDF 超過 12MB，請改用活動網頁或手動輸入資料。",
+      };
+    }
+
+    const buffer = await response.arrayBuffer();
+
+    if (buffer.byteLength > MAX_PDF_BYTES) {
+      return {
+        ok: false as const,
+        error: "PDF 超過 12MB，請改用活動網頁或手動輸入資料。",
+      };
+    }
+
+    const bytes = new Uint8Array(buffer);
+    const signature = new TextDecoder("ascii").decode(bytes.slice(0, 5));
+
+    if (!signature.startsWith("%PDF-")) {
+      return {
+        ok: false as const,
+        error: "下載內容不是有效 PDF。",
+      };
+    }
+
+    const { PDFParse } = await import("pdf-parse");
+    const parser = new PDFParse({ data: bytes });
+
+    try {
+      const result = await parser.getText();
+      const text = normalizeDocumentText(result.text || "");
+
+      if (!text) {
+        return {
+          ok: false as const,
+          error:
+            "PDF 沒有可抽取文字，可能是掃描圖片 PDF；請改用活動網頁或手動補資料。",
+        };
+      }
+
+      return {
+        ok: true as const,
+        text,
+        finalUrl: finalUrl.toString(),
+      };
+    } finally {
+      await parser.destroy();
+    }
+  } catch (error) {
+    return {
+      ok: false as const,
+      error:
+        error instanceof Error
+          ? `免費 PDF 文字抽取失敗：${error.message}`
+          : "免費 PDF 文字抽取失敗。",
+    };
+  }
+}
+
 function isPdfLike(url: URL) {
   return /\.pdf$/i.test(url.pathname);
 }
@@ -1243,6 +1339,7 @@ export async function POST(request: NextRequest) {
     let fetchError = "";
     let tinyFishUsed = false;
     let tinyFishAttempted = false;
+    let pdfUsed = false;
     let contentType = "";
 
     if (!isPdfLike(parsedUrl)) {
@@ -1371,12 +1468,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+
+    if (isPdfLike(parsedUrl)) {
+      const pdfResult = await fetchPdfText(parsedUrl.toString());
+
+      if (pdfResult.ok) {
+        pdfUsed = true;
+        fetchError = "";
+        documentText = pdfResult.text.slice(0, 50000);
+
+        event = applyTextExtraction(
+          event,
+          documentText,
+          {
+            sourceLabel:
+              "已使用免費 server-side PDF 文字抽取，不需要 TinyFish / AI API key。",
+          }
+        );
+      } else {
+        fetchError = pdfResult.error;
+      }
+    }
+
     const shouldUseTinyFish =
-      isPdfLike(parsedUrl) ||
-      Boolean(fetchError) ||
-      !html ||
-      !event.title_tc ||
-      !event.start_date;
+      !pdfUsed &&
+      (
+        Boolean(fetchError) ||
+        !html ||
+        !event.title_tc ||
+        !event.start_date
+      );
 
     if (shouldUseTinyFish) {
       tinyFishAttempted = true;
@@ -1440,12 +1561,13 @@ export async function POST(request: NextRequest) {
 
     if (
       isPdfLike(parsedUrl) &&
+      !pdfUsed &&
       tinyFishAttempted &&
       !tinyFishUsed &&
       !process.env.TINYFISH_API_KEY?.trim()
     ) {
       event.extraction_notes.push(
-        "系統管理員只需設定一次 TINYFISH_API_KEY，即可免費支援 PDF 文字抽取。"
+        "免費 PDF 文字抽取未能完成；TinyFish 只作可選後備，不是必需服務。"
       );
     }
 
@@ -1464,11 +1586,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       event,
-      extraction_engine: tinyFishUsed
-        ? "tinyfish_fetch"
-        : html
-          ? "direct_html"
-          : "manual_required",
+      extraction_engine: pdfUsed
+        ? "pdf_parse"
+        : tinyFishUsed
+          ? "tinyfish_fetch"
+          : html
+            ? "direct_html"
+            : "manual_required",
     });
   } catch (error) {
     return NextResponse.json(
