@@ -29,17 +29,24 @@ Updated: 2026-09-24
 - Motion hero using the original Family Fun logo asset
 
 ## Preview QA still required
-- Confirm latest Vercel Preview build is Ready
-- Test supplied AIRSIDE SpongeBob PDF import
+- ✅ Latest Vercel Preview build is Ready
+- ✅ Public/support route smoke test passed (home, today, calendar, map, tips, merchant pages, legal pages)
+- ✅ Motion hero is visible on Preview using the original `/logo.png`
+- ✅ Dedicated `/admin/login` is live and database-RPC protected
+- ✅ Supplied AIRSIDE SpongeBob PDF is readable by the connected free document extractor and contains the expected main event data
+- Test supplied AIRSIDE SpongeBob PDF import through the logged-in Merchant Portal
 - Confirm imported dates, time, venue, price, official URL and notes
 - Test Merchant real login
 - Test Merchant create -> image upload -> drag reorder -> save -> submit
 - Test Admin real login -> approve/reject/publish
 - Test published event appears on public pages
-- Test Google Map iframe on event detail and location explorer
+- ✅ Public event-detail Google Map iframe verified in Preview
+- ✅ Visible map-preview panel added to location explorer
+- Test location explorer with live client-side event selection on desktop + mobile
 - Test favorite survives reload
 - Test share and official-site CTA on desktop + mobile
-- Test password reset end-to-end after the latest deployment
+- ✅ Password reset flow confirmed working by user
+- Re-test password reset once after final main/production cutover
 
 ## Data / launch blockers
 - Read-only inventory of old HK Family Fun Supabase data
@@ -51,3 +58,13 @@ Updated: 2026-09-24
 
 ## Launch rule
 Do not switch the production domain until Merchant + Admin real-login E2E, PDF import, data reconciliation, and public smoke tests all pass.
+
+## AIRSIDE SpongeBob PDF regression fixture
+Expected primary event fields from the supplied official press release:
+- Title: AIRSIDE X 海綿寶寶復活節呈獻「比奇堡滋味派對」
+- Start: 2026-03-27
+- End: 2026-04-23
+- Time: 10:00-22:00
+- Venue: AIRSIDE 二樓中庭
+- Source contains multiple sub-events, so importer should warn that the document may need to be split into separate activities.
+- Main event admission fee is not explicitly stated in the press-release detail block; do not invent a price. Paid DIY/workshop and redemption thresholds belong to separate sub-events.
