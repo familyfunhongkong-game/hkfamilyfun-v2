@@ -522,17 +522,31 @@ function normalizedStatus(event: EventRecord): string {
   return safeText(event.status || event.approval_status, "draft").toLowerCase();
 }
 
+function getHongKongTodayYmd(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function addDaysToYmd(value: string, days: number): string {
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function canShowPublic(event: EventRecord): boolean {
   const status = normalizedStatus(event);
   if (!["published", "approved", "live"].includes(status)) return false;
 
-  const end = parseDateOnly(event.end_date || event.start_date);
-  if (!end) return true;
+  const endYmd = safeText(event.end_date || event.start_date);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(endYmd)) return true;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return end.getTime() >= today.getTime();
+  return endYmd >= getHongKongTodayYmd();
 }
 
 function isFreeEvent(event: EventRecord): boolean {
@@ -553,58 +567,62 @@ function parseDateOnly(value?: string | null): Date | null {
   return date;
 }
 
-function eventOverlapsDate(event: EventRecord, target: Date): boolean {
-  const start = parseDateOnly(event.start_date);
-  const end = parseDateOnly(event.end_date) || start;
+function eventOverlapsYmd(event: EventRecord, targetYmd: string): boolean {
+  const startYmd = safeText(event.start_date);
+  const endYmd = safeText(event.end_date || event.start_date);
 
-  if (!start || !end) return false;
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(startYmd) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(endYmd)
+  ) {
+    return false;
+  }
 
-  const targetTime = target.getTime();
-  return start.getTime() <= targetTime && targetTime <= end.getTime();
+  return startYmd <= targetYmd && targetYmd <= endYmd;
 }
 
-function isWeekendDate(date: Date): boolean {
-  const day = date.getDay();
+function isWeekendYmd(value: string): boolean {
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const day = date.getUTCDay();
   return day === 0 || day === 6;
 }
 
 function eventMatchesDateFilter(event: EventRecord, filter: DateFilter): boolean {
   if (filter === "all") return true;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayYmd = getHongKongTodayYmd();
+  const tomorrowYmd = addDaysToYmd(todayYmd, 1);
 
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-
-  if (filter === "today") return eventOverlapsDate(event, today);
-  if (filter === "tomorrow") return eventOverlapsDate(event, tomorrow);
+  if (filter === "today") return eventOverlapsYmd(event, todayYmd);
+  if (filter === "tomorrow") return eventOverlapsYmd(event, tomorrowYmd);
 
   if (filter === "month") {
-    const start = parseDateOnly(event.start_date);
-    if (!start) return false;
-
-    return (
-      start.getFullYear() === today.getFullYear() &&
-      start.getMonth() === today.getMonth()
-    );
+    const startYmd = safeText(event.start_date);
+    return /^\d{4}-\d{2}-\d{2}$/.test(startYmd)
+      ? startYmd.slice(0, 7) === todayYmd.slice(0, 7)
+      : false;
   }
 
   if (filter === "weekend") {
-    const start = parseDateOnly(event.start_date);
-    const end = parseDateOnly(event.end_date) || start;
+    const startYmd = safeText(event.start_date);
+    const endYmd = safeText(event.end_date || event.start_date);
 
-    if (!start || !end) return false;
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(startYmd) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(endYmd)
+    ) {
+      return false;
+    }
 
-    const cursor = new Date(start);
-    cursor.setHours(0, 0, 0, 0);
+    let cursor = startYmd;
+    let guard = 0;
 
-    const final = new Date(end);
-    final.setHours(0, 0, 0, 0);
-
-    while (cursor.getTime() <= final.getTime()) {
-      if (isWeekendDate(cursor)) return true;
-      cursor.setDate(cursor.getDate() + 1);
+    while (cursor <= endYmd && guard < 370) {
+      if (isWeekendYmd(cursor)) return true;
+      cursor = addDaysToYmd(cursor, 1);
+      guard += 1;
     }
 
     return false;
