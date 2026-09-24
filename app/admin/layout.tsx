@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 type AccessState =
@@ -17,11 +18,14 @@ export default function AdminLayout({
 }: {
   children: ReactNode;
 }) {
+  const pathname = usePathname();
   const [accessState, setAccessState] =
     useState<AccessState>("checking");
   const [currentEmail, setCurrentEmail] = useState("");
 
   useEffect(() => {
+    if (pathname === "/admin/login") return;
+
     const client = supabase;
     let ignore = false;
 
@@ -80,7 +84,11 @@ export default function AdminLayout({
       ignore = true;
       data.subscription.unsubscribe();
     };
-  }, []);
+  }, [pathname]);
+
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
 
   if (accessState === "allowed") {
     return <>{children}</>;
@@ -116,7 +124,7 @@ export default function AdminLayout({
             </p>
             <div className="mt-6 flex gap-3">
               <Link
-                href="/merchant/login"
+                href="/admin/login"
                 className="rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white"
               >
                 前往登入
