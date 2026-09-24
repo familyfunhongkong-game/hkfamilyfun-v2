@@ -288,9 +288,25 @@ function missingItems(event: EventRecord) {
   return items;
 }
 
+function submissionBlockers(event: EventRecord) {
+  const items: string[] = [];
+
+  if (!hasValue(event.title_tc || event.title)) items.push("活動名稱");
+  if (!hasValue(event.start_date)) items.push("活動日期");
+  if (!hasValue(event.venue_name) && !hasValue(event.address)) items.push("地點");
+  if (priceOf(event) === "收費未填") items.push("收費資料");
+  if (ctaOf(event) === "未設定") items.push("報名 / CTA");
+  if (imageCount(event) === 0) items.push("至少 1 張活動圖片");
+
+  return items;
+}
+
 function canSubmit(event: EventRecord) {
   const group = statusGroup(event.status);
-  return readyScore(event) >= 60 && (group === "draft" || group === "rejected");
+  return (
+    submissionBlockers(event).length === 0 &&
+    (group === "draft" || group === "rejected")
+  );
 }
 
 export default function MerchantDashboardPage() {
@@ -826,6 +842,7 @@ function EventCard({
   const group = statusGroup(event.status);
   const score = readyScore(event);
   const missing = missingItems(event);
+  const blockers = submissionBlockers(event);
   const published = group === "published";
   const canSubmitForReview = canSubmit(event);
 
@@ -1004,7 +1021,7 @@ function EventCard({
 
           {(group === "draft" || group === "rejected") && !canSubmitForReview ? (
             <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-700">
-              資料完整度未夠，請先補齊重點資料。
+              提交前必須補齊：{blockers.join("、")}。
             </p>
           ) : null}
         </div>
