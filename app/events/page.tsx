@@ -4,6 +4,7 @@ import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import PromoBannerSlot from "@/components/ads/PromoBannerSlot";
 
 type JsonValue =
   | string
@@ -1615,6 +1616,10 @@ export default function PublicEventsPage() {
           {!loading && filteredEvents.length !== events.length ? (
             <p className="text-xs font-bold text-slate-400">已套用篩選</p>
           ) : null}
+        </div>
+
+        <div className="mt-4">
+          <PromoBannerSlot compact />
         </div>
 
         {errorText ? (
