@@ -1430,133 +1430,52 @@ export default function PublicEventsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-[#f7f8fa]">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1500px] px-4 py-8">
-          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
+        <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="flex flex-wrap gap-2">
-                <Badge tone="purple">香港親子活動</Badge>
-                <Badge tone="green">{events.length} 個公開活動</Badge>
-                <Badge tone="amber">今日 {todayCount} 個</Badge>
-                <Badge tone="rose">已收藏 {favoriteIds.length}</Badge>
-              </div>
-
-              <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-950 lg:text-5xl">
-                搜尋香港親子活動
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-purple-700">
+                Explore Hong Kong
+              </p>
+              <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+                搵親子活動
               </h1>
-
-              <p className="mt-4 max-w-3xl text-base font-medium leading-8 text-slate-600">
-                一站式搜尋香港親子市集、工作坊、展覽、商場活動、免費活動及家庭好去處。
-                活動卡已支援圖片切換、收藏、Google Map、分享及官方連結。
+              <p className="mt-2 text-sm font-medium text-slate-500">
+                {events.length} 個公開活動 · 今日 {todayCount} 個 · 免費 {freeCount} 個
               </p>
             </div>
 
-            <div className="grid gap-3">
-              <QuickEntry
-                href="/today"
-                icon="☀️"
-                title="今日活動"
-                desc="快速查看今日適合帶小朋友去的活動。"
-              />
-              <QuickEntry
-                href="/calendar"
-                icon="🗓️"
-                title="活動日曆"
-                desc="按日期及時間瀏覽活動。"
-              />
-              <QuickEntry
-                href="/events/map"
-                icon="🗺️"
-                title="附近活動地圖"
-                desc="按地點搜尋附近親子活動。"
-              />
+            <div className="flex flex-wrap gap-2">
+              <Link href="/today" className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">
+                ☀️ 今日
+              </Link>
+              <Link href="/calendar" className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">
+                📅 日曆
+              </Link>
+              <Link href="/events/map" className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">
+                📍 地圖
+              </Link>
+              <Link href="/favorites" className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">
+                ❤️ 收藏 {favoriteIds.length || ""}
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1500px] px-4 py-6">
-        <div className="grid gap-4 md:grid-cols-4">
-          <StatCard
-            label="公開活動"
-            value={events.length}
-            note="只顯示已發布或已批准活動"
-            tone="slate"
-          />
-          <StatCard
-            label="免費活動"
-            value={freeCount}
-            note="適合想控制預算的家庭"
-            tone="green"
-          />
-          <StatCard
-            label="圖片完成"
-            value={imageReadyCount}
-            note="已有活動封面或 Gallery"
-            tone="purple"
-          />
-          <StatCard
-            label="我的收藏"
-            value={favoriteIds.length}
-            note="暫存在此瀏覽器"
-            tone="amber"
-          />
-        </div>
-
-        <div className="mt-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="grid gap-4 xl:grid-cols-[1fr_220px]">
-            <input
-              value={keyword}
-              onChange={(changeEvent) => setKeyword(changeEvent.target.value)}
-              placeholder="搜尋活動名稱、商戶、地點、分類、港鐵站..."
-              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-            />
-
-            <select
-              value={sortMode}
-              onChange={(changeEvent) => setSortMode(changeEvent.target.value as SortMode)}
-              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-            >
-              <option value="recommended">推薦排序</option>
-              <option value="date_asc">活動日期近至遠</option>
-              <option value="date_desc">活動日期遠至近</option>
-              <option value="newest">最新發布</option>
-            </select>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {dateFilters.map((filter) => (
-              <button
-                key={filter.key}
-                type="button"
-                onClick={() => setDateFilter(filter.key)}
-                className={[
-                  "rounded-full px-4 py-2 text-sm font-black transition",
-                  dateFilter === filter.key
-                    ? "bg-purple-700 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                ].join(" ")}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <select
-              value={priceFilter}
-              onChange={(changeEvent) =>
-                setPriceFilter(changeEvent.target.value as PriceFilter)
-              }
-              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-            >
-              {priceFilters.map((filter) => (
-                <option key={filter.key} value={filter.key}>
-                  {filter.label}
-                </option>
-              ))}
-            </select>
+      <section className="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8">
+        <div className="sticky top-[88px] z-30 rounded-[1.6rem] border border-slate-200 bg-white/95 p-4 shadow-[0_12px_35px_rgba(15,23,42,0.08)] backdrop-blur">
+          <div className="grid gap-3 xl:grid-cols-[1fr_190px_180px_180px]">
+            <div className="flex items-center rounded-2xl border border-slate-300 bg-white px-4 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-100">
+              <span className="mr-2 text-lg">🔎</span>
+              <input
+                value={keyword}
+                onChange={(changeEvent) => setKeyword(changeEvent.target.value)}
+                placeholder="活動、商場、地區、港鐵站..."
+                className="w-full bg-transparent py-3 text-sm font-semibold outline-none placeholder:font-medium placeholder:text-slate-400"
+              />
+            </div>
 
             <select
               value={districtFilter}
@@ -1565,9 +1484,7 @@ export default function PublicEventsPage() {
             >
               <option value="all">全部地區</option>
               {districtOptions.map((district) => (
-                <option key={district} value={district}>
-                  {district}
-                </option>
+                <option key={district} value={district}>{district}</option>
               ))}
             </select>
 
@@ -1578,26 +1495,89 @@ export default function PublicEventsPage() {
             >
               <option value="all">全部分類</option>
               {categoryOptions.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
+                <option key={category} value={category}>{category}</option>
               ))}
+            </select>
+
+            <select
+              value={sortMode}
+              onChange={(changeEvent) => setSortMode(changeEvent.target.value as SortMode)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="recommended">推薦排序</option>
+              <option value="date_asc">日期近至遠</option>
+              <option value="date_desc">日期遠至近</option>
+              <option value="newest">最新發布</option>
             </select>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-bold text-slate-500">
-              顯示 {filteredEvents.length} / {events.length} 個公開活動
-            </p>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {dateFilters.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                onClick={() => setDateFilter(filter.key)}
+                className={[
+                  "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                  dateFilter === filter.key
+                    ? "bg-purple-700 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                ].join(" ")}
+              >
+                {filter.label}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setPriceFilter(priceFilter === "free" ? "all" : "free")}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                priceFilter === "free" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700",
+              ].join(" ")}
+            >
+              🎁 免費
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIndoorOnly(!indoorOnly)}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                indoorOnly ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700",
+              ].join(" ")}
+            >
+              🏠 室內
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSenOnly(!senOnly)}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                senOnly ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-800",
+              ].join(" ")}
+            >
+              💛 SEN 友善
+            </button>
 
             <button
               type="button"
               onClick={clearFilters}
-              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+              className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-500 hover:bg-slate-50"
             >
-              清除篩選
+              清除
             </button>
           </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <p className="text-sm font-black text-slate-900">
+            {loading ? "正在搵活動..." : `搵到 ${filteredEvents.length} 個活動`}
+          </p>
+          {!loading && filteredEvents.length !== events.length ? (
+            <p className="text-xs font-bold text-slate-400">已套用篩選</p>
+          ) : null}
         </div>
 
         {errorText ? (
@@ -1611,8 +1591,8 @@ export default function PublicEventsPage() {
             <img
               src="/familyfun-logo-original.png"
               alt="HK Family Fun"
-              width={64}
-              height={64}
+              width={72}
+              height={72}
               className="mx-auto mb-4 h-16 w-16 object-contain"
             />
             <p className="text-sm font-black text-slate-700">正在讀取活動資料...</p>
@@ -1621,11 +1601,9 @@ export default function PublicEventsPage() {
 
         {!loading && filteredEvents.length === 0 ? (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-            <p className="text-xl font-black text-slate-950">
-              暫時沒有符合條件的活動
-            </p>
+            <p className="text-xl font-black text-slate-950">暫時沒有符合條件的活動</p>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              請更改日期、地區、分類或關鍵字再試。
+              試下放寬日期、地區或分類。
             </p>
             <button
               type="button"
@@ -1638,7 +1616,7 @@ export default function PublicEventsPage() {
         ) : null}
 
         {!loading && filteredEvents.length > 0 ? (
-          <div className="mt-6 grid items-stretch gap-6 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="mt-4 grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filteredEvents.map((event) => (
               <EventCard
                 key={event.id}
