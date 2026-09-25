@@ -107,8 +107,7 @@ type PriceFilter = "all" | "free" | "paid";
 type DateFilter = "all" | "today" | "tomorrow" | "weekend" | "month";
 type SortMode = "recommended" | "date_asc" | "date_desc" | "newest";
 
-const FALLBACK_IMAGE =
-  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+const FALLBACK_IMAGE = "/logo.png";
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
 
@@ -895,9 +894,13 @@ function EventCard({
 
         {isFallback ? (
           <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
-            <div className="grid h-16 w-16 place-items-center rounded-3xl bg-purple-700 text-2xl font-black text-white shadow-sm">
-              親
-            </div>
+            <img
+              src="/logo.png"
+              alt="HK Family Fun"
+              width={72}
+              height={72}
+              className="h-16 w-16 object-contain"
+            />
             <p className="mt-3 text-sm font-black text-purple-900">
               HK Family Fun
             </p>
