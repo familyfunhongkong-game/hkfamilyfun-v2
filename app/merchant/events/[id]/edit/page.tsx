@@ -2000,8 +2000,14 @@ function PreviewCard({
             />
           </div>
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-5xl">
-            親
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 p-5">
+            <img
+              src="/logo.png"
+              alt="HK Family Fun"
+              width={112}
+              height={112}
+              className="h-24 w-24 object-contain"
+            />
           </div>
         )}
       </div>
