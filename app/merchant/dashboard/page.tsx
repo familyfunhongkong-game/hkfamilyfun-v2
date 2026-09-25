@@ -528,9 +528,13 @@ export default function MerchantDashboardPage() {
       <main className="min-h-screen bg-slate-50">
         <div className="mx-auto max-w-[1500px] px-4 py-16">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-2xl">
-              親
-            </div>
+            <img
+              src="/logo.png"
+              alt="HK Family Fun"
+              width={56}
+              height={56}
+              className="mx-auto mb-4 h-14 w-14 object-contain"
+            />
             <p className="font-bold text-slate-700">正在讀取商戶 Dashboard...</p>
           </div>
         </div>
