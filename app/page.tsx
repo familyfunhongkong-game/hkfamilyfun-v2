@@ -133,6 +133,41 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-[1500px] px-4 pb-4 sm:px-6 lg:px-8">
+        <Link
+          href="/events"
+          className="group relative block min-h-[280px] overflow-hidden rounded-[2rem] bg-slate-900 shadow-sm ring-1 ring-black/5 sm:min-h-[340px]"
+        >
+          <img
+            src="/images/familyfun-life-ai.webp"
+            alt="一家四口探索市集、博物館、香港小旅行及親子美食"
+            className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.02]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
+          <div className="relative z-10 flex min-h-[280px] max-w-xl flex-col justify-end p-6 text-white sm:min-h-[340px] sm:p-9">
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-black text-slate-900">
+                FAMILY FUN PICKS
+              </span>
+              <span className="rounded-full bg-black/35 px-3 py-1 text-[11px] font-bold text-white backdrop-blur">
+                AI 示意圖
+              </span>
+            </div>
+            <h2 className="mt-4 text-3xl font-black leading-tight tracking-tight sm:text-4xl">
+              玩、食、行、學，
+              <br />
+              一家人搵啱心水先出發。
+            </h2>
+            <p className="mt-3 text-sm font-semibold leading-6 text-white/85 sm:text-base">
+              市集 · 博物館 · 香港小旅行 · 親子美食
+            </p>
+            <span className="mt-5 inline-flex w-fit rounded-full bg-white px-5 py-3 text-sm font-black text-slate-950">
+              探索全部活動 →
+            </span>
+          </div>
+        </Link>
+      </section>
+
       <section className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
