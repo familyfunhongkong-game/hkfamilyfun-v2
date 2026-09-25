@@ -117,8 +117,7 @@ type SortMode = "newest" | "oldest" | "date";
 
 type Tone = "purple" | "green" | "amber" | "slate" | "rose";
 
-const FALLBACK_IMAGE =
-  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+const FALLBACK_IMAGE = "/logo.png";
 
 const statusFilters: { key: StatusFilter; label: string }[] = [
   { key: "all", label: "全部" },
@@ -943,9 +942,13 @@ export default function AdminEventsPage() {
 
         {loading ? (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-2xl">
-              親
-            </div>
+            <img
+              src="/logo.png"
+              alt="HK Family Fun"
+              width={64}
+              height={64}
+              className="mx-auto mb-4 h-16 w-16 object-contain"
+            />
             <p className="text-sm font-black text-slate-700">正在讀取 Admin 活動資料...</p>
           </div>
         ) : null}
