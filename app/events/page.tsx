@@ -640,6 +640,18 @@ function getCategoryOptions(events: EventRecord[]): string[] {
   ).sort();
 }
 
+function getMtrOptions(events: EventRecord[]): string[] {
+  return Array.from(
+    new Set(events.map((event) => safeText(event.mtr_station)).filter(Boolean)),
+  ).sort();
+}
+
+function getAgeOptions(events: EventRecord[]): string[] {
+  return Array.from(
+    new Set(events.map((event) => safeText(event.age_group)).filter(Boolean)),
+  ).sort();
+}
+
 function scoreEvent(event: EventRecord): number {
   let score = 0;
 
@@ -1091,9 +1103,13 @@ export default function PublicEventsPage() {
   const [specificDate, setSpecificDate] = useState("");
   const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
   const [districtFilter, setDistrictFilter] = useState("all");
+  const [mtrFilter, setMtrFilter] = useState("all");
+  const [ageFilter, setAgeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [senOnly, setSenOnly] = useState(false);
   const [indoorOnly, setIndoorOnly] = useState(false);
+  const [outdoorOnly, setOutdoorOnly] = useState(false);
+  const [registrationOnly, setRegistrationOnly] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("recommended");
 
   async function loadEvents() {
@@ -1136,6 +1152,8 @@ export default function PublicEventsPage() {
     const queryDate = params.get("date") || "";
     const queryPrice = params.get("price") || "";
     const queryDistrict = params.get("district") || "all";
+    const queryMtr = params.get("mtr") || "all";
+    const queryAge = params.get("age") || "all";
     const queryCategory = params.get("category") || "all";
     const legacyFree = params.get("is_free") === "true";
     const legacySen =
@@ -1144,6 +1162,8 @@ export default function PublicEventsPage() {
 
     setKeyword(queryKeyword);
     setDistrictFilter(queryDistrict || "all");
+    setMtrFilter(queryMtr || "all");
+    setAgeFilter(queryAge || "all");
 
     if (queryCategory === "weekend") {
       setDateFilter("weekend");
@@ -1190,9 +1210,13 @@ export default function PublicEventsPage() {
     );
     setSenOnly(params.get("sen") === "true" || legacySen);
     setIndoorOnly(params.get("indoor") === "true");
+    setOutdoorOnly(params.get("outdoor") === "true");
+    setRegistrationOnly(params.get("registration") === "true");
   }, []);
 
   const districtOptions = useMemo(() => getDistrictOptions(events), [events]);
+  const mtrOptions = useMemo(() => getMtrOptions(events), [events]);
+  const ageOptions = useMemo(() => getAgeOptions(events), [events]);
   const categoryOptions = useMemo(() => getCategoryOptions(events), [events]);
 
   const filteredEvents = useMemo(() => {
@@ -1251,6 +1275,14 @@ export default function PublicEventsPage() {
       );
     }
 
+    if (mtrFilter !== "all") {
+      next = next.filter((event) => safeText(event.mtr_station) === mtrFilter);
+    }
+
+    if (ageFilter !== "all") {
+      next = next.filter((event) => safeText(event.age_group) === ageFilter);
+    }
+
     if (categoryFilter !== "all") {
       next = next.filter((event) => getCategoryLabel(event) === categoryFilter);
     }
@@ -1270,6 +1302,23 @@ export default function PublicEventsPage() {
           Boolean(event.is_indoor) ||
           getCategoryLabel(event) === "室內活動" ||
           getTagArray(event.tags).some((tag) => tag.includes("室內")),
+      );
+    }
+
+    if (outdoorOnly) {
+      next = next.filter(
+        (event) =>
+          event.is_indoor === false ||
+          getCategoryLabel(event) === "戶外活動" ||
+          getTagArray(event.tags).some((tag) => tag.includes("戶外")),
+      );
+    }
+
+    if (registrationOnly) {
+      next = next.filter(
+        (event) =>
+          Boolean(event.registration_required) ||
+          Boolean(getRegistrationUrl(event)),
       );
     }
 
@@ -1321,9 +1370,13 @@ export default function PublicEventsPage() {
     specificDate,
     priceFilter,
     districtFilter,
+    mtrFilter,
+    ageFilter,
     categoryFilter,
     senOnly,
     indoorOnly,
+    outdoorOnly,
+    registrationOnly,
     sortMode,
   ]);
 
@@ -1341,9 +1394,13 @@ export default function PublicEventsPage() {
     setSpecificDate("");
     setPriceFilter("all");
     setDistrictFilter("all");
+    setMtrFilter("all");
+    setAgeFilter("all");
     setCategoryFilter("all");
     setSenOnly(false);
     setIndoorOnly(false);
+    setOutdoorOnly(false);
+    setRegistrationOnly(false);
     setSortMode("recommended");
   }
 
@@ -1396,8 +1453,8 @@ export default function PublicEventsPage() {
 
       <section className="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8">
         <div className="sticky top-[88px] z-30 rounded-[1.6rem] border border-slate-200 bg-white/95 p-4 shadow-[0_12px_35px_rgba(15,23,42,0.08)] backdrop-blur">
-          <div className="grid gap-3 xl:grid-cols-[1fr_190px_180px_180px]">
-            <div className="flex items-center rounded-2xl border border-slate-300 bg-white px-4 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-100">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.7fr)_150px_150px_150px_170px_170px]">
+            <div className="flex items-center rounded-2xl border border-slate-300 bg-white px-4 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-100 md:col-span-2 xl:col-span-1">
               <span className="mr-2 text-lg">🔎</span>
               <input
                 value={keyword}
@@ -1415,6 +1472,28 @@ export default function PublicEventsPage() {
               <option value="all">全部地區</option>
               {districtOptions.map((district) => (
                 <option key={district} value={district}>{district}</option>
+              ))}
+            </select>
+
+            <select
+              value={mtrFilter}
+              onChange={(changeEvent) => setMtrFilter(changeEvent.target.value)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="all">全部港鐵</option>
+              {mtrOptions.map((station) => (
+                <option key={station} value={station}>{station}</option>
+              ))}
+            </select>
+
+            <select
+              value={ageFilter}
+              onChange={(changeEvent) => setAgeFilter(changeEvent.target.value)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="all">全部年齡</option>
+              {ageOptions.map((age) => (
+                <option key={age} value={age}>{age}</option>
               ))}
             </select>
 
@@ -1471,13 +1550,41 @@ export default function PublicEventsPage() {
 
             <button
               type="button"
-              onClick={() => setIndoorOnly(!indoorOnly)}
+              onClick={() => {
+                setIndoorOnly(!indoorOnly);
+                if (!indoorOnly) setOutdoorOnly(false);
+              }}
               className={[
                 "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
                 indoorOnly ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700",
               ].join(" ")}
             >
               🏠 室內
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOutdoorOnly(!outdoorOnly);
+                if (!outdoorOnly) setIndoorOnly(false);
+              }}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                outdoorOnly ? "bg-teal-600 text-white" : "bg-teal-50 text-teal-700",
+              ].join(" ")}
+            >
+              🌿 戶外
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setRegistrationOnly(!registrationOnly)}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                registrationOnly ? "bg-fuchsia-700 text-white" : "bg-fuchsia-50 text-fuchsia-700",
+              ].join(" ")}
+            >
+              🎟️ 需報名
             </button>
 
             <button
