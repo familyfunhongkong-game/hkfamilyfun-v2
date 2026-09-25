@@ -50,11 +50,13 @@ export default function FamilyFunMotionHero() {
             </p>
           </div>
 
-          <div className="familyfun-family-runner absolute left-3 top-7 z-20 w-28 sm:w-32">
+          <div className="absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-2xl bg-white/95 p-2 shadow-md ring-1 ring-purple-100">
             <img
               src="/logo.png"
               alt="HK Family Fun"
-              className="h-auto w-full object-contain drop-shadow-lg"
+              width={88}
+              height={88}
+              className="h-20 w-20 object-contain sm:h-24 sm:w-24"
             />
           </div>
 
@@ -63,7 +65,7 @@ export default function FamilyFunMotionHero() {
           <div className="familyfun-spark familyfun-spark-3 absolute right-[12%] top-5 text-lg">✨</div>
 
           <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between gap-3 text-[11px] font-bold text-slate-500">
-            <span>一家四口彈住出發</span>
+            <span>一家出發 · 玩盡香港</span>
             <span>每日發現新活動</span>
           </div>
         </div>
