@@ -897,9 +897,13 @@ export default function PublicEventDetailPage() {
               <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
                 {isFallbackCover ? (
                   <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
-                    <div className="grid h-20 w-20 place-items-center rounded-3xl bg-purple-700 text-3xl font-black text-white shadow-sm">
-                      親
-                    </div>
+                    <img
+                      src="/logo.png"
+                      alt="HK Family Fun"
+                      width={96}
+                      height={96}
+                      className="h-20 w-20 object-contain"
+                    />
                     <p className="mt-4 text-lg font-black text-purple-950">
                       HK Family Fun
                     </p>
