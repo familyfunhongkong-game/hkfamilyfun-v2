@@ -911,6 +911,12 @@ function EventCard({
             alt={title}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
             style={coverStyle}
+            onError={(imageEvent) => {
+              imageEvent.currentTarget.src = "/logo.png";
+              imageEvent.currentTarget.style.objectFit = "contain";
+              imageEvent.currentTarget.style.padding = "1rem";
+              imageEvent.currentTarget.style.backgroundColor = "#ece1cf";
+            }}
           />
         )}
 
