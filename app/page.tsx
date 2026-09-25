@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
 import FamilyFunMotionHero from "@/components/home/FamilyFunMotionHero";
 import SafeEventImage from "@/components/events/SafeEventImage";
+import PromoBannerSlot from "@/components/ads/PromoBannerSlot";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -218,6 +219,10 @@ export default async function HomePage() {
             暫未有即將舉行的已發布活動。
           </div>
         )}
+      </section>
+
+      <section className="mx-auto max-w-[1500px] px-4 py-2 sm:px-6 lg:px-8">
+        <PromoBannerSlot />
       </section>
 
       <section className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
