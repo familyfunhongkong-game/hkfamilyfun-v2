@@ -116,7 +116,7 @@ type GalleryImage = {
   isCover: boolean;
 };
 
-const FALLBACK_IMAGE = "/logo.png";
+const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -898,7 +898,7 @@ export default function PublicEventDetailPage() {
                 {isFallbackCover ? (
                   <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
                     <img
-                      src="/logo.png"
+                      src="/familyfun-logo-original.png"
                       alt="HK Family Fun"
                       width={96}
                       height={96}
@@ -1113,7 +1113,7 @@ export default function PublicEventDetailPage() {
                   {selectedImage?.url === FALLBACK_IMAGE ? (
                     <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
                       <img
-                        src="/logo.png"
+                        src="/familyfun-logo-original.png"
                         alt="HK Family Fun"
                         width={72}
                         height={72}
