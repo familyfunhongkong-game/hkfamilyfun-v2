@@ -529,7 +529,7 @@ export default function MerchantDashboardPage() {
         <div className="mx-auto max-w-[1500px] px-4 py-16">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
             <img
-              src="/logo.png"
+              src="/familyfun-logo-original.png"
               alt="HK Family Fun"
               width={56}
               height={56}
@@ -861,7 +861,7 @@ function EventCard({
                 alt={titleOf(event)}
                 className="max-h-full max-w-full rounded-2xl object-contain"
                 onError={(imageEvent) => {
-                  imageEvent.currentTarget.src = "/logo.png";
+                  imageEvent.currentTarget.src = "/familyfun-logo-original.png";
                   imageEvent.currentTarget.style.padding = "1rem";
                 }}
               />
@@ -869,7 +869,7 @@ function EventCard({
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 p-4">
               <img
-                src="/logo.png"
+                src="/familyfun-logo-original.png"
                 alt="HK Family Fun"
                 width={96}
                 height={96}
