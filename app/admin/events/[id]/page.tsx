@@ -128,7 +128,7 @@ type ChecklistItem = {
 
 type StatusTone = "purple" | "green" | "amber" | "slate" | "rose";
 
-const FALLBACK_IMAGE = "/logo.png";
+const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
 function safeText(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;
