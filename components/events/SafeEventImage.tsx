@@ -14,7 +14,7 @@ export default function SafeEventImage({
   className = "",
 }: SafeEventImageProps) {
   const [failed, setFailed] = useState(false);
-  const imageSrc = !failed && src ? src : "/logo.png";
+  const imageSrc = !failed && src ? src : "/familyfun-logo-original.png";
 
   return (
     <img
