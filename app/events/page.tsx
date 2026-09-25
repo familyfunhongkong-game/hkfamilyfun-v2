@@ -119,12 +119,6 @@ const dateFilters: { key: DateFilter; label: string }[] = [
   { key: "month", label: "本月" },
 ];
 
-const priceFilters: { key: PriceFilter; label: string }[] = [
-  { key: "all", label: "全部收費" },
-  { key: "free", label: "免費" },
-  { key: "paid", label: "收費" },
-];
-
 function safeText(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;
 
@@ -711,66 +705,6 @@ function Badge({
     >
       {children}
     </span>
-  );
-}
-
-function QuickEntry({
-  href,
-  icon,
-  title,
-  desc,
-}: {
-  href: string;
-  icon: string;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md"
-    >
-      <div className="flex items-start gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-purple-50 text-xl">
-          {icon}
-        </span>
-        <div>
-          <p className="font-black text-slate-950">{title}</p>
-          <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
-            {desc}
-          </p>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  note,
-  tone = "slate",
-}: {
-  label: string;
-  value: number | string;
-  note: string;
-  tone?: "slate" | "green" | "purple" | "amber";
-}) {
-  const className =
-    tone === "green"
-      ? "bg-emerald-50 text-emerald-900 ring-emerald-100"
-      : tone === "purple"
-        ? "bg-purple-50 text-purple-950 ring-purple-100"
-        : tone === "amber"
-          ? "bg-amber-50 text-amber-900 ring-amber-100"
-          : "bg-white text-slate-950 ring-slate-200";
-
-  return (
-    <div className={`rounded-3xl p-5 shadow-sm ring-1 ${className}`}>
-      <p className="text-xs font-black opacity-70">{label}</p>
-      <p className="mt-2 text-3xl font-black">{value}</p>
-      <p className="mt-1 text-xs font-bold leading-5 opacity-70">{note}</p>
-    </div>
   );
 }
 
@@ -1400,10 +1334,6 @@ export default function PublicEventsPage() {
 
   const freeCount = useMemo(() => events.filter(isFreeEvent).length, [events]);
 
-  const imageReadyCount = useMemo(
-    () => events.filter(hasRealImage).length,
-    [events],
-  );
 
   function clearFilters() {
     setKeyword("");
