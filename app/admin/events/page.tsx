@@ -117,7 +117,7 @@ type SortMode = "newest" | "oldest" | "date";
 
 type Tone = "purple" | "green" | "amber" | "slate" | "rose";
 
-const FALLBACK_IMAGE = "/logo.png";
+const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
 const statusFilters: { key: StatusFilter; label: string }[] = [
   { key: "all", label: "全部" },
@@ -943,7 +943,7 @@ export default function AdminEventsPage() {
         {loading ? (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
             <img
-              src="/logo.png"
+              src="/familyfun-logo-original.png"
               alt="HK Family Fun"
               width={64}
               height={64}
