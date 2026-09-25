@@ -860,11 +860,21 @@ function EventCard({
                 src={event.cover_image_url}
                 alt={titleOf(event)}
                 className="max-h-full max-w-full rounded-2xl object-contain"
+                onError={(imageEvent) => {
+                  imageEvent.currentTarget.src = "/logo.png";
+                  imageEvent.currentTarget.style.padding = "1rem";
+                }}
               />
             </div>
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-5xl">
-              親
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 p-4">
+              <img
+                src="/logo.png"
+                alt="HK Family Fun"
+                width={96}
+                height={96}
+                className="h-20 w-20 object-contain"
+              />
             </div>
           )}
         </div>
