@@ -5,240 +5,174 @@ import FamilyFunMotionHero from "@/components/home/FamilyFunMotionHero";
 import SafeEventImage from "@/components/events/SafeEventImage";
 
 export const metadata: Metadata = {
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    url: "/",
-  },
+  alternates: { canonical: "/" },
+  openGraph: { url: "/" },
 };
 
 export const dynamic = "force-dynamic";
 
-const quickActions = [
-  {
-    title: "今日活動",
-    subtitle: "即睇今日仍然有效的親子節目",
-    href: "/today",
-    tone: "bg-pink-50 border-pink-100 text-pink-700",
-    icon: "⏰",
-  },
-  {
-    title: "活動日曆",
-    subtitle: "按日期計劃平日及週末親子時間",
-    href: "/calendar",
-    tone: "bg-blue-50 border-blue-100 text-blue-700",
-    icon: "🗓️",
-  },
-  {
-    title: "地點探索",
-    subtitle: "按地區、港鐵站及地址搵活動",
-    href: "/events/map",
-    tone: "bg-teal-50 border-teal-100 text-teal-700",
-    icon: "📍",
-  },
+const discoveryChips = [
+  { label: "今日", href: "/events?date=today", icon: "☀️" },
+  { label: "聽日", href: "/events?date=tomorrow", icon: "🌤️" },
+  { label: "今個週末", href: "/events?date=weekend", icon: "🎈" },
+  { label: "免費", href: "/events?price=free", icon: "🎁" },
+  { label: "室內", href: "/events?indoor=true", icon: "🏠" },
+  { label: "SEN 友善", href: "/events?sen=true", icon: "💛" },
+  { label: "市集", href: "/events?category=market", icon: "🛍️" },
+  { label: "工作坊", href: "/events?category=workshop", icon: "🎨" },
 ];
 
-const categories = [
-  { label: "免費活動", href: "/events?price=free", icon: "🎁" },
-  { label: "商場活動", href: "/events?category=mall", icon: "🏬" },
-  { label: "工作坊", href: "/events?category=workshop", icon: "🎨" },
-  { label: "SEN 友善", href: "/events?sen=true", icon: "💛" },
-  { label: "室內活動", href: "/events?indoor=true", icon: "🏠" },
-  { label: "今個週末", href: "/events?date=weekend", icon: "🌈" },
+const categoryTiles = [
+  { label: "商場活動", href: "/events?category=mall", icon: "🏬", tone: "bg-rose-50" },
+  { label: "展覽博物館", href: "/events?category=exhibition", icon: "🏛️", tone: "bg-blue-50" },
+  { label: "戶外放電", href: "/events?category=outdoor", icon: "🌿", tone: "bg-emerald-50" },
+  { label: "運動體驗", href: "/events?category=sports", icon: "⚽", tone: "bg-amber-50" },
+  { label: "藝術創作", href: "/events?category=arts", icon: "🖍️", tone: "bg-violet-50" },
+  { label: "一家去食", href: "/events?category=cooking", icon: "🥟", tone: "bg-orange-50" },
 ];
 
 export default async function HomePage() {
   const events = await getPublishedEvents();
   const featured = events.filter((event) => event.featured);
-  const upcoming = (featured.length ? featured : events).slice(0, 6);
+  const upcoming = (featured.length ? featured : events).slice(0, 8);
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <section className="bg-gradient-to-b from-white via-purple-50/40 to-slate-50">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8">
-          <div>
-            <p className="text-sm font-black text-purple-700">
-              HK Family Fun 香港親子活動平台
-            </p>
-
-            <h1 className="mt-3 text-4xl font-black leading-tight tracking-tight text-slate-950 sm:text-5xl">
-              香港親子活動，
-              <br />
-              一站搵齊。
-            </h1>
-
-            <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600">
-              按日期、地區、港鐵站、價錢及活動類型搜尋親子活動。
-              活動報名會連接主辦單位官方渠道，HK Family Fun 現階段不代收活動款項。
-            </p>
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                href="/events"
-                className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-purple-800"
-              >
-                搜尋親子活動
-              </Link>
-              <Link
-                href="/calendar"
-                className="rounded-full border border-blue-300 bg-blue-50 px-5 py-3 text-sm font-black text-blue-700"
-              >
-                開啟活動日曆
-              </Link>
-              <Link
-                href="/merchant-join"
-                className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700"
-              >
-                商戶加入
-              </Link>
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              {quickActions.map((item) => (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className={`rounded-3xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${item.tone}`}
-                >
-                  <div className="text-2xl">{item.icon}</div>
-                  <h2 className="mt-2 text-base font-black text-slate-950">
-                    {item.title}
-                  </h2>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">
-                    {item.subtitle}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <FamilyFunMotionHero />
-
-            <div className="rounded-[2rem] border border-purple-100 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3">
+    <main className="min-h-screen bg-[#f7f8fa] text-slate-950">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1500px] px-4 pb-8 pt-8 sm:px-6 lg:px-8 lg:pb-12 lg:pt-10">
+          <div className="grid gap-8 xl:grid-cols-[0.88fr_1.12fr] xl:items-center">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-3">
+                <img
+                  src="/logo.png"
+                  alt="HK Family Fun"
+                  width={88}
+                  height={88}
+                  className="h-[76px] w-[76px] rounded-2xl object-contain shadow-sm ring-1 ring-slate-200"
+                />
                 <div>
-                  <p className="text-sm font-black text-purple-700">最新已發布活動</p>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">
-                    {events.length ? `現有 ${events.length} 個有效活動` : "新活動正在整理中"}
-                  </h2>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-purple-700">
+                    HK Family Fun
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-slate-500">香港親子活動搜尋平台</p>
                 </div>
-                <Link
-                  href="/events"
-                  className="rounded-full bg-purple-50 px-4 py-2 text-xs font-black text-purple-700"
-                >
-                  查看全部
-                </Link>
               </div>
 
-              {events[0] ? (
-                <Link
-                  href={`/events/${events[0].id}`}
-                  className="mt-4 grid gap-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[110px_1fr] sm:items-center"
+              <h1 className="mt-6 text-[2.55rem] font-black leading-[1.05] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.55rem]">
+                今日帶小朋友
+                <br />
+                <span className="text-purple-700">去邊度玩？</span>
+              </h1>
+
+              <p className="mt-5 max-w-xl text-base font-medium leading-7 text-slate-600 sm:text-lg">
+                唔使逐個網站搵。用日期、地區、港鐵、價錢同活動類型，一次過搵香港親子好去處。
+              </p>
+
+              <form
+                action="/events"
+                className="mt-7 flex max-w-2xl items-center gap-2 rounded-[1.4rem] border border-slate-200 bg-white p-2 shadow-[0_16px_45px_rgba(15,23,42,0.09)]"
+              >
+                <span className="pl-3 text-xl" aria-hidden="true">🔎</span>
+                <input
+                  type="search"
+                  name="q"
+                  placeholder="搜尋活動、地區、商場、港鐵站..."
+                  className="min-w-0 flex-1 bg-transparent px-2 py-3 text-sm font-semibold text-slate-900 outline-none placeholder:font-medium placeholder:text-slate-400 sm:text-base"
+                />
+                <button
+                  type="submit"
+                  className="shrink-0 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-purple-700"
                 >
-                  <SafeEventImage
-                    src={events[0].image}
-                    alt={events[0].title}
-                    className="h-24 w-full rounded-xl object-cover sm:w-[110px]"
-                  />
-                  <div>
-                    <p className="text-xs font-black text-purple-700">
-                      {events[0].date} · {events[0].district}
-                    </p>
-                    <h3 className="mt-1 line-clamp-2 text-base font-black text-slate-950">
-                      {events[0].title}
-                    </h3>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {events[0].organizer}
-                    </p>
-                  </div>
+                  搜尋
+                </button>
+              </form>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {discoveryChips.slice(0, 6).map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-black text-slate-700 transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700"
+                  >
+                    <span className="mr-1.5">{item.icon}</span>
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+
+              <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                <Link href="/calendar" className="font-black text-slate-900 hover:text-purple-700">
+                  📅 活動日曆
                 </Link>
-              ) : (
-                <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm text-slate-500">
-                  暫未有有效公開活動；平台不會以示範活動冒充真實活動。
-                </div>
-              )}
+                <Link href="/events/map" className="font-black text-slate-900 hover:text-purple-700">
+                  📍 地圖探索
+                </Link>
+                <Link href="/favorites" className="font-black text-slate-900 hover:text-purple-700">
+                  ❤️ 我的收藏
+                </Link>
+              </div>
             </div>
+
+            <FamilyFunMotionHero />
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-black text-purple-700">快速探索</p>
-            <h2 className="mt-2 text-2xl font-black text-slate-950">
-              用你最常用的方法搵活動
-            </h2>
-          </div>
-          <Link
-            href="/events"
-            className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700"
-          >
-            查看全部活動
-          </Link>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-          {categories.map((item) => (
+      <section className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide lg:grid lg:grid-cols-8 lg:overflow-visible">
+          {discoveryChips.map((item) => (
             <Link
               key={item.label}
               href={item.href}
-              className="rounded-3xl border border-slate-200 bg-white p-5 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md"
+              className="min-w-[132px] rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md lg:min-w-0"
             >
-              <div className="text-3xl">{item.icon}</div>
-              <p className="mt-3 text-sm font-black text-slate-900">
-                {item.label}
-              </p>
+              <div className="text-2xl">{item.icon}</div>
+              <p className="mt-2 text-sm font-black text-slate-900">{item.label}</p>
             </Link>
           ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <section className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-black text-pink-700">活動精選</p>
-            <h2 className="mt-2 text-2xl font-black text-slate-950">
-              即將舉行
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-purple-700">Discover</p>
+            <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+              今期值得去
             </h2>
           </div>
-          <Link
-            href="/calendar"
-            className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white"
-          >
-            用日曆查看
+          <Link href="/events" className="text-sm font-black text-purple-700 hover:text-purple-900">
+            查看全部 →
           </Link>
         </div>
 
         {upcoming.length ? (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {upcoming.map((event) => (
               <Link
                 key={event.id}
                 href={`/events/${event.id}`}
-                className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                className="group overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
               >
-                <SafeEventImage
-                  src={event.image}
-                  alt={event.title}
-                  className="h-48 w-full object-cover"
-                />
-                <div className="p-5">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
-                      {event.date}
-                    </span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                      {event.price || "詳情請見官方網站"}
-                    </span>
+                <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+                  <SafeEventImage
+                    src={event.image}
+                    alt={event.title}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
+                  />
+                  <div className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-[11px] font-black text-purple-700 shadow-sm">
+                    {event.price || "查看詳情"}
                   </div>
-                  <h3 className="mt-3 text-xl font-black text-slate-950">
+                </div>
+                <div className="p-4">
+                  <p className="text-xs font-black text-purple-700">
+                    {event.date} · {event.district}
+                  </p>
+                  <h3 className="mt-2 line-clamp-2 text-lg font-black leading-snug text-slate-950">
                     {event.title}
                   </h3>
-                  <p className="mt-2 text-sm text-slate-600">
-                    {event.organizer} · {event.district}
+                  <p className="mt-2 line-clamp-1 text-xs font-medium text-slate-500">
+                    {event.organizer}
                   </p>
                 </div>
               </Link>
@@ -251,61 +185,61 @@ export default async function HomePage() {
         )}
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-[2rem] border border-teal-100 bg-white p-6 shadow-sm">
-            <p className="text-sm font-black text-teal-700">地點探索</p>
-            <h2 className="mt-2 text-2xl font-black text-slate-950">
-              按地區、港鐵站及地址搵活動
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-slate-600">
-              活動資料會使用主辦單位提供的地址連接 Google Maps，不會使用示範座標。
-            </p>
-            <Link
-              href="/events/map"
-              className="mt-5 inline-flex rounded-full bg-teal-600 px-5 py-3 text-sm font-black text-white"
-            >
-              開啟地點探索
-            </Link>
-          </div>
-
-          <div className="rounded-[2rem] border border-purple-100 bg-slate-950 p-6 text-white shadow-sm">
-            <p className="text-sm font-black text-purple-200">Merchant Portal</p>
-            <h2 className="mt-2 text-2xl font-black">
-              商戶自己管理活動，再交平台審批
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-white/75">
-              已有活動網頁可使用智能網址匯入建立草稿；亦可以手動補資料、上載圖片、預覽後提交審批。
-              所有匯入結果都需要人工核對，不會自動發布。
-            </p>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              {[
-                ["1", "建立草稿"],
-                ["2", "提交審批"],
-                ["3", "批准後發布"],
-              ].map(([step, label]) => (
-                <div
-                  key={step}
-                  className="rounded-2xl bg-white/10 px-4 py-4 text-center"
+      <section className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="rounded-[2rem] bg-slate-950 p-6 text-white sm:p-8">
+          <div className="grid gap-6 lg:grid-cols-[0.7fr_1.3fr] lg:items-center">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-purple-300">
+                Quick Pick
+              </p>
+              <h2 className="mt-2 text-2xl font-black sm:text-3xl">唔知去邊？揀一個心情。</h2>
+              <p className="mt-3 max-w-md text-sm leading-6 text-white/65">
+                參考日本、韓國活動平台做法，先畀家長用「目的」揀，再慢慢收窄日期同地點。
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {categoryTiles.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`rounded-2xl p-4 text-slate-950 transition hover:-translate-y-0.5 ${item.tone}`}
                 >
-                  <p className="text-xl font-black">{step}</p>
-                  <p className="mt-1 text-xs font-bold text-white/80">{label}</p>
-                </div>
+                  <div className="text-2xl">{item.icon}</div>
+                  <p className="mt-2 text-sm font-black">{item.label}</p>
+                </Link>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Link
-                href="/merchant/register"
-                className="rounded-full bg-white px-5 py-3 text-sm font-black text-purple-700"
-              >
-                免費登記商戶
+      <section className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <Link
+            href="/events/map"
+            className="group rounded-[2rem] border border-emerald-100 bg-emerald-50 p-6 transition hover:border-emerald-200 sm:p-8"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Near you</p>
+            <h2 className="mt-2 text-2xl font-black text-slate-950">用地圖搵附近活動</h2>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
+              地區、港鐵站、地址一次睇，減少家長來回切換頁面。
+            </p>
+            <span className="mt-5 inline-flex rounded-full bg-emerald-600 px-5 py-3 text-sm font-black text-white">
+              開啟地圖探索 →
+            </span>
+          </Link>
+
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 sm:p-8">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-purple-700">For merchants</p>
+            <h2 className="mt-2 text-xl font-black text-slate-950">活動主辦可以自己投稿</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              建立活動、上載圖片、預覽，再提交 HK Family Fun 審批。
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link href="/merchant/register" className="rounded-full bg-purple-700 px-4 py-2.5 text-sm font-black text-white">
+                免費登記
               </Link>
-              <Link
-                href="/merchant/login"
-                className="rounded-full border border-white/30 px-5 py-3 text-sm font-black text-white"
-              >
+              <Link href="/merchant/login" className="rounded-full border border-slate-300 px-4 py-2.5 text-sm font-black text-slate-700">
                 商戶登入
               </Link>
             </div>
