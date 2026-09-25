@@ -107,7 +107,7 @@ type PriceFilter = "all" | "free" | "paid";
 type DateFilter = "all" | "today" | "tomorrow" | "weekend" | "month";
 type SortMode = "recommended" | "date_asc" | "date_desc" | "newest";
 
-const FALLBACK_IMAGE = "/logo.png";
+const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
 
@@ -895,7 +895,7 @@ function EventCard({
         {isFallback ? (
           <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
             <img
-              src="/logo.png"
+              src="/familyfun-logo-original.png"
               alt="HK Family Fun"
               width={72}
               height={72}
@@ -915,7 +915,7 @@ function EventCard({
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
             style={coverStyle}
             onError={(imageEvent) => {
-              imageEvent.currentTarget.src = "/logo.png";
+              imageEvent.currentTarget.src = "/familyfun-logo-original.png";
               imageEvent.currentTarget.style.objectFit = "contain";
               imageEvent.currentTarget.style.padding = "1rem";
               imageEvent.currentTarget.style.backgroundColor = "#ece1cf";
@@ -1609,7 +1609,7 @@ export default function PublicEventsPage() {
         {loading ? (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
             <img
-              src="/logo.png"
+              src="/familyfun-logo-original.png"
               alt="HK Family Fun"
               width={64}
               height={64}
