@@ -116,8 +116,7 @@ type GalleryImage = {
   isCover: boolean;
 };
 
-const FALLBACK_IMAGE =
-  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+const FALLBACK_IMAGE = "/logo.png";
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -914,6 +913,12 @@ export default function PublicEventDetailPage() {
                     alt={title}
                     className="h-full w-full object-cover"
                     style={coverStyle}
+                    onError={(imageEvent) => {
+                      imageEvent.currentTarget.src = FALLBACK_IMAGE;
+                      imageEvent.currentTarget.style.objectFit = "contain";
+                      imageEvent.currentTarget.style.padding = "1rem";
+                      imageEvent.currentTarget.style.backgroundColor = "#ece1cf";
+                    }}
                   />
                 )}
 
@@ -1116,6 +1121,12 @@ export default function PublicEventDetailPage() {
                       alt={selectedImage?.label || title}
                       className="h-full w-full object-cover"
                       style={selectedImageStyle}
+                      onError={(imageEvent) => {
+                        imageEvent.currentTarget.src = FALLBACK_IMAGE;
+                        imageEvent.currentTarget.style.objectFit = "contain";
+                        imageEvent.currentTarget.style.padding = "1rem";
+                        imageEvent.currentTarget.style.backgroundColor = "#ece1cf";
+                      }}
                     />
                   )}
 
@@ -1156,6 +1167,12 @@ export default function PublicEventDetailPage() {
                             alt={image.label}
                             className="h-full w-full object-cover transition group-hover:scale-[1.03]"
                             style={image.isCover ? coverStyle : undefined}
+                            onError={(imageEvent) => {
+                              imageEvent.currentTarget.src = FALLBACK_IMAGE;
+                              imageEvent.currentTarget.style.objectFit = "contain";
+                              imageEvent.currentTarget.style.padding = "0.75rem";
+                              imageEvent.currentTarget.style.backgroundColor = "#ece1cf";
+                            }}
                           />
                         )}
                       </div>
