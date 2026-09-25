@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
 import FamilyFunMotionHero from "@/components/home/FamilyFunMotionHero";
+import SafeEventImage from "@/components/events/SafeEventImage";
 
 export const metadata: Metadata = {
   alternates: {
@@ -136,9 +137,9 @@ export default async function HomePage() {
                   href={`/events/${events[0].id}`}
                   className="mt-4 grid gap-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[110px_1fr] sm:items-center"
                 >
-                  <img
+                  <SafeEventImage
                     src={events[0].image}
-                    alt=""
+                    alt={events[0].title}
                     className="h-24 w-full rounded-xl object-cover sm:w-[110px]"
                   />
                   <div>
@@ -219,9 +220,9 @@ export default async function HomePage() {
                 href={`/events/${event.id}`}
                 className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
-                <img
+                <SafeEventImage
                   src={event.image}
-                  alt=""
+                  alt={event.title}
                   className="h-48 w-full object-cover"
                 />
                 <div className="p-5">
