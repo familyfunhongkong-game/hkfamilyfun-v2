@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 
@@ -264,6 +264,10 @@ export default function ImportEventPage() {
     return currentMerchant;
   }
 
+  useEffect(() => {
+    void loadMerchant();
+  }, []);
+
   async function extractFromUrl() {
     const targetUrl = url.trim();
 
@@ -516,7 +520,7 @@ export default function ImportEventPage() {
             <button
               type="button"
               onClick={extractFromUrl}
-              disabled={extracting}
+              disabled={extracting || loadingMerchant || !merchant}
               className="mt-4 w-full rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
             >
               {extracting ? "正在抽取資料..." : "抽取活動資料"}
@@ -743,7 +747,7 @@ export default function ImportEventPage() {
                 <button
                   type="button"
                   onClick={saveDraft}
-                  disabled={saving}
+                  disabled={saving || loadingMerchant || !merchant}
                   className="rounded-full bg-purple-700 px-6 py-3 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
                 >
                   {saving ? "正在儲存..." : "儲存為活動草稿"}
