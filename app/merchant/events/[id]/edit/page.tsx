@@ -2002,7 +2002,7 @@ function PreviewCard({
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 p-5">
             <img
-              src="/logo.png"
+              src="/familyfun-logo-original.png"
               alt="HK Family Fun"
               width={112}
               height={112}
