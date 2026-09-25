@@ -1,90 +1,67 @@
 import Link from "next/link";
 
+const lifestyleCards = [
+  {
+    label: "週末市集",
+    sub: "行下市集 · 親子放電",
+    href: "/events?category=market",
+    image:
+      "https://images.unsplash.com/photo-1745847800340-24e5aa5c28ff?auto=format&fit=crop&q=82&w=1200",
+  },
+  {
+    label: "博物館",
+    sub: "落雨都玩到 · 邊玩邊學",
+    href: "/events?category=exhibition",
+    image:
+      "https://images.unsplash.com/photo-1763696118771-b1b35552bfc2?auto=format&fit=crop&q=82&w=1200",
+  },
+  {
+    label: "香港小旅行",
+    sub: "搭船 · 海旁 · 城市探索",
+    href: "/events?category=outdoor",
+    image:
+      "https://images.unsplash.com/photo-1775119222921-641a304ef582?auto=format&fit=crop&q=82&w=1200",
+  },
+  {
+    label: "一家去食",
+    sub: "親子食店 · 美食體驗",
+    href: "/events?category=cooking",
+    image:
+      "https://images.unsplash.com/photo-1605016896945-719f1c79c9f6?auto=format&fit=crop&q=82&w=1200",
+  },
+];
+
 export default function FamilyFunMotionHero() {
   return (
-    <div className="familyfun-motion relative overflow-hidden rounded-[2rem] border border-purple-100 bg-gradient-to-br from-violet-100 via-white to-sky-100 p-6 shadow-xl shadow-purple-100/60">
-      <div className="pointer-events-none absolute -left-10 top-8 h-32 w-32 rounded-full bg-pink-200/40 blur-3xl" />
-      <div className="pointer-events-none absolute -right-8 bottom-12 h-36 w-36 rounded-full bg-sky-200/50 blur-3xl" />
-
-      <div className="relative z-10">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-purple-700 shadow-sm">
-            一家出發 · 玩盡香港
-          </span>
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
-            玩 · 食 · 飛
-          </span>
-        </div>
-
-        <h2 className="mt-4 text-3xl font-black leading-tight text-slate-950 sm:text-4xl">
-          一家出發，
-          <br />
-          今日去邊度玩？
-        </h2>
-
-        <p className="mt-3 max-w-lg text-sm leading-6 text-slate-600">
-          由親子活動、食好西到家庭旅程，用最輕鬆的方法發現下一個 Family Fun Moment。
-        </p>
-
-        <div className="relative mt-6 h-56 overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/65 p-4 shadow-inner backdrop-blur">
-          <div className="absolute left-5 right-5 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gradient-to-r from-pink-300 via-amber-300 to-sky-300" />
-
-          <div className="absolute left-[8%] top-[54%] -translate-y-1/2 text-center">
-            <div className="familyfun-stop-icon text-4xl">🎡</div>
-            <p className="mt-2 rounded-full bg-pink-50 px-3 py-1 text-xs font-black text-pink-700">
-              去玩
-            </p>
+    <div className="grid gap-3 sm:grid-cols-2">
+      {lifestyleCards.map((card, index) => (
+        <Link
+          key={card.label}
+          href={card.href}
+          className={[
+            "group relative overflow-hidden rounded-[1.6rem] bg-slate-200 shadow-sm ring-1 ring-black/5",
+            index === 0 ? "sm:row-span-2 sm:min-h-[430px]" : "min-h-[205px]",
+          ].join(" ")}
+        >
+          <img
+            src={card.image}
+            alt={card.label}
+            className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+            <p className="text-xs font-bold text-white/80">{card.sub}</p>
+            <div className="mt-1 flex items-end justify-between gap-3">
+              <h2 className="text-xl font-black tracking-tight sm:text-2xl">
+                {card.label}
+              </h2>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/95 text-base font-black text-slate-950 transition group-hover:translate-x-0.5">
+                →
+              </span>
+            </div>
           </div>
-
-          <div className="absolute left-1/2 top-[54%] -translate-x-1/2 -translate-y-1/2 text-center">
-            <div className="familyfun-stop-icon familyfun-delay-1 text-4xl">🍜</div>
-            <p className="mt-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-800">
-              去食
-            </p>
-          </div>
-
-          <div className="absolute right-[8%] top-[54%] -translate-y-1/2 text-center">
-            <div className="familyfun-stop-icon familyfun-delay-2 text-4xl">✈️</div>
-            <p className="mt-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
-              去旅行
-            </p>
-          </div>
-
-          <div className="absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-2xl bg-white/95 p-2 shadow-md ring-1 ring-purple-100">
-            <img
-              src="/logo.png"
-              alt="HK Family Fun"
-              width={88}
-              height={88}
-              className="h-20 w-20 object-contain sm:h-24 sm:w-24"
-            />
-          </div>
-
-          <div className="familyfun-spark familyfun-spark-1 absolute left-[26%] top-6 text-xl">✨</div>
-          <div className="familyfun-spark familyfun-spark-2 absolute left-[63%] top-10 text-lg">⭐</div>
-          <div className="familyfun-spark familyfun-spark-3 absolute right-[12%] top-5 text-lg">✨</div>
-
-          <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between gap-3 text-[11px] font-bold text-slate-500">
-            <span>一家出發 · 玩盡香港</span>
-            <span>每日發現新活動</span>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link
-            href="/events"
-            className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-purple-800"
-          >
-            即刻搵活動
-          </Link>
-          <Link
-            href="/events/map"
-            className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-purple-300"
-          >
-            睇附近活動
-          </Link>
-        </div>
-      </div>
+        </Link>
+      ))}
     </div>
   );
 }
