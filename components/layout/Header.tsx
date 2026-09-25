@@ -13,9 +13,13 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 text-lg font-bold text-white shadow-md">
-            親
-          </span>
+          <img
+            src="/logo.png"
+            alt="HK Family Fun"
+            width={56}
+            height={56}
+            className="h-14 w-14 shrink-0 object-contain"
+          />
           <div>
             <p className="text-lg font-bold text-gray-900">{SITE_NAME}</p>
             <p className="text-xs text-gray-500">香港親子活動搜尋平台</p>
