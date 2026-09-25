@@ -1,5 +1,6 @@
 ﻿import type { Metadata } from "next";
 import Link from "next/link";
+import PublicHeader from "@/components/layout/PublicHeader";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -48,106 +49,6 @@ export const metadata: Metadata = {
     follow: true,
   },
 };
-
-const parentLinks = [
-  {
-    href: "/",
-    label: "首頁",
-    icon: "🏠",
-    hoverClass: "hover:bg-blue-50 hover:text-blue-700",
-  },
-  {
-    href: "/calendar",
-    label: "活動日曆",
-    icon: "🗓️",
-    hoverClass: "hover:bg-blue-50 hover:text-blue-700",
-  },
-  {
-    href: "/today",
-    label: "今日活動",
-    icon: "⏰",
-    hoverClass: "hover:bg-pink-50 hover:text-pink-700",
-  },
-  {
-    href: "/events",
-    label: "搜尋活動",
-    icon: "🔎",
-    hoverClass: "hover:bg-purple-50 hover:text-purple-700",
-  },
-  {
-    href: "/events/map",
-    label: "地點探索",
-    icon: "🗺️",
-    hoverClass: "hover:bg-teal-50 hover:text-teal-700",
-  },
-  {
-    href: "/tips",
-    label: "報料區",
-    icon: "💬",
-    hoverClass: "hover:bg-violet-50 hover:text-violet-700",
-  },
-  {
-    href: "/favorites",
-    label: "收藏",
-    icon: "💖",
-    hoverClass: "hover:bg-rose-50 hover:text-rose-700",
-  },
-];
-
-function SiteHeader() {
-  return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-3">
-          <img
-            src="/logo.png"
-            alt="HK Family Fun"
-            width={44}
-            height={44}
-            className="h-11 w-11 object-contain"
-          />
-          <span>
-            <span className="block text-lg font-black leading-tight text-slate-950">
-              HK Family Fun
-            </span>
-            <span className="block text-xs text-slate-500">
-              香港親子活動平台
-            </span>
-          </span>
-        </Link>
-
-        <nav className="flex flex-wrap items-center gap-1 text-sm font-bold text-slate-600">
-          {parentLinks.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`rounded-2xl px-3 py-2 transition ${item.hoverClass}`}
-            >
-              <span className="mr-1">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/merchant-join"
-            className="text-sm font-bold text-slate-600 hover:text-purple-700"
-          >
-            商戶加入
-          </Link>
-
-          <Link
-            href="/merchant/register"
-            className="rounded-full bg-purple-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-purple-800"
-          >
-            商戶免費登記
-          </Link>
-        </div>
-      </div>
-    </header>
-  );
-}
 
 function SiteFooter() {
   return (
@@ -291,7 +192,7 @@ export default function RootLayout({
   return (
     <html lang="zh-Hant">
       <body className="bg-slate-50 text-slate-950 antialiased">
-        <SiteHeader />
+        <PublicHeader />
         {children}
         <SiteFooter />
       </body>
