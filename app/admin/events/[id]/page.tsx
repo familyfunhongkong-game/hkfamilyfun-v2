@@ -128,8 +128,7 @@ type ChecklistItem = {
 
 type StatusTone = "purple" | "green" | "amber" | "slate" | "rose";
 
-const FALLBACK_IMAGE =
-  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+const FALLBACK_IMAGE = "/logo.png";
 
 function safeText(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;
