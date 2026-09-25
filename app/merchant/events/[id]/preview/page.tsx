@@ -96,7 +96,7 @@ type CompletenessItem = {
   done: boolean;
 };
 
-const FALLBACK_IMAGE = "/logo.png";
+const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
 function safeText(value: unknown, fallback = "未填寫"): string {
   if (typeof value !== "string") return fallback;
