@@ -1605,9 +1605,13 @@ export default function PublicEventsPage() {
 
         {loading ? (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-2xl">
-              親
-            </div>
+            <img
+              src="/logo.png"
+              alt="HK Family Fun"
+              width={64}
+              height={64}
+              className="mx-auto mb-4 h-16 w-16 object-contain"
+            />
             <p className="text-sm font-black text-slate-700">正在讀取活動資料...</p>
           </div>
         ) : null}
