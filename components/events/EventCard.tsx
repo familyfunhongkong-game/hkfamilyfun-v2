@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import {
   Bookmark,
@@ -14,6 +13,7 @@ import {
 import { useState } from "react";
 import type { Event } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
+import SafeEventImage from "@/components/events/SafeEventImage";
 import { cn, formatEventDate, getEventShareMessage, getTagColor, getWhatsAppUrl } from "@/lib/utils";
 
 interface EventCardProps {
@@ -32,12 +32,10 @@ export function EventCard({ event, className }: EventCardProps) {
       )}
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
-        <Image
+        <SafeEventImage
           src={event.image}
           alt={event.title}
-          fill
-          className="object-cover transition duration-300 group-hover:scale-105"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
         />
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
           <Badge variant={event.priceType === "free" ? "free" : "paid"}>
