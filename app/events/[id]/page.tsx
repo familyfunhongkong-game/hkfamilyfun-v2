@@ -1112,9 +1112,13 @@ export default function PublicEventDetailPage() {
                 <div className="relative aspect-[16/9] overflow-hidden">
                   {selectedImage?.url === FALLBACK_IMAGE ? (
                     <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
-                      <div className="grid h-16 w-16 place-items-center rounded-3xl bg-purple-700 text-2xl font-black text-white shadow-sm">
-                        親
-                      </div>
+                      <img
+                        src="/logo.png"
+                        alt="HK Family Fun"
+                        width={72}
+                        height={72}
+                        className="h-16 w-16 object-contain"
+                      />
                       <p className="mt-3 text-sm font-black text-purple-950">
                         活動圖片準備中
                       </p>
