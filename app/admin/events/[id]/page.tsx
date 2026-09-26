@@ -773,21 +773,37 @@ export default function AdminEventReviewPage() {
     setErrorText("");
     setMessage("");
 
+    const {
+      data: { user },
+      error: userError,
+    } = await client.auth.getUser();
+
+    if (userError || !user) {
+      setErrorText("Admin 登入已失效，請重新登入。");
+      setSaving(false);
+      return;
+    }
+
     const now = new Date().toISOString();
 
     const payload: Record<string, unknown> = {
       status: nextStatus,
       admin_review_note: adminNote || null,
       reviewed_at: now,
+      reviewed_by: user.id,
       updated_at: now,
     };
 
     if (nextStatus === "published") {
+      payload.approved_at = now;
       payload.published_at = now;
+      payload.rejected_at = null;
       payload.rejection_reason = null;
     }
 
     if (nextStatus === "rejected") {
+      payload.rejected_at = now;
+      payload.published_at = null;
       payload.rejection_reason =
         adminNote || "資料未符合發布要求，請商戶補充後再提交。";
     }
@@ -799,8 +815,11 @@ export default function AdminEventReviewPage() {
       .select("*")
       .maybeSingle();
 
-    if (error) {
-      setErrorText(error.message || "更新審批狀態失敗。");
+    if (error || !data) {
+      setErrorText(
+        error?.message ||
+          "資料庫沒有更新任何活動。請確認 Admin 權限及活動目前狀態後再試。",
+      );
       setSaving(false);
       return;
     }
