@@ -24,6 +24,7 @@ const EVENT_WORDS = [
   "活動","故事","體驗","中秋","聖誕","萬聖節","市集","表演"
 ];
 const IGNORE_WORDS = ["私隱","條款","主頁","登入","搜尋","聯絡","關於","下載"];
+const MAX_NEW_DRAFTS_PER_RUN = 5;
 
 function normalizeText(value = "") {
   return String(value).replace(/\s+/g, " ").trim();
@@ -77,15 +78,148 @@ async function sourceAlreadyExists(url, fp) {
   return byUrl.length > 0;
 }
 
+
+function firstText(value) {
+  if (Array.isArray(value)) return firstText(value[0]);
+  if (value && typeof value === "object" && "name" in value) return firstText(value.name);
+  return normalizeText(value || "");
+}
+
+function isoCalendarParts(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}))?/);
+  return {
+    date: match?.[1] || null,
+    time: match?.[2] || null,
+  };
+}
+
+function readJsonLdEvents($) {
+  const events = [];
+
+  $('script[type="application/ld+json"]').each((_, element) => {
+    const raw = $(element).text().trim();
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw);
+      const queue = Array.isArray(parsed) ? [...parsed] : [parsed];
+
+      while (queue.length) {
+        const item = queue.shift();
+        if (!item || typeof item !== "object") continue;
+
+        if (Array.isArray(item["@graph"])) queue.push(...item["@graph"]);
+
+        const type = item["@type"];
+        const types = Array.isArray(type) ? type : [type];
+        if (types.some((entry) => String(entry).toLowerCase() === "event")) {
+          events.push(item);
+        }
+      }
+    } catch {
+      // Invalid publisher JSON-LD should not stop the whole discovery run.
+    }
+  });
+
+  return events;
+}
+
+async function enrichCandidate(candidate) {
+  try {
+    const response = await fetch(candidate.url, {
+      headers: {
+        "User-Agent":
+          "HKFamilyFunEventDiscovery/1.0 (+https://hkfamilyfun.com; info@hkfamilyfun.com)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+    });
+
+    if (!response.ok) return candidate;
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const structured = readJsonLdEvents($)[0] || {};
+
+    const ogTitle = normalizeText(
+      $('meta[property="og:title"]').attr("content") ||
+      $('meta[name="twitter:title"]').attr("content") ||
+      $("title").first().text()
+    );
+
+    const description = normalizeText(
+      firstText(structured.description) ||
+      $('meta[property="og:description"]').attr("content") ||
+      $('meta[name="description"]').attr("content") ||
+      ""
+    );
+
+    const imageValue = structured.image;
+    const image =
+      firstText(imageValue) ||
+      normalizeText($('meta[property="og:image"]').attr("content") || "");
+
+    const start = isoCalendarParts(structured.startDate);
+    const end = isoCalendarParts(structured.endDate);
+
+    const location = structured.location || {};
+    const postalAddress =
+      location && typeof location === "object" ? location.address || {} : {};
+
+    const venueName =
+      firstText(location) ||
+      firstText(location?.name) ||
+      "";
+
+    const addressParts = [
+      firstText(postalAddress?.streetAddress),
+      firstText(postalAddress?.addressLocality),
+      firstText(postalAddress?.addressRegion),
+    ].filter(Boolean);
+
+    const organizer =
+      firstText(structured.organizer) ||
+      candidate.sourceName;
+
+    return {
+      ...candidate,
+      title: firstText(structured.name) || ogTitle || candidate.title,
+      description: description.slice(0, 5000),
+      shortDescription: description.slice(0, 260),
+      image,
+      startDate: start.date,
+      endDate: end.date || start.date,
+      startTime: start.time,
+      endTime: end.time,
+      venueName,
+      address: addressParts.join(" "),
+      organizer,
+    };
+  } catch {
+    return candidate;
+  }
+}
+
 async function insertDraft(candidate) {
+  const enriched = await enrichCandidate(candidate);
+
   const payload = {
-    title_tc: candidate.title,
-    title: candidate.title,
-    organizer_name: candidate.sourceName,
-    source_url: candidate.url,
-    official_url: candidate.url,
+    title_tc: enriched.title,
+    title: enriched.title,
+    short_description_tc: enriched.shortDescription || null,
+    description_tc: enriched.description || null,
+    organizer_name: enriched.organizer || enriched.sourceName,
+    start_date: enriched.startDate || null,
+    end_date: enriched.endDate || enriched.startDate || null,
+    start_time: enriched.startTime || null,
+    end_time: enriched.endTime || null,
+    venue_name: enriched.venueName || null,
+    address: enriched.address || null,
+    cover_image_url: enriched.image || null,
+    source_url: enriched.url,
+    official_url: enriched.url,
     source_type: "auto_discovered",
-    source_fingerprint: candidate.fingerprint,
+    source_fingerprint: enriched.fingerprint,
     auto_imported_at: new Date().toISOString(),
     auto_import_note:
       "Automatically discovered from an official source. Admin must verify date, time, venue, price, image and registration details before publishing.",
@@ -98,7 +232,10 @@ async function insertDraft(candidate) {
     body: JSON.stringify(payload),
   });
 
-  return rows[0] || null;
+  return {
+    row: rows[0] || null,
+    enriched,
+  };
 }
 
 async function discoverFromSource(source) {
@@ -190,16 +327,22 @@ for (const source of sources) {
 
       if (await sourceAlreadyExists(candidate.url, candidate.fingerprint)) continue;
 
-      const row = await insertDraft(candidate);
+      const result = await insertDraft(candidate);
+      const row = result.row;
+      const enriched = result.enriched;
+
       if (row && row.id) {
         inserted.push({
           id: row.id,
-          title: candidate.title,
-          url: candidate.url,
-          sourceName: candidate.sourceName,
+          title: enriched.title,
+          url: enriched.url,
+          sourceName: enriched.sourceName,
         });
       }
+
+      if (inserted.length >= MAX_NEW_DRAFTS_PER_RUN) break;
     }
+    if (inserted.length >= MAX_NEW_DRAFTS_PER_RUN) break;
   } catch (error) {
     console.warn(
       "Discovery failed for " + source.name + ":",
