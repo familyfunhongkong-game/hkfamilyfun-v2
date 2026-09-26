@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import ActivePromoBanners from "@/components/ads/ActivePromoBanners";
 
 type JsonValue =
   | string
@@ -883,6 +884,9 @@ export default function PublicEventDetailPage() {
 
   return (
     <main className="min-h-screen bg-slate-50">
+      <section className="mx-auto max-w-7xl px-4 pt-5">
+        <ActivePromoBanners placement="event_detail" />
+      </section>
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-6">
           <Link
