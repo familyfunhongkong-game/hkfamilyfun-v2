@@ -786,6 +786,12 @@ export default function MerchantDashboardPage() {
               <MiniStat label="已拒絕" value={counts.rejected} />
               <MiniStat label="已封存" value={counts.archived} />
             </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2 rounded-3xl border border-purple-100 bg-purple-50 p-3">
+              <MiniStat label="總瀏覽" value={analyticsTotal.views} />
+              <MiniStat label="互動點擊" value={analyticsTotal.clicks} />
+              <MiniStat label="分享" value={analyticsTotal.shares} />
+            </div>
           </div>
         </div>
       </section>
@@ -876,6 +882,7 @@ export default function MerchantDashboardPage() {
                   <EventCard
                     key={event.id}
                     event={event}
+                    analytics={analyticsByEvent[event.id] || EMPTY_ANALYTICS}
                     busy={busyId === event.id}
                     onSubmit={() => updateStatus(event.id, "submitted")}
                     onDuplicate={() => duplicateEvent(event)}
@@ -933,12 +940,14 @@ export default function MerchantDashboardPage() {
 
 function EventCard({
   event,
+  analytics,
   busy,
   onSubmit,
   onDuplicate,
   onRemove,
 }: {
   event: EventRecord;
+  analytics: EventAnalytics;
   busy: boolean;
   onSubmit: () => void;
   onDuplicate: () => void;
@@ -1025,6 +1034,12 @@ function EventCard({
                 : "未填寫"
             }
           />
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-600">
+          <MiniInfo label="瀏覽" value={analytics.views.toLocaleString("zh-HK")} />
+          <MiniInfo label="點擊" value={analytics.clicks.toLocaleString("zh-HK")} />
+          <MiniInfo label="分享" value={analytics.shares.toLocaleString("zh-HK")} />
         </div>
 
         {missing.length ? (
