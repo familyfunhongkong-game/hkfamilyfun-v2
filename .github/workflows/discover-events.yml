@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   discover:
@@ -34,3 +35,13 @@ jobs:
           APPROVAL_EMAIL: ${{ secrets.APPROVAL_EMAIL }}
           APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
         run: node scripts/discover-events.mjs
+
+      - name: Create approval issue
+        if: ${{ hashFiles('event-discovery-summary.md') != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "HK Family Fun：新活動待審批" \
+            --body-file event-discovery-summary.md \
+            --assignee familyfunhongkong-game
