@@ -59,6 +59,18 @@ type MerchantRecord = {
   created_at?: string | null;
 };
 
+type EventAnalytics = {
+  views: number;
+  clicks: number;
+  shares: number;
+};
+
+const EMPTY_ANALYTICS: EventAnalytics = {
+  views: 0,
+  clicks: 0,
+  shares: 0,
+};
+
 type FilterKey =
   | "all"
   | "draft"
@@ -312,6 +324,7 @@ function canSubmit(event: EventRecord) {
 export default function MerchantDashboardPage() {
   const [merchant, setMerchant] = useState<MerchantRecord | null>(null);
   const [events, setEvents] = useState<EventRecord[]>([]);
+  const [analyticsByEvent, setAnalyticsByEvent] = useState<Record<string, EventAnalytics>>({});
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
