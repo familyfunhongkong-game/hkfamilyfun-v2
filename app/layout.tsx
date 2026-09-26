@@ -30,7 +30,7 @@ export const metadata: Metadata = {
       "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
     images: [
       {
-        url: "/logo.png",
+        url: "/familyfun-logo-original.png",
         width: 100,
         height: 100,
         alt: "HK Family Fun",
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     title: "HK Family Fun｜香港親子活動平台",
     description:
       "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
-    images: ["/logo.png"],
+    images: ["/familyfun-logo-original.png"],
   },
   robots: {
     index: true,
@@ -57,7 +57,7 @@ function SiteFooter() {
         <div>
           <Link href="/" className="flex items-center gap-3">
             <img
-              src="/logo.png"
+              src="/familyfun-logo-original.png"
               alt="HK Family Fun"
               width={40}
               height={40}
