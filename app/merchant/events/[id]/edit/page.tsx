@@ -1132,9 +1132,7 @@ export default function MerchantEventEditPage() {
       <main className="min-h-screen bg-slate-50">
         <div className="mx-auto max-w-[1500px] px-4 py-16">
           <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-3xl">
-              親
-            </div>
+            <img src="/familyfun-logo-original.png" alt="HK Family Fun" width={72} height={72} className="mx-auto mb-4 h-16 w-16 rounded-2xl object-contain ring-1 ring-slate-200" />
             <p className="font-black text-slate-700">正在讀取活動資料...</p>
           </div>
         </div>
