@@ -118,28 +118,28 @@ async function geocodeEvent(event: EventRecord): Promise<GeoPoint | null> {
 
   if (!query) return null;
 
-  const url =
-    "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=hk&q=" +
-    encodeURIComponent(query);
-
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  const response = await fetch("/api/geocode?q=" + encodeURIComponent(query));
 
   if (!response.ok) return null;
 
-  const result = (await response.json()) as Array<{ lat?: string; lon?: string }>;
-  const first = result[0];
-  if (!first?.lat || !first?.lon) return null;
+  const result = (await response.json()) as {
+    found?: boolean;
+    lat?: number;
+    lng?: number;
+  };
 
-  const lat = Number(first.lat);
-  const lng = Number(first.lon);
+  if (
+    !result.found ||
+    typeof result.lat !== "number" ||
+    typeof result.lng !== "number"
+  ) {
+    return null;
+  }
 
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-
-  return { lat, lng };
+  return {
+    lat: result.lat,
+    lng: result.lng,
+  };
 }
 
 function haversineKm(a: GeoPoint, b: GeoPoint) {
