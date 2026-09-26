@@ -177,7 +177,7 @@ function mapDatabaseEvent(event: DatabaseEvent): Event {
     senFriendly: Boolean(event.is_sen_friendly),
     image:
       event.cover_image_url ||
-      "/logo.png",
+      "/familyfun-logo-original.png",
     officialLink:
       event.registration_url ||
       event.booking_url ||
