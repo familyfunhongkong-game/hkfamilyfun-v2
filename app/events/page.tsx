@@ -413,8 +413,7 @@ function getCategoryLabel(event: EventRecord): string {
   const raw = safeText(
     event.category ||
       event.activity_category ||
-      event.activity_type ||
-      event.age_group,
+      event.activity_type,
     "親子活動",
   );
 
