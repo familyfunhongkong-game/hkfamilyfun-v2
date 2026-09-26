@@ -86,6 +86,12 @@ const parentLinks = [
     hoverClass: "hover:bg-teal-50 hover:text-teal-700",
   },
   {
+    href: "/planner",
+    label: "行程助手",
+    icon: "✨",
+    hoverClass: "hover:bg-violet-50 hover:text-violet-700",
+  },
+  {
     href: "/tips",
     label: "報料區",
     icon: "💬",
