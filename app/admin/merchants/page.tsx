@@ -97,10 +97,13 @@ export default function AdminMerchantsPage() {
       })
       .eq("id", merchant.id)
       .select("*")
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      setErrorText(error.message || "更新商戶狀態失敗。");
+    if (error || !data) {
+      setErrorText(
+        error?.message ||
+          "資料庫沒有更新任何商戶。請確認 Admin 權限後再試。",
+      );
     } else {
       setMerchants((previous) =>
         previous.map((item) =>
