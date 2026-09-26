@@ -22,6 +22,11 @@ const cards = [
     description: "由官方活動網址建立可編輯草稿，再交由 Admin 審批。",
   },
   {
+    href: "/admin/export",
+    title: "資料匯出",
+    description: "下載 Events CSV 或完整 JSON，方便備份、核對及資料遷移。",
+  },
+  {
     href: "/events",
     title: "查看公開網站",
     description: "檢查已發布活動在家長端的實際顯示效果。",
