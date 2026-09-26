@@ -1017,7 +1017,15 @@ export default function MerchantEventEditPage() {
         .maybeSingle();
 
       if (!error) {
-        return { data: data as EventRecord | null, errorMessage: "" };
+        if (!data) {
+          return {
+            data: null,
+            errorMessage:
+              "資料庫沒有更新任何活動。活動可能已提交、已發布，或目前帳戶沒有修改權限。",
+          };
+        }
+
+        return { data: data as EventRecord, errorMessage: "" };
       }
 
       const messageText = error.message || "";
