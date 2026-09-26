@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
 import FamilyFunMotionHero from "@/components/home/FamilyFunMotionHero";
 import SafeEventImage from "@/components/events/SafeEventImage";
-import PromoBannerSlot from "@/components/ads/PromoBannerSlot";
+import ActivePromoBanners from "@/components/ads/ActivePromoBanners";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -119,6 +119,10 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-[1500px] px-4 pt-5 sm:px-6 lg:px-8">
+        <ActivePromoBanners placement="home_top" />
+      </section>
+
       <section className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide lg:grid lg:grid-cols-8 lg:overflow-visible">
           {discoveryChips.map((item) => (
@@ -222,7 +226,7 @@ export default async function HomePage() {
       </section>
 
       <section className="mx-auto max-w-[1500px] px-4 py-2 sm:px-6 lg:px-8">
-        <PromoBannerSlot />
+        <ActivePromoBanners placement="home_mid" fallback />
       </section>
 
       <section className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
