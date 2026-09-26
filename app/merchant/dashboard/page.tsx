@@ -843,11 +843,13 @@ function EventCard({
   busy,
   onSubmit,
   onDuplicate,
+  onRemove,
 }: {
   event: EventRecord;
   busy: boolean;
   onSubmit: () => void;
   onDuplicate: () => void;
+  onRemove: () => void;
 }) {
   const group = statusGroup(event.status);
   const score = readyScore(event);
@@ -1015,6 +1017,17 @@ function EventCard({
           >
             複製
           </button>
+
+          {group === "draft" || group === "rejected" ? (
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={busy}
+              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+            >
+              刪除
+            </button>
+          ) : null}
         </div>
 
         <div className="grid gap-2">
