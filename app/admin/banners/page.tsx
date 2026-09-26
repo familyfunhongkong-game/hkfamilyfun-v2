@@ -51,12 +51,59 @@ const placementLabels: Record<Placement, string> = {
   event_detail: "活動詳情頁",
 };
 
-function toLocalInput(value: string | null): string {
+function toHongKongInput(value: string | null): string {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}`;
+}
+
+function hongKongInputToIso(value: string): string | null {
+  if (!value) return null;
+  const date = new Date(`${value}:00+08:00`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function getBannerStoragePath(url: string | null | undefined): string | null {
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    const marker = "/storage/v1/object/public/banner-images/";
+    const index = parsed.pathname.indexOf(marker);
+    if (index < 0) return null;
+    return decodeURIComponent(parsed.pathname.slice(index + marker.length));
+  } catch {
+    return null;
+  }
+}
+
+function formatHongKongDateTime(value: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("zh-HK", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
 }
 
 export default function AdminBannersPage() {
@@ -178,11 +225,15 @@ export default function AdminBannersPage() {
       link_url: form.link_url.trim() || null,
       placement: form.placement,
       status: form.status,
-      starts_at: form.starts_at ? new Date(form.starts_at).toISOString() : null,
-      ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
+      starts_at: hongKongInputToIso(form.starts_at),
+      ends_at: hongKongInputToIso(form.ends_at),
       sort_order: Number(form.sort_order) || 0,
       updated_at: new Date().toISOString(),
     };
+
+    const previousBanner = editingId
+      ? banners.find((banner) => banner.id === editingId) || null
+      : null;
 
     const result = editingId
       ? await client.from("promo_banners").update(payload).eq("id", editingId)
@@ -195,6 +246,22 @@ export default function AdminBannersPage() {
       setErrorText(result.error.message);
       setBusy(false);
       return;
+    }
+
+    if (
+      previousBanner &&
+      previousBanner.image_url !== payload.image_url
+    ) {
+      const oldPath = getBannerStoragePath(previousBanner.image_url);
+      if (oldPath) {
+        const { error: cleanupError } = await client.storage
+          .from("banner-images")
+          .remove([oldPath]);
+
+        if (cleanupError) {
+          console.warn("Old banner image cleanup failed:", cleanupError);
+        }
+      }
     }
 
     setMessage(editingId ? "Banner 已更新。" : "Banner 已建立。");
@@ -213,8 +280,8 @@ export default function AdminBannersPage() {
       link_url: banner.link_url || "",
       placement: banner.placement,
       status: banner.status,
-      starts_at: toLocalInput(banner.starts_at),
-      ends_at: toLocalInput(banner.ends_at),
+      starts_at: toHongKongInput(banner.starts_at),
+      ends_at: toHongKongInput(banner.ends_at),
       sort_order: String(banner.sort_order || 0),
     });
     setMessage("");
@@ -240,9 +307,23 @@ export default function AdminBannersPage() {
     const client = supabase;
     if (!client) return;
     setBusy(true);
+    const target = banners.find((banner) => banner.id === id) || null;
     const { error } = await client.from("promo_banners").delete().eq("id", id);
-    if (error) setErrorText(error.message);
-    else {
+
+    if (error) {
+      setErrorText(error.message);
+    } else {
+      const storagePath = getBannerStoragePath(target?.image_url);
+      if (storagePath) {
+        const { error: cleanupError } = await client.storage
+          .from("banner-images")
+          .remove([storagePath]);
+
+        if (cleanupError) {
+          console.warn("Banner image cleanup failed:", cleanupError);
+        }
+      }
+
       if (editingId === id) {
         setEditingId(null);
         setForm(EMPTY_FORM);
@@ -324,11 +405,11 @@ export default function AdminBannersPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1.5 text-sm font-black text-slate-700">
-                開始時間
+                開始時間（香港時間）
                 <input type="datetime-local" value={form.starts_at} onChange={(e) => updateField("starts_at", e.target.value)} className="rounded-2xl border border-slate-300 px-4 py-3 font-medium" />
               </label>
               <label className="grid gap-1.5 text-sm font-black text-slate-700">
-                結束時間
+                結束時間（香港時間）
                 <input type="datetime-local" value={form.ends_at} onChange={(e) => updateField("ends_at", e.target.value)} className="rounded-2xl border border-slate-300 px-4 py-3 font-medium" />
               </label>
             </div>
@@ -373,7 +454,7 @@ export default function AdminBannersPage() {
                   </div>
                 </div>
                 <p className="mt-3 text-xs font-semibold leading-5 text-slate-400">
-                  {banner.starts_at ? `開始：${new Date(banner.starts_at).toLocaleString("zh-HK")}` : "立即開始"} · {banner.ends_at ? `結束：${new Date(banner.ends_at).toLocaleString("zh-HK")}` : "無結束日期"}
+                  {banner.starts_at ? `開始：${formatHongKongDateTime(banner.starts_at)} HKT` : "立即開始"} · {banner.ends_at ? `結束：${formatHongKongDateTime(banner.ends_at)} HKT` : "無結束日期"}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" onClick={() => editBanner(banner)} className="rounded-full border border-slate-300 px-4 py-2 text-xs font-black text-slate-700">編輯</button>
