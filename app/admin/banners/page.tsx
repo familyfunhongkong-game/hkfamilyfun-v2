@@ -81,7 +81,7 @@ function getBannerStoragePath(url: string | null | undefined): string | null {
 
   try {
     const parsed = new URL(url);
-    const marker = "/storage/v1/object/public/banner-images/";
+    const marker = "/storage/v1/object/public/promo-banners/";
     const index = parsed.pathname.indexOf(marker);
     if (index < 0) return null;
     return decodeURIComponent(parsed.pathname.slice(index + marker.length));
@@ -180,7 +180,7 @@ export default function AdminBannersPage() {
     const path = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${safeExtension}`;
 
     const { error: uploadError } = await client.storage
-      .from("banner-images")
+      .from("promo-banners")
       .upload(path, file, { cacheControl: "3600", upsert: false });
 
     if (uploadError) {
@@ -189,7 +189,7 @@ export default function AdminBannersPage() {
       return;
     }
 
-    const { data } = client.storage.from("banner-images").getPublicUrl(path);
+    const { data } = client.storage.from("promo-banners").getPublicUrl(path);
     updateField("image_url", data.publicUrl);
     setMessage("圖片已上載，可以預覽後儲存。");
     setBusy(false);
@@ -255,7 +255,7 @@ export default function AdminBannersPage() {
       const oldPath = getBannerStoragePath(previousBanner.image_url);
       if (oldPath) {
         const { error: cleanupError } = await client.storage
-          .from("banner-images")
+          .from("promo-banners")
           .remove([oldPath]);
 
         if (cleanupError) {
@@ -316,7 +316,7 @@ export default function AdminBannersPage() {
       const storagePath = getBannerStoragePath(target?.image_url);
       if (storagePath) {
         const { error: cleanupError } = await client.storage
-          .from("banner-images")
+          .from("promo-banners")
           .remove([storagePath]);
 
         if (cleanupError) {
