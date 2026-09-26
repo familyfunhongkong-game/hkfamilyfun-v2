@@ -19,7 +19,7 @@ export default function PublicHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-2.5 sm:px-6 lg:px-8">
         <Link
           href="/"
           className="flex min-w-0 items-center gap-3"
@@ -29,9 +29,9 @@ export default function PublicHeader() {
           <img
             src="/familyfun-logo-original.png"
             alt="HK Family Fun"
-            width={64}
-            height={64}
-            className="h-14 w-14 shrink-0 object-contain sm:h-16 sm:w-16"
+            width={80}
+            height={80}
+            className="h-16 w-16 shrink-0 rounded-2xl object-contain shadow-sm ring-1 ring-slate-200 sm:h-20 sm:w-20"
           />
           <span className="min-w-0">
             <span className="block truncate text-lg font-black leading-tight text-slate-950">
@@ -84,7 +84,7 @@ export default function PublicHeader() {
 
       {open ? (
         <div className="border-t border-slate-100 bg-white px-4 py-4 shadow-lg xl:hidden">
-          <nav className="mx-auto grid max-w-7xl gap-1 sm:grid-cols-2">
+          <nav className="mx-auto grid max-w-[1500px] gap-1 sm:grid-cols-2">
             {parentLinks.map((item) => (
               <Link
                 key={item.href}
@@ -97,7 +97,7 @@ export default function PublicHeader() {
               </Link>
             ))}
           </nav>
-          <div className="mx-auto mt-3 flex max-w-7xl gap-3">
+          <div className="mx-auto mt-3 flex max-w-[1500px] gap-3">
             <Link
               href="/merchant-join"
               onClick={() => setOpen(false)}
