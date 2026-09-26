@@ -218,13 +218,25 @@ function getGalleryImages(event: EventRecord): GalleryImage[] {
 
 function formatDate(value?: string | null): string {
   if (!value) return "日期待定";
+
+  // Event dates are Hong Kong calendar dates, not UTC timestamps.
+  // Parse YYYY-MM-DD directly so visitors in other timezones never see
+  // the date shift backward or forward.
+  const match = value.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+
+  if (match) {
+    return `${match[3]}/${match[2]}/${match[1]}`;
+  }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("zh-HK", {
+
+  return new Intl.DateTimeFormat("zh-HK", {
+    timeZone: "Asia/Hong_Kong",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  });
+  }).format(date);
 }
 
 function formatDateRange(event: EventRecord): string {
