@@ -27,7 +27,7 @@ export default function PublicHeader() {
           aria-label="HK Family Fun 首頁"
         >
           <img
-            src="/logo.png"
+            src="/familyfun-logo-original.png"
             alt="HK Family Fun"
             width={64}
             height={64}
