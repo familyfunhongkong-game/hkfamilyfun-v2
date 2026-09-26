@@ -36,11 +36,14 @@ export default function ActivePromoBanners({
         return;
       }
 
+      const now = new Date().toISOString();
       const { data } = await client
         .from("promo_banners")
         .select("id,title,subtitle,image_url,link_url,placement,sort_order")
         .eq("placement", placement)
         .eq("status", "active")
+        .or(`starts_at.is.null,starts_at.lte.${now}`)
+        .or(`ends_at.is.null,ends_at.gte.${now}`)
         .order("sort_order", { ascending: true })
         .limit(3);
 
