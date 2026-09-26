@@ -492,6 +492,47 @@ export default function MerchantDashboardPage() {
     setBusyId(null);
   }
 
+  async function removeEvent(event: EventRecord) {
+    const client = supabase;
+
+    if (!client || !merchant) {
+      setMessage("暫時不能刪除活動，請重新登入後再試。");
+      return;
+    }
+
+    const group = statusGroup(event.status);
+    if (group !== "draft" && group !== "rejected") {
+      setMessage("只有草稿或已拒絕活動可以刪除。");
+      return;
+    }
+
+    if (!window.confirm(`確定刪除「${titleOf(event)}」？`)) return;
+
+    setBusyId(event.id);
+    setMessage("");
+
+    const { data: removed, error } = await client
+      .from("events")
+      .delete()
+      .eq("id", event.id)
+      .select("id")
+      .maybeSingle();
+
+    if (error || !removed) {
+      setMessage(
+        error
+          ? `刪除失敗：${error.message}`
+          : "資料庫沒有刪除任何活動，請重新整理後再試。",
+      );
+      setBusyId(null);
+      return;
+    }
+
+    setMessage("活動已刪除。");
+    await loadDashboard();
+    setBusyId(null);
+  }
+
   async function duplicateEvent(event: EventRecord) {
     const client = supabase;
 
@@ -787,6 +828,7 @@ export default function MerchantDashboardPage() {
                     busy={busyId === event.id}
                     onSubmit={() => updateStatus(event.id, "submitted")}
                     onDuplicate={() => duplicateEvent(event)}
+                    onRemove={() => removeEvent(event)}
                   />
                 ))}
               </div>
