@@ -53,15 +53,15 @@ export const metadata: Metadata = {
 function SiteFooter() {
   return (
     <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
+      <div className="mx-auto grid max-w-[1500px] gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
         <div>
           <Link href="/" className="flex items-center gap-3">
             <img
               src="/familyfun-logo-original.png"
               alt="HK Family Fun"
-              width={40}
-              height={40}
-              className="h-10 w-10 object-contain"
+              width={52}
+              height={52}
+              className="h-12 w-12 rounded-xl object-contain shadow-sm ring-1 ring-slate-200"
             />
             <span>
               <span className="block text-base font-black text-slate-950">
@@ -167,7 +167,7 @@ function SiteFooter() {
       </div>
 
       <div className="border-t border-slate-100 px-4 py-5">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-xs text-slate-500 md:flex-row">
+        <div className="mx-auto flex max-w-[1500px] flex-col items-center justify-between gap-3 text-xs text-slate-500 md:flex-row">
           <p>© 2026 HK Family Fun. 保留所有權利。</p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link href="/about" className="hover:text-purple-700">關於我們</Link>
