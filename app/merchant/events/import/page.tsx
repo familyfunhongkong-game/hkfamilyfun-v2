@@ -246,7 +246,6 @@ export default function ImportEventPage() {
     }
 
     const currentMerchant = data as MerchantRecord;
-    setMerchant(currentMerchant);
 
     if (safeText(currentMerchant.status, "pending") !== "approved") {
       setMessage(
@@ -260,6 +259,7 @@ export default function ImportEventPage() {
       return null;
     }
 
+    setMerchant(currentMerchant);
     setLoadingMerchant(false);
     return currentMerchant;
   }
