@@ -210,4 +210,27 @@ for (const source of sources) {
 
 await sendApprovalEmail(inserted);
 
+if (inserted.length) {
+  const issueLines = [
+    "# HK Family Fun 新活動待審批",
+    "",
+    "以下活動由每日官方來源掃描自動建立為 Draft；未經 Admin 批准不會公開。",
+    "",
+    ...inserted.flatMap((item, index) => [
+      "## " + (index + 1) + ". " + item.title,
+      "- 來源：" + item.sourceName,
+      "- 官方來源：" + item.url,
+      "- Admin 審批：" + APP_BASE_URL + "/admin/events/" + item.id,
+      "",
+    ]),
+    "請核對日期、時間、圖片、地點、收費及報名連結後才發布。",
+  ];
+
+  await fs.writeFile(
+    "event-discovery-summary.md",
+    issueLines.join("\n"),
+    "utf8",
+  );
+}
+
 console.log(JSON.stringify({ discoveredDrafts: inserted.length, drafts: inserted }, null, 2));
