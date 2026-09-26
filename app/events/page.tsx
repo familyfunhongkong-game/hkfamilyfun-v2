@@ -82,6 +82,7 @@ type EventRecord = {
   is_indoor?: boolean | null;
   is_outdoor?: boolean | null;
   is_sen_friendly?: boolean | null;
+  is_subsidized?: boolean | null;
 
   registration_required?: boolean | null;
   registration_url?: string | null;
@@ -111,6 +112,7 @@ type PriceFilter = "all" | "free" | "paid";
 type DateFilter = "all" | "today" | "tomorrow" | "weekend" | "month";
 type SortMode = "recommended" | "date_asc" | "date_desc" | "newest";
 type AgeFilter = "all" | "0-3" | "4-6" | "7-9" | "10-12" | "13+";
+type TimeFilter = "all" | "morning" | "afternoon" | "evening";
 
 const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
@@ -122,6 +124,13 @@ const dateFilters: { key: DateFilter; label: string }[] = [
   { key: "tomorrow", label: "明日" },
   { key: "weekend", label: "今個週末" },
   { key: "month", label: "本月" },
+];
+
+const timeFilters: { key: TimeFilter; label: string }[] = [
+  { key: "all", label: "全部時段" },
+  { key: "morning", label: "🌅 上午" },
+  { key: "afternoon", label: "☀️ 下午" },
+  { key: "evening", label: "🌙 晚上" },
 ];
 
 function safeText(value: unknown, fallback = ""): string {
@@ -677,6 +686,37 @@ function eventMatchesAge(event: EventRecord, filter: AgeFilter): boolean {
   return min <= bucketMax && max >= bucket.min;
 }
 
+function timeToMinutes(value: string | null | undefined): number | null {
+  const text = safeText(value);
+  const match = text.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+function eventMatchesTimeFilter(event: EventRecord, filter: TimeFilter): boolean {
+  if (filter === "all") return true;
+
+  const start = timeToMinutes(event.start_time);
+  const end = timeToMinutes(event.end_time);
+  if (start === null && end === null) return false;
+
+  const eventStart = start ?? end ?? 0;
+  const eventEnd = end ?? start ?? eventStart;
+
+  const range =
+    filter === "morning"
+      ? { start: 0, end: 12 * 60 }
+      : filter === "afternoon"
+        ? { start: 12 * 60, end: 17 * 60 }
+        : { start: 17 * 60, end: 24 * 60 };
+
+  return eventStart < range.end && eventEnd >= range.start;
+}
+
 function scoreEvent(event: EventRecord): number {
   let score = 0;
 
@@ -1125,6 +1165,7 @@ export default function PublicEventsPage() {
 
   const [keyword, setKeyword] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [specificDate, setSpecificDate] = useState("");
   const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
   const [districtFilter, setDistrictFilter] = useState("all");
@@ -1135,6 +1176,7 @@ export default function PublicEventsPage() {
   const [indoorOnly, setIndoorOnly] = useState(false);
   const [outdoorOnly, setOutdoorOnly] = useState(false);
   const [registrationOnly, setRegistrationOnly] = useState(false);
+  const [subsidizedOnly, setSubsidizedOnly] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("recommended");
 
   async function loadEvents() {
@@ -1175,6 +1217,7 @@ export default function PublicEventsPage() {
     const params = new URLSearchParams(window.location.search);
     const queryKeyword = params.get("q") || "";
     const queryDate = params.get("date") || "";
+    const queryTime = params.get("time") || "";
     const queryPrice = params.get("price") || "";
     const queryDistrict = params.get("district") || "all";
     const queryMtr = params.get("mtr") || "all";
@@ -1186,6 +1229,11 @@ export default function PublicEventsPage() {
       params.get("is_sen_friendly") === "true";
 
     setKeyword(queryKeyword);
+    setTimeFilter(
+      ["morning", "afternoon", "evening"].includes(queryTime)
+        ? (queryTime as TimeFilter)
+        : "all",
+    );
     setDistrictFilter(queryDistrict || "all");
     setMtrFilter(queryMtr || "all");
     setAgeFilter(ageFilters.some((item) => item.key === queryAge) ? (queryAge as AgeFilter) : "all");
@@ -1237,6 +1285,7 @@ export default function PublicEventsPage() {
     setIndoorOnly(params.get("indoor") === "true");
     setOutdoorOnly(params.get("outdoor") === "true");
     setRegistrationOnly(params.get("registration") === "true");
+    setSubsidizedOnly(params.get("subsidized") === "true");
   }, []);
 
   const districtOptions = useMemo(() => getDistrictOptions(events), [events]);
@@ -1283,6 +1332,10 @@ export default function PublicEventsPage() {
 
     if (specificDate && /^\d{4}-\d{2}-\d{2}$/.test(specificDate)) {
       next = next.filter((event) => eventOverlapsYmd(event, specificDate));
+    }
+
+    if (timeFilter !== "all") {
+      next = next.filter((event) => eventMatchesTimeFilter(event, timeFilter));
     }
 
     if (priceFilter === "free") {
@@ -1346,6 +1399,10 @@ export default function PublicEventsPage() {
       );
     }
 
+    if (subsidizedOnly) {
+      next = next.filter((event) => Boolean(event.is_subsidized));
+    }
+
     if (sortMode === "recommended") {
       next.sort((a, b) => {
         const favoriteScoreA = favoriteIds.includes(a.id) ? 1000 : 0;
@@ -1391,6 +1448,7 @@ export default function PublicEventsPage() {
     favoriteIds,
     keyword,
     dateFilter,
+    timeFilter,
     specificDate,
     priceFilter,
     districtFilter,
@@ -1401,6 +1459,7 @@ export default function PublicEventsPage() {
     indoorOnly,
     outdoorOnly,
     registrationOnly,
+    subsidizedOnly,
     sortMode,
   ]);
 
@@ -1415,6 +1474,7 @@ export default function PublicEventsPage() {
   function clearFilters() {
     setKeyword("");
     setDateFilter("all");
+    setTimeFilter("all");
     setSpecificDate("");
     setPriceFilter("all");
     setDistrictFilter("all");
@@ -1425,6 +1485,7 @@ export default function PublicEventsPage() {
     setIndoorOnly(false);
     setOutdoorOnly(false);
     setRegistrationOnly(false);
+    setSubsidizedOnly(false);
     setSortMode("recommended");
   }
 
@@ -1560,6 +1621,24 @@ export default function PublicEventsPage() {
               </button>
             ))}
 
+            {timeFilters.slice(1).map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                onClick={() =>
+                  setTimeFilter(timeFilter === filter.key ? "all" : filter.key)
+                }
+                className={[
+                  "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                  timeFilter === filter.key
+                    ? "bg-indigo-700 text-white"
+                    : "bg-indigo-50 text-indigo-700",
+                ].join(" ")}
+              >
+                {filter.label}
+              </button>
+            ))}
+
             <button
               type="button"
               onClick={() => setPriceFilter(priceFilter === "free" ? "all" : "free")}
@@ -1608,6 +1687,17 @@ export default function PublicEventsPage() {
               ].join(" ")}
             >
               🎟️ 需報名
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSubsidizedOnly(!subsidizedOnly)}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                subsidizedOnly ? "bg-cyan-700 text-white" : "bg-cyan-50 text-cyan-700",
+              ].join(" ")}
+            >
+              🫶 資助活動
             </button>
 
             <button
