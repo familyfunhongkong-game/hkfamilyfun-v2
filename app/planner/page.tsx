@@ -23,6 +23,11 @@ type EventRecord = {
   tags?: unknown;
 };
 
+type BusyPeriod = {
+  start: string;
+  end: string;
+};
+
 function safeText(value: unknown, fallback = "") {
   if (value === null || value === undefined) return fallback;
   const text = String(value).trim();
@@ -142,12 +147,49 @@ function googleCalendarUrl(event: EventRecord) {
   return "https://calendar.google.com/calendar/render?" + params.toString();
 }
 
+function eventInterval(event: EventRecord, selectedDate: string) {
+  const startText = safeText(event.start_time, "12:00").slice(0, 5);
+  const endText = safeText(event.end_time).slice(0, 5);
+
+  const start = Date.parse(selectedDate + "T" + startText + ":00+08:00");
+  const end = endText
+    ? Date.parse(selectedDate + "T" + endText + ":00+08:00")
+    : start + 90 * 60 * 1000;
+
+  return { start, end };
+}
+
+function overlapsBusy(
+  event: EventRecord,
+  selectedDate: string,
+  busy: BusyPeriod[],
+) {
+  const interval = eventInterval(event, selectedDate);
+
+  return busy.some((item) => {
+    const busyStart = Date.parse(item.start);
+    const busyEnd = Date.parse(item.end);
+
+    return (
+      Number.isFinite(busyStart) &&
+      Number.isFinite(busyEnd) &&
+      interval.start < busyEnd &&
+      interval.end > busyStart
+    );
+  });
+}
+
 export default function PlannerPage() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [query, setQuery] = useState("");
   const [date, setDate] = useState(hkToday());
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  const [calendarConfigured, setCalendarConfigured] = useState(false);
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(true);
+  const [busyPeriods, setBusyPeriods] = useState<BusyPeriod[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -174,28 +216,93 @@ export default function PlannerPage() {
     void load();
   }, []);
 
+  useEffect(() => {
+    async function loadCalendarStatus() {
+      try {
+        const response = await fetch("/api/google-calendar/status", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) return;
+
+        const data = (await response.json()) as {
+          configured?: boolean;
+          connected?: boolean;
+        };
+
+        setCalendarConfigured(Boolean(data.configured));
+        setCalendarConnected(Boolean(data.connected));
+      } finally {
+        setCalendarLoading(false);
+      }
+    }
+
+    void loadCalendarStatus();
+  }, []);
+
+  useEffect(() => {
+    async function loadBusy() {
+      if (!calendarConnected) {
+        setBusyPeriods([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          "/api/google-calendar/freebusy?date=" + encodeURIComponent(date),
+          { cache: "no-store" },
+        );
+
+        if (!response.ok) {
+          if (response.status === 401) setCalendarConnected(false);
+          setBusyPeriods([]);
+          return;
+        }
+
+        const data = (await response.json()) as {
+          busy?: BusyPeriod[];
+        };
+
+        setBusyPeriods(Array.isArray(data.busy) ? data.busy : []);
+      } catch {
+        setBusyPeriods([]);
+      }
+    }
+
+    void loadBusy();
+  }, [calendarConnected, date]);
+
   const suggestions = useMemo(() => {
     const candidates = events
       .filter((event) => occursOn(event, date))
+      .filter(
+        (event) =>
+          !calendarConnected ||
+          !overlapsBusy(event, date, busyPeriods),
+      )
       .map((event) => ({
         event,
         score: scoreEvent(event, query),
       }))
       .filter((item) => !query.trim() || item.score > 0)
-      .sort((a, b) => b.score - a.score || minutes(a.event.start_time) - minutes(b.event.start_time));
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          minutes(a.event.start_time) - minutes(b.event.start_time),
+      );
 
     const selected: EventRecord[] = [];
 
     for (const item of candidates) {
       const event = item.event;
-      const start = minutes(event.start_time);
-      const end = minutes(event.end_time || event.start_time) + (event.end_time ? 0 : 90);
+      const interval = eventInterval(event, date);
 
       const clashes = selected.some((chosen) => {
-        const chosenStart = minutes(chosen.start_time);
-        const chosenEnd =
-          minutes(chosen.end_time || chosen.start_time) + (chosen.end_time ? 0 : 90);
-        return start < chosenEnd && end > chosenStart;
+        const chosenInterval = eventInterval(chosen, date);
+        return (
+          interval.start < chosenInterval.end &&
+          interval.end > chosenInterval.start
+        );
       });
 
       if (!clashes) selected.push(event);
@@ -203,7 +310,7 @@ export default function PlannerPage() {
     }
 
     return selected;
-  }, [date, events, query]);
+  }, [busyPeriods, calendarConnected, date, events, query]);
 
   function startVoice() {
     setMessage("");
@@ -231,15 +338,25 @@ export default function PlannerPage() {
     recognition.start();
   }
 
+  async function disconnectCalendar() {
+    await fetch("/api/google-calendar/disconnect", {
+      method: "POST",
+    });
+    setCalendarConnected(false);
+    setBusyPeriods([]);
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <section className="bg-gradient-to-r from-violet-700 via-purple-700 to-blue-700 text-white">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
           <p className="text-sm font-black text-white/80">智能行程助手 Beta</p>
-          <h1 className="mt-2 text-4xl font-black">講你想去邊、想做咩，幫你砌親子行程</h1>
+          <h1 className="mt-2 text-4xl font-black">
+            講你想去邊、想做咩，幫你砌親子行程
+          </h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-white/85">
-            以 HK Family Fun 已發布活動配搭行程，日期一律按香港時間。現階段免費版會按活動時間、
-            地區、免費／SEN 等條件配對並避開明顯撞時間。
+            以 HK Family Fun 已發布活動配搭行程，日期一律按香港時間。可按活動時間、
+            地區、免費／SEN 等條件配對，並避開活動互相撞時間。
           </p>
         </div>
       </section>
@@ -248,7 +365,9 @@ export default function PlannerPage() {
         <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="grid gap-4 lg:grid-cols-[180px_1fr_auto]">
             <label>
-              <span className="text-xs font-black text-slate-600">想去邊日？（香港日期）</span>
+              <span className="text-xs font-black text-slate-600">
+                想去邊日？（香港日期）
+              </span>
               <input
                 type="date"
                 value={date}
@@ -276,6 +395,42 @@ export default function PlannerPage() {
             </button>
           </div>
 
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-blue-950">Google Calendar 空檔</p>
+              <p className="mt-1 text-xs leading-5 text-blue-800">
+                {calendarLoading
+                  ? "正在檢查連接狀態…"
+                  : calendarConnected
+                    ? "已連接，只讀 Free/Busy 時段；建議會避開你已有行程。"
+                    : calendarConfigured
+                      ? "可連接 Google Calendar，系統只需要 Calendar Readonly 權限。"
+                      : "OAuth 尚未完成設定；現時仍可使用免費智能配對及一鍵加入 Calendar。"}
+              </p>
+            </div>
+
+            {calendarConnected ? (
+              <button
+                type="button"
+                onClick={disconnectCalendar}
+                className="rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm font-black text-blue-800"
+              >
+                解除連接
+              </button>
+            ) : calendarConfigured ? (
+              <a
+                href="/api/google-calendar/connect"
+                className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-black text-white"
+              >
+                連接 Google Calendar
+              </a>
+            ) : (
+              <span className="rounded-xl bg-slate-200 px-4 py-2 text-xs font-black text-slate-600">
+                等待 OAuth 設定
+              </span>
+            )}
+          </div>
+
           {message ? (
             <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
               {message}
@@ -287,6 +442,11 @@ export default function PlannerPage() {
           <div>
             <p className="text-sm font-black text-purple-700">{date}</p>
             <h2 className="mt-1 text-2xl font-black">建議行程</h2>
+            {calendarConnected && busyPeriods.length ? (
+              <p className="mt-1 text-xs font-bold text-blue-700">
+                已避開 Google Calendar {busyPeriods.length} 段忙碌時間
+              </p>
+            ) : null}
           </div>
           <span className="rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-700">
             {loading ? "讀取中" : suggestions.length + " 個活動"}
@@ -316,9 +476,12 @@ export default function PlannerPage() {
               </div>
 
               <div>
-                <h3 className="text-xl font-black">{safeText(event.title_tc, "未命名活動")}</h3>
+                <h3 className="text-xl font-black">
+                  {safeText(event.title_tc, "未命名活動")}
+                </h3>
                 <p className="mt-2 text-sm text-slate-600">
-                  {safeText(event.venue_name, "場地待定")} · {safeText(event.district, "地區待定")}
+                  {safeText(event.venue_name, "場地待定")} ·{" "}
+                  {safeText(event.district, "地區待定")}
                 </p>
                 <p className="mt-2 text-xs text-slate-500">
                   {safeText(event.short_description_tc, "請查看活動詳情")}
@@ -345,12 +508,11 @@ export default function PlannerPage() {
           ))}
         </div>
 
-        <div className="mt-8 rounded-3xl border border-blue-200 bg-blue-50 p-5 text-sm leading-7 text-blue-900">
-          <p className="font-black">Google Calendar 進一步整合</p>
+        <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 text-sm leading-7 text-slate-700">
+          <p className="font-black">私隱設計</p>
           <p className="mt-1">
-            現時已可一鍵加入 Google Calendar。要做到「先讀你現有日曆空檔，再自動避開接送／飯局／工作」，
-            網站需要 Google OAuth Client ID / Client Secret。這個 API 本身可以低成本甚至免費使用，但必須先由
-            HK Family Fun 自己的 Google Cloud project 授權，不能用其他人的登入憑證代替。
+            「附近我」的位置只在瀏覽器用作距離排序；Google Calendar 連接只讀 Free/Busy，
+            不需要把你的行程標題、描述或參加者內容傳給 HK Family Fun。
           </p>
         </div>
       </section>
