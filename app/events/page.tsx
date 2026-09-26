@@ -4,7 +4,7 @@ import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import PromoBannerSlot from "@/components/ads/PromoBannerSlot";
+import ActivePromoBanners from "@/components/ads/ActivePromoBanners";
 
 type JsonValue =
   | string
@@ -1619,7 +1619,7 @@ export default function PublicEventsPage() {
         </div>
 
         <div className="mt-4">
-          <PromoBannerSlot compact />
+          <ActivePromoBanners placement="events_top" fallback />
         </div>
 
         {errorText ? (
