@@ -73,11 +73,14 @@ type EventRecord = {
   offer_price?: number | string | null;
   quota_label?: string | null;
 
-  age_group?: string | null;
+  age_min?: number | string | null;
+  age_max?: number | string | null;
+  age_groups?: string[] | JsonValue | null;
   activity_type?: string | null;
   activity_category?: string | null;
   category?: string | JsonValue | null;
   is_indoor?: boolean | null;
+  is_outdoor?: boolean | null;
   is_sen_friendly?: boolean | null;
 
   registration_required?: boolean | null;
@@ -107,6 +110,7 @@ type GalleryImage = {
 type PriceFilter = "all" | "free" | "paid";
 type DateFilter = "all" | "today" | "tomorrow" | "weekend" | "month";
 type SortMode = "recommended" | "date_asc" | "date_desc" | "newest";
+type AgeFilter = "all" | "0-3" | "4-6" | "7-9" | "10-12" | "13+";
 
 const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
@@ -647,10 +651,31 @@ function getMtrOptions(events: EventRecord[]): string[] {
   ).sort();
 }
 
-function getAgeOptions(events: EventRecord[]): string[] {
-  return Array.from(
-    new Set(events.map((event) => safeText(event.age_group)).filter(Boolean)),
-  ).sort();
+const ageFilters: { key: AgeFilter; label: string; min: number; max: number | null }[] = [
+  { key: "all", label: "全部年齡", min: 0, max: null },
+  { key: "0-3", label: "0–3歲", min: 0, max: 3 },
+  { key: "4-6", label: "4–6歲", min: 4, max: 6 },
+  { key: "7-9", label: "7–9歲", min: 7, max: 9 },
+  { key: "10-12", label: "10–12歲", min: 10, max: 12 },
+  { key: "13+", label: "13歲以上", min: 13, max: null },
+];
+
+function eventMatchesAge(event: EventRecord, filter: AgeFilter): boolean {
+  if (filter === "all") return true;
+
+  const bucket = ageFilters.find((item) => item.key === filter);
+  if (!bucket) return true;
+
+  const eventMin = toNumber(event.age_min, Number.NaN);
+  const eventMax = toNumber(event.age_max, Number.NaN);
+
+  if (!Number.isFinite(eventMin) && !Number.isFinite(eventMax)) return false;
+
+  const min = Number.isFinite(eventMin) ? eventMin : 0;
+  const max = Number.isFinite(eventMax) ? eventMax : Number.POSITIVE_INFINITY;
+  const bucketMax = bucket.max ?? Number.POSITIVE_INFINITY;
+
+  return min <= bucketMax && max >= bucket.min;
 }
 
 function scoreEvent(event: EventRecord): number {
@@ -1105,7 +1130,7 @@ export default function PublicEventsPage() {
   const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
   const [districtFilter, setDistrictFilter] = useState("all");
   const [mtrFilter, setMtrFilter] = useState("all");
-  const [ageFilter, setAgeFilter] = useState("all");
+  const [ageFilter, setAgeFilter] = useState<AgeFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [senOnly, setSenOnly] = useState(false);
   const [indoorOnly, setIndoorOnly] = useState(false);
@@ -1164,7 +1189,7 @@ export default function PublicEventsPage() {
     setKeyword(queryKeyword);
     setDistrictFilter(queryDistrict || "all");
     setMtrFilter(queryMtr || "all");
-    setAgeFilter(queryAge || "all");
+    setAgeFilter(ageFilters.some((item) => item.key === queryAge) ? (queryAge as AgeFilter) : "all");
 
     if (queryCategory === "weekend") {
       setDateFilter("weekend");
@@ -1217,7 +1242,6 @@ export default function PublicEventsPage() {
 
   const districtOptions = useMemo(() => getDistrictOptions(events), [events]);
   const mtrOptions = useMemo(() => getMtrOptions(events), [events]);
-  const ageOptions = useMemo(() => getAgeOptions(events), [events]);
   const categoryOptions = useMemo(() => getCategoryOptions(events), [events]);
 
   const filteredEvents = useMemo(() => {
@@ -1281,7 +1305,7 @@ export default function PublicEventsPage() {
     }
 
     if (ageFilter !== "all") {
-      next = next.filter((event) => safeText(event.age_group) === ageFilter);
+      next = next.filter((event) => eventMatchesAge(event, ageFilter));
     }
 
     if (categoryFilter !== "all") {
@@ -1309,7 +1333,7 @@ export default function PublicEventsPage() {
     if (outdoorOnly) {
       next = next.filter(
         (event) =>
-          event.is_indoor === false ||
+          Boolean(event.is_outdoor) ||
           getCategoryLabel(event) === "戶外活動" ||
           getTagArray(event.tags).some((tag) => tag.includes("戶外")),
       );
@@ -1489,12 +1513,11 @@ export default function PublicEventsPage() {
 
             <select
               value={ageFilter}
-              onChange={(changeEvent) => setAgeFilter(changeEvent.target.value)}
+              onChange={(changeEvent) => setAgeFilter(changeEvent.target.value as AgeFilter)}
               className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
-              <option value="all">全部年齡</option>
-              {ageOptions.map((age) => (
-                <option key={age} value={age}>{age}</option>
+              {ageFilters.map((age) => (
+                <option key={age.key} value={age.key}>{age.label}</option>
               ))}
             </select>
 
