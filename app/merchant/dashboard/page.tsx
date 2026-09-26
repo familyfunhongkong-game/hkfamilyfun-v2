@@ -466,17 +466,23 @@ export default function MerchantDashboardPage() {
       )
     );
 
-    const { error } = await client
+    const { data: updatedEvent, error } = await client
       .from("events")
       .update({
         status: nextStatus,
         updated_at: now,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id,status")
+      .maybeSingle();
 
-    if (error) {
+    if (error || !updatedEvent) {
       setEvents(originalEvents);
-      setMessage(`更新失敗：${error.message}`);
+      setMessage(
+        error
+          ? `更新失敗：${error.message}`
+          : "更新未獲資料庫批准。活動狀態可能已改變，請重新整理後再試。",
+      );
     } else {
       setActiveFilter(statusGroup(nextStatus));
       setMessage(`活動已更新為「${statusLabel(nextStatus)}」。`);
