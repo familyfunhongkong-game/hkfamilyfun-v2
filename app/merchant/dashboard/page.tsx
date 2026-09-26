@@ -391,9 +391,34 @@ export default function MerchantDashboardPage() {
 
     if (eventError) {
       setEvents([]);
+      setAnalyticsByEvent({});
       setMessage(`讀取活動資料失敗：${eventError.message}`);
     } else {
       setEvents((eventData || []) as EventRecord[]);
+
+      const { data: metricData, error: metricError } = await client
+        .from("event_metrics_daily")
+        .select("event_id,views,clicks,shares");
+
+      if (metricError) {
+        console.warn("Event analytics could not be loaded:", metricError);
+        setAnalyticsByEvent({});
+      } else {
+        const aggregate: Record<string, EventAnalytics> = {};
+
+        for (const row of metricData || []) {
+          const metricEventId = String(row.event_id || "");
+          if (!metricEventId) continue;
+
+          const current = aggregate[metricEventId] || { ...EMPTY_ANALYTICS };
+          current.views += Number(row.views || 0);
+          current.clicks += Number(row.clicks || 0);
+          current.shares += Number(row.shares || 0);
+          aggregate[metricEventId] = current;
+        }
+
+        setAnalyticsByEvent(aggregate);
+      }
     }
 
     setLoading(false);
