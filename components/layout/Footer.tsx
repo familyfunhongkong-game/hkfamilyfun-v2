@@ -9,9 +9,7 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-3">
           <div>
             <div className="mb-4 flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-secondary-500 text-sm font-bold text-white">
-                親
-              </span>
+              <img src="/familyfun-logo-original.png" alt="HK Family Fun" width={40} height={40} className="h-10 w-10 rounded-lg object-contain ring-1 ring-gray-200" />
               <span className="font-bold text-gray-900">{SITE_NAME}</span>
             </div>
             <p className="text-sm leading-relaxed text-gray-600">
