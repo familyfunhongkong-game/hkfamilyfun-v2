@@ -653,6 +653,20 @@ export default function PublicEventDetailPage() {
   const [copiedShare, setCopiedShare] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
+  async function trackMetric(metric: "view" | "click" | "share") {
+    const client = supabase;
+    if (!client || !eventId || !UUID_REGEX.test(eventId)) return;
+
+    try {
+      await client.rpc("track_event_metric", {
+        p_event_id: eventId,
+        p_metric: metric,
+      });
+    } catch {
+      // Analytics must never block the public event experience.
+    }
+  }
+
   useEffect(() => {
     setFavoriteIds(readFavoriteIds());
   }, []);
@@ -713,6 +727,21 @@ export default function PublicEventDetailPage() {
     };
   }, [eventId]);
 
+  useEffect(() => {
+    if (!event || !canShowPublic(event)) return;
+
+    const storageKey = `hkff_viewed_${eventId}`;
+    try {
+      if (window.sessionStorage.getItem(storageKey)) return;
+      window.sessionStorage.setItem(storageKey, "1");
+    } catch {
+      // Tracking still works when sessionStorage is unavailable.
+    }
+
+    void trackMetric("view");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event, eventId]);
+
   const images = useMemo(() => {
     if (!event) return [];
     return getBaseGalleryImages(event);
@@ -761,6 +790,8 @@ export default function PublicEventDetailPage() {
   }
 
   async function shareEvent(title: string, description: string) {
+    void trackMetric("share");
+
     const shareUrl =
       typeof window !== "undefined"
         ? `${window.location.origin}/events/${eventId}`
@@ -1001,6 +1032,7 @@ export default function PublicEventDetailPage() {
                   <a
                     href={actionUrl}
                     target="_blank"
+                    onClick={() => void trackMetric("click")}
                     rel="noreferrer"
                     className={[
                       "mt-5 inline-flex w-full items-center justify-center rounded-2xl px-5 py-4 text-sm font-black text-white",
@@ -1023,6 +1055,7 @@ export default function PublicEventDetailPage() {
                       href={mapUrl}
                       target="_blank"
                       rel="noreferrer"
+                      onClick={() => void trackMetric("click")}
                       className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
                     >
                       📍 Google Map
@@ -1061,6 +1094,7 @@ export default function PublicEventDetailPage() {
                       href={officialUrl}
                       target="_blank"
                       rel="noreferrer"
+                      onClick={() => void trackMetric("click")}
                       className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
                     >
                       官網資料
@@ -1251,6 +1285,7 @@ export default function PublicEventDetailPage() {
                     href={mapUrl}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() => void trackMetric("click")}
                     className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800"
                   >
                     📍 開啟 Google Map
