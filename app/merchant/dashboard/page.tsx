@@ -59,6 +59,18 @@ type MerchantRecord = {
   created_at?: string | null;
 };
 
+type EventAnalytics = {
+  views: number;
+  clicks: number;
+  shares: number;
+};
+
+const EMPTY_ANALYTICS: EventAnalytics = {
+  views: 0,
+  clicks: 0,
+  shares: 0,
+};
+
 type FilterKey =
   | "all"
   | "draft"
@@ -288,13 +300,31 @@ function missingItems(event: EventRecord) {
   return items;
 }
 
+function submissionBlockers(event: EventRecord) {
+  const items: string[] = [];
+
+  if (!hasValue(event.title_tc || event.title)) items.push("活動名稱");
+  if (!hasValue(event.start_date)) items.push("活動日期");
+  if (!hasValue(event.venue_name) && !hasValue(event.address)) items.push("地點");
+  if (priceOf(event) === "收費未填") items.push("收費資料");
+  if (ctaOf(event) === "未設定") items.push("報名 / CTA");
+  if (imageCount(event) === 0) items.push("至少 1 張活動圖片");
+
+  return items;
+}
+
 function canSubmit(event: EventRecord) {
-  return readyScore(event) >= 60 && statusGroup(event.status) === "draft";
+  const group = statusGroup(event.status);
+  return (
+    submissionBlockers(event).length === 0 &&
+    (group === "draft" || group === "rejected")
+  );
 }
 
 export default function MerchantDashboardPage() {
   const [merchant, setMerchant] = useState<MerchantRecord | null>(null);
   const [events, setEvents] = useState<EventRecord[]>([]);
+  const [analyticsByEvent, setAnalyticsByEvent] = useState<Record<string, EventAnalytics>>({});
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
@@ -361,9 +391,34 @@ export default function MerchantDashboardPage() {
 
     if (eventError) {
       setEvents([]);
+      setAnalyticsByEvent({});
       setMessage(`讀取活動資料失敗：${eventError.message}`);
     } else {
       setEvents((eventData || []) as EventRecord[]);
+
+      const { data: metricData, error: metricError } = await client
+        .from("event_metrics_daily")
+        .select("event_id,views,clicks,shares");
+
+      if (metricError) {
+        console.warn("Event analytics could not be loaded:", metricError);
+        setAnalyticsByEvent({});
+      } else {
+        const aggregate: Record<string, EventAnalytics> = {};
+
+        for (const row of metricData || []) {
+          const metricEventId = String(row.event_id || "");
+          if (!metricEventId) continue;
+
+          const current = aggregate[metricEventId] || { ...EMPTY_ANALYTICS };
+          current.views += Number(row.views || 0);
+          current.clicks += Number(row.clicks || 0);
+          current.shares += Number(row.shares || 0);
+          aggregate[metricEventId] = current;
+        }
+
+        setAnalyticsByEvent(aggregate);
+      }
     }
 
     setLoading(false);
@@ -427,73 +482,18 @@ export default function MerchantDashboardPage() {
     return Math.round(total / events.length);
   }, [events]);
 
-  async function createBlankEvent() {
-    const client = supabase;
-
-    if (!client) {
-      setMessage("Supabase client 未能初始化，暫時不能建立活動。");
-      return;
-    }
-
-    if (!merchant || safeText(merchant.status, "pending") !== "approved") {
-      setMessage("商戶帳戶尚未獲批准，暫時不能建立活動。");
-      return;
-    }
-
-    setBusyId("new");
-    setMessage("");
-
-    const { data, error } = await client
-      .from("events")
-      .insert({
-        merchant_id: merchant.id,
-        title_tc: "未命名活動",
-        status: "draft",
-      })
-      .select("id")
-      .single();
-
-    if (error || !data?.id) {
-      setMessage(`建立活動失敗：${error?.message || "未能取得活動 ID"}`);
-      setBusyId(null);
-      return;
-    }
-
-    window.location.href = `/merchant/events/${data.id}/edit`;
-  }
-
-  async function deleteEditableEvent(event: EventRecord) {
-    const group = statusGroup(event.status);
-
-    if (!["draft", "rejected"].includes(group)) {
-      setMessage("只有草稿或已拒絕活動可以由商戶刪除。");
-      return;
-    }
-
-    if (!window.confirm(`確定永久刪除「${titleOf(event)}」？此操作不能復原。`)) {
-      return;
-    }
-
-    const client = supabase;
-    if (!client) {
-      setMessage("Supabase client 未能初始化，暫時不能刪除活動。");
-      return;
-    }
-
-    setBusyId(event.id);
-    setMessage("");
-
-    const { error } = await client.from("events").delete().eq("id", event.id);
-
-    if (error) {
-      setMessage(`刪除失敗：${error.message}`);
-    } else {
-      setEvents((current) => current.filter((item) => item.id !== event.id));
-      setMessage("活動草稿已永久刪除。");
-    }
-
-    setBusyId(null);
-  }
+  const analyticsTotal = useMemo(
+    () =>
+      Object.values(analyticsByEvent).reduce<EventAnalytics>(
+        (total, item) => ({
+          views: total.views + item.views,
+          clicks: total.clicks + item.clicks,
+          shares: total.shares + item.shares,
+        }),
+        { ...EMPTY_ANALYTICS },
+      ),
+    [analyticsByEvent],
+  );
 
   async function updateStatus(id: string, nextStatus: string) {
     const client = supabase;
@@ -517,23 +517,70 @@ export default function MerchantDashboardPage() {
       )
     );
 
-    const { error } = await client
+    const { data: updatedEvent, error } = await client
       .from("events")
       .update({
         status: nextStatus,
         updated_at: now,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id,status")
+      .maybeSingle();
 
-    if (error) {
+    if (error || !updatedEvent) {
       setEvents(originalEvents);
-      setMessage(`更新失敗：${error.message}`);
+      setMessage(
+        error
+          ? `更新失敗：${error.message}`
+          : "更新未獲資料庫批准。活動狀態可能已改變，請重新整理後再試。",
+      );
     } else {
       setActiveFilter(statusGroup(nextStatus));
       setMessage(`活動已更新為「${statusLabel(nextStatus)}」。`);
       await loadDashboard();
     }
 
+    setBusyId(null);
+  }
+
+  async function removeEvent(event: EventRecord) {
+    const client = supabase;
+
+    if (!client || !merchant) {
+      setMessage("暫時不能刪除活動，請重新登入後再試。");
+      return;
+    }
+
+    const group = statusGroup(event.status);
+    if (group !== "draft" && group !== "rejected") {
+      setMessage("只有草稿或已拒絕活動可以刪除。");
+      return;
+    }
+
+    if (!window.confirm(`確定刪除「${titleOf(event)}」？`)) return;
+
+    setBusyId(event.id);
+    setMessage("");
+
+    const { data: removed, error } = await client
+      .from("events")
+      .delete()
+      .eq("id", event.id)
+      .select("id")
+      .maybeSingle();
+
+    if (error || !removed) {
+      setMessage(
+        error
+          ? `刪除失敗：${error.message}`
+          : "資料庫沒有刪除任何活動，請重新整理後再試。",
+      );
+      setBusyId(null);
+      return;
+    }
+
+    setMessage("活動已刪除。");
+    await loadDashboard();
     setBusyId(null);
   }
 
@@ -579,9 +626,13 @@ export default function MerchantDashboardPage() {
       <main className="min-h-screen bg-slate-50">
         <div className="mx-auto max-w-[1500px] px-4 py-16">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-2xl">
-              親
-            </div>
+            <img
+              src="/familyfun-logo-original.png"
+              alt="HK Family Fun"
+              width={56}
+              height={56}
+              className="mx-auto mb-4 h-14 w-14 object-contain"
+            />
             <p className="font-bold text-slate-700">正在讀取商戶 Dashboard...</p>
           </div>
         </div>
@@ -696,19 +747,11 @@ export default function MerchantDashboardPage() {
               >
                 重新整理
               </button>
-              <button
-                type="button"
-                onClick={createBlankEvent}
-                disabled={busyId === "new"}
-                className="rounded-full bg-slate-950 px-5 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
-              >
-                手動新增活動
-              </button>
               <Link
                 href="/merchant/events/import"
                 className="rounded-full bg-purple-700 px-5 py-2 text-sm font-bold text-white hover:bg-purple-800"
               >
-                智能網址匯入
+                智能匯入活動
               </Link>
             </div>
           </div>
@@ -742,6 +785,12 @@ export default function MerchantDashboardPage() {
               <MiniStat label="已發布" value={counts.published} />
               <MiniStat label="已拒絕" value={counts.rejected} />
               <MiniStat label="已封存" value={counts.archived} />
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2 rounded-3xl border border-purple-100 bg-purple-50 p-3">
+              <MiniStat label="總瀏覽" value={analyticsTotal.views} />
+              <MiniStat label="互動點擊" value={analyticsTotal.clicks} />
+              <MiniStat label="分享" value={analyticsTotal.shares} />
             </div>
           </div>
         </div>
@@ -801,14 +850,12 @@ export default function MerchantDashboardPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={createBlankEvent}
-                disabled={busyId === "new"}
-                className="rounded-full bg-slate-950 px-4 py-2 text-center text-xs font-black text-white hover:bg-slate-800 disabled:opacity-50"
+              <Link
+                href="/merchant/events/import"
+                className="rounded-full bg-slate-950 px-4 py-2 text-center text-xs font-black text-white hover:bg-slate-800"
               >
-                手動新增活動
-              </button>
+                新增活動
+              </Link>
             </div>
 
             {filteredEvents.length === 0 ? (
@@ -820,24 +867,14 @@ export default function MerchantDashboardPage() {
                   暫時未有活動
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  你可以手動建立空白草稿，或使用官方活動網址智能匯入後再補充圖片及資料。
+                  你可以貼上活動網址、上載 poster 或 PDF，先建立可編輯草稿。
                 </p>
-                <div className="mt-5 flex flex-wrap justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={createBlankEvent}
-                    disabled={busyId === "new"}
-                    className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
-                  >
-                    手動新增活動
-                  </button>
-                  <Link
-                    href="/merchant/events/import"
-                    className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
-                  >
-                    智能網址匯入
-                  </Link>
-                </div>
+                <Link
+                  href="/merchant/events/import"
+                  className="mt-5 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
+                >
+                  新增第一個活動
+                </Link>
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
@@ -845,10 +882,11 @@ export default function MerchantDashboardPage() {
                   <EventCard
                     key={event.id}
                     event={event}
+                    analytics={analyticsByEvent[event.id] || EMPTY_ANALYTICS}
                     busy={busyId === event.id}
                     onSubmit={() => updateStatus(event.id, "submitted")}
-                    onDelete={() => deleteEditableEvent(event)}
                     onDuplicate={() => duplicateEvent(event)}
+                    onRemove={() => removeEvent(event)}
                   />
                 ))}
               </div>
@@ -860,19 +898,11 @@ export default function MerchantDashboardPage() {
           <div className="rounded-3xl border border-purple-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-black text-purple-700">快捷操作</p>
             <div className="mt-4 grid gap-2">
-              <button
-                type="button"
-                onClick={createBlankEvent}
-                disabled={busyId === "new"}
-                className="rounded-2xl bg-slate-950 px-4 py-3 text-center text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
-              >
-                手動新增活動
-              </button>
               <Link
                 href="/merchant/events/import"
                 className="rounded-2xl bg-purple-700 px-4 py-3 text-center text-sm font-black text-white hover:bg-purple-800"
               >
-                智能網址匯入
+                智能匯入活動
               </Link>
               <button
                 type="button"
@@ -887,7 +917,7 @@ export default function MerchantDashboardPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-black text-purple-700">商戶流程</p>
             <div className="mt-4 space-y-2">
-              <GuideStep number="1" title="建立草稿" text="手動新增，或用官方活動網址智能匯入。" />
+              <GuideStep number="1" title="建立草稿" text="網址、圖片或 PDF 先匯入。" />
               <GuideStep number="2" title="補齊資料" text="日期、地點、收費、CTA。" />
               <GuideStep number="3" title="Preview" text="檢查家長見到的效果。" />
               <GuideStep number="4" title="提交審批" text="通過後才會公開。" />
@@ -910,20 +940,23 @@ export default function MerchantDashboardPage() {
 
 function EventCard({
   event,
+  analytics,
   busy,
   onSubmit,
-  onDelete,
   onDuplicate,
+  onRemove,
 }: {
   event: EventRecord;
+  analytics: EventAnalytics;
   busy: boolean;
   onSubmit: () => void;
-  onDelete: () => void;
   onDuplicate: () => void;
+  onRemove: () => void;
 }) {
   const group = statusGroup(event.status);
   const score = readyScore(event);
   const missing = missingItems(event);
+  const blockers = submissionBlockers(event);
   const published = group === "published";
   const canSubmitForReview = canSubmit(event);
 
@@ -937,11 +970,21 @@ function EventCard({
                 src={event.cover_image_url}
                 alt={titleOf(event)}
                 className="max-h-full max-w-full rounded-2xl object-contain"
+                onError={(imageEvent) => {
+                  imageEvent.currentTarget.src = "/familyfun-logo-original.png";
+                  imageEvent.currentTarget.style.padding = "1rem";
+                }}
               />
             </div>
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 text-5xl">
-              親
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 p-4">
+              <img
+                src="/familyfun-logo-original.png"
+                alt="HK Family Fun"
+                width={96}
+                height={96}
+                className="h-20 w-20 object-contain"
+              />
             </div>
           )}
         </div>
@@ -993,6 +1036,12 @@ function EventCard({
           />
         </div>
 
+        <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-600">
+          <MiniInfo label="瀏覽" value={analytics.views.toLocaleString("zh-HK")} />
+          <MiniInfo label="點擊" value={analytics.clicks.toLocaleString("zh-HK")} />
+          <MiniInfo label="分享" value={analytics.shares.toLocaleString("zh-HK")} />
+        </div>
+
         {missing.length ? (
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-800">
             <span className="font-black">建議補充：</span>
@@ -1034,12 +1083,22 @@ function EventCard({
             Preview
           </Link>
 
-          <Link
-            href={`/merchant/events/${event.id}/edit`}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
-          >
-            編輯
-          </Link>
+          {group === "draft" || group === "rejected" ? (
+            <Link
+              href={`/merchant/events/${event.id}/edit`}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700 hover:bg-slate-50"
+            >
+              編輯
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-black text-slate-400"
+            >
+              唯讀
+            </button>
+          )}
 
           {published ? (
             <Link
@@ -1066,42 +1125,44 @@ function EventCard({
           >
             複製
           </button>
+
+          {group === "draft" || group === "rejected" ? (
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={busy}
+              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+            >
+              刪除
+            </button>
+          ) : null}
         </div>
 
         <div className="grid gap-2">
-          {group === "draft" ? (
+          {group === "draft" || group === "rejected" ? (
             <button
               type="button"
               onClick={onSubmit}
               disabled={busy || !canSubmitForReview}
               className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
             >
-              提交審批
-            </button>
-          ) : null}
-
-          {group === "draft" || group === "rejected" ? (
-            <button
-              type="button"
-              onClick={onDelete}
-              disabled={busy}
-              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50"
-            >
-              永久刪除
+              {group === "rejected" ? "重新提交審批" : "提交審批"}
             </button>
           ) : (
-            <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-500">
-              {group === "published"
-                ? "已發布活動如需下架，請聯絡 HK Family Fun Admin。"
-                : group === "review"
-                  ? "活動審批期間不可修改或刪除。"
-                  : "已封存活動由 Admin 管理。"}
-            </p>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-bold leading-5 text-slate-600">
+              {group === "review"
+                ? "審批中，暫停編輯"
+                : group === "published"
+                  ? "已發布；如需修改請複製為新草稿"
+                  : group === "archived"
+                    ? "已封存；如需重用請複製為新草稿"
+                    : "此狀態暫停編輯"}
+            </div>
           )}
 
-          {group === "draft" && !canSubmitForReview ? (
+          {(group === "draft" || group === "rejected") && !canSubmitForReview ? (
             <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-700">
-              資料完整度未夠，請先補齊重點資料。
+              提交前必須補齊：{blockers.join("、")}。
             </p>
           ) : null}
         </div>

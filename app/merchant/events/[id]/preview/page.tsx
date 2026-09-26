@@ -96,8 +96,7 @@ type CompletenessItem = {
   done: boolean;
 };
 
-const FALLBACK_IMAGE =
-  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
 function safeText(value: unknown, fallback = "未填寫"): string {
   if (typeof value !== "string") return fallback;
@@ -344,7 +343,7 @@ function getPrimaryActionLabel(event: EventRecord): string {
   if (custom) return custom;
 
   if (isValidUrl(event.registration_url)) return "前往報名";
-  if (isValidUrl(event.source_url)) return "查看官方活動頁";
+  if (isValidUrl(event.source_url)) return "活動官網查看更多";
   if (event.registration_required) return "請向主辦查詢";
   return "無需報名";
 }

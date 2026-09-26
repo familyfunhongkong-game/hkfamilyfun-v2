@@ -1,5 +1,6 @@
 ﻿import type { Metadata } from "next";
 import Link from "next/link";
+import PublicHeader from "@/components/layout/PublicHeader";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,20 +21,16 @@ export const metadata: Metadata = {
     "親子工作坊",
     "HK Family Fun",
   ],
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     type: "website",
     locale: "zh_HK",
     siteName: "HK Family Fun",
-    url: "/",
     title: "HK Family Fun｜香港親子活動平台",
     description:
       "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
     images: [
       {
-        url: "/logo.png",
+        url: "/familyfun-logo-original.png",
         width: 100,
         height: 100,
         alt: "HK Family Fun",
@@ -45,7 +42,7 @@ export const metadata: Metadata = {
     title: "HK Family Fun｜香港親子活動平台",
     description:
       "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
-    images: ["/logo.png"],
+    images: ["/familyfun-logo-original.png"],
   },
   robots: {
     index: true,
@@ -53,118 +50,18 @@ export const metadata: Metadata = {
   },
 };
 
-const parentLinks = [
-  {
-    href: "/",
-    label: "首頁",
-    icon: "🏠",
-    hoverClass: "hover:bg-blue-50 hover:text-blue-700",
-  },
-  {
-    href: "/calendar",
-    label: "活動日曆",
-    icon: "🗓️",
-    hoverClass: "hover:bg-blue-50 hover:text-blue-700",
-  },
-  {
-    href: "/today",
-    label: "今日活動",
-    icon: "⏰",
-    hoverClass: "hover:bg-pink-50 hover:text-pink-700",
-  },
-  {
-    href: "/events",
-    label: "搜尋活動",
-    icon: "🔎",
-    hoverClass: "hover:bg-purple-50 hover:text-purple-700",
-  },
-  {
-    href: "/events/map",
-    label: "地點探索",
-    icon: "🗺️",
-    hoverClass: "hover:bg-teal-50 hover:text-teal-700",
-  },
-  {
-    href: "/tips",
-    label: "報料區",
-    icon: "💬",
-    hoverClass: "hover:bg-violet-50 hover:text-violet-700",
-  },
-  {
-    href: "/favorites",
-    label: "收藏",
-    icon: "💖",
-    hoverClass: "hover:bg-rose-50 hover:text-rose-700",
-  },
-];
-
-function SiteHeader() {
-  return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-3">
-          <img
-            src="/logo.png"
-            alt="HK Family Fun"
-            width={44}
-            height={44}
-            className="h-11 w-11 object-contain"
-          />
-          <span>
-            <span className="block text-lg font-black leading-tight text-slate-950">
-              HK Family Fun
-            </span>
-            <span className="block text-xs text-slate-500">
-              香港親子活動平台
-            </span>
-          </span>
-        </Link>
-
-        <nav className="flex flex-wrap items-center gap-1 text-sm font-bold text-slate-600">
-          {parentLinks.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`rounded-2xl px-3 py-2 transition ${item.hoverClass}`}
-            >
-              <span className="mr-1">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/merchant-join"
-            className="text-sm font-bold text-slate-600 hover:text-purple-700"
-          >
-            商戶加入
-          </Link>
-
-          <Link
-            href="/merchant/register"
-            className="rounded-full bg-purple-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-purple-800"
-          >
-            商戶免費登記
-          </Link>
-        </div>
-      </div>
-    </header>
-  );
-}
-
 function SiteFooter() {
   return (
     <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
+      <div className="mx-auto grid max-w-[1500px] gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
         <div>
           <Link href="/" className="flex items-center gap-3">
             <img
-              src="/logo.png"
+              src="/familyfun-logo-original.png"
               alt="HK Family Fun"
-              width={40}
-              height={40}
-              className="h-10 w-10 object-contain"
+              width={52}
+              height={52}
+              className="h-12 w-12 rounded-xl object-contain shadow-sm ring-1 ring-slate-200"
             />
             <span>
               <span className="block text-base font-black text-slate-950">
@@ -270,7 +167,7 @@ function SiteFooter() {
       </div>
 
       <div className="border-t border-slate-100 px-4 py-5">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-xs text-slate-500 md:flex-row">
+        <div className="mx-auto flex max-w-[1500px] flex-col items-center justify-between gap-3 text-xs text-slate-500 md:flex-row">
           <p>© 2026 HK Family Fun. 保留所有權利。</p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link href="/about" className="hover:text-purple-700">關於我們</Link>
@@ -295,7 +192,7 @@ export default function RootLayout({
   return (
     <html lang="zh-Hant">
       <body className="bg-slate-50 text-slate-950 antialiased">
-        <SiteHeader />
+        <PublicHeader />
         {children}
         <SiteFooter />
       </body>

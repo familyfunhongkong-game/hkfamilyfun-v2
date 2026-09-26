@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 
@@ -73,7 +73,7 @@ const emptyDraft: DraftEvent = {
   offer_price: "",
   quota_label: "",
   cta_type: "official",
-  cta_label: "查看官方活動頁",
+  cta_label: "活動官網查看更多",
   registration_url: "",
   booking_url: "",
   official_url: "",
@@ -100,7 +100,7 @@ const priceModes = [
 ];
 
 const ctaTypes = [
-  { key: "official", title: "官方活動頁", label: "查看官方活動頁" },
+  { key: "official", title: "官方活動頁", label: "活動官網查看更多" },
   { key: "external", title: "外部連結報名", label: "前往報名" },
   { key: "google_form", title: "Google Form", label: "Google Form 報名" },
   { key: "whatsapp", title: "WhatsApp", label: "WhatsApp 報名" },
@@ -120,10 +120,19 @@ function updateArrayItem(items: string[], index: number, value: string) {
   return next;
 }
 
-function normalizeImages(images: string[]) {
+function normalizeImages(images: string[], limit = 6) {
   return Array.from(
     new Set(images.map((item) => item.trim()).filter(Boolean))
-  ).slice(0, 5);
+  ).slice(0, limit);
+}
+
+function extractionEngineLabel(engine: string) {
+  if (engine === "jina_reader") return "免費智能文件解析";
+  if (engine === "pdf_parse") return "免費 PDF 文字解析";
+  if (engine === "tinyfish_fetch") return "智能第三層後備";
+  if (engine === "direct_html") return "網頁結構化抽取";
+  if (engine === "manual_required") return "需要人工補資料";
+  return "尚未抽取";
 }
 
 function formatPricePreview(draft: DraftEvent) {
@@ -186,6 +195,7 @@ export default function ImportEventPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [extractionEngine, setExtractionEngine] = useState("");
 
   const score = useMemo(() => readyScore(draft), [draft]);
 
@@ -236,7 +246,6 @@ export default function ImportEventPage() {
     }
 
     const currentMerchant = data as MerchantRecord;
-    setMerchant(currentMerchant);
 
     if (safeText(currentMerchant.status, "pending") !== "approved") {
       setMessage(
@@ -250,9 +259,14 @@ export default function ImportEventPage() {
       return null;
     }
 
+    setMerchant(currentMerchant);
     setLoadingMerchant(false);
     return currentMerchant;
   }
+
+  useEffect(() => {
+    void loadMerchant();
+  }, []);
 
   async function extractFromUrl() {
     const targetUrl = url.trim();
@@ -265,6 +279,7 @@ export default function ImportEventPage() {
     setExtracting(true);
     setMessage("");
     setSavedId(null);
+    setExtractionEngine("");
 
     try {
       if (!supabase) {
@@ -284,14 +299,24 @@ export default function ImportEventPage() {
         return;
       }
 
-      const response = await fetch("/api/import-event", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ url: targetUrl }),
-      });
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 35000);
+
+      let response: Response;
+
+      try {
+        response = await fetch("/api/import-event", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ url: targetUrl }),
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
 
       const json = await response.json();
 
@@ -302,36 +327,56 @@ export default function ImportEventPage() {
       }
 
       const extracted = json.event as DraftEvent;
-      const images = normalizeImages([
+      const engine = safeText(json.extraction_engine, "manual_required");
+      const allImages = normalizeImages([
         extracted.cover_image_url,
         ...(extracted.gallery_image_urls || []),
       ]);
+      const coverImage = extracted.cover_image_url || allImages[0] || "";
+      const galleryImages = allImages
+        .filter((image) => image !== coverImage)
+        .slice(0, 5);
+
+      setExtractionEngine(engine);
 
       setDraft({
         ...emptyDraft,
         ...extracted,
         source_url: extracted.source_url || targetUrl,
         official_url: extracted.official_url || targetUrl,
-        registration_url: extracted.registration_url || extracted.booking_url || targetUrl,
-        booking_url: extracted.booking_url || extracted.registration_url || targetUrl,
+        registration_url:
+          extracted.registration_url || extracted.booking_url || "",
+        booking_url:
+          extracted.booking_url || extracted.registration_url || "",
         gallery_image_urls: [
-          images[0] || "",
-          images[1] || "",
-          images[2] || "",
-          images[3] || "",
-          images[4] || "",
+          galleryImages[0] || "",
+          galleryImages[1] || "",
+          galleryImages[2] || "",
+          galleryImages[3] || "",
+          galleryImages[4] || "",
         ],
-        cover_image_url: extracted.cover_image_url || images[0] || "",
+        cover_image_url: coverImage,
         extraction_notes: extracted.extraction_notes || [],
       });
 
-      setMessage("已完成網址資料抽取。請逐項核對日期、地點、收費及報名資料後再儲存草稿。");
-    } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "抽取活動資料時發生未知錯誤。"
+        `已完成資料抽取（${extractionEngineLabel(engine)}）。請逐項核對日期、地點、收費及報名資料後再儲存草稿。`
       );
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        error.name === "AbortError"
+      ) {
+        setMessage(
+          "智能匯入超時。PDF 或受保護網站可能需要較長時間，請重試一次；如仍未完成，可改貼官方活動網頁 URL。"
+        );
+      } else {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "抽取活動資料時發生未知錯誤。"
+        );
+      }
     }
 
     setExtracting(false);
@@ -351,10 +396,29 @@ export default function ImportEventPage() {
     setSaving(true);
     setMessage("");
 
-    const gallery = normalizeImages([
-      draft.cover_image_url,
-      ...draft.gallery_image_urls,
-    ]);
+    const normalizedSourceUrl = (draft.source_url || url).trim();
+
+    if (normalizedSourceUrl) {
+      const { data: existingDraft, error: duplicateError } = await client
+        .from("events")
+        .select("id,title_tc,status")
+        .eq("merchant_id", currentMerchant.id)
+        .eq("source_url", normalizedSourceUrl)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!duplicateError && existingDraft?.id) {
+        setSavedId(existingDraft.id);
+        setMessage(
+          `這個來源網址已經建立過活動草稿：${existingDraft.title_tc || "未命名活動"}。系統沒有重複新增，請直接前往原有活動繼續編輯。`
+        );
+        setSaving(false);
+        return;
+      }
+    }
+
+    const gallery = normalizeImages(draft.gallery_image_urls, 5);
 
     const insertPayload = {
       merchant_id: currentMerchant.id,
@@ -387,8 +451,8 @@ export default function ImportEventPage() {
       booking_url: draft.booking_url || draft.registration_url || draft.official_url || draft.source_url,
       official_url: draft.official_url || draft.source_url,
       source_type: "url",
-      source_url: draft.source_url || url,
-      ai_extraction_status: "not_available",
+      source_url: normalizedSourceUrl,
+      ai_extraction_status: extractionEngine || "manual_required",
       google_map_url: draft.google_map_url,
       google_map_embed_url: draft.google_map_embed_url,
       cover_image_url: draft.cover_image_url || gallery[0] || "",
@@ -430,8 +494,10 @@ export default function ImportEventPage() {
             貼活動網址，自動建立可編輯草稿
           </h1>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
-            系統會讀取活動網頁的 HTML、Meta 及 JSON-LD 結構化資料，預填活動名稱、描述、
-            圖片、日期、地點、收費及 CTA。所有結果只會建立草稿，必須人工確認後才提交審批。
+            系統會先讀取 HTML、Meta、JSON-LD；PDF 新聞稿會使用免費 server-side PDF 文字解析，
+            如官方網站封鎖直接讀取，會自動轉用免費 Jina Reader 作智能文件後備，不需要付費 AI API。
+            系統會預填活動名稱、描述、日期、時間、地點、收費、官方活動頁及 CTA。
+            所有結果只會建立草稿，必須人工確認後才提交審批。
           </p>
         </div>
       </section>
@@ -441,7 +507,7 @@ export default function ImportEventPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-black text-slate-950">1. 輸入活動網址</h2>
             <p className="mt-1 text-sm text-slate-500">
-              支援商戶官網、商場活動頁、Google Form 或報名頁。
+              支援商戶官網、商場活動頁、PDF 新聞稿、Google Form 或報名頁。系統會自動依次使用免費結構化抽取、PDF 解析及 Jina Reader 後備。
             </p>
 
             <textarea
@@ -454,7 +520,7 @@ export default function ImportEventPage() {
             <button
               type="button"
               onClick={extractFromUrl}
-              disabled={extracting}
+              disabled={extracting || loadingMerchant || !merchant}
               className="mt-4 w-full rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
             >
               {extracting ? "正在抽取資料..." : "抽取活動資料"}
@@ -514,8 +580,13 @@ export default function ImportEventPage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-700">
-                完整度 {score}%
+              <div className="flex flex-wrap gap-2">
+                <div className="rounded-2xl bg-purple-50 px-4 py-3 text-sm font-black text-purple-700">
+                  {extractionEngineLabel(extractionEngine)}
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-700">
+                  完整度 {score}%
+                </div>
               </div>
             </div>
 
@@ -603,7 +674,7 @@ export default function ImportEventPage() {
             <Input label="官方活動頁" value={draft.official_url} onChange={(value) => updateField("official_url", value)} />
           </FormSection>
 
-          <FormSection title="6. 圖片 URL（最多 5 張）">
+          <FormSection title="6. 圖片 URL（封面 + 最多 5 張 Gallery）">
             <Input label="封面圖片 URL" value={draft.cover_image_url} onChange={(value) => updateField("cover_image_url", value)} />
             {draft.gallery_image_urls.map((image, index) => (
               <Input
@@ -616,9 +687,9 @@ export default function ImportEventPage() {
               />
             ))}
 
-            {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls]).length ? (
+            {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls], 6).length ? (
               <div className="md:col-span-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls]).map((image) => (
+                {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls], 6).map((image) => (
                   <div key={image} className="aspect-video overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                     <img src={image} alt="活動圖片" className="h-full w-full object-contain" />
                   </div>
@@ -676,7 +747,7 @@ export default function ImportEventPage() {
                 <button
                   type="button"
                   onClick={saveDraft}
-                  disabled={saving}
+                  disabled={saving || loadingMerchant || !merchant}
                   className="rounded-full bg-purple-700 px-6 py-3 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
                 >
                   {saving ? "正在儲存..." : "儲存為活動草稿"}

@@ -128,8 +128,7 @@ type ChecklistItem = {
 
 type StatusTone = "purple" | "green" | "amber" | "slate" | "rose";
 
-const FALLBACK_IMAGE =
-  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
 function safeText(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;
@@ -755,37 +754,6 @@ export default function AdminEventReviewPage() {
     return getTagArray(event.tags);
   }, [event]);
 
-  async function deleteEventPermanently() {
-    const client = supabase;
-
-    if (!client || !event) {
-      setErrorText("Supabase 尚未初始化或活動資料不存在。");
-      return;
-    }
-
-    if (
-      !window.confirm(
-        `確定永久刪除「${safeText(event.title_tc || event.title, "未命名活動")}」？此操作不能復原。`,
-      )
-    ) {
-      return;
-    }
-
-    setSaving(true);
-    setErrorText("");
-    setMessage("");
-
-    const { error } = await client.from("events").delete().eq("id", event.id);
-
-    if (error) {
-      setErrorText(error.message || "永久刪除活動失敗。");
-      setSaving(false);
-      return;
-    }
-
-    router.push("/admin/events");
-  }
-
   async function updateEventStatus(
     nextStatus: "published" | "rejected" | "archived" | "draft",
   ) {
@@ -805,21 +773,37 @@ export default function AdminEventReviewPage() {
     setErrorText("");
     setMessage("");
 
+    const {
+      data: { user },
+      error: userError,
+    } = await client.auth.getUser();
+
+    if (userError || !user) {
+      setErrorText("Admin 登入已失效，請重新登入。");
+      setSaving(false);
+      return;
+    }
+
     const now = new Date().toISOString();
 
     const payload: Record<string, unknown> = {
       status: nextStatus,
       admin_review_note: adminNote || null,
       reviewed_at: now,
+      reviewed_by: user.id,
       updated_at: now,
     };
 
     if (nextStatus === "published") {
+      payload.approved_at = now;
       payload.published_at = now;
+      payload.rejected_at = null;
       payload.rejection_reason = null;
     }
 
     if (nextStatus === "rejected") {
+      payload.rejected_at = now;
+      payload.published_at = null;
       payload.rejection_reason =
         adminNote || "資料未符合發布要求，請商戶補充後再提交。";
     }
@@ -831,8 +815,11 @@ export default function AdminEventReviewPage() {
       .select("*")
       .maybeSingle();
 
-    if (error) {
-      setErrorText(error.message || "更新審批狀態失敗。");
+    if (error || !data) {
+      setErrorText(
+        error?.message ||
+          "資料庫沒有更新任何活動。請確認 Admin 權限及活動目前狀態後再試。",
+      );
       setSaving(false);
       return;
     }
@@ -1304,15 +1291,6 @@ export default function AdminEventReviewPage() {
                 className="rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 封存活動
-              </button>
-
-              <button
-                type="button"
-                onClick={deleteEventPermanently}
-                disabled={saving}
-                className="rounded-2xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50"
-              >
-                永久刪除活動
               </button>
             </div>
           </section>

@@ -4,6 +4,7 @@ import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import ActivePromoBanners from "@/components/ads/ActivePromoBanners";
 
 type JsonValue =
   | string
@@ -72,12 +73,16 @@ type EventRecord = {
   offer_price?: number | string | null;
   quota_label?: string | null;
 
-  age_group?: string | null;
+  age_min?: number | string | null;
+  age_max?: number | string | null;
+  age_groups?: string[] | JsonValue | null;
   activity_type?: string | null;
   activity_category?: string | null;
   category?: string | JsonValue | null;
   is_indoor?: boolean | null;
+  is_outdoor?: boolean | null;
   is_sen_friendly?: boolean | null;
+  is_subsidized?: boolean | null;
 
   registration_required?: boolean | null;
   registration_url?: string | null;
@@ -106,9 +111,10 @@ type GalleryImage = {
 type PriceFilter = "all" | "free" | "paid";
 type DateFilter = "all" | "today" | "tomorrow" | "weekend" | "month";
 type SortMode = "recommended" | "date_asc" | "date_desc" | "newest";
+type AgeFilter = "all" | "0-3" | "4-6" | "7-9" | "10-12" | "13+";
+type TimeFilter = "all" | "morning" | "afternoon" | "evening";
 
-const FALLBACK_IMAGE =
-  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
 
@@ -120,10 +126,11 @@ const dateFilters: { key: DateFilter; label: string }[] = [
   { key: "month", label: "本月" },
 ];
 
-const priceFilters: { key: PriceFilter; label: string }[] = [
-  { key: "all", label: "全部收費" },
-  { key: "free", label: "免費" },
-  { key: "paid", label: "收費" },
+const timeFilters: { key: TimeFilter; label: string }[] = [
+  { key: "all", label: "全部時段" },
+  { key: "morning", label: "🌅 上午" },
+  { key: "afternoon", label: "☀️ 下午" },
+  { key: "evening", label: "🌙 晚上" },
 ];
 
 function safeText(value: unknown, fallback = ""): string {
@@ -415,8 +422,7 @@ function getCategoryLabel(event: EventRecord): string {
   const raw = safeText(
     event.category ||
       event.activity_category ||
-      event.activity_type ||
-      event.age_group,
+      event.activity_type,
     "親子活動",
   );
 
@@ -522,17 +528,31 @@ function normalizedStatus(event: EventRecord): string {
   return safeText(event.status || event.approval_status, "draft").toLowerCase();
 }
 
+function getHongKongTodayYmd(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function addDaysToYmd(value: string, days: number): string {
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function canShowPublic(event: EventRecord): boolean {
   const status = normalizedStatus(event);
   if (!["published", "approved", "live"].includes(status)) return false;
 
-  const end = parseDateOnly(event.end_date || event.start_date);
-  if (!end) return true;
+  const endYmd = safeText(event.end_date || event.start_date);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(endYmd)) return true;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return end.getTime() >= today.getTime();
+  return endYmd >= getHongKongTodayYmd();
 }
 
 function isFreeEvent(event: EventRecord): boolean {
@@ -553,58 +573,62 @@ function parseDateOnly(value?: string | null): Date | null {
   return date;
 }
 
-function eventOverlapsDate(event: EventRecord, target: Date): boolean {
-  const start = parseDateOnly(event.start_date);
-  const end = parseDateOnly(event.end_date) || start;
+function eventOverlapsYmd(event: EventRecord, targetYmd: string): boolean {
+  const startYmd = safeText(event.start_date);
+  const endYmd = safeText(event.end_date || event.start_date);
 
-  if (!start || !end) return false;
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(startYmd) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(endYmd)
+  ) {
+    return false;
+  }
 
-  const targetTime = target.getTime();
-  return start.getTime() <= targetTime && targetTime <= end.getTime();
+  return startYmd <= targetYmd && targetYmd <= endYmd;
 }
 
-function isWeekendDate(date: Date): boolean {
-  const day = date.getDay();
+function isWeekendYmd(value: string): boolean {
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const day = date.getUTCDay();
   return day === 0 || day === 6;
 }
 
 function eventMatchesDateFilter(event: EventRecord, filter: DateFilter): boolean {
   if (filter === "all") return true;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayYmd = getHongKongTodayYmd();
+  const tomorrowYmd = addDaysToYmd(todayYmd, 1);
 
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-
-  if (filter === "today") return eventOverlapsDate(event, today);
-  if (filter === "tomorrow") return eventOverlapsDate(event, tomorrow);
+  if (filter === "today") return eventOverlapsYmd(event, todayYmd);
+  if (filter === "tomorrow") return eventOverlapsYmd(event, tomorrowYmd);
 
   if (filter === "month") {
-    const start = parseDateOnly(event.start_date);
-    if (!start) return false;
-
-    return (
-      start.getFullYear() === today.getFullYear() &&
-      start.getMonth() === today.getMonth()
-    );
+    const startYmd = safeText(event.start_date);
+    return /^\d{4}-\d{2}-\d{2}$/.test(startYmd)
+      ? startYmd.slice(0, 7) === todayYmd.slice(0, 7)
+      : false;
   }
 
   if (filter === "weekend") {
-    const start = parseDateOnly(event.start_date);
-    const end = parseDateOnly(event.end_date) || start;
+    const startYmd = safeText(event.start_date);
+    const endYmd = safeText(event.end_date || event.start_date);
 
-    if (!start || !end) return false;
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(startYmd) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(endYmd)
+    ) {
+      return false;
+    }
 
-    const cursor = new Date(start);
-    cursor.setHours(0, 0, 0, 0);
+    let cursor = startYmd;
+    let guard = 0;
 
-    const final = new Date(end);
-    final.setHours(0, 0, 0, 0);
-
-    while (cursor.getTime() <= final.getTime()) {
-      if (isWeekendDate(cursor)) return true;
-      cursor.setDate(cursor.getDate() + 1);
+    while (cursor <= endYmd && guard < 370) {
+      if (isWeekendYmd(cursor)) return true;
+      cursor = addDaysToYmd(cursor, 1);
+      guard += 1;
     }
 
     return false;
@@ -627,6 +651,70 @@ function getCategoryOptions(events: EventRecord[]): string[] {
   return Array.from(
     new Set(events.map((event) => getCategoryLabel(event)).filter(Boolean)),
   ).sort();
+}
+
+function getMtrOptions(events: EventRecord[]): string[] {
+  return Array.from(
+    new Set(events.map((event) => safeText(event.mtr_station)).filter(Boolean)),
+  ).sort();
+}
+
+const ageFilters: { key: AgeFilter; label: string; min: number; max: number | null }[] = [
+  { key: "all", label: "全部年齡", min: 0, max: null },
+  { key: "0-3", label: "0–3歲", min: 0, max: 3 },
+  { key: "4-6", label: "4–6歲", min: 4, max: 6 },
+  { key: "7-9", label: "7–9歲", min: 7, max: 9 },
+  { key: "10-12", label: "10–12歲", min: 10, max: 12 },
+  { key: "13+", label: "13歲以上", min: 13, max: null },
+];
+
+function eventMatchesAge(event: EventRecord, filter: AgeFilter): boolean {
+  if (filter === "all") return true;
+
+  const bucket = ageFilters.find((item) => item.key === filter);
+  if (!bucket) return true;
+
+  const eventMin = toNumber(event.age_min, Number.NaN);
+  const eventMax = toNumber(event.age_max, Number.NaN);
+
+  if (!Number.isFinite(eventMin) && !Number.isFinite(eventMax)) return false;
+
+  const min = Number.isFinite(eventMin) ? eventMin : 0;
+  const max = Number.isFinite(eventMax) ? eventMax : Number.POSITIVE_INFINITY;
+  const bucketMax = bucket.max ?? Number.POSITIVE_INFINITY;
+
+  return min <= bucketMax && max >= bucket.min;
+}
+
+function timeToMinutes(value: string | null | undefined): number | null {
+  const text = safeText(value);
+  const match = text.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+function eventMatchesTimeFilter(event: EventRecord, filter: TimeFilter): boolean {
+  if (filter === "all") return true;
+
+  const start = timeToMinutes(event.start_time);
+  const end = timeToMinutes(event.end_time);
+  if (start === null && end === null) return false;
+
+  const eventStart = start ?? end ?? 0;
+  const eventEnd = end ?? start ?? eventStart;
+
+  const range =
+    filter === "morning"
+      ? { start: 0, end: 12 * 60 }
+      : filter === "afternoon"
+        ? { start: 12 * 60, end: 17 * 60 }
+        : { start: 17 * 60, end: 24 * 60 };
+
+  return eventStart < range.end && eventEnd >= range.start;
 }
 
 function scoreEvent(event: EventRecord): number {
@@ -694,66 +782,6 @@ function Badge({
     >
       {children}
     </span>
-  );
-}
-
-function QuickEntry({
-  href,
-  icon,
-  title,
-  desc,
-}: {
-  href: string;
-  icon: string;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md"
-    >
-      <div className="flex items-start gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-purple-50 text-xl">
-          {icon}
-        </span>
-        <div>
-          <p className="font-black text-slate-950">{title}</p>
-          <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
-            {desc}
-          </p>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  note,
-  tone = "slate",
-}: {
-  label: string;
-  value: number | string;
-  note: string;
-  tone?: "slate" | "green" | "purple" | "amber";
-}) {
-  const className =
-    tone === "green"
-      ? "bg-emerald-50 text-emerald-900 ring-emerald-100"
-      : tone === "purple"
-        ? "bg-purple-50 text-purple-950 ring-purple-100"
-        : tone === "amber"
-          ? "bg-amber-50 text-amber-900 ring-amber-100"
-          : "bg-white text-slate-950 ring-slate-200";
-
-  return (
-    <div className={`rounded-3xl p-5 shadow-sm ring-1 ${className}`}>
-      <p className="text-xs font-black opacity-70">{label}</p>
-      <p className="mt-2 text-3xl font-black">{value}</p>
-      <p className="mt-1 text-xs font-bold leading-5 opacity-70">{note}</p>
-    </div>
   );
 }
 
@@ -877,9 +905,13 @@ function EventCard({
 
         {isFallback ? (
           <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
-            <div className="grid h-16 w-16 place-items-center rounded-3xl bg-purple-700 text-2xl font-black text-white shadow-sm">
-              親
-            </div>
+            <img
+              src="/familyfun-logo-original.png"
+              alt="HK Family Fun"
+              width={72}
+              height={72}
+              className="h-16 w-16 object-contain"
+            />
             <p className="mt-3 text-sm font-black text-purple-900">
               HK Family Fun
             </p>
@@ -893,6 +925,12 @@ function EventCard({
             alt={title}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
             style={coverStyle}
+            onError={(imageEvent) => {
+              imageEvent.currentTarget.src = "/familyfun-logo-original.png";
+              imageEvent.currentTarget.style.objectFit = "contain";
+              imageEvent.currentTarget.style.padding = "1rem";
+              imageEvent.currentTarget.style.backgroundColor = "#ece1cf";
+            }}
           />
         )}
 
@@ -1127,12 +1165,18 @@ export default function PublicEventsPage() {
 
   const [keyword, setKeyword] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [specificDate, setSpecificDate] = useState("");
   const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
   const [districtFilter, setDistrictFilter] = useState("all");
+  const [mtrFilter, setMtrFilter] = useState("all");
+  const [ageFilter, setAgeFilter] = useState<AgeFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [senOnly, setSenOnly] = useState(false);
   const [indoorOnly, setIndoorOnly] = useState(false);
+  const [outdoorOnly, setOutdoorOnly] = useState(false);
+  const [registrationOnly, setRegistrationOnly] = useState(false);
+  const [subsidizedOnly, setSubsidizedOnly] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("recommended");
 
   async function loadEvents() {
@@ -1173,8 +1217,11 @@ export default function PublicEventsPage() {
     const params = new URLSearchParams(window.location.search);
     const queryKeyword = params.get("q") || "";
     const queryDate = params.get("date") || "";
+    const queryTime = params.get("time") || "";
     const queryPrice = params.get("price") || "";
     const queryDistrict = params.get("district") || "all";
+    const queryMtr = params.get("mtr") || "all";
+    const queryAge = params.get("age") || "all";
     const queryCategory = params.get("category") || "all";
     const legacyFree = params.get("is_free") === "true";
     const legacySen =
@@ -1182,7 +1229,14 @@ export default function PublicEventsPage() {
       params.get("is_sen_friendly") === "true";
 
     setKeyword(queryKeyword);
+    setTimeFilter(
+      ["morning", "afternoon", "evening"].includes(queryTime)
+        ? (queryTime as TimeFilter)
+        : "all",
+    );
     setDistrictFilter(queryDistrict || "all");
+    setMtrFilter(queryMtr || "all");
+    setAgeFilter(ageFilters.some((item) => item.key === queryAge) ? (queryAge as AgeFilter) : "all");
 
     if (queryCategory === "weekend") {
       setDateFilter("weekend");
@@ -1229,9 +1283,13 @@ export default function PublicEventsPage() {
     );
     setSenOnly(params.get("sen") === "true" || legacySen);
     setIndoorOnly(params.get("indoor") === "true");
+    setOutdoorOnly(params.get("outdoor") === "true");
+    setRegistrationOnly(params.get("registration") === "true");
+    setSubsidizedOnly(params.get("subsidized") === "true");
   }, []);
 
   const districtOptions = useMemo(() => getDistrictOptions(events), [events]);
+  const mtrOptions = useMemo(() => getMtrOptions(events), [events]);
   const categoryOptions = useMemo(() => getCategoryOptions(events), [events]);
 
   const filteredEvents = useMemo(() => {
@@ -1272,11 +1330,12 @@ export default function PublicEventsPage() {
       next = next.filter((event) => eventMatchesDateFilter(event, dateFilter));
     }
 
-    if (specificDate) {
-      const target = parseDateOnly(specificDate);
-      if (target) {
-        next = next.filter((event) => eventOverlapsDate(event, target));
-      }
+    if (specificDate && /^\d{4}-\d{2}-\d{2}$/.test(specificDate)) {
+      next = next.filter((event) => eventOverlapsYmd(event, specificDate));
+    }
+
+    if (timeFilter !== "all") {
+      next = next.filter((event) => eventMatchesTimeFilter(event, timeFilter));
     }
 
     if (priceFilter === "free") {
@@ -1291,6 +1350,14 @@ export default function PublicEventsPage() {
       next = next.filter(
         (event) => safeText(event.district || event.area) === districtFilter,
       );
+    }
+
+    if (mtrFilter !== "all") {
+      next = next.filter((event) => safeText(event.mtr_station) === mtrFilter);
+    }
+
+    if (ageFilter !== "all") {
+      next = next.filter((event) => eventMatchesAge(event, ageFilter));
     }
 
     if (categoryFilter !== "all") {
@@ -1313,6 +1380,27 @@ export default function PublicEventsPage() {
           getCategoryLabel(event) === "室內活動" ||
           getTagArray(event.tags).some((tag) => tag.includes("室內")),
       );
+    }
+
+    if (outdoorOnly) {
+      next = next.filter(
+        (event) =>
+          Boolean(event.is_outdoor) ||
+          getCategoryLabel(event) === "戶外活動" ||
+          getTagArray(event.tags).some((tag) => tag.includes("戶外")),
+      );
+    }
+
+    if (registrationOnly) {
+      next = next.filter(
+        (event) =>
+          Boolean(event.registration_required) ||
+          Boolean(getRegistrationUrl(event)),
+      );
+    }
+
+    if (subsidizedOnly) {
+      next = next.filter((event) => Boolean(event.is_subsidized));
     }
 
     if (sortMode === "recommended") {
@@ -1360,12 +1448,18 @@ export default function PublicEventsPage() {
     favoriteIds,
     keyword,
     dateFilter,
+    timeFilter,
     specificDate,
     priceFilter,
     districtFilter,
+    mtrFilter,
+    ageFilter,
     categoryFilter,
     senOnly,
     indoorOnly,
+    outdoorOnly,
+    registrationOnly,
+    subsidizedOnly,
     sortMode,
   ]);
 
@@ -1376,20 +1470,22 @@ export default function PublicEventsPage() {
 
   const freeCount = useMemo(() => events.filter(isFreeEvent).length, [events]);
 
-  const imageReadyCount = useMemo(
-    () => events.filter(hasRealImage).length,
-    [events],
-  );
 
   function clearFilters() {
     setKeyword("");
     setDateFilter("all");
+    setTimeFilter("all");
     setSpecificDate("");
     setPriceFilter("all");
     setDistrictFilter("all");
+    setMtrFilter("all");
+    setAgeFilter("all");
     setCategoryFilter("all");
     setSenOnly(false);
     setIndoorOnly(false);
+    setOutdoorOnly(false);
+    setRegistrationOnly(false);
+    setSubsidizedOnly(false);
     setSortMode("recommended");
   }
 
@@ -1406,133 +1502,52 @@ export default function PublicEventsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-[#f7f8fa]">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1500px] px-4 py-8">
-          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
+        <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="flex flex-wrap gap-2">
-                <Badge tone="purple">香港親子活動</Badge>
-                <Badge tone="green">{events.length} 個公開活動</Badge>
-                <Badge tone="amber">今日 {todayCount} 個</Badge>
-                <Badge tone="rose">已收藏 {favoriteIds.length}</Badge>
-              </div>
-
-              <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-950 lg:text-5xl">
-                搜尋香港親子活動
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-purple-700">
+                Explore Hong Kong
+              </p>
+              <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+                搵親子活動
               </h1>
-
-              <p className="mt-4 max-w-3xl text-base font-medium leading-8 text-slate-600">
-                一站式搜尋香港親子市集、工作坊、展覽、商場活動、免費活動及家庭好去處。
-                活動卡已支援圖片切換、收藏、Google Map、分享及官方連結。
+              <p className="mt-2 text-sm font-medium text-slate-500">
+                {events.length} 個公開活動 · 今日 {todayCount} 個 · 免費 {freeCount} 個
               </p>
             </div>
 
-            <div className="grid gap-3">
-              <QuickEntry
-                href="/today"
-                icon="☀️"
-                title="今日活動"
-                desc="快速查看今日適合帶小朋友去的活動。"
-              />
-              <QuickEntry
-                href="/calendar"
-                icon="🗓️"
-                title="活動日曆"
-                desc="按日期及時間瀏覽活動。"
-              />
-              <QuickEntry
-                href="/events/map"
-                icon="🗺️"
-                title="附近活動地圖"
-                desc="按地點搜尋附近親子活動。"
-              />
+            <div className="flex flex-wrap gap-2">
+              <Link href="/today" className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">
+                ☀️ 今日
+              </Link>
+              <Link href="/calendar" className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">
+                📅 日曆
+              </Link>
+              <Link href="/events/map" className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">
+                📍 地圖
+              </Link>
+              <Link href="/favorites" className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">
+                ❤️ 收藏 {favoriteIds.length || ""}
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1500px] px-4 py-6">
-        <div className="grid gap-4 md:grid-cols-4">
-          <StatCard
-            label="公開活動"
-            value={events.length}
-            note="只顯示已發布或已批准活動"
-            tone="slate"
-          />
-          <StatCard
-            label="免費活動"
-            value={freeCount}
-            note="適合想控制預算的家庭"
-            tone="green"
-          />
-          <StatCard
-            label="圖片完成"
-            value={imageReadyCount}
-            note="已有活動封面或 Gallery"
-            tone="purple"
-          />
-          <StatCard
-            label="我的收藏"
-            value={favoriteIds.length}
-            note="暫存在此瀏覽器"
-            tone="amber"
-          />
-        </div>
-
-        <div className="mt-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="grid gap-4 xl:grid-cols-[1fr_220px]">
-            <input
-              value={keyword}
-              onChange={(changeEvent) => setKeyword(changeEvent.target.value)}
-              placeholder="搜尋活動名稱、商戶、地點、分類、港鐵站..."
-              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-            />
-
-            <select
-              value={sortMode}
-              onChange={(changeEvent) => setSortMode(changeEvent.target.value as SortMode)}
-              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-            >
-              <option value="recommended">推薦排序</option>
-              <option value="date_asc">活動日期近至遠</option>
-              <option value="date_desc">活動日期遠至近</option>
-              <option value="newest">最新發布</option>
-            </select>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {dateFilters.map((filter) => (
-              <button
-                key={filter.key}
-                type="button"
-                onClick={() => setDateFilter(filter.key)}
-                className={[
-                  "rounded-full px-4 py-2 text-sm font-black transition",
-                  dateFilter === filter.key
-                    ? "bg-purple-700 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                ].join(" ")}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <select
-              value={priceFilter}
-              onChange={(changeEvent) =>
-                setPriceFilter(changeEvent.target.value as PriceFilter)
-              }
-              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-            >
-              {priceFilters.map((filter) => (
-                <option key={filter.key} value={filter.key}>
-                  {filter.label}
-                </option>
-              ))}
-            </select>
+      <section className="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8">
+        <div className="sticky top-[88px] z-30 rounded-[1.6rem] border border-slate-200 bg-white/95 p-4 shadow-[0_12px_35px_rgba(15,23,42,0.08)] backdrop-blur">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.7fr)_150px_150px_150px_170px_170px]">
+            <div className="flex items-center rounded-2xl border border-slate-300 bg-white px-4 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-100 md:col-span-2 xl:col-span-1">
+              <span className="mr-2 text-lg">🔎</span>
+              <input
+                value={keyword}
+                onChange={(changeEvent) => setKeyword(changeEvent.target.value)}
+                placeholder="活動、商場、地區、港鐵站..."
+                className="w-full bg-transparent py-3 text-sm font-semibold outline-none placeholder:font-medium placeholder:text-slate-400"
+              />
+            </div>
 
             <select
               value={districtFilter}
@@ -1541,9 +1556,28 @@ export default function PublicEventsPage() {
             >
               <option value="all">全部地區</option>
               {districtOptions.map((district) => (
-                <option key={district} value={district}>
-                  {district}
-                </option>
+                <option key={district} value={district}>{district}</option>
+              ))}
+            </select>
+
+            <select
+              value={mtrFilter}
+              onChange={(changeEvent) => setMtrFilter(changeEvent.target.value)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="all">全部港鐵</option>
+              {mtrOptions.map((station) => (
+                <option key={station} value={station}>{station}</option>
+              ))}
+            </select>
+
+            <select
+              value={ageFilter}
+              onChange={(changeEvent) => setAgeFilter(changeEvent.target.value as AgeFilter)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              {ageFilters.map((age) => (
+                <option key={age.key} value={age.key}>{age.label}</option>
               ))}
             </select>
 
@@ -1554,26 +1588,150 @@ export default function PublicEventsPage() {
             >
               <option value="all">全部分類</option>
               {categoryOptions.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
+                <option key={category} value={category}>{category}</option>
               ))}
+            </select>
+
+            <select
+              value={sortMode}
+              onChange={(changeEvent) => setSortMode(changeEvent.target.value as SortMode)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="recommended">推薦排序</option>
+              <option value="date_asc">日期近至遠</option>
+              <option value="date_desc">日期遠至近</option>
+              <option value="newest">最新發布</option>
             </select>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-bold text-slate-500">
-              顯示 {filteredEvents.length} / {events.length} 個公開活動
-            </p>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {dateFilters.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                onClick={() => setDateFilter(filter.key)}
+                className={[
+                  "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                  dateFilter === filter.key
+                    ? "bg-purple-700 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                ].join(" ")}
+              >
+                {filter.label}
+              </button>
+            ))}
+
+            {timeFilters.slice(1).map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                onClick={() =>
+                  setTimeFilter(timeFilter === filter.key ? "all" : filter.key)
+                }
+                className={[
+                  "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                  timeFilter === filter.key
+                    ? "bg-indigo-700 text-white"
+                    : "bg-indigo-50 text-indigo-700",
+                ].join(" ")}
+              >
+                {filter.label}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setPriceFilter(priceFilter === "free" ? "all" : "free")}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                priceFilter === "free" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700",
+              ].join(" ")}
+            >
+              🎁 免費
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIndoorOnly(!indoorOnly);
+                if (!indoorOnly) setOutdoorOnly(false);
+              }}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                indoorOnly ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700",
+              ].join(" ")}
+            >
+              🏠 室內
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOutdoorOnly(!outdoorOnly);
+                if (!outdoorOnly) setIndoorOnly(false);
+              }}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                outdoorOnly ? "bg-teal-600 text-white" : "bg-teal-50 text-teal-700",
+              ].join(" ")}
+            >
+              🌿 戶外
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setRegistrationOnly(!registrationOnly)}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                registrationOnly ? "bg-fuchsia-700 text-white" : "bg-fuchsia-50 text-fuchsia-700",
+              ].join(" ")}
+            >
+              🎟️ 需報名
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSubsidizedOnly(!subsidizedOnly)}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                subsidizedOnly ? "bg-cyan-700 text-white" : "bg-cyan-50 text-cyan-700",
+              ].join(" ")}
+            >
+              🫶 資助活動
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSenOnly(!senOnly)}
+              className={[
+                "shrink-0 rounded-full px-4 py-2 text-xs font-black transition",
+                senOnly ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-800",
+              ].join(" ")}
+            >
+              💛 SEN 友善
+            </button>
 
             <button
               type="button"
               onClick={clearFilters}
-              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+              className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-500 hover:bg-slate-50"
             >
-              清除篩選
+              清除
             </button>
           </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <p className="text-sm font-black text-slate-900">
+            {loading ? "正在搵活動..." : `搵到 ${filteredEvents.length} 個活動`}
+          </p>
+          {!loading && filteredEvents.length !== events.length ? (
+            <p className="text-xs font-bold text-slate-400">已套用篩選</p>
+          ) : null}
+        </div>
+
+        <div className="mt-4">
+          <ActivePromoBanners placement="events_top" fallback />
         </div>
 
         {errorText ? (
@@ -1584,20 +1742,22 @@ export default function PublicEventsPage() {
 
         {loading ? (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-2xl">
-              親
-            </div>
+            <img
+              src="/familyfun-logo-original.png"
+              alt="HK Family Fun"
+              width={72}
+              height={72}
+              className="mx-auto mb-4 h-16 w-16 object-contain"
+            />
             <p className="text-sm font-black text-slate-700">正在讀取活動資料...</p>
           </div>
         ) : null}
 
         {!loading && filteredEvents.length === 0 ? (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-            <p className="text-xl font-black text-slate-950">
-              暫時沒有符合條件的活動
-            </p>
+            <p className="text-xl font-black text-slate-950">暫時沒有符合條件的活動</p>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              請更改日期、地區、分類或關鍵字再試。
+              試下放寬日期、地區或分類。
             </p>
             <button
               type="button"
@@ -1610,7 +1770,7 @@ export default function PublicEventsPage() {
         ) : null}
 
         {!loading && filteredEvents.length > 0 ? (
-          <div className="mt-6 grid items-stretch gap-6 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="mt-4 grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filteredEvents.map((event) => (
               <EventCard
                 key={event.id}

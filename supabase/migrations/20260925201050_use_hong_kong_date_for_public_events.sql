@@ -1,0 +1,138 @@
+alter policy "Public can view published events"
+on public.events
+using (
+  status = 'published'
+  and start_date is not null
+  and coalesce(end_date, start_date) >= (timezone('Asia/Hong_Kong', now()))::date
+);
+
+alter policy "Public can view published event images"
+on public.event_images
+using (
+  exists (
+    select 1
+    from public.events e
+    where e.id = event_images.event_id
+      and e.status = 'published'
+      and e.start_date is not null
+      and coalesce(e.end_date, e.start_date) >= (timezone('Asia/Hong_Kong', now()))::date
+  )
+);
+
+create or replace view public.public_events
+with (security_barrier = true, security_invoker = true)
+as
+select
+  e.id,
+  e.title,
+  e.title_tc,
+  e.short_description_tc,
+  e.description_tc,
+  e.organizer_name,
+  e.merchant_name,
+  e.organizer_website,
+  e.cover_image_url,
+  e.gallery_image_urls,
+  e.cover_image_position,
+  e.cover_image_focus_y,
+  e.cover_image_focus_x,
+  e.cover_image_zoom,
+  e.cover_image_offset_x,
+  e.cover_image_offset_y,
+  e.cover_image_rotate,
+  e.cover_image_flip_x,
+  e.cover_image_flip_y,
+  e.cover_image_filter,
+  e.cover_image_brightness,
+  e.cover_image_contrast,
+  e.cover_image_saturation,
+  e.cover_image_vignette,
+  e.start_date,
+  e.end_date,
+  e.start_time,
+  e.end_time,
+  e.venue_name,
+  e.address,
+  e.area,
+  e.district,
+  e.mtr_station,
+  e.price_type,
+  e.price_display_mode,
+  e.price_label,
+  e.price_min,
+  e.price_max,
+  e.min_price,
+  e.max_price,
+  e.original_price,
+  e.discount_price,
+  e.offer_price,
+  e.quota_label,
+  e.quota_summary,
+  e.quota_total,
+  e.quota_remaining,
+  e.show_price_on_public,
+  e.show_quota_on_public,
+  e.age_min,
+  e.age_max,
+  e.age_groups,
+  e.activity_category,
+  e.category,
+  e.tags,
+  e.is_free,
+  e.is_sen_friendly,
+  e.is_subsidized,
+  e.is_featured,
+  e.is_indoor,
+  e.is_outdoor,
+  e.is_water_activity,
+  e.is_physical_activity,
+  e.registration_required,
+  e.registration_url,
+  e.registration_deadline,
+  e.booking_method,
+  e.booking_note,
+  e.booking_type,
+  e.booking_url,
+  e.booking_whatsapp,
+  e.booking_phone,
+  e.booking_email,
+  e.booking_message,
+  e.official_url,
+  e.official_website_url,
+  e.source_url,
+  e.cta_type,
+  e.cta_label,
+  e.google_map_url,
+  e.google_map_embed_url,
+  e.map_embed_url,
+  e.event_highlights,
+  e.important_notes,
+  e.highlights,
+  e.terms,
+  e.remarks,
+  e.transportation_notes,
+  e.parent_requirement,
+  e.refund_policy,
+  e.reschedule_policy,
+  e.weather_policy,
+  e.language,
+  e.language_available,
+  e.capacity_text,
+  e.duration_text,
+  e.ticketing_notes,
+  e.is_full,
+  e.is_walk_in,
+  e.source_type,
+  e.created_at,
+  e.updated_at,
+  e.published_at,
+  e.status
+from public.events e
+where e.status = 'published'
+  and e.start_date is not null
+  and coalesce(e.end_date, e.start_date) >= (timezone('Asia/Hong_Kong', now()))::date
+  and coalesce(e.hidden_pending_confirmation, false) = false;
+
+revoke all on public.public_events from public;
+grant select on public.public_events to anon, authenticated;
+notify pgrst, 'reload schema';

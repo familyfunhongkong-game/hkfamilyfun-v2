@@ -1,5 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
+
+export const metadata: Metadata = {
+  title: "香港親子活動日曆",
+  description: "按月份及日期查看香港親子活動，計劃平日、週末及假期家庭活動。",
+  alternates: {
+    canonical: "/calendar",
+  },
+  openGraph: {
+    url: "/calendar",
+  },
+};
 
 export const dynamic = "force-dynamic";
 

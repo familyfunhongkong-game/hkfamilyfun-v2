@@ -15,3 +15,95 @@
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
   }
 }
+
+
+@keyframes familyfun-journey {
+  0% {
+    left: 2%;
+    transform: translateY(0) rotate(-3deg) scale(0.96);
+  }
+  22% {
+    left: 18%;
+    transform: translateY(-12px) rotate(2deg) scale(1);
+  }
+  45% {
+    left: 43%;
+    transform: translateY(2px) rotate(-2deg) scale(1.03);
+  }
+  70% {
+    left: 66%;
+    transform: translateY(-13px) rotate(3deg) scale(1);
+  }
+  88% {
+    left: 78%;
+    transform: translateY(0) rotate(-1deg) scale(0.98);
+  }
+  100% {
+    left: 2%;
+    transform: translateY(0) rotate(-3deg) scale(0.96);
+  }
+}
+
+@keyframes familyfun-pop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.08);
+  }
+}
+
+@keyframes familyfun-sparkle {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(12deg);
+  }
+}
+
+.familyfun-family-runner {
+  animation: familyfun-journey 9s ease-in-out infinite;
+  will-change: left, transform;
+}
+
+.familyfun-stop-icon {
+  animation: familyfun-pop 2.4s ease-in-out infinite;
+}
+
+.familyfun-delay-1 {
+  animation-delay: 0.5s;
+}
+
+.familyfun-delay-2 {
+  animation-delay: 1s;
+}
+
+.familyfun-spark {
+  animation: familyfun-sparkle 1.8s ease-in-out infinite;
+}
+
+.familyfun-spark-2 {
+  animation-delay: 0.55s;
+}
+
+.familyfun-spark-3 {
+  animation-delay: 1.05s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .familyfun-family-runner,
+  .familyfun-stop-icon,
+  .familyfun-spark {
+    animation: none !important;
+  }
+
+  .familyfun-family-runner {
+    left: 36% !important;
+    transform: none !important;
+  }
+}

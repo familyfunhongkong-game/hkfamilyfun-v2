@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import ActivePromoBanners from "@/components/ads/ActivePromoBanners";
 
 type JsonValue =
   | string
@@ -116,8 +117,7 @@ type GalleryImage = {
   isCover: boolean;
 };
 
-const FALLBACK_IMAGE =
-  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -653,6 +653,20 @@ export default function PublicEventDetailPage() {
   const [copiedShare, setCopiedShare] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
+  async function trackMetric(metric: "view" | "click" | "share") {
+    const client = supabase;
+    if (!client || !eventId || !UUID_REGEX.test(eventId)) return;
+
+    try {
+      await client.rpc("track_event_metric", {
+        p_event_id: eventId,
+        p_metric: metric,
+      });
+    } catch {
+      // Analytics must never block the public event experience.
+    }
+  }
+
   useEffect(() => {
     setFavoriteIds(readFavoriteIds());
   }, []);
@@ -713,6 +727,21 @@ export default function PublicEventDetailPage() {
     };
   }, [eventId]);
 
+  useEffect(() => {
+    if (!event || !canShowPublic(event)) return;
+
+    const storageKey = `hkff_viewed_${eventId}`;
+    try {
+      if (window.sessionStorage.getItem(storageKey)) return;
+      window.sessionStorage.setItem(storageKey, "1");
+    } catch {
+      // Tracking still works when sessionStorage is unavailable.
+    }
+
+    void trackMetric("view");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event, eventId]);
+
   const images = useMemo(() => {
     if (!event) return [];
     return getBaseGalleryImages(event);
@@ -761,6 +790,8 @@ export default function PublicEventDetailPage() {
   }
 
   async function shareEvent(title: string, description: string) {
+    void trackMetric("share");
+
     const shareUrl =
       typeof window !== "undefined"
         ? `${window.location.origin}/events/${eventId}`
@@ -884,6 +915,9 @@ export default function PublicEventDetailPage() {
 
   return (
     <main className="min-h-screen bg-slate-50">
+      <section className="mx-auto max-w-7xl px-4 pt-5">
+        <ActivePromoBanners placement="event_detail" />
+      </section>
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-6">
           <Link
@@ -898,9 +932,13 @@ export default function PublicEventDetailPage() {
               <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
                 {isFallbackCover ? (
                   <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
-                    <div className="grid h-20 w-20 place-items-center rounded-3xl bg-purple-700 text-3xl font-black text-white shadow-sm">
-                      親
-                    </div>
+                    <img
+                      src="/familyfun-logo-original.png"
+                      alt="HK Family Fun"
+                      width={96}
+                      height={96}
+                      className="h-20 w-20 object-contain"
+                    />
                     <p className="mt-4 text-lg font-black text-purple-950">
                       HK Family Fun
                     </p>
@@ -914,6 +952,12 @@ export default function PublicEventDetailPage() {
                     alt={title}
                     className="h-full w-full object-cover"
                     style={coverStyle}
+                    onError={(imageEvent) => {
+                      imageEvent.currentTarget.src = FALLBACK_IMAGE;
+                      imageEvent.currentTarget.style.objectFit = "contain";
+                      imageEvent.currentTarget.style.padding = "1rem";
+                      imageEvent.currentTarget.style.backgroundColor = "#ece1cf";
+                    }}
                   />
                 )}
 
@@ -988,6 +1032,7 @@ export default function PublicEventDetailPage() {
                   <a
                     href={actionUrl}
                     target="_blank"
+                    onClick={() => void trackMetric("click")}
                     rel="noreferrer"
                     className={[
                       "mt-5 inline-flex w-full items-center justify-center rounded-2xl px-5 py-4 text-sm font-black text-white",
@@ -1010,6 +1055,7 @@ export default function PublicEventDetailPage() {
                       href={mapUrl}
                       target="_blank"
                       rel="noreferrer"
+                      onClick={() => void trackMetric("click")}
                       className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
                     >
                       📍 Google Map
@@ -1048,6 +1094,7 @@ export default function PublicEventDetailPage() {
                       href={officialUrl}
                       target="_blank"
                       rel="noreferrer"
+                      onClick={() => void trackMetric("click")}
                       className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
                     >
                       官網資料
@@ -1103,9 +1150,13 @@ export default function PublicEventDetailPage() {
                 <div className="relative aspect-[16/9] overflow-hidden">
                   {selectedImage?.url === FALLBACK_IMAGE ? (
                     <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
-                      <div className="grid h-16 w-16 place-items-center rounded-3xl bg-purple-700 text-2xl font-black text-white shadow-sm">
-                        親
-                      </div>
+                      <img
+                        src="/familyfun-logo-original.png"
+                        alt="HK Family Fun"
+                        width={72}
+                        height={72}
+                        className="h-16 w-16 object-contain"
+                      />
                       <p className="mt-3 text-sm font-black text-purple-950">
                         活動圖片準備中
                       </p>
@@ -1116,6 +1167,12 @@ export default function PublicEventDetailPage() {
                       alt={selectedImage?.label || title}
                       className="h-full w-full object-cover"
                       style={selectedImageStyle}
+                      onError={(imageEvent) => {
+                        imageEvent.currentTarget.src = FALLBACK_IMAGE;
+                        imageEvent.currentTarget.style.objectFit = "contain";
+                        imageEvent.currentTarget.style.padding = "1rem";
+                        imageEvent.currentTarget.style.backgroundColor = "#ece1cf";
+                      }}
                     />
                   )}
 
@@ -1156,6 +1213,12 @@ export default function PublicEventDetailPage() {
                             alt={image.label}
                             className="h-full w-full object-cover transition group-hover:scale-[1.03]"
                             style={image.isCover ? coverStyle : undefined}
+                            onError={(imageEvent) => {
+                              imageEvent.currentTarget.src = FALLBACK_IMAGE;
+                              imageEvent.currentTarget.style.objectFit = "contain";
+                              imageEvent.currentTarget.style.padding = "0.75rem";
+                              imageEvent.currentTarget.style.backgroundColor = "#ece1cf";
+                            }}
                           />
                         )}
                       </div>
@@ -1222,6 +1285,7 @@ export default function PublicEventDetailPage() {
                     href={mapUrl}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() => void trackMetric("click")}
                     className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800"
                   >
                     📍 開啟 Google Map

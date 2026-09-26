@@ -117,8 +117,7 @@ type SortMode = "newest" | "oldest" | "date";
 
 type Tone = "purple" | "green" | "amber" | "slate" | "rose";
 
-const FALLBACK_IMAGE =
-  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+const FALLBACK_IMAGE = "/familyfun-logo-original.png";
 
 const statusFilters: { key: StatusFilter; label: string }[] = [
   { key: "all", label: "全部" },
@@ -456,7 +455,7 @@ function getPrimaryActionLabel(event: EventRecord): string {
     return "前往報名";
   }
   if (isHttpUrl(event.official_url) || isHttpUrl(event.source_url)) {
-    return "查看官方活動頁";
+    return "活動官網查看更多";
   }
   if (event.registration_required) return "請向主辦查詢";
 
@@ -655,36 +654,6 @@ export default function AdminEventsPage() {
     loadEvents();
   }, []);
 
-  async function createAdminDraft() {
-    const client = supabase;
-
-    if (!client) {
-      setErrorText("Supabase 尚未初始化，暫時不能建立活動。");
-      return;
-    }
-
-    setSavingId("new");
-    setErrorText("");
-    setMessage("");
-
-    const { data, error } = await client
-      .from("events")
-      .insert({
-        title_tc: "未命名活動",
-        status: "draft",
-      })
-      .select("id")
-      .single();
-
-    if (error || !data?.id) {
-      setErrorText(error?.message || "建立活動失敗。");
-      setSavingId("");
-      return;
-    }
-
-    window.location.href = `/merchant/events/${data.id}/edit`;
-  }
-
   async function updateEventStatus(
     event: EventRecord,
     nextStatus: "published" | "rejected" | "archived" | "draft",
@@ -868,14 +837,12 @@ export default function AdminEventsPage() {
                 {loading ? "讀取中..." : "重新整理"}
               </button>
 
-              <button
-                type="button"
-                onClick={createAdminDraft}
-                disabled={savingId === "new"}
-                className="rounded-full border border-purple-200 bg-white px-5 py-2 text-sm font-black text-purple-700 hover:bg-purple-50 disabled:opacity-50"
+              <Link
+                href="/merchant/events/import"
+                className="rounded-full border border-purple-200 bg-white px-5 py-2 text-sm font-black text-purple-700 hover:bg-purple-50"
               >
-                手動新增活動
-              </button>
+                AI 匯入活動
+              </Link>
 
               <Link
                 href="/merchant/dashboard"
@@ -975,9 +942,13 @@ export default function AdminEventsPage() {
 
         {loading ? (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-2xl">
-              親
-            </div>
+            <img
+              src="/familyfun-logo-original.png"
+              alt="HK Family Fun"
+              width={64}
+              height={64}
+              className="mx-auto mb-4 h-16 w-16 object-contain"
+            />
             <p className="text-sm font-black text-slate-700">正在讀取 Admin 活動資料...</p>
           </div>
         ) : null}

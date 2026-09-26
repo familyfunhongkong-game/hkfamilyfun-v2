@@ -11,23 +11,27 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1500px] items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 text-lg font-bold text-white shadow-md">
-            親
-          </span>
+          <img
+            src="/familyfun-logo-original.png"
+            alt="HK Family Fun"
+            width={72}
+            height={72}
+            className="h-16 w-16 shrink-0 rounded-xl object-contain shadow-sm ring-1 ring-slate-200"
+          />
           <div>
-            <p className="text-lg font-bold text-gray-900">{SITE_NAME}</p>
+            <p className="text-lg font-black tracking-tight text-gray-950">{SITE_NAME}</p>
             <p className="text-xs text-gray-500">香港親子活動搜尋平台</p>
           </div>
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
+        <nav className="hidden items-center gap-5 lg:flex">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-primary-600"
+              className="rounded-full px-2 py-2 text-sm font-bold text-gray-600 transition-colors hover:bg-purple-50 hover:text-primary-700"
             >
               {link.label}
             </Link>
@@ -42,7 +46,7 @@ export function Header() {
 
         <button
           type="button"
-          className="rounded-lg p-2 text-gray-600 md:hidden"
+          className="rounded-xl border border-slate-200 bg-white p-2 text-gray-700 lg:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? "關閉選單" : "開啟選單"}
         >
@@ -52,7 +56,7 @@ export function Header() {
 
       <div
         className={cn(
-          "border-t border-gray-100 bg-white md:hidden",
+          "border-t border-gray-100 bg-white lg:hidden",
           mobileOpen ? "block" : "hidden"
         )}
       >

@@ -12,9 +12,19 @@ const cards = [
     description: "管理新商戶登記、批准、拒絕或暫停商戶帳戶。",
   },
   {
+    href: "/admin/banners",
+    title: "Banner 管理",
+    description: "上載合作 Banner、設定首頁／活動頁位置、發布時間、連結及自動到期。",
+  },
+  {
     href: "/merchant/events/import",
     title: "智能匯入活動",
     description: "由官方活動網址建立可編輯草稿，再交由 Admin 審批。",
+  },
+  {
+    href: "/admin/export",
+    title: "資料匯出",
+    description: "下載 Events CSV 或完整 JSON，方便備份、核對及資料遷移。",
   },
   {
     href: "/events",

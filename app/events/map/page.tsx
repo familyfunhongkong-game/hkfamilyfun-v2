@@ -48,19 +48,30 @@ function normalizeTags(value: unknown): string[] {
   return [];
 }
 
-function mapUrl(event: EventRecord) {
-  if (event.google_map_url) return event.google_map_url;
-
-  const query = [
+function mapQuery(event: EventRecord) {
+  return [
     event.venue_name,
     event.address,
     event.district,
+    event.mtr_station ? `${event.mtr_station} MTR` : "",
     "Hong Kong",
   ]
     .filter(Boolean)
     .join(" ");
+}
 
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+function mapUrl(event: EventRecord) {
+  if (event.google_map_url) return event.google_map_url;
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    mapQuery(event),
+  )}`;
+}
+
+function mapEmbedUrl(event: EventRecord) {
+  return `https://www.google.com/maps?q=${encodeURIComponent(
+    mapQuery(event),
+  )}&output=embed`;
 }
 
 function dateText(event: EventRecord) {
@@ -84,6 +95,7 @@ export default function NearbyEventsMapPage() {
   const [district, setDistrict] = useState("全部地區");
   const [freeOnly, setFreeOnly] = useState(false);
   const [senOnly, setSenOnly] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState("");
 
   useEffect(() => {
     async function loadEvents() {
@@ -155,6 +167,25 @@ export default function NearbyEventsMapPage() {
       return matchesKeyword && matchesDistrict && matchesFree && matchesSen;
     });
   }, [district, events, freeOnly, keyword, senOnly]);
+
+  const selectedEvent = useMemo(() => {
+    return (
+      filtered.find((event) => event.id === selectedEventId) ||
+      filtered[0] ||
+      null
+    );
+  }, [filtered, selectedEventId]);
+
+  useEffect(() => {
+    if (!filtered.length) {
+      if (selectedEventId) setSelectedEventId("");
+      return;
+    }
+
+    if (!filtered.some((event) => event.id === selectedEventId)) {
+      setSelectedEventId(filtered[0].id);
+    }
+  }, [filtered, selectedEventId]);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -235,6 +266,64 @@ export default function NearbyEventsMapPage() {
           </div>
         ) : null}
 
+        {selectedEvent ? (
+          <div className="mb-6 overflow-hidden rounded-[2rem] border border-teal-100 bg-white shadow-sm">
+            <div className="grid lg:grid-cols-[1.4fr_0.6fr]">
+              <div className="min-h-[360px] bg-slate-100">
+                <iframe
+                  key={selectedEvent.id}
+                  title={`${safeText(selectedEvent.title_tc, "活動")} 地圖`}
+                  src={mapEmbedUrl(selectedEvent)}
+                  className="h-[360px] w-full border-0 lg:h-full lg:min-h-[420px]"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  allowFullScreen
+                />
+              </div>
+
+              <div className="p-6">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-700">
+                  地圖即時預覽
+                </p>
+                <h2 className="mt-2 text-2xl font-black text-slate-950">
+                  {safeText(selectedEvent.title_tc, "未命名活動")}
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  {safeText(
+                    selectedEvent.venue_name,
+                    selectedEvent.address || "場地待定",
+                  )}
+                </p>
+                {selectedEvent.address ? (
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    {selectedEvent.address}
+                  </p>
+                ) : null}
+                <p className="mt-3 text-xs font-bold text-slate-500">
+                  {dateText(selectedEvent)} · {timeText(selectedEvent)}
+                </p>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <a
+                    href={mapUrl(selectedEvent)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full bg-teal-600 px-4 py-2 text-sm font-black text-white"
+                  >
+                    Google Maps 開啟導航
+                  </a>
+                  <Link
+                    href={`/events/${selectedEvent.id}`}
+                    className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700"
+                  >
+                    查看活動詳情
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((event) => {
             const tags = normalizeTags(event.tags);
@@ -291,11 +380,18 @@ export default function NearbyEventsMapPage() {
                   ) : null}
 
                   <div className="mt-5 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEventId(event.id)}
+                      className="rounded-full bg-teal-600 px-4 py-2 text-sm font-black text-white"
+                    >
+                      地圖預覽
+                    </button>
                     <a
                       href={mapUrl(event)}
                       target="_blank"
                       rel="noreferrer"
-                      className="rounded-full bg-teal-600 px-4 py-2 text-sm font-black text-white"
+                      className="rounded-full border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-black text-teal-700"
                     >
                       Google Maps
                     </a>

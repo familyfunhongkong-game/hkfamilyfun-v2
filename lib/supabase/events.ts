@@ -177,7 +177,7 @@ function mapDatabaseEvent(event: DatabaseEvent): Event {
     senFriendly: Boolean(event.is_sen_friendly),
     image:
       event.cover_image_url ||
-      "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun",
+      "/familyfun-logo-original.png",
     officialLink:
       event.registration_url ||
       event.booking_url ||
