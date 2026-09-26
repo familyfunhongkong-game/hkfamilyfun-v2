@@ -100,6 +100,12 @@ export default function ActivePromoBanners({
               src={banner.image_url}
               alt={banner.title}
               className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
+              onError={(imageEvent) => {
+                imageEvent.currentTarget.src = "/familyfun-logo-original.png";
+                imageEvent.currentTarget.style.objectFit = "contain";
+                imageEvent.currentTarget.style.padding = "2rem";
+                imageEvent.currentTarget.style.backgroundColor = "#ece1cf";
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-black/5" />
             <div className="relative z-10 flex min-h-[170px] max-w-2xl flex-col justify-end p-5 text-white sm:min-h-[210px] sm:p-7">
