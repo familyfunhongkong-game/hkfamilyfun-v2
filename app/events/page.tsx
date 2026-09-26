@@ -697,6 +697,16 @@ function eventMatchesDateFilter(
   return true;
 }
 
+function getDistrictOptions(events: EventRecord[]): string[] {
+  return Array.from(
+    new Set(
+      events
+        .map((event) => safeText(event.district || event.area))
+        .filter(Boolean),
+    ),
+  ).sort();
+}
+
 function getCategoryOptions(events: EventRecord[]): string[] {
   return Array.from(
     new Set(events.map((event) => getCategoryLabel(event)).filter(Boolean)),
