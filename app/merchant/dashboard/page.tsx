@@ -482,6 +482,19 @@ export default function MerchantDashboardPage() {
     return Math.round(total / events.length);
   }, [events]);
 
+  const analyticsTotal = useMemo(
+    () =>
+      Object.values(analyticsByEvent).reduce<EventAnalytics>(
+        (total, item) => ({
+          views: total.views + item.views,
+          clicks: total.clicks + item.clicks,
+          shares: total.shares + item.shares,
+        }),
+        { ...EMPTY_ANALYTICS },
+      ),
+    [analyticsByEvent],
+  );
+
   async function updateStatus(id: string, nextStatus: string) {
     const client = supabase;
 
