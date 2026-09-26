@@ -523,16 +523,9 @@ function normalizedStatus(event: EventRecord): string {
 }
 
 function canShowPublic(event: EventRecord): boolean {
-  const status = normalizedStatus(event);
-  if (!["published", "approved", "live"].includes(status)) return false;
-
-  const end = parseDateOnly(event.end_date || event.start_date);
-  if (!end) return true;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return end.getTime() >= today.getTime();
+  // Supabase public_events 已經按 Asia/Hong_Kong 過濾過期活動。
+  // 前端不可再用訪客裝置本地日期判斷，否則海外用戶會早一日／遲一日。
+  return normalizedStatus(event) === "published";
 }
 
 function isFreeEvent(event: EventRecord): boolean {
@@ -544,83 +537,164 @@ function isFreeEvent(event: EventRecord): boolean {
   return priceMode === "free" || priceText === "免費";
 }
 
-function parseDateOnly(value?: string | null): Date | null {
-  if (!value) return null;
+function getHongKongToday(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
 
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return null;
+  const year = parts.find((part) => part.type === "year")?.value || "";
+  const month = parts.find((part) => part.type === "month")?.value || "";
+  const day = parts.find((part) => part.type === "day")?.value || "";
 
-  return date;
+  return `${year}-${month}-${day}`;
 }
 
-function eventOverlapsDate(event: EventRecord, target: Date): boolean {
-  const start = parseDateOnly(event.start_date);
-  const end = parseDateOnly(event.end_date) || start;
+function addCalendarDays(dateText: string, days: number): string {
+  const match = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return dateText;
+
+  const date = new Date(
+    Date.UTC(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]) + days,
+    ),
+  );
+
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, "0"),
+    String(date.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function getCalendarDayOfWeek(dateText: string): number {
+  const match = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return 0;
+
+  return new Date(
+    Date.UTC(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]),
+    ),
+  ).getUTCDay();
+}
+
+function eventOverlapsDateText(
+  event: EventRecord,
+  targetDate: string,
+): boolean {
+  const start = safeText(event.start_date);
+  const end = safeText(event.end_date || event.start_date);
 
   if (!start || !end) return false;
 
-  const targetTime = target.getTime();
-  return start.getTime() <= targetTime && targetTime <= end.getTime();
+  return start <= targetDate && targetDate <= end;
 }
 
-function isWeekendDate(date: Date): boolean {
-  const day = date.getDay();
-  return day === 0 || day === 6;
+function eventOverlapsRange(
+  event: EventRecord,
+  rangeStart: string,
+  rangeEnd: string,
+): boolean {
+  const start = safeText(event.start_date);
+  const end = safeText(event.end_date || event.start_date);
+
+  if (!start || !end) return false;
+
+  return start <= rangeEnd && end >= rangeStart;
 }
 
-function eventMatchesDateFilter(event: EventRecord, filter: DateFilter): boolean {
+function getHongKongWeekendRange(today: string) {
+  const weekday = getCalendarDayOfWeek(today);
+
+  if (weekday === 6) {
+    return {
+      start: today,
+      end: addCalendarDays(today, 1),
+    };
+  }
+
+  if (weekday === 0) {
+    return {
+      start: addCalendarDays(today, -1),
+      end: today,
+    };
+  }
+
+  const daysUntilSaturday = 6 - weekday;
+  const start = addCalendarDays(today, daysUntilSaturday);
+
+  return {
+    start,
+    end: addCalendarDays(start, 1),
+  };
+}
+
+function parseDateOnly(value?: string | null): Date | null {
+  if (!value) return null;
+
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+
+  const date = new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+  );
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function eventMatchesDateFilter(
+  event: EventRecord,
+  filter: DateFilter,
+): boolean {
   if (filter === "all") return true;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getHongKongToday();
 
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
+  if (filter === "today") {
+    return eventOverlapsDateText(event, today);
+  }
 
-  if (filter === "today") return eventOverlapsDate(event, today);
-  if (filter === "tomorrow") return eventOverlapsDate(event, tomorrow);
-
-  if (filter === "month") {
-    const start = parseDateOnly(event.start_date);
-    if (!start) return false;
-
-    return (
-      start.getFullYear() === today.getFullYear() &&
-      start.getMonth() === today.getMonth()
+  if (filter === "tomorrow") {
+    return eventOverlapsDateText(
+      event,
+      addCalendarDays(today, 1),
     );
   }
 
   if (filter === "weekend") {
-    const start = parseDateOnly(event.start_date);
-    const end = parseDateOnly(event.end_date) || start;
+    const weekend = getHongKongWeekendRange(today);
 
-    if (!start || !end) return false;
+    return eventOverlapsRange(
+      event,
+      weekend.start,
+      weekend.end,
+    );
+  }
 
-    const cursor = new Date(start);
-    cursor.setHours(0, 0, 0, 0);
+  if (filter === "month") {
+    const monthStart = `${today.slice(0, 7)}-01`;
 
-    const final = new Date(end);
-    final.setHours(0, 0, 0, 0);
+    const [year, month] = today.split("-").map(Number);
+    const monthEndDate = new Date(Date.UTC(year, month, 0));
 
-    while (cursor.getTime() <= final.getTime()) {
-      if (isWeekendDate(cursor)) return true;
-      cursor.setDate(cursor.getDate() + 1);
-    }
+    const monthEnd = [
+      monthEndDate.getUTCFullYear(),
+      String(monthEndDate.getUTCMonth() + 1).padStart(2, "0"),
+      String(monthEndDate.getUTCDate()).padStart(2, "0"),
+    ].join("-");
 
-    return false;
+    return eventOverlapsRange(event, monthStart, monthEnd);
   }
 
   return true;
-}
-
-function getDistrictOptions(events: EventRecord[]): string[] {
-  return Array.from(
-    new Set(
-      events
-        .map((event) => safeText(event.district || event.area))
-        .filter(Boolean),
-    ),
-  ).sort();
 }
 
 function getCategoryOptions(events: EventRecord[]): string[] {
@@ -1273,10 +1347,9 @@ export default function PublicEventsPage() {
     }
 
     if (specificDate) {
-      const target = parseDateOnly(specificDate);
-      if (target) {
-        next = next.filter((event) => eventOverlapsDate(event, target));
-      }
+      next = next.filter((event) =>
+    eventOverlapsDateText(event, specificDate),
+      );
     }
 
     if (priceFilter === "free") {
@@ -1457,7 +1530,7 @@ export default function PublicEventsPage() {
           <StatCard
             label="公開活動"
             value={events.length}
-            note="只顯示已發布或已批准活動"
+            note="只顯示已發布活動"
             tone="slate"
           />
           <StatCard
