@@ -16,47 +16,58 @@ function sleep(ms) {
 }
 
 async function geocode(event) {
-  const query = [event.venue_name, event.address, event.district, "Hong Kong"]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
+  const queries = [
+    [event.venue_name, "Hong Kong"].filter(Boolean).join(" "),
+    [event.address, "Hong Kong"].filter(Boolean).join(" "),
+    [event.venue_name, event.address].filter(Boolean).join(" "),
+    event.venue_name || "",
+  ]
+    .map((value) => value.trim())
+    .filter(Boolean);
 
-  if (!query) return null;
+  for (const query of [...new Set(queries)]) {
+    try {
+      const url =
+        "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=hk&accept-language=zh-HK,en&q=" +
+        encodeURIComponent(query);
 
-  try {
-    const url =
-      "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=hk&q=" +
-      encodeURIComponent(query);
+      const response = await fetch(url, {
+        headers: {
+          "user-agent":
+            "HKFamilyFunMigrationBot/1.0 (+https://hkfamilyfun.com; info@hkfamilyfun.com)",
+          accept: "application/json",
+        },
+        signal: AbortSignal.timeout(12000),
+      });
 
-    const response = await fetch(url, {
-      headers: {
-        "user-agent":
-          "HKFamilyFunMigrationBot/1.0 (+https://hkfamilyfun.com; info@hkfamilyfun.com)",
-        accept: "application/json",
-      },
-      signal: AbortSignal.timeout(12000),
-    });
+      if (!response.ok) {
+        await sleep(1100);
+        continue;
+      }
 
-    if (!response.ok) return null;
+      const rows = await response.json();
+      const first = Array.isArray(rows) ? rows[0] : null;
+      const latitude = Number(first?.lat);
+      const longitude = Number(first?.lon);
 
-    const rows = await response.json();
-    const first = Array.isArray(rows) ? rows[0] : null;
-    const latitude = Number(first?.lat);
-    const longitude = Number(first?.lon);
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        return {
+          latitude,
+          longitude,
+          google_map_url:
+            event.google_map_url ||
+            "https://www.google.com/maps/search/?api=1&query=" +
+              encodeURIComponent(query),
+        };
+      }
 
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-
-    return {
-      latitude,
-      longitude,
-      google_map_url:
-        event.google_map_url ||
-        "https://www.google.com/maps/search/?api=1&query=" +
-          encodeURIComponent(query),
-    };
-  } catch {
-    return null;
+      await sleep(1100);
+    } catch {
+      await sleep(1100);
+    }
   }
+
+  return null;
 }
 
 async function main() {
