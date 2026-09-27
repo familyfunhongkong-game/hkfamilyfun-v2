@@ -1,0 +1,1281 @@
+{
+  "generated_at": "2026-09-27T06:25:19.517Z",
+  "source_project": "legacy-family-fun",
+  "count": 182,
+  "rows": [
+    {
+      "semantic_hash": "01631469d61752080ab622af16650619",
+      "source_hash": "0a400243011360c4fff2f118162f2865",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "017e36a990f831b8ead95d25f59b4b79",
+      "source_hash": "5acf3ea34fdc0a05d37c9104d6542278",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "01c339330cc2867feb12d62bb71bf842",
+      "source_hash": "b052af0e67a9da26a3895709fc814436",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "06fb918ab6d261a71e3bca925c94a8d9",
+      "source_hash": "1ee68c9a21d207b68812d84f99237669",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "08326ae85f4d84f2a892d95fb4eaf451",
+      "source_hash": "15b79c814f43923b63642e8c9930870d",
+      "status": "offline",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "0a051b9dd7c9ddfde75b645eadd1fcd2",
+      "source_hash": "524d6b0b91416c0e91a85a7496aa19d8",
+      "status": "offline",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "0c476d7d789b759cb9b85af1c9faf785",
+      "source_hash": null,
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "0ea48b093806137188ecd1a5d98d4e2c",
+      "source_hash": "50c6b2c91a393c7567cc445469cf329d",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "0ed1e570ab9cc4e2acfff1e6f017e9e7",
+      "source_hash": "ecc4b6cbed2c5b28d34aba835d70f251",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "113ba901bd10536232682d38b2e45674",
+      "source_hash": "7eabe5defe87ef59c3391946fef55cc4",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "120087bad90206e9ea7f4688c0b7a0dd",
+      "source_hash": "55263ef8d79173bcbf63e826aa548f68",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "14ec428cf465e6f5765504b4f4bc9ad9",
+      "source_hash": "24556baada92aba4c1ce8085b72d03e2",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "18a0fc93d59fed2c86513c537b035a89",
+      "source_hash": "fdc655dbedf8578d76f3db1b163e9e3b",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "19ebe187362f60916452c8afdd20c7d6",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "1b931329a52bdf374c9a196238131a91",
+      "source_hash": "df948a3bf1f5c26bb9608a532f1b1f32",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "1beb39ffa9dfb4c28fd5b948d49d9834",
+      "source_hash": "e267ccff3f5533270258807e12d48d1a",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "1dd5062d3203989dc3a17177e35a9ef2",
+      "source_hash": "ecc4b6cbed2c5b28d34aba835d70f251",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "1e69bc10c43dafc38f243f3b91af1499",
+      "source_hash": "4cb8b738ae2ee541bb0edfc3460e1fd7",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "1ec57cca15956fb4696789c49f4e9ac3",
+      "source_hash": "167ed526ddfb9b61bdcd825d385b132f",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "1f0217c6a4eb22d598f4149d2cc6a720",
+      "source_hash": "a6cae1845629cd13ff09a92239ec4f68",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "206ac468265e51e4a7d47d654564b799",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "233792a415710c798f24c748a26c6f47",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "235075bc4f0fafb395e3867d405141d0",
+      "source_hash": "fb1995da9546442776254a775d141a13",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "237b4210ba3ced950eea4c83edecbd47",
+      "source_hash": "6e750cbd289e8a2f1ca13a8dfe9da040",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "2407992ef2b63360197e76d6f8ced396",
+      "source_hash": "8bcd2e7609a910b69642b27c8add1945",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "256dd6f38195bd0e33ba3a8b9382d061",
+      "source_hash": "746ca47990f77bc710ba6ec32c803097",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "28b564e2ea23efa31323ca9052fbe027",
+      "source_hash": "6b15530eb42d0ae8d3b922745e997343",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "29342af865ede4dae5010f433322b4f4",
+      "source_hash": "18e570377fd3c9365bd97a0ab88a5f47",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "2cf63dececbc50b840a1ce77f4f15730",
+      "source_hash": "ecc4b6cbed2c5b28d34aba835d70f251",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "2f7ff3617bf19549424cfc0554aefcee",
+      "source_hash": "b052af0e67a9da26a3895709fc814436",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "3037b25d8cf4cab4ea4ccbeea8988243",
+      "source_hash": null,
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "3150797dc284f8d2c96707496a7d7d3e",
+      "source_hash": "02e2f9e96b24584f7d4a7c0766f57691",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "33799aaca9e17f4335743496af2b1bc6",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "341ac7f78cc09f66f2d76c4628fa77f9",
+      "source_hash": "930860a7057d2a2413e3bbb92bcb13a6",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "3497339dd8ec5ab5057fe76d441a2c4a",
+      "source_hash": "6fd3d76535280dcaeb61a6b11c73f3b4",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "358be4c91fb2e98d7af2e28f51b418e5",
+      "source_hash": "59fc7ceeb9d8f01494cdd4fb4c212391",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "36ca12b1af62d7e04ac2d469a146333f",
+      "source_hash": "04e0e51c32053cdb85d73b79d24ab9d5",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "36ca12b1af62d7e04ac2d469a146333f",
+      "source_hash": "04e0e51c32053cdb85d73b79d24ab9d5",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "3820f2b3b7a576f05e81b1513784a122",
+      "source_hash": "194a153633b82142c5c7f485dac9fdfe",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "38e25cf784a7e86cbe700480e462cccb",
+      "source_hash": "ecc4b6cbed2c5b28d34aba835d70f251",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "3a5029e331a9155392e06b68ffa5e7c8",
+      "source_hash": "32345eb891285a15838c47f4bd5e2479",
+      "status": "offline",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "3b07e02c166e20b2281edb6055f4cac1",
+      "source_hash": "6e60d1f4a977846a152b4429ff7cd3ac",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "3b252fef4553b24f4807ce69f1b3c648",
+      "source_hash": null,
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "3cceffa45bb96e8a6565231a517dec2e",
+      "source_hash": "97674e46441c3b810093946d8c291a77",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "3cd00a4342e3f47e2f3943479005ddb0",
+      "source_hash": "3afe0ae5304b69d3c75a5b1815dd95a0",
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "3da8484b85ba63d09108f2923fdb84c8",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "3fc66597f95cf920b77dd7221c77ffa3",
+      "source_hash": "9a242961201912bf8da797deeacc14c3",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "414f39df5440deb4b5502f75f8d5f7c6",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "missing_date",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "423e124890c2e4c26817384d13be1f8a",
+      "source_hash": "c05fe8536d6a5f4b1de50d9ad79bf02e",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "423e124890c2e4c26817384d13be1f8a",
+      "source_hash": "c05fe8536d6a5f4b1de50d9ad79bf02e",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "42bbd6df784f72c5a164dc0c8fca3b82",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "4345804f39fb7fabbeaf4230bcc6ed99",
+      "source_hash": null,
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "447313b813ac650a3e30cfe36754fb40",
+      "source_hash": "0a400243011360c4fff2f118162f2865",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "483aa6fe4cd6f04b7eb6b19420ac9c85",
+      "source_hash": "984fa654578bf8720b80d81ab3ac3318",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "4b37f7ea35ffc11cd51c6c05c7618e21",
+      "source_hash": "6fd3d76535280dcaeb61a6b11c73f3b4",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "4b512bed147e9c8936e5c8736404b1e3",
+      "source_hash": "b4181b7290ee7f472d4166a74d4ab7ec",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "4b5673f28bd3a11cbadefc2236acaf4e",
+      "source_hash": "e7c4563465d3672e3f828293fe3dd8f7",
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "4e34e9ecccc731ffcc8299384c0e3d05",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "4f01834154b144e88337f82e798f800f",
+      "source_hash": null,
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "5109c429604c4f672140476cd99d3a27",
+      "source_hash": "04e0e51c32053cdb85d73b79d24ab9d5",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "5109c429604c4f672140476cd99d3a27",
+      "source_hash": "04e0e51c32053cdb85d73b79d24ab9d5",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "542a475d75f4a2f3925dc89e13d08fde",
+      "source_hash": "9a242961201912bf8da797deeacc14c3",
+      "status": "offline",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "54ba1507dd18b33fad50b2adc2264ea6",
+      "source_hash": "e4001cd14d9173d52ce0415f71c93262",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "55e4846342fccf8fd8d4a7e6dde4dcec",
+      "source_hash": "d75b5d7a2474aad3d49a96a282f37a80",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "56aba7bea33b52afb9dab0e12b0a6269",
+      "source_hash": "ecc4b6cbed2c5b28d34aba835d70f251",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "57eeea510a97520fd543047a429b02fd",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "58cfa18cb28d621474a2c89b04f1bb13",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "59cd3a3e0ce96fd4d25b7fa365439e88",
+      "source_hash": "e510346ab24292042e14d2192323de83",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "5ad76c51e3f433aee0c9bba5872399ca",
+      "source_hash": "02e2f9e96b24584f7d4a7c0766f57691",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "5bfc7d90860c532723ca67a7cdedce5d",
+      "source_hash": "75561566d949ba73830154d928b05363",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "5d00832ebbd8fda449102d967244176c",
+      "source_hash": "dd403d51659d70f4d9ecb8b0583998c6",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "6053788b93b05ac0f5f7bb810b38f2f3",
+      "source_hash": "a68b2a899d8029f2b0d3321710440dca",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "605b2f65b836157a4a7a96591f03b44e",
+      "source_hash": "fb1995da9546442776254a775d141a13",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "624ac05c3f17d91f086d485c4de91601",
+      "source_hash": "b43a62ad1d766b743d1e0b468cda4bdd",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "636593249214aba688ecb15f0e96d244",
+      "source_hash": "f937a2b880b7725a28a95110c3c4581c",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "655d6ebb0a7cbc0375c908783bcacde1",
+      "source_hash": "b27acd474e6e477a852ba855541d9593",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "66693f913f568c629ea52037e29f87f3",
+      "source_hash": "e7d48c9de7bc9bec2f8309d844c5bb35",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "6919af78aee727ee0141320647696f4e",
+      "source_hash": "23d953094ac623b4879fc63bfd6034f7",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "695353ea76cbb6e847ac7f25d90e2aa8",
+      "source_hash": null,
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "6988169d4a647139505c4d708ec06be2",
+      "source_hash": "6d3b79179557e6662c28d9e3128536e6",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "6bc84fe0b8f2c0d8f58e00fb9a1acb2b",
+      "source_hash": "8bae269bba23c358971bebb0f435e3b0",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "6d9fcd9ca471b0ad0d3375af87b32611",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "6ee8e0b6c0802c097cb6cc598fbc59d0",
+      "source_hash": "6e60d1f4a977846a152b4429ff7cd3ac",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "70c83bcb67d86631031ab29b527efd45",
+      "source_hash": "1c1d868062301702a5ce0d9d145c00a0",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "731870353b7dd94ae3bee979617b04bb",
+      "source_hash": "fab65f8053fe5f8bd1d5518d56abe6fa",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "7947b5f4490471d948c606f491c45fd1",
+      "source_hash": "e17872b2e9de87b28b0e6078bae67f2b",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "7bd7ae7b3a086d20750a0caf0a2c5c36",
+      "source_hash": "eaefa5d8f0f85fa2a8696c75c50a014d",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "7c8e2d36202d6c57c36a7b88d1b8603c",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "7df00a59be0d076f495aa9367383cd6b",
+      "source_hash": "bbd00fe039acc28018ef8af6e192d94b",
+      "status": "offline",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "8108423756337b1bda0380a68cacd555",
+      "source_hash": "11904707f8098a72d36f488795c5f53f",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "81f7bd315618845a7e8f5881dd5b1326",
+      "source_hash": "b052af0e67a9da26a3895709fc814436",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "83bdbe5da4f9a4d8864dc1342e73b766",
+      "source_hash": "6f9cfa869090901d3f50ea77aa19eb02",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "86c59d4f334e6767843f7acddaad8b9a",
+      "source_hash": "bc0af422af9f0d0b8c7e728779f70c7a",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "8735be408f9743dff602e1241d10a75b",
+      "source_hash": "8bae269bba23c358971bebb0f435e3b0",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "8866988919dd9c1f24b71806f179dad6",
+      "source_hash": "4cb8b738ae2ee541bb0edfc3460e1fd7",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "890d8293874c63977f6f05a776812bef",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "8965eb140ab0b3f00b3de5dd95e8ed16",
+      "source_hash": "02e2f9e96b24584f7d4a7c0766f57691",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "8a6f105cb0fa62962c2b7aca692d4a06",
+      "source_hash": "ecc4b6cbed2c5b28d34aba835d70f251",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "8eef9a9521c1a4a54abfea8b0e62a543",
+      "source_hash": "fb1995da9546442776254a775d141a13",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "91d1e54105e7decc125c0d4f6c64d5bd",
+      "source_hash": "ca646ac7092f96eb3961c6d66728c925",
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "931b440e51a03fa2d5f7b836959f2dde",
+      "source_hash": "97674e46441c3b810093946d8c291a77",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "9436b04c0efbe0d0a20a6264c448aa83",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "94779989a3e97299d3d867972fd52eb3",
+      "source_hash": "65d83eaea47bc64cf141232f4bbe5c8d",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "95bb2b9afd0e96cc5633f7d9f08396c5",
+      "source_hash": "0917ff30def0da359f5d6294af23a0d8",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "96b30d4aaeaa18eac250d0cb515abf6f",
+      "source_hash": "7b7a6ee8ea49517092788303128381e8",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "96b973bfeea05ad756c525c1f5cf3f99",
+      "source_hash": "14fbe13e3cff47793571e7a8066fa472",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "9bde2c97425230434048cad373d61d20",
+      "source_hash": "e4be146cf50e46b38b2291bcfe4cd918",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "9c3f613cb4be4e423319732b7c70c9b3",
+      "source_hash": "6ccf9d31868b6f5af5d0e6fc38f94a39",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "9cfc9b28fbce0e083534f010ea8c66a6",
+      "source_hash": "e55073d0011010586617c3ea97bdb74e",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "9e4a72cf3a257610fbce6863ef14acc3",
+      "source_hash": "7a38ecb99ec620c37e673ffee9a0295e",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "9e4a72cf3a257610fbce6863ef14acc3",
+      "source_hash": null,
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "9f869b4060cad55243c2997ee3401dbb",
+      "source_hash": "984fa654578bf8720b80d81ab3ac3318",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "a063019e5611747bb390d4322087a591",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "a25d404db479b2d4a3ce11364851e871",
+      "source_hash": "8bae269bba23c358971bebb0f435e3b0",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "a2bb472ec9d598e2643231bddd5ea724",
+      "source_hash": "4602df98d39a39f946e2bda50c7c19f7",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "a684cc2eda34a8b2c4fe34a1fc0f240f",
+      "source_hash": "6e60d1f4a977846a152b4429ff7cd3ac",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "afc0d78a4d40811b317c08f50bd53c04",
+      "source_hash": "438a62b32a0200a0fbcad28389f949f5",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b2a8c94684a6db7248356d709796118e",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b32f8c4cff536c97d539aa8448ed46d5",
+      "source_hash": "68fde22483e74e706435caed8ad9b157",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b32f8c4cff536c97d539aa8448ed46d5",
+      "source_hash": "68fde22483e74e706435caed8ad9b157",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b4897b916eb1b27d43bb9dbd03c67595",
+      "source_hash": "d7c78d9570e62ae0a3418eb72883b94d",
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b49d84ffb5144747b28e841bbdbd8232",
+      "source_hash": "65d83eaea47bc64cf141232f4bbe5c8d",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b57107f17d4e9e2cc10903d213a1615d",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b7d1d78f2dd36466ad76bace6b3d63fc",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b7edee8cc39945e0286f869354a1b40a",
+      "source_hash": "a68b2a899d8029f2b0d3321710440dca",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b8296851992150fc3a3d68f37f17bcb2",
+      "source_hash": null,
+      "status": "offline",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b8977c07b0cebe34a3b91d9a04a96247",
+      "source_hash": "4853327233a516aeb4509b12f885f481",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b92860e98ce180e88364b4daf85937aa",
+      "source_hash": "486e44826d94283c63e257f82dbe77c9",
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "b9e6ac261ee97f64ddfbe4f3dfc722a9",
+      "source_hash": "9a242961201912bf8da797deeacc14c3",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "be4c7efc7228f5dfc7e712c0ed4698b3",
+      "source_hash": "eaefa5d8f0f85fa2a8696c75c50a014d",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "c045e22b82157cb29d9f0e2a58bd8107",
+      "source_hash": "97674e46441c3b810093946d8c291a77",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "c08bf82f4bfb684d9f225c93f251904e",
+      "source_hash": "04e0e51c32053cdb85d73b79d24ab9d5",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "c08bf82f4bfb684d9f225c93f251904e",
+      "source_hash": "04e0e51c32053cdb85d73b79d24ab9d5",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "c67a44d6547ef97df92cd275fae319de",
+      "source_hash": "46ca0c292a6c267e2d139bc45bb2bfb2",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "c6f48be3c2c4dfa84b8c0f3dcd7fea69",
+      "source_hash": "5acf3ea34fdc0a05d37c9104d6542278",
+      "status": "offline",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "c77e1f8336e1111cce4f25e6dc67eba7",
+      "source_hash": "af57576d10c0b62e2a47abe03f466108",
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "c79c6204ea50e3ab68240eee9ff19c86",
+      "source_hash": "30060c4436aa3991118bea6197b1efa1",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "c7c6646fb50b334a57d308e9aacc7565",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "ca28cdd86e6be1b3715bbe0abb7911e0",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "caa9597faebbcd23ee0ccc5b2c2f36e0",
+      "source_hash": null,
+      "status": "pending",
+      "date_class": "expired",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "cab0244ab1341b6a87c7358b1dff76f2",
+      "source_hash": "50c6b2c91a393c7567cc445469cf329d",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "cb47ddc91b6efe350ad2d179e35fa05e",
+      "source_hash": "f4155db31df23297bc75c8ad9e56721d",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "ccea99e09520b4925e9761a39adbf8b4",
+      "source_hash": "af57576d10c0b62e2a47abe03f466108",
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "cd83a74c36966a584d0e515d9f19f89d",
+      "source_hash": "507a4f7316baec9600ed156eea8367e0",
+      "status": "offline",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "ce258a1a4552cdc7f2e87420ba1ac67e",
+      "source_hash": "70b39f67fa3bb243b5348d7a5871a957",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "ceebf672c2f47660e4fa2d0695795de1",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "d42d497580a73afe52c034567744674d",
+      "source_hash": "984fa654578bf8720b80d81ab3ac3318",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "d4a882f4cdcb6b5e15574db43e99ad65",
+      "source_hash": "9332c769af1d543925db60da0e51e949",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "d546a2ea3c709c3293a8f8672cfb354a",
+      "source_hash": "6b3273e0c6ba58292bec59eeaedbc5fe",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "d6cd82a5228044edcdcea28429427434",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "d6f57f11a7f75238ff23d4dc6896c672",
+      "source_hash": "930860a7057d2a2413e3bbb92bcb13a6",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "d9e27c199a158a02ba42114d35b81507",
+      "source_hash": "fa4450b93bdffc97d41bb34b4a9e2f05",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "db5270560868d1abcbab3d754ec0b7b6",
+      "source_hash": "01c8e34c2a973e053805a4adda923b95",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "de789f0a048fb10f175fe1d8331a31ef",
+      "source_hash": "0e1bce2b818c7e386870417753c7d6c4",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "df8cfc3690e66ca1137f36e25e9488ed",
+      "source_hash": "ecc4b6cbed2c5b28d34aba835d70f251",
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "e36b1d70ed31c716fd2d06cf103f2fdc",
+      "source_hash": "4cb8b738ae2ee541bb0edfc3460e1fd7",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "e37e56ac32b7c6f3c288d28748a07545",
+      "source_hash": "a68b2a899d8029f2b0d3321710440dca",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "e471abd12342afe77241c90d81ec5d38",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "e5b5cc9c13ecefa2f494e53258826b9b",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "e7a76ad03a72145ebb6cae2263f225db",
+      "source_hash": "6fd3d76535280dcaeb61a6b11c73f3b4",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "e7d04a3331bce756c2dc3f82eba294de",
+      "source_hash": "eaefa5d8f0f85fa2a8696c75c50a014d",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "e7da80c59abb25c8ded23d2c2ef59ba7",
+      "source_hash": null,
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "e7da80c59abb25c8ded23d2c2ef59ba7",
+      "source_hash": null,
+      "status": "pending",
+      "date_class": "expired",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "e8786577dbc997257bceab8031902763",
+      "source_hash": "fab65f8053fe5f8bd1d5518d56abe6fa",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "ed2ee6f918f7558053c2994139e3e133",
+      "source_hash": "cefafa60f9df1fc6970503ad920627e5",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "eeecbbb247b36870736183428fdb817d",
+      "source_hash": "fab65f8053fe5f8bd1d5518d56abe6fa",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "f136467bb3e946c765b3b89bd5d5497a",
+      "source_hash": "9a95b8e4b985145cfcec4b42e611f876",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "f142a313dc187985262e415a2ad7a1e3",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "f1d9f966964bc7c02d6782507d3de799",
+      "source_hash": "2dfad564ae41cb6fb528c35bdb66cfd3",
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "f1d9f966964bc7c02d6782507d3de799",
+      "source_hash": null,
+      "status": "draft",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "f233081a4a755e25e6a126da29d26125",
+      "source_hash": "cd51fa533df52b04c05d48d64637a860",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "f315f27c4ddcf0e91e60bef5e62ae411",
+      "source_hash": "7b7a6ee8ea49517092788303128381e8",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "f3ad547bdfa3f53112213bf8d8938939",
+      "source_hash": "7b7a6ee8ea49517092788303128381e8",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "f405864d0c6a689213394dbb0adcdcc1",
+      "source_hash": "ca646ac7092f96eb3961c6d66728c925",
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "f5ce9aa419443f7f214f096c2563c8a2",
+      "source_hash": "49f89a08d179a2986de3419d81800328",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "f611c792f187b396f37b62aff61df93f",
+      "source_hash": "5acf3ea34fdc0a05d37c9104d6542278",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "f7e95bd1ee71c5879f2c58fd146d98d6",
+      "source_hash": "930860a7057d2a2413e3bbb92bcb13a6",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "f93bf8c7412053a12db597f51fb01c28",
+      "source_hash": "9c84c90aae8d11fb2cbb4fbe23759879",
+      "status": "approved",
+      "date_class": "current_future",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "f968edcb0b49f03eca7317a8a016c881",
+      "source_hash": "1c1d868062301702a5ce0d9d145c00a0",
+      "status": "offline",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "fb5b5d1863349dc6878f69cf1b72fa38",
+      "source_hash": "572d4e421e5e6b9bc11d815e8a027112",
+      "status": "draft",
+      "date_class": "current_future",
+      "has_image": false
+    },
+    {
+      "semantic_hash": "fc0fa0ff2edb60644945cc8f08f1201c",
+      "source_hash": "b6cf6dce7a26cf1fc27e182a4a06958c",
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    },
+    {
+      "semantic_hash": "fd7bf111bd213d1c49e5beb2fc047d7e",
+      "source_hash": null,
+      "status": "approved",
+      "date_class": "expired",
+      "has_image": true
+    }
+  ]
+}
