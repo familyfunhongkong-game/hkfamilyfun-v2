@@ -476,7 +476,6 @@ async function createApprovalIssue(events) {
       body: JSON.stringify({
         title: `HK Family Fun：${events.length} 個新活動等待審批`,
         body,
-        labels: ["auto-discovery"],
       }),
     },
   );
