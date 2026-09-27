@@ -4,12 +4,16 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import type { NearbyMapPoint } from "@/components/NearbyInteractiveMap";
+import type { MapEvent } from "./EventMapClient";
 
-const NearbyInteractiveMap = dynamic(
-  () => import("@/components/NearbyInteractiveMap"),
-  { ssr: false },
-);
+const EventMapClient = dynamic(() => import("./EventMapClient"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-[540px] items-center justify-center bg-slate-100 text-sm font-bold text-slate-500">
+      正在載入地圖...
+    </div>
+  ),
+});
 
 type EventRecord = {
   id: string;
@@ -36,9 +40,10 @@ type EventRecord = {
   longitude?: number | null;
 };
 
-type GeoPoint = { lat: number; lng: number };
-
-const GEO_CACHE_KEY = "hkff_geocode_cache_v1";
+type UserLocation = {
+  latitude: number;
+  longitude: number;
+} | null;
 
 function safeText(value: unknown, fallback = "") {
   if (value === null || value === undefined) return fallback;
@@ -53,7 +58,8 @@ function normalizeTags(value: unknown): string[] {
 
   if (typeof value === "string") {
     return value
-      .split(/[,\n，、]/)
+      .split(/[,
+，、]/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
@@ -64,7 +70,12 @@ function normalizeTags(value: unknown): string[] {
 function mapUrl(event: EventRecord) {
   if (event.google_map_url) return event.google_map_url;
 
-  const query = [event.venue_name, event.address, event.district, "Hong Kong"]
+  const query = [
+    event.venue_name,
+    event.address,
+    event.district,
+    "Hong Kong",
+  ]
     .filter(Boolean)
     .join(" ");
 
@@ -84,91 +95,36 @@ function timeText(event: EventRecord) {
   return end ? `${start} - ${end}` : start;
 }
 
-function readGeoCache(): Record<string, GeoPoint> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(GEO_CACHE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeGeoCache(cache: Record<string, GeoPoint>) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(cache));
-}
-
-function geoKey(event: EventRecord) {
-  return [event.venue_name, event.address, event.district]
-    .map((item) => safeText(item))
-    .filter(Boolean)
-    .join("|");
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-async function geocodeEvent(event: EventRecord): Promise<GeoPoint | null> {
-  const query = [event.venue_name, event.address, event.district, "Hong Kong"]
-    .map((item) => safeText(item))
-    .filter(Boolean)
-    .join(", ");
-
-  if (!query) return null;
-
-  const response = await fetch("/api/geocode?q=" + encodeURIComponent(query));
-
-  if (!response.ok) return null;
-
-  const result = (await response.json()) as {
-    found?: boolean;
-    lat?: number;
-    lng?: number;
-  };
-
-  if (
-    !result.found ||
-    typeof result.lat !== "number" ||
-    typeof result.lng !== "number"
-  ) {
-    return null;
-  }
-
-  return {
-    lat: result.lat,
-    lng: result.lng,
-  };
-}
-
-function haversineKm(a: GeoPoint, b: GeoPoint) {
+function haversineKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+) {
   const toRad = (value: number) => (value * Math.PI) / 180;
   const earthRadiusKm = 6371;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
 
-  const h =
+  const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
 
-  return 2 * earthRadiusKm * Math.asin(Math.sqrt(h));
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 export default function NearbyEventsMapPage() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [geocoding, setGeocoding] = useState(false);
   const [errorText, setErrorText] = useState("");
   const [keyword, setKeyword] = useState("");
   const [district, setDistrict] = useState("全部地區");
   const [freeOnly, setFreeOnly] = useState(false);
   const [senOnly, setSenOnly] = useState(false);
-  const [geoPoints, setGeoPoints] = useState<Record<string, GeoPoint>>({});
-  const [userLocation, setUserLocation] = useState<GeoPoint | null>(null);
-  const [locationError, setLocationError] = useState("");
+  const [userLocation, setUserLocation] = useState<UserLocation>(null);
+  const [locationMessage, setLocationMessage] = useState("");
 
   useEffect(() => {
     async function loadEvents() {
@@ -189,57 +145,11 @@ export default function NearbyEventsMapPage() {
       if (error) {
         setErrorText(error.message || "讀取活動資料失敗。");
         setEvents([]);
-        setLoading(false);
-        return;
+      } else {
+        setEvents((data || []) as EventRecord[]);
       }
 
-      const rows = (data || []) as EventRecord[];
-      setEvents(rows);
-
-      const cache = readGeoCache();
-      const nextPoints: Record<string, GeoPoint> = { ...cache };
-
-      rows.forEach((event) => {
-        if (
-          typeof event.latitude === "number" &&
-          typeof event.longitude === "number"
-        ) {
-          nextPoints[event.id] = {
-            lat: event.latitude,
-            lng: event.longitude,
-          };
-        } else {
-          const cached = cache[geoKey(event)];
-          if (cached) nextPoints[event.id] = cached;
-        }
-      });
-
-      setGeoPoints(nextPoints);
       setLoading(false);
-
-      const missing = rows.filter((event) => !nextPoints[event.id]);
-      if (!missing.length) return;
-
-      setGeocoding(true);
-
-      for (const event of missing) {
-        try {
-          const point = await geocodeEvent(event);
-          if (point) {
-            nextPoints[event.id] = point;
-            nextPoints[geoKey(event)] = point;
-            setGeoPoints({ ...nextPoints });
-            writeGeoCache(nextPoints);
-          }
-        } catch {
-          // Continue with remaining events; cards and Google Maps links still work.
-        }
-
-        // Respect the public Nominatim low-volume usage policy.
-        await sleep(1100);
-      }
-
-      setGeocoding(false);
     }
 
     void loadEvents();
@@ -258,98 +168,118 @@ export default function NearbyEventsMapPage() {
   const filtered = useMemo(() => {
     const text = keyword.trim().toLowerCase();
 
-    let rows = events.filter((event) => {
-      const haystack = [
-        event.title_tc,
-        event.short_description_tc,
-        event.venue_name,
-        event.address,
-        event.district,
-        event.mtr_station,
-        event.category,
-        event.activity_category,
-        ...normalizeTags(event.tags),
-      ]
-        .map((value) => safeText(value).toLowerCase())
-        .join(" ");
+    const rows = events
+      .filter((event) => {
+        const haystack = [
+          event.title_tc,
+          event.short_description_tc,
+          event.venue_name,
+          event.address,
+          event.district,
+          event.mtr_station,
+          event.category,
+          event.activity_category,
+          ...normalizeTags(event.tags),
+        ]
+          .map((value) => safeText(value).toLowerCase())
+          .join(" ");
 
-      const matchesKeyword = !text || haystack.includes(text);
-      const matchesDistrict =
-        district === "全部地區" || safeText(event.district) === district;
-      const matchesFree =
-        !freeOnly ||
-        Boolean(event.is_free) ||
-        safeText(event.price_display_mode).toLowerCase() === "free" ||
-        safeText(event.price_label).includes("免費");
-      const matchesSen = !senOnly || Boolean(event.is_sen_friendly);
+        const matchesKeyword = !text || haystack.includes(text);
+        const matchesDistrict =
+          district === "全部地區" || safeText(event.district) === district;
+        const matchesFree =
+          !freeOnly ||
+          Boolean(event.is_free) ||
+          safeText(event.price_display_mode).toLowerCase() === "free" ||
+          safeText(event.price_label).includes("免費");
+        const matchesSen = !senOnly || Boolean(event.is_sen_friendly);
 
-      return matchesKeyword && matchesDistrict && matchesFree && matchesSen;
-    });
+        return matchesKeyword && matchesDistrict && matchesFree && matchesSen;
+      })
+      .map((event) => {
+        const lat = Number(event.latitude);
+        const lon = Number(event.longitude);
+        const distanceKm =
+          userLocation && Number.isFinite(lat) && Number.isFinite(lon)
+            ? haversineKm(
+                userLocation.latitude,
+                userLocation.longitude,
+                lat,
+                lon,
+              )
+            : null;
+
+        return { ...event, distanceKm };
+      });
 
     if (userLocation) {
-      rows = [...rows].sort((a, b) => {
-        const aPoint = geoPoints[a.id];
-        const bPoint = geoPoints[b.id];
-        if (!aPoint && !bPoint) return 0;
-        if (!aPoint) return 1;
-        if (!bPoint) return -1;
-        return (
-          haversineKm(userLocation, aPoint) -
-          haversineKm(userLocation, bPoint)
-        );
+      rows.sort((a, b) => {
+        const aDistance =
+          typeof a.distanceKm === "number" ? a.distanceKm : Number.POSITIVE_INFINITY;
+        const bDistance =
+          typeof b.distanceKm === "number" ? b.distanceKm : Number.POSITIVE_INFINITY;
+        return aDistance - bDistance;
       });
     }
 
     return rows;
-  }, [district, events, freeOnly, geoPoints, keyword, senOnly, userLocation]);
+  }, [district, events, freeOnly, keyword, senOnly, userLocation]);
 
-  const mapPoints = useMemo<NearbyMapPoint[]>(
+  const mappedEvents = useMemo<MapEvent[]>(
     () =>
       filtered
-        .map((event) => {
-          const point = geoPoints[event.id];
-          if (!point) return null;
-
-          return {
-            id: event.id,
-            title: safeText(event.title_tc, "未命名活動"),
-            venue: safeText(event.venue_name, event.address || "場地待定"),
-            district: safeText(event.district, "地區待定"),
-            date: dateText(event),
-            time: timeText(event),
-            lat: point.lat,
-            lng: point.lng,
-            href: `/events/${event.id}`,
-          };
-        })
-        .filter(Boolean) as NearbyMapPoint[],
-    [filtered, geoPoints],
+        .filter(
+          (event) =>
+            Number.isFinite(Number(event.latitude)) &&
+            Number.isFinite(Number(event.longitude)),
+        )
+        .map((event) => ({
+          id: event.id,
+          title: safeText(event.title_tc, "未命名活動"),
+          venue: safeText(event.venue_name, event.address || "場地待定"),
+          district: safeText(event.district),
+          date: dateText(event),
+          time: timeText(event),
+          latitude: Number(event.latitude),
+          longitude: Number(event.longitude),
+          distanceKm:
+            typeof event.distanceKm === "number" ? event.distanceKm : null,
+        })),
+    [filtered],
   );
 
-  function locateMe() {
-    setLocationError("");
+  function useMyLocation() {
+    setLocationMessage("");
 
     if (!navigator.geolocation) {
-      setLocationError("你的瀏覽器不支援定位功能。");
+      setLocationMessage("此瀏覽器不支援定位，仍可使用地區及港鐵搜尋。");
       return;
     }
+
+    setLocationMessage("正在取得你的位置…");
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
         });
+        setLocationMessage("已按你目前位置將附近活動由近至遠排序。");
       },
       () => {
-        setLocationError("未能取得位置。你可以在瀏覽器允許位置權限後再試。");
+        setLocationMessage("未能取得位置。你可以在瀏覽器允許 Location 後再試。");
       },
       {
         enableHighAccuracy: false,
         timeout: 10000,
-        maximumAge: 300000,
+        maximumAge: 5 * 60 * 1000,
       },
     );
+  }
+
+  function clearMyLocation() {
+    setUserLocation(null);
+    setLocationMessage("已取消附近排序。");
   }
 
   return (
@@ -358,14 +288,14 @@ export default function NearbyEventsMapPage() {
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <p className="text-sm font-black text-teal-700">附近活動地圖・地點探索</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight">
-            地圖搵附近親子活動
+            地圖搵香港附近親子活動
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
-            可拖動、縮放地圖及點活動標記查看詳情。按「附近我」後只會由瀏覽器取得目前位置，
-            用作距離排序；HK Family Fun 不會把你的位置寫入活動資料庫。
+            活動位置來自平台已核實的場地資料。你可以拖動、縮放地圖，或使用目前位置將活動由近至遠排序。
+            你的定位只留在目前瀏覽器，不會儲存到 HK Family Fun。
           </p>
 
-          <div className="mt-6 grid gap-3 lg:grid-cols-[1.3fr_0.8fr_auto_auto_auto]">
+          <div className="mt-6 grid gap-3 lg:grid-cols-[1.4fr_0.9fr_auto_auto_auto]">
             <input
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
@@ -403,31 +333,28 @@ export default function NearbyEventsMapPage() {
 
             <button
               type="button"
-              onClick={locateMe}
+              onClick={userLocation ? clearMyLocation : useMyLocation}
               className="rounded-2xl bg-teal-700 px-4 py-3 text-sm font-black text-white hover:bg-teal-800"
             >
-              📍 附近我
+              {userLocation ? "取消附近排序" : "📍 使用我的位置"}
             </button>
           </div>
 
-          {locationError ? (
-            <p className="mt-3 text-sm font-bold text-rose-700">{locationError}</p>
+          {locationMessage ? (
+            <p className="mt-3 rounded-2xl bg-blue-50 px-4 py-3 text-xs font-bold text-blue-800">
+              {locationMessage}
+            </p>
           ) : null}
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-bold text-slate-600">
-              {loading ? "正在讀取..." : `顯示 ${filtered.length} 個活動・地圖已有 ${mapPoints.length} 個標記`}
-            </p>
-            {geocoding ? (
-              <p className="mt-1 text-xs font-bold text-teal-700">
-                正在以低頻方式定位尚未有座標的場地，地圖標記會逐步出現…
-              </p>
-            ) : null}
-          </div>
+          <p className="text-sm font-bold text-slate-600">
+            {loading
+              ? "正在讀取..."
+              : `顯示 ${filtered.length} 個活動；${mappedEvents.length} 個有地圖定位`}
+          </p>
           <Link
             href="/events"
             className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700"
@@ -442,20 +369,14 @@ export default function NearbyEventsMapPage() {
           </div>
         ) : null}
 
-        <div className="mb-7 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-          <div className="h-[58vh] min-h-[420px] max-h-[720px]">
-            <NearbyInteractiveMap
-              points={mapPoints}
-              userLocation={userLocation}
-            />
+        {!errorText ? (
+          <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+            <EventMapClient events={mappedEvents} userLocation={userLocation} />
           </div>
-          <div className="border-t border-slate-200 bg-white px-5 py-3 text-xs text-slate-500">
-            地圖資料 © OpenStreetMap contributors。地址定位屬輔助用途，出發前請以主辦方地址為準。
-          </div>
-        </div>
+        ) : null}
 
         {!loading && !errorText && !filtered.length ? (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <div className="mt-6 rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
             <h2 className="text-xl font-black">暫未找到符合條件的活動</h2>
             <p className="mt-2 text-sm text-slate-500">
               可以取消部分篩選，或稍後再查看新活動。
@@ -463,15 +384,9 @@ export default function NearbyEventsMapPage() {
           </div>
         ) : null}
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((event) => {
             const tags = normalizeTags(event.tags);
-            const point = geoPoints[event.id];
-            const distance =
-              userLocation && point
-                ? haversineKm(userLocation, point)
-                : null;
-
             return (
               <article
                 key={event.id}
@@ -499,9 +414,9 @@ export default function NearbyEventsMapPage() {
                         港鐵 {event.mtr_station}
                       </span>
                     ) : null}
-                    {distance !== null ? (
+                    {typeof event.distanceKm === "number" ? (
                       <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-                        約 {distance < 10 ? distance.toFixed(1) : Math.round(distance)} km
+                        約 {event.distanceKm.toFixed(1)} km
                       </span>
                     ) : null}
                   </div>
@@ -550,6 +465,10 @@ export default function NearbyEventsMapPage() {
             );
           })}
         </div>
+
+        <p className="mt-6 text-center text-xs text-slate-400">
+          Map data © OpenStreetMap contributors
+        </p>
       </section>
     </main>
   );
