@@ -1,11 +1,6 @@
 name: Geocode Legacy Events
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/geocode-legacy-events.yml"
-      - "scripts/geocode-legacy-events.mjs"
   workflow_dispatch:
 
 permissions:
