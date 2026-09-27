@@ -327,6 +327,38 @@ async function fetchHtml(url) {
   return text.slice(0, 3000000);
 }
 
+async function validateImageUrl(value) {
+  if (!value) return "";
+
+  try {
+    const parsed = new URL(value);
+    if (!["http:", "https:"].includes(parsed.protocol)) return "";
+
+    const response = await fetch(parsed.toString(), {
+      method: "HEAD",
+      headers: {
+        "user-agent":
+          "HKFamilyFunDiscoveryBot/1.0 (+https://hkfamilyfun.com; info@hkfamilyfun.com)",
+        accept: "image/*,*/*;q=0.5",
+      },
+      redirect: "follow",
+      signal: AbortSignal.timeout(8000),
+    });
+
+    const contentType = (
+      response.headers.get("content-type") || ""
+    ).toLowerCase();
+
+    if (response.ok && contentType.startsWith("image/")) {
+      return response.url || parsed.toString();
+    }
+  } catch {
+    // Invalid/unreachable image candidate: leave blank for Admin review.
+  }
+
+  return "";
+}
+
 async function extractEvent(url, sourceName) {
   const html = await fetchHtml(url);
   const jsonLd = findEventJsonLd(extractJsonLd(html));
@@ -375,9 +407,18 @@ async function extractEvent(url, sourceName) {
     ? jsonLd.image[0]
     : jsonLd?.image;
 
-  const image =
-    absoluteUrl(String(imageValue || ""), url) ||
+  const rawImageValue =
+    typeof imageValue === "string"
+      ? imageValue
+      : imageValue && typeof imageValue === "object"
+        ? imageValue.url || imageValue.contentUrl || ""
+        : "";
+
+  const imageCandidate =
+    absoluteUrl(String(rawImageValue || ""), url) ||
     getImage(html, url);
+
+  const image = await validateImageUrl(imageCandidate);
 
   const offerPrice = Number(offers?.price);
   const isFree =
@@ -533,6 +574,7 @@ async function createApprovalIssue(events) {
       body: JSON.stringify({
         title: `HK Family Fun：${events.length} 個新活動等待審批`,
         body,
+        assignees: ["familyfunhongkong-game"],
       }),
     },
   );
