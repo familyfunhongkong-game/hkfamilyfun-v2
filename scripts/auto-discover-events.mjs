@@ -183,57 +183,136 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isGenericHongKongLocation(event) {
+  const value = [event.venue_name, event.address].filter(Boolean).join(" ");
+  return /全香港|全港|不同活動地點|不同義工|各有不同|以個別活動/.test(value);
+}
+
+async function landsdLocationSearch(query) {
+  const url =
+    "https://www.map.gov.hk/gs/api/v1.0.0/locationSearch?q=" +
+    encodeURIComponent(query);
+
+  const response = await fetch(url, {
+    headers: {
+      "user-agent":
+        "HKFamilyFunDiscoveryBot/1.0 (+https://hkfamilyfun.com; info@hkfamilyfun.com)",
+      accept: "application/json",
+    },
+    signal: AbortSignal.timeout(12000),
+  });
+
+  if (!response.ok) return [];
+
+  const rows = await response.json();
+  return Array.isArray(rows) ? rows : [];
+}
+
+async function hkGridToWgs84(x, y) {
+  const url =
+    "https://www.geodetic.gov.hk/transform/v2/?inSys=hkgrid&outSys=wgsgeog&e=" +
+    encodeURIComponent(x) +
+    "&n=" +
+    encodeURIComponent(y);
+
+  const response = await fetch(url, {
+    headers: {
+      "user-agent":
+        "HKFamilyFunDiscoveryBot/1.0 (+https://hkfamilyfun.com; info@hkfamilyfun.com)",
+      accept: "application/json",
+    },
+    signal: AbortSignal.timeout(12000),
+  });
+
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  const latitude = Number(data?.wgsLat);
+  const longitude = Number(data?.wgsLong);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+  return { latitude, longitude };
+}
+
+function chooseLandsdResult(rows, query) {
+  if (!rows.length) return null;
+
+  const q = String(query || "").trim().toLowerCase();
+
+  const exactish = rows.find((row) => {
+    const name = String(row.nameZH || row.nameEN || "").trim().toLowerCase();
+    const address = String(row.addressZH || row.addressEN || "").trim().toLowerCase();
+
+    return (
+      (name && (q.includes(name) || name.includes(q))) ||
+      (address && q.length > 4 && (q.includes(address) || address.includes(q)))
+    );
+  });
+
+  return exactish || rows[0];
+}
+
 async function geocodeHongKong(event) {
-  const query = [
-    event.venue_name,
-    event.address,
-    event.district,
-    "Hong Kong",
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-
-  if (!query) return event;
-
-  try {
-    const url =
-      "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=hk&q=" +
-      encodeURIComponent(query);
-
-    const response = await fetch(url, {
-      headers: {
-        "user-agent":
-          "HKFamilyFunDiscoveryBot/1.0 (+https://hkfamilyfun.com; info@hkfamilyfun.com)",
-        accept: "application/json",
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) return event;
-
-    const rows = await response.json();
-    const first = Array.isArray(rows) ? rows[0] : null;
-    const latitude = Number(first?.lat);
-    const longitude = Number(first?.lon);
-
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      return event;
-    }
-
+  if (isGenericHongKongLocation(event)) {
     return {
       ...event,
-      latitude,
-      longitude,
-      geocoded_at: new Date().toISOString(),
-      google_map_url:
-        event.google_map_url ||
-        "https://www.google.com/maps/search/?api=1&query=" +
-          encodeURIComponent(query),
+      district: event.district || "全港",
     };
-  } catch {
-    return event;
   }
+
+  const queries = [
+    event.address,
+    event.venue_name,
+    [event.venue_name, event.address].filter(Boolean).join(" "),
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  for (const query of [...new Set(queries)]) {
+    try {
+      const rows = await landsdLocationSearch(query);
+      const match = chooseLandsdResult(rows, query);
+
+      if (!match) {
+        await sleep(1300);
+        continue;
+      }
+
+      const x = Number(match.x);
+      const y = Number(match.y);
+
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        await sleep(1300);
+        continue;
+      }
+
+      await sleep(1300);
+
+      const wgs = await hkGridToWgs84(x, y);
+      if (!wgs) {
+        await sleep(1300);
+        continue;
+      }
+
+      return {
+        ...event,
+        latitude: wgs.latitude,
+        longitude: wgs.longitude,
+        district:
+          String(match.districtZH || "").trim() || event.district || null,
+        geocoded_at: new Date().toISOString(),
+        google_map_url:
+          event.google_map_url ||
+          "https://www.google.com/maps/search/?api=1&query=" +
+            encodeURIComponent(event.address || event.venue_name || query),
+      };
+    } catch {
+      await sleep(1300);
+    }
+  }
+
+  return event;
 }
 
 function looksFamilyRelevant(text) {
