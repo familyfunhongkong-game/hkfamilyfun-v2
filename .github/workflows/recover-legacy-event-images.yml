@@ -1,0 +1,36 @@
+name: Recover Legacy Event Images
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/recover-legacy-event-images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Recover images and publish ready legacy events
+        env:
+          SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          MAX_EVENTS: "40"
+        run: node scripts/recover-legacy-event-images.mjs
