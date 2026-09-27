@@ -1,6 +1,6 @@
 "use strict";
 
-const query = "香港公園";
+const query = "香港筲箕灣道163號";
 const url =
   "https://www.map.gov.hk/gs/api/v1.0.0/locationSearch?q=" +
   encodeURIComponent(query);
