@@ -1,0 +1,31 @@
+name: Compare Legacy Family Fun Hashes
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/compare-legacy-hashes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compare legacy hashes with V2
+        env:
+          SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/compare-legacy-hashes.mjs
