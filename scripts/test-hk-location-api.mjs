@@ -1,9 +1,12 @@
 "use strict";
 
-const query = "香港筲箕灣道163號";
+const x = 841103;
+const y = 815776;
 const url =
-  "https://www.map.gov.hk/gs/api/v1.0.0/locationSearch?q=" +
-  encodeURIComponent(query);
+  "https://www.geodetic.gov.hk/transform/v2/?inSys=hkgrid&outSys=wgsgeog&e=" +
+  x +
+  "&n=" +
+  y;
 
 const response = await fetch(url, {
   headers: {
@@ -15,8 +18,6 @@ const response = await fetch(url, {
 });
 
 console.log("status", response.status);
-console.log("content-type", response.headers.get("content-type"));
-const text = await response.text();
-console.log(text.slice(0, 12000));
+console.log(await response.text());
 
 if (!response.ok) process.exit(1);
