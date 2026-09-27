@@ -1,10 +1,6 @@
 name: Compare Legacy Family Fun Hashes
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/compare-legacy-hashes.yml"
   workflow_dispatch:
 
 permissions:
