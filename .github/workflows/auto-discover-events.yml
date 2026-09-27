@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   discover:
@@ -34,4 +35,6 @@ jobs:
           APPROVAL_EMAIL: ${{ secrets.APPROVAL_EMAIL }}
           SITE_URL: https://hkfamilyfun-v2.vercel.app
           MAX_NEW_EVENTS: "5"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/auto-discover-events.mjs
