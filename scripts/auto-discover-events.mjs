@@ -377,7 +377,7 @@ async function extractEvent(url, sourceName) {
 }
 
 async function sendApprovalEmail(events) {
-  if (!events.length || !RESEND_API_KEY) return;
+  if (!events.length || !RESEND_API_KEY) return false;
 
   const rows = events
     .map(
@@ -433,6 +433,64 @@ async function sendApprovalEmail(events) {
         (await response.text()),
     );
   }
+
+  return true;
+}
+
+async function createApprovalIssue(events) {
+  if (!events.length) return false;
+
+  const token = process.env.GITHUB_TOKEN || "";
+  const repository = process.env.GITHUB_REPOSITORY || "";
+
+  if (!token || !repository) return false;
+
+  const body = [
+    "## HK Family Fun 自動發現新活動",
+    "",
+    "以下活動已建立為 **Draft**，不會自動公開。請核對日期、時間、圖片、地點及報名資料後再發布。",
+    "",
+    ...events.map((event, index) =>
+      [
+        `${index + 1}. **${event.title_tc}**`,
+        `   - 日期：${event.start_date || "待確認"}`,
+        `   - 場地：${event.venue_name || "待確認"}`,
+        `   - [Admin 審批](${SITE_URL}/admin/events/${event.id})`,
+        `   - [官方來源](${event.source_url})`,
+      ].join("\n"),
+    ),
+    "",
+    `[前往 Admin 活動審批中心](${SITE_URL}/admin/events)`,
+  ].join("\n");
+
+  const response = await fetch(
+    `https://api.github.com/repos/${repository}/issues`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      body: JSON.stringify({
+        title: `HK Family Fun：${events.length} 個新活動等待審批`,
+        body,
+        labels: ["auto-discovery"],
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    console.warn(
+      "GitHub approval issue failed:",
+      response.status,
+      await response.text(),
+    );
+    return false;
+  }
+
+  return true;
 }
 
 async function main() {
@@ -536,7 +594,15 @@ async function main() {
     }
   }
 
-  await sendApprovalEmail(inserted);
+  let emailSent = false;
+
+  try {
+    emailSent = await sendApprovalEmail(inserted);
+  } catch (error) {
+    console.warn("Approval email failed:", error?.message || error);
+  }
+
+  const issueCreated = await createApprovalIssue(inserted);
 
   console.log(
     JSON.stringify(
@@ -545,6 +611,8 @@ async function main() {
         candidateLinks: unique.length,
         inserted: inserted.length,
         insertedEvents: inserted,
+        emailSent,
+        issueCreated,
       },
       null,
       2,
