@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Hong Kong Public Libraries",
+    "url": "https://www.hkpl.gov.hk/tc/extension-activities",
+    "host": "www.hkpl.gov.hk",
+    "pathIncludes": ["/extension-activities/event", "/extension-activities/sub-event"]
+  },
+  {
+    "name": "M+",
+    "url": "https://www.mplus.org.hk/tc/events/",
+    "host": "www.mplus.org.hk",
+    "pathIncludes": ["/tc/events/"]
+  },
+  {
+    "name": "WestK",
+    "url": "https://www.westk.hk/tc/event",
+    "host": "www.westk.hk",
+    "pathIncludes": ["/tc/event", "/tc/events"]
+  },
+  {
+    "name": "Hong Kong Tourism Board",
+    "url": "https://www.discoverhongkong.com/tc/what-s-new/events.html",
+    "host": "www.discoverhongkong.com",
+    "pathIncludes": ["/tc/events/", "/tc/what-s-new/events"]
+  },
+  {
+    "name": "LCSD Community Programmes Office",
+    "url": "https://www.cpo.gov.hk/zh-hk/event/",
+    "host": "www.cpo.gov.hk",
+    "pathIncludes": ["/zh-hk/event/"]
+  }
+]
