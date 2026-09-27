@@ -392,8 +392,8 @@ async function extractEvent(url, sourceName) {
     description_tc: description,
     start_date: startDate,
     end_date: endDate || startDate,
-    start_time: timeOnly(jsonLd?.startDate),
-    end_time: timeOnly(jsonLd?.endDate),
+    start_time: timeOnly(jsonLd?.startDate) || null,
+    end_time: timeOnly(jsonLd?.endDate) || null,
     venue_name: cleanText(location.name || ""),
     address: cleanText(address),
     organizer_name: cleanText(
