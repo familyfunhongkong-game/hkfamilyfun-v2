@@ -179,6 +179,63 @@ function hkToday() {
   }).format(new Date());
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function geocodeHongKong(event) {
+  const query = [
+    event.venue_name,
+    event.address,
+    event.district,
+    "Hong Kong",
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  if (!query) return event;
+
+  try {
+    const url =
+      "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=hk&q=" +
+      encodeURIComponent(query);
+
+    const response = await fetch(url, {
+      headers: {
+        "user-agent":
+          "HKFamilyFunDiscoveryBot/1.0 (+https://hkfamilyfun.com; info@hkfamilyfun.com)",
+        accept: "application/json",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) return event;
+
+    const rows = await response.json();
+    const first = Array.isArray(rows) ? rows[0] : null;
+    const latitude = Number(first?.lat);
+    const longitude = Number(first?.lon);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return event;
+    }
+
+    return {
+      ...event,
+      latitude,
+      longitude,
+      geocoded_at: new Date().toISOString(),
+      google_map_url:
+        event.google_map_url ||
+        "https://www.google.com/maps/search/?api=1&query=" +
+          encodeURIComponent(query),
+    };
+  } catch {
+    return event;
+  }
+}
+
 function looksFamilyRelevant(text) {
   const haystack = text.toLowerCase();
   const keywords = [
@@ -535,8 +592,33 @@ async function main() {
 
   const inserted = [];
 
+  const { data: existingRows, error: existingRowsError } = await supabase
+    .from("events")
+    .select("source_url,official_url,registration_url");
+
+  if (existingRowsError) {
+    throw new Error(
+      "Unable to load existing event URLs: " + existingRowsError.message,
+    );
+  }
+
+  const existingUrls = new Set();
+
+  for (const row of existingRows || []) {
+    for (const value of [
+      row.source_url,
+      row.official_url,
+      row.registration_url,
+    ]) {
+      if (value) existingUrls.add(normalizeUrl(value));
+    }
+  }
+
   for (const item of unique) {
     if (inserted.length >= MAX_NEW_EVENTS) break;
+
+    const normalizedCandidate = normalizeUrl(item.url);
+    if (existingUrls.has(normalizedCandidate)) continue;
 
     const fp = fingerprint(item.url);
 
@@ -559,12 +641,15 @@ async function main() {
     if (existing) continue;
 
     try {
-      const event = await extractEvent(
+      let event = await extractEvent(
         item.url,
         item.sourceName,
       );
 
       if (!event) continue;
+
+      event = await geocodeHongKong(event);
+      await sleep(1100);
 
       const { data, error } = await supabase
         .from("events")
