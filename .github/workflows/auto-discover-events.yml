@@ -1,0 +1,37 @@
+name: Auto Discover HK Family Events
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 0 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Discover new family events
+        env:
+          SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          APPROVAL_EMAIL: ${{ secrets.APPROVAL_EMAIL }}
+          SITE_URL: https://hkfamilyfun-v2.vercel.app
+          MAX_NEW_EVENTS: "5"
+        run: node scripts/auto-discover-events.mjs
