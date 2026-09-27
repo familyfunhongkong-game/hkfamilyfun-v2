@@ -421,7 +421,7 @@ async function extractEvent(url, sourceName) {
     source_url: url,
     cta_type: "official",
     cta_label: "查看官方活動頁",
-    source_type: "auto_discovery",
+    source_type: "url",
     status: "draft",
     auto_imported_at: new Date().toISOString(),
     auto_import_note:
