@@ -12,21 +12,21 @@
     "pathIncludes": ["/tc/events/"]
   },
   {
-    "name": "WestK",
-    "url": "https://www.westk.hk/tc/event",
-    "host": "www.westk.hk",
-    "pathIncludes": ["/tc/event", "/tc/events"]
-  },
-  {
     "name": "Hong Kong Tourism Board",
-    "url": "https://www.discoverhongkong.com/tc/what-s-new/events.html",
+    "url": "https://www.discoverhongkong.com/tc/events.html",
     "host": "www.discoverhongkong.com",
-    "pathIncludes": ["/tc/events/", "/tc/what-s-new/events"]
+    "pathIncludes": ["/tc/events/event."]
   },
   {
     "name": "LCSD Community Programmes Office",
-    "url": "https://www.cpo.gov.hk/zh-hk/event/",
+    "url": "https://www.cpo.gov.hk/zh-hk/",
     "host": "www.cpo.gov.hk",
-    "pathIncludes": ["/zh-hk/event/"]
+    "pathIncludes": ["/zh-hk/event/", "/zh-hk/activity/"]
+  },
+  {
+    "name": "LCSD Territory-wide Events",
+    "url": "https://www.cpo.gov.hk/zh-hk/category/territory-wide-events-and-carnivals/",
+    "host": "www.cpo.gov.hk",
+    "pathIncludes": ["/zh-hk/event/", "/zh-hk/activity/"]
   }
 ]
