@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     paths:
       - ".github/workflows/test-hk-location-api.yml"
+      - "scripts/test-hk-location-api.mjs"
 
 permissions:
   contents: read
