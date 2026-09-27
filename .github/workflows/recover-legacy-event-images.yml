@@ -1,10 +1,6 @@
 name: Recover Legacy Event Images
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/recover-legacy-event-images.yml"
   workflow_dispatch:
 
 permissions:
