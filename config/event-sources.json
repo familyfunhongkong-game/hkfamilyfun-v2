@@ -12,12 +12,6 @@
     "pathIncludes": ["/tc/events/"]
   },
   {
-    "name": "Hong Kong Tourism Board",
-    "url": "https://www.discoverhongkong.com/tc/events.html",
-    "host": "www.discoverhongkong.com",
-    "pathIncludes": ["/tc/events/event."]
-  },
-  {
     "name": "LCSD Community Programmes Office",
     "url": "https://www.cpo.gov.hk/zh-hk/",
     "host": "www.cpo.gov.hk",
