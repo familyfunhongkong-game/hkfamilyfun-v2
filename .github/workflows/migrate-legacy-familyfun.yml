@@ -1,10 +1,6 @@
 name: Legacy Family Fun Migration Dry Run
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/migrate-legacy-familyfun.yml"
   workflow_dispatch:
     inputs:
       apply_migration:
@@ -44,7 +40,7 @@ jobs:
           OLD_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.OLD_SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          APPLY_MIGRATION: "false"
+          APPLY_MIGRATION: ${{ inputs.apply_migration }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/migrate-legacy-familyfun.mjs
