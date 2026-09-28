@@ -317,28 +317,30 @@ async function geocodeHongKong(event) {
 
 function looksFamilyRelevant(text) {
   const haystack = text.toLowerCase();
-  const keywords = [
+  const strongFamilyKeywords = [
     "親子",
     "兒童",
     "小朋友",
     "家庭",
+    "幼兒",
+    "寶寶",
+    "孩子",
+    "學童",
+    "青少年",
     "kids",
+    "kid ",
+    "kid-",
     "family",
+    "families",
     "children",
-    "workshop",
-    "工作坊",
-    "故事",
-    "festival",
-    "嘉年華",
-    "展覽",
-    "museum",
-    "博物館",
-    "science",
-    "steam",
-    "藝術",
+    "child ",
+    "child-",
+    "toddler",
+    "baby",
+    "youth",
   ];
 
-  return keywords.some((keyword) =>
+  return strongFamilyKeywords.some((keyword) =>
     haystack.includes(keyword.toLowerCase()),
   );
 }
@@ -448,9 +450,7 @@ async function extractEvent(url, sourceName) {
   const pageText = cleanText(html).slice(0, 25000);
 
   if (
-    !looksFamilyRelevant(
-      title + " " + description + " " + pageText.slice(0, 5000),
-    )
+    !looksFamilyRelevant(title + " " + description)
   ) {
     return null;
   }
@@ -501,8 +501,8 @@ async function extractEvent(url, sourceName) {
 
   const offerPrice = Number(offers?.price);
   const isFree =
-    /免費|free/i.test(
-      String(offers?.price || "") + " " + pageText.slice(0, 8000),
+    /免費|\bfree\b/i.test(
+      String(offers?.price || "") + " " + title + " " + description,
     ) || offerPrice === 0;
 
   return {
