@@ -63,6 +63,7 @@ type FilterKey =
   | "all"
   | "draft"
   | "review"
+  | "approved"
   | "published"
   | "rejected"
   | "archived";
@@ -71,6 +72,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "全部" },
   { key: "draft", label: "草稿" },
   { key: "review", label: "審批中" },
+  { key: "approved", label: "已批准・待發布" },
   { key: "published", label: "已發布" },
   { key: "rejected", label: "已拒絕" },
   { key: "archived", label: "已封存" },
@@ -97,7 +99,9 @@ function statusGroup(status?: string | null): FilterKey {
     return "review";
   }
 
-  if (["published", "approved", "online", "live"].includes(s)) {
+  if (s === "approved") return "approved";
+
+  if (["published", "online", "live"].includes(s)) {
     return "published";
   }
 
@@ -116,6 +120,7 @@ function statusLabel(status?: string | null) {
   const group = statusGroup(status);
 
   if (group === "review") return "審批中";
+  if (group === "approved") return "已批准・待發布";
   if (group === "published") return "已發布";
   if (group === "rejected") return "已拒絕";
   if (group === "archived") return "已封存";
@@ -126,6 +131,7 @@ function statusBadgeClass(status?: string | null) {
   const group = statusGroup(status);
 
   if (group === "review") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (group === "approved") return "border-blue-200 bg-blue-50 text-blue-700";
   if (group === "published") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (group === "rejected") return "border-rose-200 bg-rose-50 text-rose-700";
   if (group === "archived") return "border-slate-200 bg-slate-100 text-slate-600";
@@ -289,7 +295,20 @@ function missingItems(event: EventRecord) {
 }
 
 function canSubmit(event: EventRecord) {
-  return readyScore(event) >= 60 && statusGroup(event.status) === "draft";
+  const group = statusGroup(event.status);
+  if (group !== "draft" && group !== "rejected") return false;
+
+  const hasTitle = hasValue(event.title_tc || event.title);
+  const hasDate = hasValue(event.start_date);
+  const hasLocation = hasValue(event.venue_name) || hasValue(event.address) || hasValue(event.district);
+  const hasImage = imageCount(event) > 0;
+  const hasPrice = priceOf(event) !== "收費未填";
+  const hasCta =
+    ctaOf(event) !== "未設定" ||
+    safeText(event.cta_type, "").toLowerCase() === "none" ||
+    safeText(event.cta_type, "").toLowerCase() === "contact";
+
+  return hasTitle && hasDate && hasLocation && hasImage && hasPrice && hasCta;
 }
 
 export default function MerchantDashboardPage() {
@@ -379,6 +398,7 @@ export default function MerchantDashboardPage() {
       all: events.length,
       draft: 0,
       review: 0,
+      approved: 0,
       published: 0,
       rejected: 0,
       archived: 0,
@@ -735,10 +755,11 @@ export default function MerchantDashboardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="grid grid-cols-2 gap-2 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-4">
               <MiniStat label="全部" value={counts.all} />
               <MiniStat label="草稿" value={counts.draft} />
               <MiniStat label="審批中" value={counts.review} />
+              <MiniStat label="已批准" value={counts.approved} />
               <MiniStat label="已發布" value={counts.published} />
               <MiniStat label="已拒絕" value={counts.rejected} />
               <MiniStat label="已封存" value={counts.archived} />
