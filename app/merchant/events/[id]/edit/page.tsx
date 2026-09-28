@@ -1119,6 +1119,27 @@ export default function MerchantEventEditPage() {
 
     if (nextStatus === "submitted") {
       setMessage("已提交 HK Family Fun 審批。");
+
+      try {
+        const { data: sessionData } = await supabase?.auth.getSession()!;
+        const accessToken = sessionData?.session?.access_token;
+
+        if (accessToken) {
+          void fetch("/api/merchant-notifications", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              action: "event_submitted",
+              event_id: eventId,
+            }),
+          });
+        }
+      } catch {
+        // Notification failure must never block a successful event submission.
+      }
     } else if (!silent) {
       setMessage("已儲存草稿。");
     }
