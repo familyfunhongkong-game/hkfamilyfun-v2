@@ -201,6 +201,31 @@ function imageCount(event: EventRecord) {
   return (event.cover_image_url ? 1 : 0) + getGalleryArray(event.gallery_image_urls).length;
 }
 
+function ownedEventStoragePaths(event: EventRecord) {
+  const marker = "/storage/v1/object/public/event-images/";
+  const urls = [
+    safeText(event.cover_image_url, ""),
+    ...getGalleryArray(event.gallery_image_urls),
+  ].filter(Boolean);
+
+  return Array.from(
+    new Set(
+      urls
+        .map((url) => {
+          const index = url.indexOf(marker);
+          if (index < 0) return "";
+
+          try {
+            return decodeURIComponent(url.slice(index + marker.length));
+          } catch {
+            return url.slice(index + marker.length);
+          }
+        })
+        .filter((path) => path.startsWith(`${event.id}/`)),
+    ),
+  );
+}
+
 function numberText(value: unknown) {
   if (value === null || value === undefined || value === "") return "";
   const n = Number(value);
@@ -527,15 +552,30 @@ export default function MerchantDashboardPage() {
     setBusyId(event.id);
     setMessage("");
 
+    const storagePaths = ownedEventStoragePaths(event);
+
     const { error } = await client.from("events").delete().eq("id", event.id);
 
     if (error) {
       setMessage(`刪除失敗：${error.message}`);
-    } else {
-      setEvents((current) => current.filter((item) => item.id !== event.id));
-      setMessage("活動草稿已永久刪除。");
+      setBusyId(null);
+      return;
     }
 
+    let cleanupWarning = "";
+
+    if (storagePaths.length) {
+      const { error: storageError } = await client.storage
+        .from("event-images")
+        .remove(storagePaths);
+
+      if (storageError) {
+        cleanupWarning = " 活動已刪除，但部分Storage圖片未能即時清理，請通知Admin。";
+      }
+    }
+
+    setEvents((current) => current.filter((item) => item.id !== event.id));
+    setMessage(`活動草稿已永久刪除。${cleanupWarning}`);
     setBusyId(null);
   }
 
