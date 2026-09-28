@@ -428,6 +428,32 @@ function readiness(form: FormState) {
   return { score, missing, checks };
 }
 
+function submissionMissing(form: FormState) {
+  const missing: string[] = [];
+
+  if (!safeText(form.title_tc)) missing.push("活動名稱");
+  if (!safeText(form.start_date)) missing.push("活動日期");
+  if (!safeText(form.venue_name) && !safeText(form.address) && !safeText(form.district)) {
+    missing.push("地點");
+  }
+  if (getAllImagesFromForm(form).length === 0) missing.push("圖片");
+  if (formatPricePreview(form) === "收費待確認") missing.push("收費資料");
+
+  const ctaReady =
+    form.cta_type === "none" ||
+    form.cta_type === "contact" ||
+    !!safeText(activeCtaUrl(form));
+
+  if (!ctaReady) missing.push("報名 / CTA");
+
+  return missing;
+}
+
+function merchantCanEdit(status?: string | null) {
+  const value = safeText(status, "draft").toLowerCase();
+  return value === "draft" || value === "rejected";
+}
+
 function isDisabledPriceField(mode: string, field: string) {
   if (mode === "hidden" || mode === "free") {
     return [
@@ -467,7 +493,8 @@ function statusLabel(status?: string | null) {
   const text = safeText(status, "draft").toLowerCase();
 
   if (["submitted", "pending", "review", "pending_review"].includes(text)) return "審批中";
-  if (["published", "approved", "live"].includes(text)) return "已發布";
+  if (text === "approved") return "已批准・待發布";
+  if (["published", "live"].includes(text)) return "已發布";
   if (["rejected", "declined"].includes(text)) return "已拒絕";
   if (["archived", "hidden", "offline"].includes(text)) return "已封存";
   return "草稿";
@@ -606,6 +633,8 @@ export default function MerchantEventEditPage() {
   });
 
   const ready = useMemo(() => readiness(form), [form]);
+  const submitMissing = useMemo(() => submissionMissing(form), [form]);
+  const editable = merchantCanEdit(eventRecord?.status);
   const orderedImages = useMemo(() => getAllImagesFromForm(form), [form]);
   const remainingSlots = Math.max(0, MAX_IMAGES - orderedImages.length);
 
@@ -1042,8 +1071,13 @@ export default function MerchantEventEditPage() {
       return false;
     }
 
-    if (nextStatus === "submitted" && ready.missing.length) {
-      setMessage(`提交前請先補齊：${ready.missing.join("、")}。`);
+    if (!merchantCanEdit(eventRecord?.status)) {
+      setMessage("此活動目前已提交、已批准、已發布或已封存，商戶不能再修改。如需更正，請聯絡 HK Family Fun。");
+      return false;
+    }
+
+    if (nextStatus === "submitted" && submitMissing.length) {
+      setMessage(`提交前請先補齊：${submitMissing.join("、")}。`);
       return false;
     }
 
@@ -1094,7 +1128,7 @@ export default function MerchantEventEditPage() {
   }
 
   useEffect(() => {
-    if (!loadedRef.current || loading || !eventRecord) return;
+    if (!loadedRef.current || loading || !eventRecord || !merchantCanEdit(eventRecord.status)) return;
 
     const serialized = JSON.stringify(form);
     if (serialized === lastSerializedFormRef.current) return;
@@ -1172,7 +1206,7 @@ export default function MerchantEventEditPage() {
               <button
                 type="button"
                 onClick={() => saveEvent()}
-                disabled={saving}
+                disabled={saving || !editable}
                 className="rounded-full bg-slate-950 px-5 py-2 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 {saving ? "儲存中..." : "儲存草稿"}
@@ -1180,7 +1214,7 @@ export default function MerchantEventEditPage() {
               <button
                 type="button"
                 onClick={() => saveEvent("submitted")}
-                disabled={saving || ready.missing.length > 0}
+                disabled={saving || !editable || submitMissing.length > 0}
                 className="rounded-full bg-purple-700 px-5 py-2 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
               >
                 提交審批
