@@ -21,7 +21,12 @@ function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status });
 }
 
-async function sendMail(to: string, subject: string, text: string) {
+async function sendMail(
+  to: string,
+  subject: string,
+  text: string,
+  idempotencyKey: string,
+) {
   if (!RESEND_API_KEY) {
     return { sent: false, reason: "RESEND_API_KEY not configured" };
   }
@@ -31,6 +36,7 @@ async function sendMail(to: string, subject: string, text: string) {
     headers: {
       Authorization: `Bearer ${RESEND_API_KEY}`,
       "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
     },
     body: JSON.stringify({
       from: "HK Family Fun <no-reply@hkfamilyfun.com>",
@@ -85,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     const { data: event, error } = await client
       .from("events")
-      .select("id,title_tc,status,merchant_id")
+      .select("id,title_tc,status,merchant_id,updated_at")
       .eq("id", body.event_id)
       .maybeSingle();
 
@@ -104,6 +110,7 @@ export async function POST(request: NextRequest) {
         "",
         "活動在管理員發布前不會公開。",
       ].join("\n"),
+      `event-submitted-${event.id}-${event.updated_at || "unknown"}`,
     );
 
     return json(result);
@@ -117,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     const { data: event } = await client
       .from("events")
-      .select("id,title_tc,status,merchant_id,rejection_reason")
+      .select("id,title_tc,status,merchant_id,rejection_reason,updated_at")
       .eq("id", body.event_id)
       .maybeSingle();
 
@@ -156,6 +163,7 @@ export async function POST(request: NextRequest) {
         "",
         `Merchant Portal：${SITE_URL}/merchant/dashboard`,
       ].filter(Boolean).join("\n"),
+      `event-status-${event.id}-${event.status}-${event.updated_at || "unknown"}`,
     );
 
     return json(result);
@@ -166,7 +174,7 @@ export async function POST(request: NextRequest) {
 
     const { data: merchant } = await client
       .from("merchants")
-      .select("business_name,contact_email,status,rejection_reason")
+      .select("business_name,contact_email,status,rejection_reason,updated_at")
       .eq("id", body.merchant_id)
       .maybeSingle();
 
@@ -196,6 +204,7 @@ export async function POST(request: NextRequest) {
           ? `你現在可以登入 Merchant Portal 建立及提交活動：${SITE_URL}/merchant/login`
           : `Merchant Portal：${SITE_URL}/merchant/login`,
       ].filter(Boolean).join("\n"),
+      `merchant-status-${body.merchant_id}-${merchant.status}-${merchant.updated_at || "unknown"}`,
     );
 
     return json(result);
