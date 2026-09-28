@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("response_type", "code");
   url.searchParams.set(
     "scope",
-    "openid email https://www.googleapis.com/auth/calendar.readonly",
+    "openid email https://www.googleapis.com/auth/calendar.freebusy",
   );
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
