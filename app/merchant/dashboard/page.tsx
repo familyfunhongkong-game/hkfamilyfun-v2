@@ -589,33 +589,26 @@ export default function MerchantDashboardPage() {
       return;
     }
 
-    if (!merchant) return;
+    if (!merchant || safeText(merchant.status, "pending") !== "approved") {
+      setMessage("只有已批准商戶可以複製活動。");
+      return;
+    }
 
     setBusyId(event.id);
     setMessage("");
 
-    const { id, created_at, updated_at, ...copyableEvent } = event;
+    const { data, error } = await client.rpc("duplicate_merchant_event", {
+      source_event_id: event.id,
+    });
 
-    const newEvent = {
-      ...copyableEvent,
-      status: "draft",
-      title_tc: `${titleOf(event)} 副本`,
-      title: event.title ? `${event.title} 副本` : null,
-      merchant_id: merchant.id,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { error } = await client.from("events").insert(newEvent);
-
-    if (error) {
-      setMessage(`複製失敗：${error.message}`);
-    } else {
-      setMessage("已建立活動副本，可在草稿中繼續編輯。");
-      setActiveFilter("draft");
-      await loadDashboard();
+    if (error || !data) {
+      setMessage(`複製失敗：${error?.message || "未能建立活動副本"}`);
+      setBusyId(null);
+      return;
     }
 
-    setBusyId(null);
+    setMessage("已建立安全活動副本，平台審批資料已重設。");
+    window.location.href = `/merchant/events/${data}/edit`;
   }
 
   if (loading) {
