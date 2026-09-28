@@ -1167,16 +1167,7 @@ export default function AdminEventsPage() {
                       </div>
 
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        {normalizedStatus(event) === "approved" ? (
-                          <button
-                            type="button"
-                            onClick={() => updateEventStatus(event, "published")}
-                            disabled={isSaving || !ready}
-                            className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-slate-300"
-                          >
-                            {isSaving ? "處理中..." : "正式發布"}
-                          </button>
-                        ) : (
+                        {(status === "submitted" || status === "draft") ? (
                           <button
                             type="button"
                             onClick={() => updateEventStatus(event, "approved")}
@@ -1185,34 +1176,51 @@ export default function AdminEventsPage() {
                           >
                             {isSaving ? "處理中..." : "批准・待發布"}
                           </button>
-                        )}
+                        ) : null}
 
-                        <button
-                          type="button"
-                          onClick={() => updateEventStatus(event, "rejected")}
-                          disabled={isSaving}
-                          className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
-                        >
-                          拒絕
-                        </button>
+                        {status === "approved" ? (
+                          <button
+                            type="button"
+                            onClick={() => updateEventStatus(event, "published")}
+                            disabled={isSaving || !ready}
+                            className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-slate-300"
+                          >
+                            {isSaving ? "處理中..." : "正式發布"}
+                          </button>
+                        ) : null}
 
-                        <button
-                          type="button"
-                          onClick={() => updateEventStatus(event, "draft")}
-                          disabled={isSaving}
-                          className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          轉草稿
-                        </button>
+                        {(status === "submitted" || status === "approved") ? (
+                          <button
+                            type="button"
+                            onClick={() => updateEventStatus(event, "rejected")}
+                            disabled={isSaving}
+                            className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
+                          >
+                            拒絕
+                          </button>
+                        ) : null}
 
-                        <button
-                          type="button"
-                          onClick={() => updateEventStatus(event, "archived")}
-                          disabled={isSaving}
-                          className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
-                        >
-                          封存
-                        </button>
+                        {(status === "rejected" || status === "archived") ? (
+                          <button
+                            type="button"
+                            onClick={() => updateEventStatus(event, "draft")}
+                            disabled={isSaving}
+                            className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          >
+                            轉草稿
+                          </button>
+                        ) : null}
+
+                        {(status === "draft" || status === "approved" || status === "published" || status === "rejected") ? (
+                          <button
+                            type="button"
+                            onClick={() => updateEventStatus(event, "archived")}
+                            disabled={isSaving}
+                            className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
+                          >
+                            封存
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   </div>
