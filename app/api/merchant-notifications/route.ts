@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     const { data: merchant, error } = await client
       .from("merchants")
-      .select("id,business_name,contact_name,contact_email,status,created_at,owner_user_id")
+      .select("id,business_name,contact_name,contact_email,status,created_at,updated_at,owner_user_id")
       .eq("id", body.merchant_id)
       .maybeSingle();
 
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
         "",
         `Admin：${SITE_URL}/admin/merchants`,
       ].filter(Boolean).join("\n"),
-      `merchant-registered-${merchant.id}-${merchant.created_at || "unknown"}`,
+      `merchant-review-${merchant.id}-${merchant.updated_at || merchant.created_at || "unknown"}`,
     );
 
     return json(result);
