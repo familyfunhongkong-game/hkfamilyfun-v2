@@ -575,6 +575,23 @@ function sanitizeFileName(name: string) {
     .slice(0, 90);
 }
 
+function ownedEventStoragePath(url: string, eventId: string) {
+  const marker = "/storage/v1/object/public/event-images/";
+  const index = url.indexOf(marker);
+
+  if (index < 0) return "";
+
+  let path = url.slice(index + marker.length);
+
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // Keep the raw path if URL decoding fails.
+  }
+
+  return path.startsWith(`${eventId}/`) ? path : "";
+}
+
 function removeUnsafePayloadFields(payload: Record<string, unknown>) {
   const next = { ...payload };
   SCHEMA_UNSAFE_FIELDS.forEach((field) => {
@@ -655,9 +672,44 @@ export default function MerchantEventEditPage() {
     resetCoverCrop();
   }
 
-  function removeImage(image: string) {
+  async function removeImage(image: string) {
+    if (!editable) {
+      setMessage("此活動目前不可修改圖片。");
+      return;
+    }
+
+    const client = supabase;
+
+    if (!client) {
+      setMessage("Supabase client 未能初始化，暫時不能移除圖片。");
+      return;
+    }
+
+    const storagePath = ownedEventStoragePath(image, eventId);
+
+    if (storagePath) {
+      const { error } = await client.storage
+        .from(STORAGE_BUCKET)
+        .remove([storagePath]);
+
+      if (error) {
+        setMessage(`圖片移除失敗：${error.message}`);
+        return;
+      }
+    }
+
     const images = orderedImages.filter((item) => item !== image);
     setImageOrder(images);
+
+    if (image === form.cover_image_url) {
+      resetCoverCrop();
+    }
+
+    setMessage(
+      storagePath
+        ? "圖片已從活動及 Storage 移除，系統會自動儲存。"
+        : "圖片已從活動移除，系統會自動儲存。",
+    );
   }
 
   function resetCoverCrop() {
@@ -1603,7 +1655,8 @@ export default function MerchantEventEditPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => removeImage(image)}
+                                  onClick={() => void removeImage(image)}
+                                  disabled={!editable}
                                   className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white hover:bg-rose-700"
                                 >
                                   移除
