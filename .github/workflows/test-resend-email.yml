@@ -1,0 +1,55 @@
+name: Test HK Family Fun Approval Email
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/test-resend-email.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  send-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send approval test email
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          APPROVAL_EMAIL: ${{ secrets.APPROVAL_EMAIL }}
+        run: |
+          node - <<'NODE'
+          const apiKey = process.env.RESEND_API_KEY || "";
+          const to = process.env.APPROVAL_EMAIL || "";
+
+          if (!apiKey) throw new Error("RESEND_API_KEY secret is missing");
+          if (!to) throw new Error("APPROVAL_EMAIL secret is missing");
+
+          const response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: "HK Family Fun <approvals@hkfamilyfun.com>",
+              to: [to],
+              reply_to: "info@hkfamilyfun.com",
+              subject: "HK Family Fun｜Approval Email Test",
+              text: [
+                "HK Family Fun rebuild approval email test.",
+                "",
+                "Resend domain、GitHub Secret及自動通知連線已成功。",
+                "此電郵只作系統測試，無需回覆。"
+              ].join("\n")
+            }),
+          });
+
+          const body = await response.text();
+          if (!response.ok) {
+            throw new Error(`Resend HTTP ${response.status}: ${body}`);
+          }
+
+          console.log("Approval email test sent successfully.");
+          NODE
