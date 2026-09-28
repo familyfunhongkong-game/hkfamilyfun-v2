@@ -52,6 +52,8 @@ begin
         when source_row.title is null or trim(source_row.title) = '' then null
         else source_row.title || ' 副本'
       end,
+      'cover_image_url', null,
+      'gallery_image_urls', '[]'::jsonb,
       'created_at', now(),
       'updated_at', now(),
       'submitted_at', null,
