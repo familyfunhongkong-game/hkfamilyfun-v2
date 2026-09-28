@@ -33,7 +33,7 @@ async function sendMail(to: string, subject: string, text: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "HK Family Fun <approvals@hkfamilyfun.com>",
+      from: "HK Family Fun <no-reply@hkfamilyfun.com>",
       to: [to],
       reply_to: "info@hkfamilyfun.com",
       subject,
