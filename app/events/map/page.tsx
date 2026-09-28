@@ -58,8 +58,7 @@ function normalizeTags(value: unknown): string[] {
 
   if (typeof value === "string") {
     return value
-      .split(/[,
-，、]/)
+      .split(/[,\n，、]/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
