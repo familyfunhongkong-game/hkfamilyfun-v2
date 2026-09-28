@@ -494,7 +494,8 @@ function getStatusLabel(status?: string | null): string {
   if (["submitted", "pending", "review", "pending_review"].includes(text)) {
     return "審批中";
   }
-  if (["approved", "published", "live"].includes(text)) return "已發布";
+  if (text === "approved") return "已批准・待發布";
+  if (["published", "live"].includes(text)) return "已發布";
   if (["rejected", "declined"].includes(text)) return "已拒絕";
   if (["archived", "hidden", "offline"].includes(text)) return "已封存";
 
@@ -507,7 +508,8 @@ function getStatusTone(status?: string | null): StatusTone {
   if (["submitted", "pending", "review", "pending_review"].includes(text)) {
     return "amber";
   }
-  if (["approved", "published", "live"].includes(text)) return "green";
+  if (text === "approved") return "purple";
+  if (["published", "live"].includes(text)) return "green";
   if (["rejected", "declined"].includes(text)) return "rose";
   if (["archived", "hidden", "offline"].includes(text)) return "slate";
 
@@ -775,6 +777,14 @@ export default function AdminEventReviewPage() {
     setErrorText("");
     setMessage("");
 
+    const { data: storedFiles } = await client.storage
+      .from("event-images")
+      .list(event.id, { limit: 1000 });
+
+    const storagePaths = (storedFiles || [])
+      .filter((item) => item.name)
+      .map((item) => `${event.id}/${item.name}`);
+
     const { error } = await client.from("events").delete().eq("id", event.id);
 
     if (error) {
@@ -783,11 +793,21 @@ export default function AdminEventReviewPage() {
       return;
     }
 
+    if (storagePaths.length) {
+      const { error: storageError } = await client.storage
+        .from("event-images")
+        .remove(storagePaths);
+
+      if (storageError) {
+        console.warn("Event deleted but Storage cleanup failed:", storageError);
+      }
+    }
+
     router.push("/admin/events");
   }
 
   async function updateEventStatus(
-    nextStatus: "published" | "rejected" | "archived" | "draft",
+    nextStatus: "approved" | "published" | "rejected" | "archived" | "draft",
   ) {
     const client = supabase;
 
@@ -796,7 +816,7 @@ export default function AdminEventReviewPage() {
       return;
     }
 
-    if (nextStatus === "published" && blocked) {
+    if ((nextStatus === "approved" || nextStatus === "published") && blocked) {
       setMessage("仍有關鍵資料未完成，請先補齊活動名稱、日期、地點、圖片及 CTA。");
       return;
     }
@@ -813,6 +833,12 @@ export default function AdminEventReviewPage() {
       reviewed_at: now,
       updated_at: now,
     };
+
+    if (nextStatus === "approved") {
+      payload.approved_at = now;
+      payload.published_at = null;
+      payload.rejection_reason = null;
+    }
 
     if (nextStatus === "published") {
       payload.published_at = now;
@@ -844,12 +870,35 @@ export default function AdminEventReviewPage() {
     );
     setSaving(false);
 
-    if (nextStatus === "published") setMessage("活動已批准並發布。");
+    if (nextStatus === "approved") setMessage("活動已批准，等待正式發布。");
+    if (nextStatus === "published") setMessage("活動已正式發布。");
     if (nextStatus === "rejected") {
       setMessage("活動已拒絕，商戶需要修改後再提交。");
     }
     if (nextStatus === "archived") setMessage("活動已封存。");
     if (nextStatus === "draft") setMessage("活動已轉回草稿。");
+
+    try {
+      const { data: sessionData } = await client.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (accessToken && updated.merchant_id) {
+        void fetch("/api/merchant-notifications", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            action: "event_status_changed",
+            event_id: updated.id,
+            status: nextStatus,
+          }),
+        });
+      }
+    } catch {
+      // Notification failure must never block the admin workflow.
+    }
   }
 
   if (loading) {
@@ -938,7 +987,7 @@ export default function AdminEventReviewPage() {
               </h1>
 
               <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-                此頁顯示商戶最終圖片排序、封面裁切、Gallery、CTA、地點及收費。批准後活動會變成公開狀態。
+                此頁顯示商戶最終圖片排序、封面裁切、Gallery、CTA、地點及收費。先批准，再由 Admin 執行正式發布，活動先會公開。
               </p>
             </div>
 
@@ -959,12 +1008,18 @@ export default function AdminEventReviewPage() {
                 商戶 Preview
               </Link>
 
-              <Link
-                href={`/events/${event.id}`}
-                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
-              >
-                公開頁
-              </Link>
+              {safeText(event.status).toLowerCase() === "published" ? (
+                <Link
+                  href={`/events/${event.id}`}
+                  className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+                >
+                  公開頁
+                </Link>
+              ) : (
+                <span className="rounded-full border border-slate-200 bg-slate-100 px-5 py-2 text-sm font-black text-slate-400">
+                  尚未公開
+                </span>
+              )}
             </div>
           </div>
 
@@ -1270,41 +1325,62 @@ export default function AdminEventReviewPage() {
             <h2 className="text-lg font-black text-slate-950">審批操作</h2>
 
             <div className="mt-4 grid gap-3">
-              <button
-                type="button"
-                onClick={() => updateEventStatus("published")}
-                disabled={saving || blocked}
-                className="rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-slate-300"
-              >
-                {saving ? "處理中..." : "批准並發布"}
-              </button>
+              {["submitted", "draft"].includes(safeText(event.status).toLowerCase()) ? (
+                <button
+                  type="button"
+                  onClick={() => updateEventStatus("approved")}
+                  disabled={saving || blocked}
+                  className="rounded-2xl bg-purple-700 px-5 py-4 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
+                >
+                  {saving ? "處理中..." : "批准・待發布"}
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => updateEventStatus("rejected")}
-                disabled={saving}
-                className="rounded-2xl bg-rose-600 px-5 py-4 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
-              >
-                拒絕並退回商戶
-              </button>
+              {safeText(event.status).toLowerCase() === "approved" ? (
+                <button
+                  type="button"
+                  onClick={() => updateEventStatus("published")}
+                  disabled={saving || blocked}
+                  className="rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-slate-300"
+                >
+                  {saving ? "處理中..." : "正式發布"}
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => updateEventStatus("draft")}
-                disabled={saving}
-                className="rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              >
-                轉回草稿
-              </button>
+              {["submitted", "approved"].includes(safeText(event.status).toLowerCase()) ? (
+                <button
+                  type="button"
+                  onClick={() => updateEventStatus("rejected")}
+                  disabled={saving}
+                  className="rounded-2xl bg-rose-600 px-5 py-4 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
+                >
+                  拒絕並退回商戶
+                </button>
+              ) : null}
 
-              <button
-                type="button"
-                onClick={() => updateEventStatus("archived")}
-                disabled={saving}
-                className="rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
-              >
-                封存活動
-              </button>
+              {["rejected", "archived"].includes(safeText(event.status).toLowerCase()) ? (
+                <button
+                  type="button"
+                  onClick={() => updateEventStatus("draft")}
+                  disabled={saving}
+                  className="rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  轉回草稿
+                </button>
+              ) : null}
+
+              {["draft", "approved", "published", "rejected"].includes(
+                safeText(event.status).toLowerCase(),
+              ) ? (
+                <button
+                  type="button"
+                  onClick={() => updateEventStatus("archived")}
+                  disabled={saving}
+                  className="rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50"
+                >
+                  封存活動
+                </button>
+              ) : null}
 
               <button
                 type="button"
@@ -1322,7 +1398,7 @@ export default function AdminEventReviewPage() {
             <ul className="mt-3 list-disc space-y-2 pl-5 text-xs font-bold leading-6 text-purple-800">
               <li>封面顯示已同步商戶 crop 設定。</li>
               <li>Gallery 順序已跟商戶 edit page 一致。</li>
-              <li>批准後會把活動變成 published。</li>
+              <li>批准只會變成 approved；必須再按「正式發布」先會公開。</li>
               <li>拒絕時應填寫清楚備註，方便商戶修改。</li>
               <li>沒有 CTA URL 時，不要批准需要報名的活動。</li>
             </ul>
