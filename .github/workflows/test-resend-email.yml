@@ -1,6 +1,10 @@
 name: Test HK Family Fun Approval Email
 
 on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/test-resend-email.yml"
   workflow_dispatch:
 
 permissions:
@@ -30,7 +34,7 @@ jobs:
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              from: "HK Family Fun <approvals@hkfamilyfun.com>",
+              from: "HK Family Fun <no-reply@hkfamilyfun.com>",
               to: [to],
               reply_to: "info@hkfamilyfun.com",
               subject: "HK Family Fun｜Approval Email Test",
