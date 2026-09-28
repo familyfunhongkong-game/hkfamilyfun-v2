@@ -56,6 +56,7 @@ type MerchantRecord = {
   business_name?: string | null;
   contact_email?: string | null;
   status?: string | null;
+  rejection_reason?: string | null;
   created_at?: string | null;
 };
 
@@ -669,6 +670,11 @@ export default function MerchantDashboardPage() {
               商戶：{safeText(merchant.business_name, "未命名商戶")} · 狀態：
               {status}
             </p>
+            {status === "rejected" && merchant.rejection_reason ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-bold text-rose-800">
+                平台備註：{merchant.rejection_reason}
+              </div>
+            ) : null}
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href="/merchant/profile"
