@@ -584,7 +584,7 @@ async function sendApprovalEmail(events) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "HK Family Fun <approvals@hkfamilyfun.com>",
+        from: "HK Family Fun <no-reply@hkfamilyfun.com>",
         to: [APPROVAL_EMAIL],
         subject:
           "HK Family Fun：" +
