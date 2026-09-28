@@ -622,6 +622,7 @@ export default function MerchantEventEditPage() {
 
   const [eventRecord, setEventRecord] = useState<EventRecord | null>(null);
   const [merchant, setMerchant] = useState<MerchantRecord | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -651,7 +652,7 @@ export default function MerchantEventEditPage() {
 
   const ready = useMemo(() => readiness(form), [form]);
   const submitMissing = useMemo(() => submissionMissing(form), [form]);
-  const editable = merchantCanEdit(eventRecord?.status);
+  const editable = isAdmin || merchantCanEdit(eventRecord?.status);
   const orderedImages = useMemo(() => getAllImagesFromForm(form), [form]);
   const remainingSlots = Math.max(0, MAX_IMAGES - orderedImages.length);
 
@@ -950,10 +951,14 @@ export default function MerchantEventEditPage() {
       } = await client.auth.getUser();
 
       if (userError || !user) {
-        setMessage("請先登入商戶帳戶。");
+        setMessage("請先登入商戶或管理員帳戶。");
         setLoading(false);
         return;
       }
+
+      const { data: adminAccess } = await client.rpc("is_platform_admin");
+      const currentIsAdmin = adminAccess === true;
+      setIsAdmin(currentIsAdmin);
 
       const { data: merchantData, error: merchantError } = await client
         .from("merchants")
@@ -1123,8 +1128,13 @@ export default function MerchantEventEditPage() {
       return false;
     }
 
-    if (!merchantCanEdit(eventRecord?.status)) {
+    if (!isAdmin && !merchantCanEdit(eventRecord?.status)) {
       setMessage("此活動目前已提交、已批准、已發布或已封存，商戶不能再修改。如需更正，請聯絡 HK Family Fun。");
+      return false;
+    }
+
+    if (isAdmin && nextStatus === "submitted") {
+      setMessage("Admin 請使用活動審批中心控制審批狀態；此頁只作資料編輯。");
       return false;
     }
 
@@ -1201,7 +1211,7 @@ export default function MerchantEventEditPage() {
   }
 
   useEffect(() => {
-    if (!loadedRef.current || loading || !eventRecord || !merchantCanEdit(eventRecord.status)) return;
+    if (!loadedRef.current || loading || !eventRecord || !editable) return;
 
     const serialized = JSON.stringify(form);
     if (serialized === lastSerializedFormRef.current) return;
@@ -1256,14 +1266,19 @@ export default function MerchantEventEditPage() {
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <Link
-                href="/merchant/dashboard"
+                href={isAdmin ? "/admin/events" : "/merchant/dashboard"}
                 className="text-sm font-black text-purple-700 hover:text-purple-900"
               >
-                ← 返回 Merchant Dashboard
+                ← {isAdmin ? "返回 Admin 活動審批" : "返回 Merchant Dashboard"}
               </Link>
               <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
                 編輯活動資料
               </h1>
+              {isAdmin ? (
+                <p className="mt-2 inline-flex rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
+                  Admin Edit Mode
+                </p>
+              ) : null}
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 Smart Image Manager：拖拉封面位置、拖拉圖片排序、第一張自動成為封面、最多 5 張。
               </p>
@@ -1284,14 +1299,16 @@ export default function MerchantEventEditPage() {
               >
                 {saving ? "儲存中..." : "儲存草稿"}
               </button>
-              <button
-                type="button"
-                onClick={() => saveEvent("submitted")}
-                disabled={saving || !editable || submitMissing.length > 0}
-                className="rounded-full bg-purple-700 px-5 py-2 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
-              >
-                提交審批
-              </button>
+              {!isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => saveEvent("submitted")}
+                  disabled={saving || !editable || submitMissing.length > 0}
+                  className="rounded-full bg-purple-700 px-5 py-2 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
+                >
+                  提交審批
+                </button>
+              ) : null}
             </div>
           </div>
 
