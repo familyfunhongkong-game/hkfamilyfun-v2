@@ -34,6 +34,19 @@ begin
     raise exception 'Merchant creation timestamp cannot be changed.';
   end if;
 
+  if new.terms_accepted_at is distinct from old.terms_accepted_at
+     or new.terms_version is distinct from old.terms_version
+     or new.privacy_accepted_at is distinct from old.privacy_accepted_at
+     or new.privacy_version is distinct from old.privacy_version then
+    raise exception 'Merchant legal acceptance records cannot be changed by merchant user.';
+  end if;
+
+  if old.status = 'approved'
+     and new.business_name is distinct from old.business_name then
+    new.status := 'pending';
+    new.rejection_reason := '商戶／機構名稱已變更，需要 HK Family Fun 重新審批。';
+  end if;
+
   return new;
 end;
 $function$;
