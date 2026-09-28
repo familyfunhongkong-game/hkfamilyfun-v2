@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 
+const MERCHANT_TERMS_VERSION = "2026-09-28";
+const PRIVACY_VERSION = "2026-09-28";
+
 export default function MerchantRegisterPage() {
   const [businessName, setBusinessName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -44,6 +47,8 @@ export default function MerchantRegisterPage() {
 
     setIsSubmitting(true);
 
+    const acceptedAt = new Date().toISOString();
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -56,6 +61,10 @@ export default function MerchantRegisterPage() {
           contact_name: contactName,
           contact_phone: contactPhone,
           website_url: websiteUrl,
+          terms_accepted_at: acceptedAt,
+          terms_version: MERCHANT_TERMS_VERSION,
+          privacy_accepted_at: acceptedAt,
+          privacy_version: PRIVACY_VERSION,
         },
       },
     });
