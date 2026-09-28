@@ -8,6 +8,7 @@ export default function MerchantRegisterPage() {
   const [businessName, setBusinessName] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -54,6 +55,7 @@ export default function MerchantRegisterPage() {
           business_name: businessName,
           contact_name: contactName,
           contact_phone: contactPhone,
+          website_url: websiteUrl,
         },
       },
     });
@@ -133,6 +135,19 @@ export default function MerchantRegisterPage() {
                 value={contactPhone}
                 onChange={(event) => setContactPhone(event.target.value)}
                 placeholder="例如：5701 8297"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">
+                商戶網站（可選）
+              </span>
+              <input
+                type="url"
+                value={websiteUrl}
+                onChange={(event) => setWebsiteUrl(event.target.value)}
+                placeholder="https://example.com"
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </label>
