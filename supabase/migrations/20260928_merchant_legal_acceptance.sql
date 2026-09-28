@@ -118,3 +118,41 @@ begin
   return new;
 end;
 $function$;
+
+
+create or replace function public.enforce_merchant_approval_requirements()
+returns trigger
+language plpgsql
+set search_path to 'public'
+as $function$
+begin
+  if new.status = 'approved'
+     and (tg_op = 'INSERT' or old.status is distinct from new.status) then
+
+    if coalesce(trim(new.business_name), '') = '' then
+      raise exception 'Business name is required before approving a merchant.';
+    end if;
+
+    if coalesce(trim(new.contact_name), '') = '' then
+      raise exception 'Contact name is required before approving a merchant.';
+    end if;
+
+    if coalesce(trim(new.contact_email), '') = '' then
+      raise exception 'Contact email is required before approving a merchant.';
+    end if;
+
+    if new.terms_accepted_at is null or new.privacy_accepted_at is null then
+      raise exception 'Terms and Privacy acceptance are required before approving a merchant.';
+    end if;
+  end if;
+
+  return new;
+end;
+$function$;
+
+drop trigger if exists enforce_merchant_approval_requirements_trigger on public.merchants;
+
+create trigger enforce_merchant_approval_requirements_trigger
+before insert or update on public.merchants
+for each row
+execute function public.enforce_merchant_approval_requirements();
