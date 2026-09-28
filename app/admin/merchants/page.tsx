@@ -14,6 +14,10 @@ type Merchant = {
   description?: string | null;
   status: "pending" | "approved" | "rejected" | "suspended";
   rejection_reason?: string | null;
+  terms_accepted_at?: string | null;
+  terms_version?: string | null;
+  privacy_accepted_at?: string | null;
+  privacy_version?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -264,6 +268,18 @@ export default function AdminMerchantsPage() {
                       <p>電話：{merchant.contact_phone || "未填"}</p>
                       <p>網站：{merchant.website_url || "未填"}</p>
                     </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {merchant.terms_accepted_at && merchant.privacy_accepted_at ? (
+                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                          條款及私隱已接受
+                          {merchant.terms_version ? ` · ${merchant.terms_version}` : ""}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-700">
+                          未有條款接受記錄
+                        </span>
+                      )}
+                    </div>
                     {merchant.description ? (
                       <p className="mt-3 text-sm leading-6 text-slate-600">
                         {merchant.description}
@@ -279,7 +295,16 @@ export default function AdminMerchantsPage() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      disabled={busyId === merchant.id}
+                      disabled={
+                        busyId === merchant.id ||
+                        !merchant.terms_accepted_at ||
+                        !merchant.privacy_accepted_at
+                      }
+                      title={
+                        merchant.terms_accepted_at && merchant.privacy_accepted_at
+                          ? "批准商戶"
+                          : "缺少條款／私隱接受記錄，不能批准"
+                      }
                       onClick={() => void updateMerchantStatus(merchant, "approved")}
                       className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50"
                     >
