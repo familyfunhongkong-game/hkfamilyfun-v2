@@ -17,6 +17,11 @@ const cards = [
     description: "由官方活動網址建立可編輯草稿，再交由 Admin 審批。",
   },
   {
+    href: "/admin/system",
+    title: "系統狀態",
+    description: "檢查 Supabase、Resend、Google Calendar 及網站環境設定是否可以上線。",
+  },
+  {
     href: "/events",
     title: "查看公開網站",
     description: "檢查已發布活動在家長端的實際顯示效果。",
