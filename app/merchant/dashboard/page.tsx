@@ -201,8 +201,23 @@ function imageCount(event: EventRecord) {
   return (event.cover_image_url ? 1 : 0) + getGalleryArray(event.gallery_image_urls).length;
 }
 
-function ownedEventStoragePaths(event: EventRecord) {
+function ownedEventStoragePath(url: string, eventId: string) {
   const marker = "/storage/v1/object/public/event-images/";
+  const index = url.indexOf(marker);
+  if (index < 0) return "";
+
+  let path = url.slice(index + marker.length);
+
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // Keep the raw path if URL decoding fails.
+  }
+
+  return path.startsWith(`${eventId}/`) ? path : "";
+}
+
+function ownedEventStoragePaths(event: EventRecord) {
   const urls = [
     safeText(event.cover_image_url, ""),
     ...getGalleryArray(event.gallery_image_urls),
@@ -211,17 +226,8 @@ function ownedEventStoragePaths(event: EventRecord) {
   return Array.from(
     new Set(
       urls
-        .map((url) => {
-          const index = url.indexOf(marker);
-          if (index < 0) return "";
-
-          try {
-            return decodeURIComponent(url.slice(index + marker.length));
-          } catch {
-            return url.slice(index + marker.length);
-          }
-        })
-        .filter((path) => path.startsWith(`${event.id}/`)),
+        .map((url) => ownedEventStoragePath(url, event.id))
+        .filter(Boolean),
     ),
   );
 }
@@ -647,8 +653,70 @@ export default function MerchantDashboardPage() {
       return;
     }
 
-    setMessage("已建立安全活動副本，平台審批資料已重設。");
-    window.location.href = `/merchant/events/${data}/edit`;
+    const newEventId = String(data);
+    const sourceImages = Array.from(
+      new Set(
+        [
+          safeText(event.cover_image_url, ""),
+          ...getGalleryArray(event.gallery_image_urls),
+        ].filter(Boolean),
+      ),
+    ).slice(0, 6);
+
+    const duplicatedImages: string[] = [];
+    let copyWarning = false;
+
+    for (const [index, imageUrl] of sourceImages.entries()) {
+      const sourcePath = ownedEventStoragePath(imageUrl, event.id);
+
+      if (!sourcePath) {
+        duplicatedImages.push(imageUrl);
+        continue;
+      }
+
+      const sourceName = sourcePath.split("/").pop() || `image-${index}.jpg`;
+      const destinationPath = `${newEventId}/${Date.now()}-${index}-${sourceName}`;
+
+      const { error: copyError } = await client.storage
+        .from("event-images")
+        .copy(sourcePath, destinationPath);
+
+      if (copyError) {
+        copyWarning = true;
+        continue;
+      }
+
+      const { data: publicUrlData } = client.storage
+        .from("event-images")
+        .getPublicUrl(destinationPath);
+
+      if (publicUrlData.publicUrl) {
+        duplicatedImages.push(publicUrlData.publicUrl);
+      }
+    }
+
+    if (duplicatedImages.length) {
+      const { error: imageUpdateError } = await client
+        .from("events")
+        .update({
+          cover_image_url: duplicatedImages[0],
+          gallery_image_urls: duplicatedImages.slice(1),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", newEventId);
+
+      if (imageUpdateError) {
+        copyWarning = true;
+      }
+    }
+
+    if (copyWarning) {
+      window.alert(
+        "活動副本已建立，但部分圖片未能複製。請進入副本重新檢查或上載圖片。",
+      );
+    }
+
+    window.location.href = `/merchant/events/${newEventId}/edit`;
   }
 
   if (loading) {
