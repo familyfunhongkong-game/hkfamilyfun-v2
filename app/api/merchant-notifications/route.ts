@@ -13,6 +13,7 @@ const SITE_URL =
   "https://hkfamilyfun-v2.vercel.app";
 
 type Action =
+  | "merchant_registered"
   | "event_submitted"
   | "event_status_changed"
   | "merchant_status_changed";
@@ -85,6 +86,42 @@ export async function POST(request: NextRequest) {
 
   const action = body.action;
   if (!action) return json({ error: "Missing action" }, 400);
+
+  if (action === "merchant_registered") {
+    if (!body.merchant_id) return json({ error: "Missing merchant_id" }, 400);
+
+    const { data: merchant, error } = await client
+      .from("merchants")
+      .select("id,business_name,contact_name,contact_email,status,created_at,owner_user_id")
+      .eq("id", body.merchant_id)
+      .maybeSingle();
+
+    if (
+      error ||
+      !merchant ||
+      merchant.owner_user_id !== user.id ||
+      merchant.status !== "pending"
+    ) {
+      return json({ error: "Merchant is unavailable or not pending." }, 403);
+    }
+
+    const result = await sendMail(
+      APPROVAL_EMAIL,
+      `HK Family Fun｜新商戶待審批：${merchant.business_name || "未命名商戶"}`,
+      [
+        "有新商戶完成註冊並等待平台審批。",
+        "",
+        `商戶：${merchant.business_name || "未命名商戶"}`,
+        merchant.contact_name ? `聯絡人：${merchant.contact_name}` : "",
+        merchant.contact_email ? `Email：${merchant.contact_email}` : "",
+        "",
+        `Admin：${SITE_URL}/admin/merchants`,
+      ].filter(Boolean).join("\n"),
+      `merchant-registered-${merchant.id}-${merchant.created_at || "unknown"}`,
+    );
+
+    return json(result);
+  }
 
   if (action === "event_submitted") {
     if (!body.event_id) return json({ error: "Missing event_id" }, 400);
