@@ -1,10 +1,6 @@
 name: Test HK Family Fun Approval Email
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/test-resend-email.yml"
   workflow_dispatch:
 
 permissions:
