@@ -123,7 +123,8 @@ $function$;
 create or replace function public.enforce_merchant_approval_requirements()
 returns trigger
 language plpgsql
-set search_path to 'public'
+security definer
+set search_path to 'public', 'auth'
 as $function$
 begin
   if new.status = 'approved'
@@ -143,6 +144,15 @@ begin
 
     if new.terms_accepted_at is null or new.privacy_accepted_at is null then
       raise exception 'Terms and Privacy acceptance are required before approving a merchant.';
+    end if;
+
+    if not exists (
+      select 1
+      from auth.users u
+      where u.id = new.owner_user_id
+        and u.email_confirmed_at is not null
+    ) then
+      raise exception 'Merchant email must be verified before approval.';
     end if;
   end if;
 
