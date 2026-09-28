@@ -692,7 +692,7 @@ export default function AdminEventsPage() {
 
   async function updateEventStatus(
     event: EventRecord,
-    nextStatus: "published" | "rejected" | "archived" | "draft",
+    nextStatus: "approved" | "published" | "rejected" | "archived" | "draft",
   ) {
     const client = supabase;
 
@@ -701,7 +701,7 @@ export default function AdminEventsPage() {
       return;
     }
 
-    if (nextStatus === "published" && !hasCriticalReady(event)) {
+    if ((nextStatus === "approved" || nextStatus === "published") && !hasCriticalReady(event)) {
       setMessage("此活動仍有關鍵資料未完成。請入 審批詳情 頁檢查後再發布。");
       return;
     }
@@ -718,10 +718,16 @@ export default function AdminEventsPage() {
       updated_at: now,
     };
 
+    if (nextStatus === "approved") {
+      payload.approved_at = now;
+      payload.rejection_reason = null;
+      payload.admin_review_note = "Admin 已批准活動，等待正式發布。";
+    }
+
     if (nextStatus === "published") {
       payload.published_at = now;
       payload.rejection_reason = null;
-      payload.admin_review_note = "Admin 已批准並發布活動。";
+      payload.admin_review_note = "Admin 已正式發布活動。";
     }
 
     if (nextStatus === "rejected") {
@@ -748,6 +754,7 @@ export default function AdminEventsPage() {
       previous.map((item) => (item.id === event.id ? updated : item)),
     );
 
+    if (nextStatus === "approved") setMessage("活動已批准，等待正式發布。");
     if (nextStatus === "published") setMessage("活動已發布。");
     if (nextStatus === "rejected") setMessage("活動已拒絕。");
     if (nextStatus === "archived") setMessage("活動已封存。");
@@ -1160,14 +1167,25 @@ export default function AdminEventsPage() {
                       </div>
 
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        <button
-                          type="button"
-                          onClick={() => updateEventStatus(event, "published")}
-                          disabled={isSaving || !ready}
-                          className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-slate-300"
-                        >
-                          {isSaving ? "處理中..." : "快速發布"}
-                        </button>
+                        {normalizedStatus(event) === "approved" ? (
+                          <button
+                            type="button"
+                            onClick={() => updateEventStatus(event, "published")}
+                            disabled={isSaving || !ready}
+                            className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:bg-slate-300"
+                          >
+                            {isSaving ? "處理中..." : "正式發布"}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => updateEventStatus(event, "approved")}
+                            disabled={isSaving || !ready}
+                            className="rounded-2xl bg-purple-700 px-4 py-3 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
+                          >
+                            {isSaving ? "處理中..." : "批准・待發布"}
+                          </button>
+                        )}
 
                         <button
                           type="button"
