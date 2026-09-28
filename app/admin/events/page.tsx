@@ -109,6 +109,7 @@ type StatusFilter =
   | "all"
   | "draft"
   | "submitted"
+  | "approved"
   | "published"
   | "rejected"
   | "archived";
@@ -123,6 +124,7 @@ const FALLBACK_IMAGE =
 const statusFilters: { key: StatusFilter; label: string }[] = [
   { key: "all", label: "全部" },
   { key: "submitted", label: "待審批" },
+  { key: "approved", label: "已批准・待發布" },
   { key: "draft", label: "草稿" },
   { key: "published", label: "已發布" },
   { key: "rejected", label: "已拒絕" },
@@ -470,7 +472,8 @@ function normalizedStatus(event: EventRecord): StatusFilter {
     return "submitted";
   }
 
-  if (["approved", "published", "live"].includes(status)) return "published";
+  if (status === "approved") return "approved";
+  if (["published", "live"].includes(status)) return "published";
   if (["rejected", "declined"].includes(status)) return "rejected";
   if (["archived", "hidden", "offline"].includes(status)) return "archived";
 
@@ -481,6 +484,7 @@ function getStatusLabel(event: EventRecord): string {
   const status = normalizedStatus(event);
 
   if (status === "submitted") return "審批中";
+  if (status === "approved") return "已批准・待發布";
   if (status === "published") return "已發布";
   if (status === "rejected") return "已拒絕";
   if (status === "archived") return "已封存";
@@ -490,6 +494,7 @@ function getStatusLabel(event: EventRecord): string {
 
 function getStatusTone(status: StatusFilter): Tone {
   if (status === "submitted") return "amber";
+  if (status === "approved") return "purple";
   if (status === "published") return "green";
   if (status === "rejected") return "rose";
   if (status === "archived") return "slate";
@@ -755,6 +760,7 @@ export default function AdminEventsPage() {
     const total = events.length;
     const submitted = events.filter((item) => normalizedStatus(item) === "submitted").length;
     const draft = events.filter((item) => normalizedStatus(item) === "draft").length;
+    const approved = events.filter((item) => normalizedStatus(item) === "approved").length;
     const published = events.filter((item) => normalizedStatus(item) === "published").length;
     const rejected = events.filter((item) => normalizedStatus(item) === "rejected").length;
     const archived = events.filter((item) => normalizedStatus(item) === "archived").length;
@@ -769,6 +775,7 @@ export default function AdminEventsPage() {
       total,
       submitted,
       draft,
+      approved,
       published,
       rejected,
       archived,
