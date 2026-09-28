@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 export default function MerchantUpdatePasswordPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [hasSession, setHasSession] = useState(false);
+  const [hasRecoverySession, setHasRecoverySession] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -31,33 +31,24 @@ export default function MerchantUpdatePasswordPage() {
         return;
       }
 
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
-        setHasSession(Boolean(session));
+      if (event === "PASSWORD_RECOVERY") {
+        setHasRecoverySession(Boolean(session));
         setIsChecking(false);
       }
 
       if (event === "SIGNED_OUT") {
-        setHasSession(false);
+        setHasRecoverySession(false);
       }
     });
 
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await client.auth.getSession();
-
-      if (!active) {
-        return;
-      }
-
-      setHasSession(Boolean(session));
+    const verificationTimeout = window.setTimeout(() => {
+      if (!active) return;
       setIsChecking(false);
-    };
-
-    void checkSession();
+    }, 2500);
 
     return () => {
       active = false;
+      window.clearTimeout(verificationTimeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -74,7 +65,7 @@ export default function MerchantUpdatePasswordPage() {
       return;
     }
 
-    if (!hasSession) {
+    if (!hasRecoverySession) {
       setErrorMessage("重設密碼連結無效或已過期，請重新申請。");
       return;
     }
@@ -107,7 +98,7 @@ export default function MerchantUpdatePasswordPage() {
 
     await client.auth.signOut();
 
-    setHasSession(false);
+    setHasRecoverySession(false);
     setIsSubmitting(false);
   };
 
@@ -131,7 +122,7 @@ export default function MerchantUpdatePasswordPage() {
             </div>
           ) : null}
 
-          {!isChecking && !hasSession && !successMessage ? (
+          {!isChecking && !hasRecoverySession && !successMessage ? (
             <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
               重設密碼連結無效或已過期，請重新申請。
             </div>
@@ -149,7 +140,7 @@ export default function MerchantUpdatePasswordPage() {
             </div>
           ) : null}
 
-          {!isChecking && hasSession && !successMessage ? (
+          {!isChecking && hasRecoverySession && !successMessage ? (
             <form onSubmit={handleSubmit} className="mt-6 space-y-5">
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">
@@ -192,7 +183,7 @@ export default function MerchantUpdatePasswordPage() {
           ) : null}
 
           <div className="mt-6 flex flex-col gap-3 text-center text-sm">
-            {!hasSession && !successMessage ? (
+            {!hasRecoverySession && !successMessage ? (
               <Link
                 href="/merchant/forgot-password"
                 className="font-semibold text-primary-600 hover:text-primary-700"
