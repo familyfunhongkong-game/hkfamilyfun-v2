@@ -110,6 +110,28 @@ export default function AdminMerchantsPage() {
       setMessage(
         `${merchant.business_name} 已更新為「${statusLabel[status]}」。`,
       );
+
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+
+        if (accessToken) {
+          void fetch("/api/merchant-notifications", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              action: "merchant_status_changed",
+              merchant_id: merchant.id,
+              status,
+            }),
+          });
+        }
+      } catch {
+        // Notification failure must never block the admin workflow.
+      }
     }
 
     setBusyId("");
