@@ -373,6 +373,29 @@ export default function MerchantDashboardPage() {
     const currentMerchant = merchantData as MerchantRecord;
     setMerchant(currentMerchant);
 
+    if (safeText(currentMerchant.status, "pending") === "pending") {
+      try {
+        const { data: sessionData } = await client.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+
+        if (accessToken) {
+          void fetch("/api/merchant-notifications", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              action: "merchant_registered",
+              merchant_id: currentMerchant.id,
+            }),
+          });
+        }
+      } catch {
+        // Notification failure must never block dashboard access.
+      }
+    }
+
     const { data: eventData, error: eventError } = await client
       .from("events")
       .select("*")
