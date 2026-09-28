@@ -670,6 +670,12 @@ export default function MerchantDashboardPage() {
               {status}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/merchant/profile"
+                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              >
+                商戶資料
+              </Link>
               <button
                 type="button"
                 onClick={loadDashboard}
