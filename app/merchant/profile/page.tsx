@@ -90,6 +90,19 @@ export default function MerchantProfilePage() {
       }
     }
 
+    const businessNameChanged =
+      businessName.trim() !== (merchant.business_name || "").trim();
+
+    if (
+      merchant.status === "approved" &&
+      businessNameChanged &&
+      !window.confirm(
+        "更改商戶／機構名稱後，帳戶會自動轉回待審批，直至 HK Family Fun 重新批准。確定繼續？",
+      )
+    ) {
+      return;
+    }
+
     setSaving(true);
     setMessage("");
 
@@ -110,8 +123,39 @@ export default function MerchantProfilePage() {
     if (error) {
       setMessage(`儲存失敗：${error.message}`);
     } else {
-      setMerchant(data as Merchant);
-      setMessage("商戶資料已儲存。");
+      const updatedMerchant = data as Merchant;
+      setMerchant(updatedMerchant);
+
+      if (
+        merchant.status === "approved" &&
+        businessNameChanged &&
+        updatedMerchant.status === "pending"
+      ) {
+        setMessage("商戶名稱已更新。為保障商戶身份，帳戶已轉回待審批。");
+
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData.session?.access_token;
+
+          if (accessToken) {
+            void fetch("/api/merchant-notifications", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({
+                action: "merchant_registered",
+                merchant_id: updatedMerchant.id,
+              }),
+            });
+          }
+        } catch {
+          // Notification failure must not block a successful profile update.
+        }
+      } else {
+        setMessage("商戶資料已儲存。");
+      }
     }
 
     setSaving(false);
