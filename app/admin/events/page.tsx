@@ -753,6 +753,28 @@ export default function AdminEventsPage() {
     if (nextStatus === "archived") setMessage("活動已封存。");
     if (nextStatus === "draft") setMessage("活動已轉回草稿。");
 
+    try {
+      const { data: sessionData } = await client.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (accessToken && event.merchant_id) {
+        void fetch("/api/merchant-notifications", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            action: "event_status_changed",
+            event_id: event.id,
+            status: nextStatus,
+          }),
+        });
+      }
+    } catch {
+      // Notification failure must never block the admin workflow.
+    }
+
     setSavingId("");
   }
 
