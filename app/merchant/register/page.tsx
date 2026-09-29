@@ -30,8 +30,8 @@ export default function MerchantRegisterPage() {
       return;
     }
 
-    if (password.length < 8) {
-      setErrorMessage("密碼最少需要 8 個字元。");
+    if (password.length < 12) {
+      setErrorMessage("密碼最少需要 12 個字元。");
       return;
     }
 
