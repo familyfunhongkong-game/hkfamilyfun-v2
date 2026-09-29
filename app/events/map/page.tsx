@@ -895,6 +895,7 @@ export default function NearbyEventsMapPage() {
                   selectedEventId={selectedEventId}
                   onSelectEvent={selectEvent}
                   fitRequest={fitRequest}
+                  fitEnabled={!viewportOnly}
                   onBoundsChange={setMapBounds}
                 />
               ) : (
