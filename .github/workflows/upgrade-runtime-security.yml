@@ -30,8 +30,8 @@ jobs:
 
       - name: Upgrade supported runtime
         run: |
-          npm install --save-exact next@16.3.6 react@19.2.0 react-dom@19.2.0 react-leaflet@5.0.0
-          npm install --save-dev --save-exact @types/react@19 @types/react-dom@19 eslint-config-next@16.3.6
+          npm install --save-exact next@16.3.6 react@19.2.0 react-dom@19.2.0 react-leaflet@5.0.0 lucide-react@latest
+          npm install --save-dev --save-exact @types/react@19 @types/react-dom@19 eslint@latest eslint-config-next@16.3.6 @typescript-eslint/eslint-plugin@latest @typescript-eslint/parser@latest
 
       - name: Apply non-breaking audit fixes
         run: npm audit fix
