@@ -54,6 +54,12 @@ type EventRecord = {
   start_time?: string | null;
   end_time?: string | null;
 
+  recurrence_type?: string | null;
+  recurrence_weekdays?: number[] | null;
+  recurrence_include_dates?: string[] | null;
+  recurrence_exclude_dates?: string[] | null;
+  recurrence_note?: string | null;
+
   venue_name?: string | null;
   venue_name_tc?: string | null;
   address?: string | null;
@@ -591,9 +597,26 @@ function eventOverlapsDateText(
   const start = safeText(event.start_date);
   const end = safeText(event.end_date || event.start_date);
 
-  if (!start || !end) return false;
+  if (!start || !end || targetDate < start || targetDate > end) return false;
 
-  return start <= targetDate && targetDate <= end;
+  const recurrenceType = safeText(event.recurrence_type, "none").toLowerCase();
+  if (recurrenceType !== "weekly") return true;
+
+  const includes = Array.isArray(event.recurrence_include_dates)
+    ? event.recurrence_include_dates.map(String)
+    : [];
+  const excludes = Array.isArray(event.recurrence_exclude_dates)
+    ? event.recurrence_exclude_dates.map(String)
+    : [];
+
+  if (includes.includes(targetDate)) return true;
+  if (excludes.includes(targetDate)) return false;
+
+  const weekdays = Array.isArray(event.recurrence_weekdays)
+    ? event.recurrence_weekdays.map(Number)
+    : [];
+
+  return weekdays.includes(getCalendarDayOfWeek(targetDate));
 }
 
 function eventOverlapsRange(
@@ -604,9 +627,21 @@ function eventOverlapsRange(
   const start = safeText(event.start_date);
   const end = safeText(event.end_date || event.start_date);
 
-  if (!start || !end) return false;
+  if (!start || !end || start > rangeEnd || end < rangeStart) return false;
 
-  return start <= rangeEnd && end >= rangeStart;
+  if (safeText(event.recurrence_type, "none").toLowerCase() !== "weekly") {
+    return true;
+  }
+
+  let current = start > rangeStart ? start : rangeStart;
+  const last = end < rangeEnd ? end : rangeEnd;
+
+  for (let guard = 0; current <= last && guard < 370; guard += 1) {
+    if (eventOverlapsDateText(event, current)) return true;
+    current = addCalendarDays(current, 1);
+  }
+
+  return false;
 }
 
 function getHongKongWeekendRange(today: string) {
