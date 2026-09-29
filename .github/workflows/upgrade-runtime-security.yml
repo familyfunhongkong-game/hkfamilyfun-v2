@@ -1,10 +1,7 @@
 name: Upgrade Runtime Security Dependencies
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/upgrade-runtime-security.yml"
+  workflow_dispatch:
 
 permissions:
   contents: write
