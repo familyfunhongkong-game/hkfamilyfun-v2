@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 type EventRecord = {
@@ -344,6 +345,7 @@ function canSubmit(event: EventRecord) {
 }
 
 export default function MerchantDashboardPage() {
+  const router = useRouter();
   const [merchant, setMerchant] = useState<MerchantRecord | null>(null);
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -534,7 +536,7 @@ export default function MerchantDashboardPage() {
       return;
     }
 
-    window.location.href = `/merchant/events/${data.id}/edit`;
+    router.push(`/merchant/events/${data.id}/edit`);
   }
 
   async function deleteEditableEvent(event: EventRecord) {
@@ -675,7 +677,7 @@ export default function MerchantDashboardPage() {
       }
 
       const sourceName = sourcePath.split("/").pop() || `image-${index}.jpg`;
-      const destinationPath = `${newEventId}/${Date.now()}-${index}-${sourceName}`;
+      const destinationPath = `${newEventId}/${index}-${sourceName}`;
 
       const { error: copyError } = await client.storage
         .from("event-images")
@@ -716,7 +718,7 @@ export default function MerchantDashboardPage() {
       );
     }
 
-    window.location.href = `/merchant/events/${newEventId}/edit`;
+    router.push(`/merchant/events/${newEventId}/edit`);
   }
 
   if (loading) {
