@@ -163,7 +163,13 @@ function matchesDateFilter(event: EventRecord, filter: DateFilter) {
   if (filter === "tomorrow") return overlapsDate(event, addCalendarDays(today, 1));
 
   const dayOfWeek = getCalendarDayOfWeek(today);
-  const daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
+
+  if (dayOfWeek === 0) {
+    const saturday = addCalendarDays(today, -1);
+    return overlapsRange(event, saturday, today);
+  }
+
+  const daysUntilSaturday = dayOfWeek === 6 ? 0 : 6 - dayOfWeek;
   const saturday = addCalendarDays(today, daysUntilSaturday);
   const sunday = addCalendarDays(saturday, 1);
 
