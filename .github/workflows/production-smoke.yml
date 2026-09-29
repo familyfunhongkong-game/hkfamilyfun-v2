@@ -1,0 +1,48 @@
+name: Production Smoke Test
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/production-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wait for Vercel Git deployment
+        run: sleep 75
+
+      - name: Check production routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://hkfamilyfun-v2.vercel.app"
+          routes=(
+            "/api/health"
+            "/events"
+            "/events/map"
+            "/planner"
+            "/merchant/login"
+            "/merchant/register"
+          )
+
+          for route in "${routes[@]}"; do
+            echo "Checking $BASE$route"
+            code="$(curl -L -sS -o /tmp/body.txt -w "%{http_code}" --max-time 30 "$BASE$route")"
+            echo "HTTP $code"
+            if [[ "$code" -lt 200 || "$code" -ge 400 ]]; then
+              echo "FAILED $route"
+              head -c 1000 /tmp/body.txt || true
+              exit 1
+            fi
+          done
+
+          health="$(curl -L -sS --max-time 30 "$BASE/api/health")"
+          echo "$health"
+          echo "$health" | grep -q '"ok":true'
