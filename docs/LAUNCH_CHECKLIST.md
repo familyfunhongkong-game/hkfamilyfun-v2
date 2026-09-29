@@ -113,7 +113,8 @@ _Last updated: 2026-09-29_
 - [x] Merchant cannot overwrite admin rejection/review fields.
 - [x] Trigger-only SECURITY DEFINER merchant approval function is no longer externally executable by anon/authenticated roles.
 - [x] Password reset requires a PASSWORD_RECOVERY event.
-- [x] GitHub CI runs automation syntax check, TypeScript check and Next.js build.
+- [x] GitHub CI runs automation syntax check, dependency security audit, TypeScript check and Next.js build.
+- [ ] Production runtime dependency audit must be green before domain cutover.
 - [ ] Supabase Auth: enable Leaked Password Protection.
 - [x] Authenticated Supabase security/E2E test passed with real user session and public client; temporary test records were fully cleaned up.
 - [ ] After domain cutover: rotate/revoke legacy Supabase secrets and remove obsolete developer access.
