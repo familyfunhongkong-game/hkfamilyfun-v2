@@ -25,9 +25,12 @@ jobs:
           node-version: "22"
           cache: npm
 
+      - name: Remove unused legacy i18n dependencies
+        run: npm uninstall i18next next-i18next
+
       - name: Upgrade supported runtime
         run: |
-          npm install --save-exact next@16.3.6 react@19.2.0 react-dom@19.2.0 react-leaflet@5.0.0 next-i18next@16.3.1
+          npm install --save-exact next@16.3.6 react@19.2.0 react-dom@19.2.0 react-leaflet@5.0.0
           npm install --save-dev --save-exact @types/react@19 @types/react-dom@19 eslint-config-next@16.3.6
 
       - name: Apply non-breaking audit fixes
@@ -35,6 +38,15 @@ jobs:
 
       - name: Verify production audit
         run: npm audit --omit=dev --audit-level=high
+
+      - name: Type check upgraded runtime
+        run: npm run type-check
+
+      - name: Build upgraded runtime
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: npm run build
 
       - name: Commit dependency upgrade
         run: |
