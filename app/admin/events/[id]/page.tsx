@@ -60,6 +60,12 @@ type EventRecord = {
   start_time?: string | null;
   end_time?: string | null;
 
+  recurrence_type?: string | null;
+  recurrence_weekdays?: number[] | null;
+  recurrence_include_dates?: string[] | null;
+  recurrence_exclude_dates?: string[] | null;
+  recurrence_note?: string | null;
+
   venue_name?: string | null;
   venue_name_tc?: string | null;
   venue_name_en?: string | null;
@@ -297,6 +303,14 @@ function formatDateRange(event: EventRecord): string {
   const end = formatDate(event.end_date);
 
   if (!event.start_date && !event.end_date) return "日期待定";
+
+  if (
+    safeText(event.recurrence_type, "none").toLowerCase() === "weekly" &&
+    safeText(event.recurrence_note)
+  ) {
+    return `${start} 至 ${end}｜${safeText(event.recurrence_note)}`;
+  }
+
   if (!event.end_date || start === end) return start;
 
   return `${start} 至 ${end}`;
@@ -538,6 +552,17 @@ function buildChecklist(event: EventRecord, images: GalleryImage[]): ChecklistIt
       done: Boolean(event.start_date),
       level: "critical",
       note: "沒有日期不應發布。",
+    },
+    {
+      key: "recurrence",
+      label: "重複日期設定",
+      done:
+        safeText(event.recurrence_type, "none").toLowerCase() !== "weekly" ||
+        (Boolean(event.end_date) &&
+          Array.isArray(event.recurrence_weekdays) &&
+          event.recurrence_weekdays.length > 0),
+      level: "critical",
+      note: "每週重複活動必須有結束日期及至少一個星期日。",
     },
     {
       key: "venue",
