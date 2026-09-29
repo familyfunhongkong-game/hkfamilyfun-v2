@@ -1,10 +1,6 @@
 name: Auto Discover HK Family Events
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/auto-discover-events.yml"
   workflow_dispatch:
   schedule:
     - cron: "15 0 * * *"
