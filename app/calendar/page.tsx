@@ -23,14 +23,49 @@ function shiftMonth(key: string, delta: number) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function dateWeekday(dateText: string) {
+  const match = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return -1;
+
+  return new Date(
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
+  ).getUTCDay();
+}
+
+function occursOn(
+  event: Awaited<ReturnType<typeof getPublishedEvents>>[number],
+  target: string,
+) {
+  const start = event.date;
+  const end = event.endDate || event.date;
+
+  if (!start || !end || target < start || target > end) return false;
+  if (event.recurrenceType !== "weekly") return true;
+
+  if (event.recurrenceIncludeDates?.includes(target)) return true;
+  if (event.recurrenceExcludeDates?.includes(target)) return false;
+
+  return (event.recurrenceWeekdays || []).includes(dateWeekday(target));
+}
+
 function overlapsMonth(
-  start: string,
-  end: string | undefined,
+  event: Awaited<ReturnType<typeof getPublishedEvents>>[number],
   monthStart: string,
   monthEnd: string,
 ) {
-  const finalEnd = end || start;
-  return start <= monthEnd && finalEnd >= monthStart;
+  const finalEnd = event.endDate || event.date;
+  if (event.date > monthEnd || finalEnd < monthStart) return false;
+  if (event.recurrenceType !== "weekly") return true;
+
+  const [year, month] = monthStart.split("-").map(Number);
+  const days = new Date(year, month, 0).getDate();
+
+  for (let day = 1; day <= days; day += 1) {
+    const target = `${monthStart.slice(0, 7)}-${String(day).padStart(2, "0")}`;
+    if (occursOn(event, target)) return true;
+  }
+
+  return false;
 }
 
 export default async function CalendarPage({
@@ -50,7 +85,7 @@ export default async function CalendarPage({
   const monthEvents = events.filter(
     (event) =>
       /^\d{4}-\d{2}-\d{2}$/.test(event.date) &&
-      overlapsMonth(event.date, event.endDate, monthStart, monthEnd),
+      overlapsMonth(event, monthStart, monthEnd),
   );
 
   const eventsByDay = new Map<number, typeof monthEvents>();
@@ -58,10 +93,7 @@ export default async function CalendarPage({
     const date = `${selectedMonth}-${String(day).padStart(2, "0")}`;
     eventsByDay.set(
       day,
-      monthEvents.filter((event) => {
-        const end = event.endDate || event.date;
-        return event.date <= date && end >= date;
-      }),
+      monthEvents.filter((event) => occursOn(event, date)),
     );
   }
 
@@ -191,8 +223,12 @@ export default async function CalendarPage({
                   className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm hover:border-purple-200 md:grid-cols-[120px_1fr_auto]"
                 >
                   <div className="rounded-2xl bg-orange-50 px-3 py-3 text-center text-sm font-black text-orange-700">
-                    {event.date}
-                    {event.endDate && event.endDate !== event.date
+                    {event.recurrenceType === "weekly"
+                      ? event.recurrenceNote || "每週重複"
+                      : event.date}
+                    {event.recurrenceType !== "weekly" &&
+                    event.endDate &&
+                    event.endDate !== event.date
                       ? ` → ${event.endDate}`
                       : ""}
                   </div>
