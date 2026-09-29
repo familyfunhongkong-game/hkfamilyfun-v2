@@ -5,6 +5,12 @@ export const runtime = "nodejs";
 
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
 
+type JsonObject = Record<string, unknown>;
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 type ExtractedEvent = {
   source_url: string;
   title_tc: string;
@@ -181,18 +187,18 @@ function extractJsonLd(html: string) {
     )
   );
 
-  const results: any[] = [];
+  const results: unknown[] = [];
 
   for (const script of scripts) {
     const raw = script[1]?.trim();
     if (!raw) continue;
 
     try {
-      const parsed = JSON.parse(raw);
+      const parsed: unknown = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        results.push(...parsed);
-      } else if (parsed?.["@graph"] && Array.isArray(parsed["@graph"])) {
-        results.push(...parsed["@graph"]);
+        results.push(...(parsed as unknown[]));
+      } else if (isJsonObject(parsed) && Array.isArray(parsed["@graph"])) {
+        results.push(...(parsed["@graph"] as unknown[]));
       } else {
         results.push(parsed);
       }
@@ -204,14 +210,19 @@ function extractJsonLd(html: string) {
   return results;
 }
 
-function findEventJsonLd(items: any[]) {
-  return items.find((item) => {
-    const type = item?.["@type"];
-    if (Array.isArray(type)) {
-      return type.some((entry) => String(entry).toLowerCase().includes("event"));
-    }
-    return String(type || "").toLowerCase().includes("event");
-  });
+function findEventJsonLd(items: unknown[]): JsonObject | undefined {
+  for (const item of items) {
+    if (!isJsonObject(item)) continue;
+
+    const type = item["@type"];
+    const isEvent = Array.isArray(type)
+      ? type.some((entry) => String(entry).toLowerCase().includes("event"))
+      : String(type || "").toLowerCase().includes("event");
+
+    if (isEvent) return item;
+  }
+
+  return undefined;
 }
 
 function dateOnly(value: unknown) {
@@ -401,17 +412,28 @@ function extractVenueFromText(text: string) {
   };
 }
 
-function applyJsonLd(event: ExtractedEvent, jsonLdEvent: any, url: string) {
+function applyJsonLd(
+  event: ExtractedEvent,
+  jsonLdEvent: JsonObject | undefined,
+  url: string
+) {
   if (!jsonLdEvent) return event;
 
-  const location = jsonLdEvent.location || {};
-  const offers = Array.isArray(jsonLdEvent.offers)
+  const location = isJsonObject(jsonLdEvent.location)
+    ? jsonLdEvent.location
+    : {};
+
+  const offerCandidate = Array.isArray(jsonLdEvent.offers)
     ? jsonLdEvent.offers[0]
-    : jsonLdEvent.offers || {};
+    : jsonLdEvent.offers;
+  const offers = isJsonObject(offerCandidate) ? offerCandidate : {};
 
   const imageValue = Array.isArray(jsonLdEvent.image)
     ? jsonLdEvent.image[0]
     : jsonLdEvent.image;
+
+  const addressValue = location.address;
+  const addressObject = isJsonObject(addressValue) ? addressValue : null;
 
   return {
     ...event,
@@ -427,12 +449,12 @@ function applyJsonLd(event: ExtractedEvent, jsonLdEvent: any, url: string) {
     address:
       event.address ||
       cleanText(
-        typeof location.address === "string"
-          ? location.address
+        typeof addressValue === "string"
+          ? addressValue
           : [
-              location.address?.streetAddress,
-              location.address?.addressLocality,
-              location.address?.addressRegion,
+              addressObject?.streetAddress,
+              addressObject?.addressLocality,
+              addressObject?.addressRegion,
             ]
               .filter(Boolean)
               .join(" ")
