@@ -177,7 +177,8 @@ function matchesDateFilter(event: EventRecord, filter: DateFilter) {
 }
 
 function isInsideBounds(event: EventRecord, bounds: MapBounds | null) {
-  if (!bounds || !hasCoordinates(event)) return true;
+  if (!bounds) return true;
+  if (!hasCoordinates(event)) return false;
 
   const lat = Number(event.latitude);
   const lon = Number(event.longitude);
@@ -780,11 +781,15 @@ export default function NearbyEventsMapPage() {
                             </div>
                           )}
 
-                          {!mapped ? (
+                          {mapped ? (
+                            <span className="absolute bottom-1 left-1 rounded-md bg-teal-700/95 px-1.5 py-1 text-[10px] font-bold text-white">
+                              📍 地圖定位
+                            </span>
+                          ) : (
                             <span className="absolute bottom-1 left-1 rounded-md bg-slate-950/80 px-1.5 py-1 text-[10px] font-bold text-white">
                               未定位
                             </span>
-                          ) : null}
+                          )}
                         </div>
 
                         <div className="min-w-0">
