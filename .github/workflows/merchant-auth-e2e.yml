@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     paths:
       - ".github/workflows/merchant-auth-e2e.yml"
+      - "scripts/merchant-auth-e2e.mjs"
   workflow_dispatch:
 
 permissions:
