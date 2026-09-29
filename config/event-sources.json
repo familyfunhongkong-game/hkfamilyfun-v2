@@ -1,11 +1,26 @@
 [
   {
-    "name": "Hong Kong Public Libraries",
-    "url": "https://www.hkpl.gov.hk/tc/extension-activities/index.html",
+    "name": "Hong Kong Public Libraries - This Week",
+    "url": "https://www.hkpl.gov.hk/tc/extension-activities/all-events/this-week",
     "host": "www.hkpl.gov.hk",
     "pathIncludes": [
-      "/tc/extension-activities/event-detail/",
-      "/tc/extension-activities/event/"
+      "/tc/extension-activities/event-detail/"
+    ]
+  },
+  {
+    "name": "Hong Kong Public Libraries - Next Week",
+    "url": "https://www.hkpl.gov.hk/tc/extension-activities/all-events/next-week",
+    "host": "www.hkpl.gov.hk",
+    "pathIncludes": [
+      "/tc/extension-activities/event-detail/"
+    ]
+  },
+  {
+    "name": "Hong Kong Public Libraries - Next Month",
+    "url": "https://www.hkpl.gov.hk/tc/extension-activities/all-events/next-month",
+    "host": "www.hkpl.gov.hk",
+    "pathIncludes": [
+      "/tc/extension-activities/event-detail/"
     ]
   },
   {
