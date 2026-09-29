@@ -68,7 +68,7 @@ _Last updated: 2026-09-29_
 - [x] Resend approval-email support.
 - [x] Family relevance tightened to reduce generic-page false positives.
 - [x] Automation scripts included in CI syntax checks.
-- [ ] Monitor next scheduled run and review false-positive rate.
+- [x] Scheduled discovery reviewed; one old-revision false positive was identified, and the latest family filter dry-run accepted 0/20 generic candidates with zero database writes.
 
 ## 6. Email
 
