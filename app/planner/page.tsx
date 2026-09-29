@@ -28,6 +28,32 @@ type EventRecord = {
   tags?: unknown;
 };
 
+type SpeechRecognitionResultLike = {
+  [index: number]: { transcript?: string };
+};
+
+type SpeechRecognitionEventLike = {
+  results?: {
+    [index: number]: SpeechRecognitionResultLike;
+  };
+};
+
+type SpeechRecognitionInstance = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
+type SpeechEnabledWindow = Window & {
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+};
+
 type BusyPeriod = {
   start: string;
   end: string;
@@ -350,9 +376,10 @@ export default function PlannerPage() {
   function startVoice() {
     setMessage("");
 
+    const speechWindow = window as SpeechEnabledWindow;
     const SpeechRecognitionCtor =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
+      speechWindow.SpeechRecognition ||
+      speechWindow.webkitSpeechRecognition;
 
     if (!SpeechRecognitionCtor) {
       setMessage("此瀏覽器未支援語音輸入。你仍可直接輸入想去邊、想做咩。");
@@ -363,7 +390,7 @@ export default function PlannerPage() {
     recognition.lang = "zh-HK";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
       const transcript = event.results?.[0]?.[0]?.transcript || "";
       if (transcript) setQuery(transcript);
     };
