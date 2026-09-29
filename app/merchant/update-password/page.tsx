@@ -70,8 +70,8 @@ export default function MerchantUpdatePasswordPage() {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setErrorMessage("新密碼最少需要 8 個字元。");
+    if (newPassword.length < 12) {
+      setErrorMessage("新密碼最少需要 12 個字元。");
       return;
     }
 
@@ -113,7 +113,7 @@ export default function MerchantUpdatePasswordPage() {
           <h1 className="mt-2 text-3xl font-bold text-slate-900">設定新密碼</h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            新密碼最少需要 8 個字元。
+            新密碼最少需要 12 個字元。
           </p>
 
           {isChecking ? (
