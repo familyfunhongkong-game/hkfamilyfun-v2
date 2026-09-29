@@ -31,6 +31,12 @@ type EventRecord = {
   start_time?: string | null;
   end_time?: string | null;
 
+  recurrence_type?: string | null;
+  recurrence_weekdays?: number[] | null;
+  recurrence_include_dates?: string[] | null;
+  recurrence_exclude_dates?: string[] | null;
+  recurrence_note?: string | null;
+
   venue_name?: string | null;
   address?: string | null;
   area?: string | null;
@@ -91,6 +97,12 @@ type FormState = {
   end_date: string;
   start_time: string;
   end_time: string;
+
+  recurrence_type: "none" | "weekly";
+  recurrence_weekdays: number[];
+  recurrence_include_dates: string;
+  recurrence_exclude_dates: string;
+  recurrence_note: string;
 
   venue_name: string;
   address: string;
@@ -154,6 +166,12 @@ const emptyForm: FormState = {
   start_time: "",
   end_time: "",
 
+  recurrence_type: "none",
+  recurrence_weekdays: [],
+  recurrence_include_dates: "",
+  recurrence_exclude_dates: "",
+  recurrence_note: "",
+
   venue_name: "",
   address: "",
   area: "",
@@ -196,6 +214,16 @@ const steps = [
   "收費名額",
   "報名 CTA",
   "內容提交",
+];
+
+const WEEKDAY_OPTIONS = [
+  { value: 0, label: "日" },
+  { value: 1, label: "一" },
+  { value: 2, label: "二" },
+  { value: 3, label: "三" },
+  { value: 4, label: "四" },
+  { value: 5, label: "五" },
+  { value: 6, label: "六" },
 ];
 
 const priceModes = [
@@ -399,6 +427,23 @@ function activeCtaUrl(form: FormState) {
   return "";
 }
 
+function parseDateList(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(/[,，、\s]+/)
+        .map((item) => item.trim())
+        .filter((item) => /^\d{4}-\d{2}-\d{2}$/.test(item)),
+    ),
+  ).sort();
+}
+
+function toggleWeekday(days: number[], value: number) {
+  return days.includes(value)
+    ? days.filter((day) => day !== value)
+    : [...days, value].sort((a, b) => a - b);
+}
+
 function readiness(form: FormState) {
   const checks = [
     { key: "活動名稱", done: !!safeText(form.title_tc) },
@@ -433,6 +478,13 @@ function submissionMissing(form: FormState) {
 
   if (!safeText(form.title_tc)) missing.push("活動名稱");
   if (!safeText(form.start_date)) missing.push("活動日期");
+  if (form.end_date && form.start_date && form.end_date < form.start_date) {
+    missing.push("結束日期不可早於開始日期");
+  }
+  if (form.recurrence_type === "weekly") {
+    if (!safeText(form.end_date)) missing.push("每週重複活動的結束日期");
+    if (form.recurrence_weekdays.length === 0) missing.push("每週重複的星期");
+  }
   if (!safeText(form.venue_name) && !safeText(form.address) && !safeText(form.district)) {
     missing.push("地點");
   }
@@ -530,6 +582,18 @@ function formFromEvent(event: EventRecord): FormState {
     end_date: safeText(event.end_date),
     start_time: safeText(event.start_time),
     end_time: safeText(event.end_time),
+
+    recurrence_type: event.recurrence_type === "weekly" ? "weekly" : "none",
+    recurrence_weekdays: Array.isArray(event.recurrence_weekdays)
+      ? event.recurrence_weekdays.map(Number).filter((day) => day >= 0 && day <= 6)
+      : [],
+    recurrence_include_dates: Array.isArray(event.recurrence_include_dates)
+      ? event.recurrence_include_dates.map(String).join(", ")
+      : "",
+    recurrence_exclude_dates: Array.isArray(event.recurrence_exclude_dates)
+      ? event.recurrence_exclude_dates.map(String).join(", ")
+      : "",
+    recurrence_note: safeText(event.recurrence_note),
 
     venue_name: safeText(event.venue_name),
     address: safeText(event.address),
@@ -1029,6 +1093,16 @@ export default function MerchantEventEditPage() {
       start_time: form.start_time || null,
       end_time: form.end_time || null,
 
+      recurrence_type: form.recurrence_type,
+      recurrence_weekdays:
+        form.recurrence_type === "weekly" ? form.recurrence_weekdays : [],
+      recurrence_include_dates:
+        form.recurrence_type === "weekly" ? parseDateList(form.recurrence_include_dates) : [],
+      recurrence_exclude_dates:
+        form.recurrence_type === "weekly" ? parseDateList(form.recurrence_exclude_dates) : [],
+      recurrence_note:
+        form.recurrence_type === "weekly" ? form.recurrence_note.trim() || null : null,
+
       venue_name: form.venue_name,
       address: form.address,
       area: form.area,
@@ -1415,6 +1489,84 @@ export default function MerchantEventEditPage() {
                 value={form.end_date}
                 onChange={(value) => updateField("end_date", value)}
               />
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-slate-700">
+                  活動日期模式
+                </span>
+                <select
+                  value={form.recurrence_type}
+                  onChange={(event) =>
+                    updateField(
+                      "recurrence_type",
+                      event.target.value === "weekly" ? "weekly" : "none",
+                    )
+                  }
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                >
+                  <option value="none">單次／連續日期</option>
+                  <option value="weekly">每週重複</option>
+                </select>
+              </label>
+
+              {form.recurrence_type === "weekly" ? (
+                <div className="md:col-span-2 rounded-3xl border border-purple-200 bg-purple-50 p-5">
+                  <p className="text-sm font-black text-purple-950">每週重複設定</p>
+                  <p className="mt-1 text-xs leading-5 text-purple-800">
+                    開始及結束日期定義有效期間；只會喺你揀嘅星期出現。公眾假期或特別日子可用額外／例外日期調整。
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {WEEKDAY_OPTIONS.map((day) => {
+                      const selected = form.recurrence_weekdays.includes(day.value);
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          onClick={() =>
+                            updateField(
+                              "recurrence_weekdays",
+                              toggleWeekday(form.recurrence_weekdays, day.value),
+                            )
+                          }
+                          className={[
+                            "h-10 w-10 rounded-full text-sm font-black transition",
+                            selected
+                              ? "bg-purple-700 text-white"
+                              : "border border-purple-200 bg-white text-purple-700 hover:bg-purple-100",
+                          ].join(" ")}
+                        >
+                          {day.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <Input
+                      label="額外日期（可選）"
+                      value={form.recurrence_include_dates}
+                      onChange={(value) => updateField("recurrence_include_dates", value)}
+                      placeholder="2026-10-01, 2026-10-07"
+                    />
+                    <Input
+                      label="例外／暫停日期（可選）"
+                      value={form.recurrence_exclude_dates}
+                      onChange={(value) => updateField("recurrence_exclude_dates", value)}
+                      placeholder="2026-10-01, 2026-12-25"
+                    />
+                  </div>
+
+                  <div className="mt-4">
+                    <Input
+                      label="公開重複說明"
+                      value={form.recurrence_note}
+                      onChange={(value) => updateField("recurrence_note", value)}
+                      placeholder="例如：逢星期三（公眾假期除外）"
+                    />
+                  </div>
+                </div>
+              ) : null}
               <Input
                 label="開始時間"
                 type="time"
