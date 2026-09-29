@@ -31,20 +31,34 @@ export default function MerchantUpdatePasswordPage() {
         return;
       }
 
-      if (event === "PASSWORD_RECOVERY") {
+      if (event === "PASSWORD_RECOVERY" || event === "INITIAL_SESSION") {
         setHasRecoverySession(Boolean(session));
         setIsChecking(false);
       }
 
       if (event === "SIGNED_OUT") {
         setHasRecoverySession(false);
+        setIsChecking(false);
       }
+    });
+
+    void client.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+
+      if (error) {
+        setHasRecoverySession(false);
+        setErrorMessage("未能驗證重設密碼連結，請重新申請。");
+      } else {
+        setHasRecoverySession(Boolean(data.session));
+      }
+
+      setIsChecking(false);
     });
 
     const verificationTimeout = window.setTimeout(() => {
       if (!active) return;
       setIsChecking(false);
-    }, 2500);
+    }, 5000);
 
     return () => {
       active = false;
@@ -148,7 +162,7 @@ export default function MerchantUpdatePasswordPage() {
                 </span>
                 <input
                   required
-                  minLength={8}
+                  minLength={12}
                   type="password"
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
@@ -163,7 +177,7 @@ export default function MerchantUpdatePasswordPage() {
                 </span>
                 <input
                   required
-                  minLength={8}
+                  minLength={12}
                   type="password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
