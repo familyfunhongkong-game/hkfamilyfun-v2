@@ -14,6 +14,7 @@ const APPROVAL_EMAIL =
 const SITE_URL =
   process.env.SITE_URL || "https://hkfamilyfun-v2.vercel.app";
 const MAX_NEW_EVENTS = Number(process.env.MAX_NEW_EVENTS || "5");
+const DRY_RUN = String(process.env.DISCOVERY_DRY_RUN || "false").toLowerCase() === "true";
 
 if (!SERVICE_KEY) {
   throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
@@ -712,6 +713,7 @@ async function main() {
   }
 
   const inserted = [];
+  const acceptedDryRun = [];
 
   const { data: existingRows, error: existingRowsError } = await supabase
     .from("events")
@@ -769,6 +771,19 @@ async function main() {
 
       if (!event) continue;
 
+      if (DRY_RUN) {
+        acceptedDryRun.push({
+          title_tc: event.title_tc,
+          start_date: event.start_date,
+          end_date: event.end_date,
+          venue_name: event.venue_name,
+          source_url: event.source_url,
+        });
+
+        if (acceptedDryRun.length >= MAX_NEW_EVENTS) break;
+        continue;
+      }
+
       event = await geocodeHongKong(event);
       await sleep(1100);
 
@@ -801,21 +816,25 @@ async function main() {
 
   let emailSent = false;
 
-  try {
-    emailSent = await sendApprovalEmail(inserted);
-  } catch (error) {
-    console.warn("Approval email failed:", error?.message || error);
+  if (!DRY_RUN) {
+    try {
+      emailSent = await sendApprovalEmail(inserted);
+    } catch (error) {
+      console.warn("Approval email failed:", error?.message || error);
+    }
   }
 
-  const issueCreated = await createApprovalIssue(inserted);
+  const issueCreated = DRY_RUN ? false : await createApprovalIssue(inserted);
 
   console.log(
     JSON.stringify(
       {
         sources: sources.length,
         candidateLinks: unique.length,
+        dryRun: DRY_RUN,
         inserted: inserted.length,
         insertedEvents: inserted,
+        acceptedDryRun,
         emailSent,
         issueCreated,
       },
