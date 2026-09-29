@@ -172,11 +172,31 @@ async function main() {
     const forbiddenPublish = await merchantClient
       .from("events")
       .update({ status: "published" })
-      .eq("id", eventId);
+      .eq("id", eventId)
+      .select("id,status")
+      .maybeSingle();
+
+    const statusAfterAttack = await admin
+      .from("events")
+      .select("id,status")
+      .eq("id", eventId)
+      .single();
+
+    if (statusAfterAttack.error) {
+      throw new Error(
+        "Could not verify status after merchant publish attempt: " +
+          statusAfterAttack.error.message,
+      );
+    }
 
     assert(
-      Boolean(forbiddenPublish.error),
-      "Merchant unexpectedly published its own event",
+      statusAfterAttack.data.status === "submitted",
+      "Merchant unexpectedly changed submitted event status",
+    );
+
+    assert(
+      !forbiddenPublish.data || forbiddenPublish.data.status !== "published",
+      "Merchant publish attempt returned a published row",
     );
 
     const approvedEvent = await admin
