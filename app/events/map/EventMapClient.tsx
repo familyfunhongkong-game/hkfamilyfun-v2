@@ -173,6 +173,7 @@ export default function EventMapClient({
         events={events}
         userLocation={userLocation}
         fitRequest={fitRequest}
+        enabled={fitEnabled}
       />
       <FocusSelected event={selectedEvent} />
       <ViewportReporter onBoundsChange={onBoundsChange} />
