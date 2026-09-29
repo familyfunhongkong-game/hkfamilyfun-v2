@@ -13,6 +13,11 @@ type EventRecord = {
   end_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  recurrence_type?: string | null;
+  recurrence_weekdays?: number[] | null;
+  recurrence_include_dates?: string[] | null;
+  recurrence_exclude_dates?: string[] | null;
+  recurrence_note?: string | null;
   venue_name?: string | null;
   district?: string | null;
   mtr_station?: string | null;
@@ -43,10 +48,40 @@ function hkToday() {
   }).format(new Date());
 }
 
+function dateWeekday(dateText: string) {
+  const match = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return -1;
+
+  return new Date(
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
+  ).getUTCDay();
+}
+
 function occursOn(event: EventRecord, target: string) {
   const start = safeText(event.start_date);
   const end = safeText(event.end_date || event.start_date);
-  return Boolean(start && end && start <= target && target <= end);
+
+  if (!start || !end || target < start || target > end) return false;
+
+  if (safeText(event.recurrence_type, "none").toLowerCase() !== "weekly") {
+    return true;
+  }
+
+  const includes = Array.isArray(event.recurrence_include_dates)
+    ? event.recurrence_include_dates.map(String)
+    : [];
+  const excludes = Array.isArray(event.recurrence_exclude_dates)
+    ? event.recurrence_exclude_dates.map(String)
+    : [];
+
+  if (includes.includes(target)) return true;
+  if (excludes.includes(target)) return false;
+
+  const weekdays = Array.isArray(event.recurrence_weekdays)
+    ? event.recurrence_weekdays.map(Number)
+    : [];
+
+  return weekdays.includes(dateWeekday(target));
 }
 
 function minutes(value?: string | null) {
@@ -202,7 +237,7 @@ export default function PlannerPage() {
       const { data, error } = await supabase
         .from("public_events")
         .select(
-          "id,title_tc,short_description_tc,organizer_name,start_date,end_date,start_time,end_time,venue_name,district,mtr_station,price_label,price_display_mode,is_free,is_sen_friendly,tags",
+          "id,title_tc,short_description_tc,organizer_name,start_date,end_date,start_time,end_time,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates,recurrence_note,venue_name,district,mtr_station,price_label,price_display_mode,is_free,is_sen_friendly,tags",
         )
         .eq("status", "published")
         .order("start_time", { ascending: true });
