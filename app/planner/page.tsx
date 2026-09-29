@@ -404,7 +404,7 @@ export default function PlannerPage() {
                   : calendarConnected
                     ? "已連接，只讀 Free/Busy 時段；建議會避開你已有行程。"
                     : calendarConfigured
-                      ? "可連接 Google Calendar，系統只需要 Calendar Readonly 權限。"
+                      ? "可連接 Google Calendar，系統只會讀取 Free/Busy（忙碌／空閒）時段，不讀取行程標題或內容。"
                       : "OAuth 尚未完成設定；現時仍可使用免費智能配對及一鍵加入 Calendar。"}
               </p>
             </div>
