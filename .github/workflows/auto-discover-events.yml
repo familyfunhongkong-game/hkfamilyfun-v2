@@ -1,10 +1,6 @@
 name: Auto Discover HK Family Events
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/auto-discover-events.yml"
   workflow_dispatch:
   schedule:
     - cron: "15 0 * * *"
@@ -41,5 +37,4 @@ jobs:
           MAX_NEW_EVENTS: "5"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          DISCOVERY_DRY_RUN: ${{ github.event_name == 'push' && 'true' || 'false' }}
         run: node scripts/auto-discover-events.mjs
