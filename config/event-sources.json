@@ -1,26 +1,37 @@
 [
   {
     "name": "Hong Kong Public Libraries",
-    "url": "https://www.hkpl.gov.hk/tc/extension-activities",
+    "url": "https://www.hkpl.gov.hk/tc/extension-activities/index.html",
     "host": "www.hkpl.gov.hk",
-    "pathIncludes": ["/extension-activities/event", "/extension-activities/sub-event"]
+    "pathIncludes": [
+      "/tc/extension-activities/event-detail/",
+      "/tc/extension-activities/event/"
+    ]
   },
   {
     "name": "M+",
     "url": "https://www.mplus.org.hk/tc/events/",
     "host": "www.mplus.org.hk",
-    "pathIncludes": ["/tc/events/"]
+    "pathIncludes": [
+      "/tc/events/"
+    ]
   },
   {
     "name": "LCSD Community Programmes Office",
     "url": "https://www.cpo.gov.hk/zh-hk/",
     "host": "www.cpo.gov.hk",
-    "pathIncludes": ["/zh-hk/event/", "/zh-hk/activity/"]
+    "pathIncludes": [
+      "/zh-hk/event/",
+      "/zh-hk/activity/"
+    ]
   },
   {
     "name": "LCSD Territory-wide Events",
     "url": "https://www.cpo.gov.hk/zh-hk/category/territory-wide-events-and-carnivals/",
     "host": "www.cpo.gov.hk",
-    "pathIncludes": ["/zh-hk/event/", "/zh-hk/activity/"]
+    "pathIncludes": [
+      "/zh-hk/event/",
+      "/zh-hk/activity/"
+    ]
   }
 ]
