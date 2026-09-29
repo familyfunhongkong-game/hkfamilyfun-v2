@@ -46,8 +46,8 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           APPROVAL_EMAIL: ${{ secrets.APPROVAL_EMAIL }}
           SITE_URL: https://hkfamilyfun-v2.vercel.app
-          MAX_NEW_EVENTS: "5"
+          MAX_NEW_EVENTS: "3"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          DISCOVERY_DRY_RUN: ${{ github.event_name == 'push' && 'true' || github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+          DISCOVERY_DRY_RUN: ${{ github.event_name == 'push' && 'false' || github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
         run: node scripts/auto-discover-events.mjs
