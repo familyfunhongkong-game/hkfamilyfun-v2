@@ -1,8 +1,8 @@
 # HK Family Fun Automation Setup
 
-Daily event discovery is implemented in `.github/workflows/discover-events.yml`.
+Daily event discovery is implemented in `.github/workflows/auto-discover-events.yml`.
 
-Schedule: 00:30 UTC daily (08:30 Hong Kong time).
+Schedule: 00:15 UTC daily (08:15 Hong Kong time).
 
 ## Required GitHub repository secrets
 
@@ -47,7 +47,7 @@ Automatic discovery:
 
 ## Test
 
-GitHub → Actions → Discover HK Family Fun events → Run workflow.
+GitHub → Actions → Auto Discover HK Family Events → Run workflow.
 
 After testing, check:
 
