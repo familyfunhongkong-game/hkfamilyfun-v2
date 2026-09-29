@@ -1,6 +1,6 @@
 # HK Family Fun V2 — Launch Checklist
 
-_Last updated: 2026-09-28_
+_Last updated: 2026-09-29_
 
 ## 1. Production safety
 
@@ -100,8 +100,10 @@ _Last updated: 2026-09-28_
 
 - [x] Public table RLS reviewed.
 - [x] Merchant event RLS attack tests passed.
-- [x] Merchant profile self-approval attack tests passed.
+- [x] Merchant profile self-approval attack tests passed, including attempts to supply legal timestamps and self-approve.
 - [x] Admin approve/publish DB flow tests passed.
+- [x] Merchant cannot overwrite admin rejection/review fields.
+- [x] Trigger-only SECURITY DEFINER merchant approval function is no longer externally executable by anon/authenticated roles.
 - [x] Password reset requires a PASSWORD_RECOVERY event.
 - [x] GitHub CI runs automation syntax check, TypeScript check and Next.js build.
 - [ ] Supabase Auth: enable Leaked Password Protection.
