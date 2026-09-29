@@ -7,6 +7,11 @@ export interface Event {
   description: string;
   date: string;
   endDate?: string;
+  recurrenceType?: "none" | "weekly";
+  recurrenceWeekdays?: number[];
+  recurrenceIncludeDates?: string[];
+  recurrenceExcludeDates?: string[];
+  recurrenceNote?: string;
   time: string;
   district: string;
   mtrStation: string;
