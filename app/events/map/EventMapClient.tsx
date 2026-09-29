@@ -75,7 +75,7 @@ function FitMap({
     }
 
     if (points.length === 0) {
-      map.setView([22.3193, 114.1694], 11);
+      // Keep the current viewport when filters or "search this area" return no results.
       return;
     }
 
