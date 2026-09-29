@@ -182,15 +182,7 @@ function hkToday() {
 
 function extractLabelValue(text, label, nextLabels = []) {
   const escapeRegex = (value) =>
-    String(value).replace(/[.*+?^$()|[\]\\]/g, "\\function hkToday() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Hong_Kong",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-");
+    String(value).replace(/[.*+?^$()|[\]\\]/g, (match) => "\\" + match);
 
   const escapedLabel = escapeRegex(label);
   const nextPattern = nextLabels.length
