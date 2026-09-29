@@ -22,6 +22,11 @@ type DatabaseEvent = {
   end_date: string | null;
   start_time: string | null;
   end_time: string | null;
+  recurrence_type?: "none" | "weekly" | null;
+  recurrence_weekdays?: number[] | null;
+  recurrence_include_dates?: string[] | null;
+  recurrence_exclude_dates?: string[] | null;
+  recurrence_note?: string | null;
   price_type: "free" | "paid" | "mixed" | null;
   price_display_mode?: string | null;
   price_label?: string | null;
@@ -161,6 +166,18 @@ function mapDatabaseEvent(event: DatabaseEvent): Event {
     description: event.description_tc || event.short_description_tc || "",
     date: formatDate(event.start_date),
     endDate: event.end_date || undefined,
+    recurrenceType:
+      event.recurrence_type === "weekly" ? "weekly" : "none",
+    recurrenceWeekdays: Array.isArray(event.recurrence_weekdays)
+      ? event.recurrence_weekdays.map(Number)
+      : [],
+    recurrenceIncludeDates: Array.isArray(event.recurrence_include_dates)
+      ? event.recurrence_include_dates.map(String)
+      : [],
+    recurrenceExcludeDates: Array.isArray(event.recurrence_exclude_dates)
+      ? event.recurrence_exclude_dates.map(String)
+      : [],
+    recurrenceNote: event.recurrence_note || undefined,
     time: formatTime(event.start_time, event.end_time),
     district: event.district || "香港",
     mtrStation: event.mtr_station || "待定",
