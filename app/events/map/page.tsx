@@ -412,6 +412,16 @@ export default function NearbyEventsMapPage() {
     (viewportOnly ? 1 : 0);
 
   const unmappedCount = filtered.length - mappedEvents.length;
+  const mappedPlaceCount = useMemo(
+    () =>
+      new Set(
+        mappedEvents.map(
+          (event) =>
+            `${event.latitude.toFixed(6)}|${event.longitude.toFixed(6)}`,
+        ),
+      ).size,
+    [mappedEvents],
+  );
 
   useEffect(() => {
     if (
@@ -706,7 +716,7 @@ export default function NearbyEventsMapPage() {
               <span>
                 {loading
                   ? "正在讀取..."
-                  : `${filtered.length} 個活動 · ${mappedEvents.length} 個地圖定位`}
+                  : `${filtered.length} 個活動 · ${mappedPlaceCount} 個地點`}
               </span>
               {unmappedCount > 0 ? (
                 <span title="仍會顯示喺列表">
@@ -906,7 +916,7 @@ export default function NearbyEventsMapPage() {
 
               <div className="pointer-events-none absolute left-3 top-3 z-[500] flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2">
                 <div className="rounded-full bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow-md backdrop-blur">
-                  📍 {mappedEvents.length} 個位置
+                  📍 {mappedPlaceCount} 個地點 · {mappedEvents.length} 個活動
                 </div>
                 {userLocation ? (
                   <div className="rounded-full bg-blue-600 px-3 py-2 text-xs font-black text-white shadow-md">
