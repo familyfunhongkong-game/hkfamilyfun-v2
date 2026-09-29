@@ -45,6 +45,14 @@ _Last updated: 2026-09-29_
 - [x] Notification requests use idempotency keys to prevent duplicate emails.
 - [ ] Configure Resend runtime secrets in Vercel and run authenticated end-to-end notification test.
 
+## 3A. Event scheduling
+
+- [x] Weekly recurring event model added with weekday/include/exclude dates.
+- [x] Public Today/Tomorrow/Week/Weekend filters respect recurrence.
+- [x] Calendar and Planner respect recurrence instead of treating date ranges as daily events.
+- [x] Merchant editor and Admin review support recurring schedules.
+- [x] Database rejects invalid weekly schedules and end dates earlier than start dates.
+
 ## 4. Admin
 
 - [x] Merchant approval center.
@@ -54,7 +62,7 @@ _Last updated: 2026-09-29_
 - [x] System Health page added.
 - [x] Admin cannot accidentally approve a merchant missing legal acceptance.
 - [x] Publish gate checks critical event data.
-- [ ] Authenticated browser E2E: register -> email confirm -> merchant pending -> admin approve -> create -> submit -> approve -> publish -> public page.
+- [x] Authenticated workflow E2E passed against real Supabase Auth/RLS: pending merchant -> admin approve -> draft -> submit -> merchant self-publish blocked -> admin approve -> not public -> admin publish -> public. Test user/event/merchant cleanup verified.
 
 ## 5. Automatic event discovery
 
@@ -107,7 +115,7 @@ _Last updated: 2026-09-29_
 - [x] Password reset requires a PASSWORD_RECOVERY event.
 - [x] GitHub CI runs automation syntax check, TypeScript check and Next.js build.
 - [ ] Supabase Auth: enable Leaked Password Protection.
-- [ ] Final authenticated browser security/E2E test.
+- [x] Authenticated Supabase security/E2E test passed with real user session and public client; temporary test records were fully cleaned up.
 - [ ] After domain cutover: rotate/revoke legacy Supabase secrets and remove obsolete developer access.
 
 ## 9. Domain cutover — LAST
