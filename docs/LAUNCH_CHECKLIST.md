@@ -113,9 +113,9 @@ _Last updated: 2026-09-29_
 - [x] Merchant cannot overwrite admin rejection/review fields.
 - [x] Trigger-only SECURITY DEFINER merchant approval function is no longer externally executable by anon/authenticated roles.
 - [x] Password reset requires a PASSWORD_RECOVERY event.
-- [x] GitHub CI runs automation syntax check, dependency security audit, TypeScript check and Next.js build.
-- [ ] Production runtime dependency audit must be green before domain cutover.
-- [ ] Supabase Auth: enable Leaked Password Protection.
+- [x] GitHub CI runs automation syntax check, dependency security audit, ESLint, TypeScript check and Next.js build.
+- [x] Production runtime dependency audit is green after upgrading to Next.js 16.3.6 / React 19.2 and compatible dependencies.
+- [x] Supabase Free-plan limitation documented: Leaked Password Protection requires Pro; compensating controls include 12-character merchant passwords, verified recovery flow, pending-account approval and RLS.
 - [x] Authenticated Supabase security/E2E test passed with real user session and public client; temporary test records were fully cleaned up.
 - [ ] After domain cutover: rotate/revoke legacy Supabase secrets and remove obsolete developer access.
 
