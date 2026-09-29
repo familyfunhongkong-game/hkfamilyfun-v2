@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   CircleMarker,
   MapContainer,
   Popup,
   TileLayer,
+  Tooltip,
   useMap,
   useMapEvents,
 } from "react-leaflet";
@@ -162,6 +163,36 @@ export default function EventMapClient({
   const selectedEvent =
     events.find((event) => event.id === selectedEventId) || null;
 
+  const markerGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        key: string;
+        latitude: number;
+        longitude: number;
+        events: MapEvent[];
+      }
+    >();
+
+    for (const event of events) {
+      const key = `${event.latitude.toFixed(6)}|${event.longitude.toFixed(6)}`;
+      const existing = groups.get(key);
+
+      if (existing) {
+        existing.events.push(event);
+      } else {
+        groups.set(key, {
+          key,
+          latitude: event.latitude,
+          longitude: event.longitude,
+          events: [event],
+        });
+      }
+    }
+
+    return Array.from(groups.values());
+  }, [events]);
+
   return (
     <MapContainer
       center={[22.3193, 114.1694]}
@@ -206,88 +237,176 @@ export default function EventMapClient({
         </CircleMarker>
       ) : null}
 
-      {events.map((event) => {
-        const selected = event.id === selectedEventId;
+      {markerGroups.map((group) => {
+        const selected = group.events.some(
+          (event) => event.id === selectedEventId,
+        );
+        const multiple = group.events.length > 1;
+        const first = group.events[0];
 
         return (
           <CircleMarker
-            key={event.id}
-            center={[event.latitude, event.longitude]}
-            radius={selected ? 13 : 9}
+            key={group.key}
+            center={[group.latitude, group.longitude]}
+            radius={selected ? 14 : multiple ? 12 : 9}
             eventHandlers={{
-              click: () => onSelectEvent(event.id),
+              click: () => {
+                if (!multiple) onSelectEvent(first.id);
+              },
             }}
             pathOptions={{
-              color: selected ? "#6d28d9" : "#0f766e",
-              fillColor: selected ? "#8b5cf6" : "#14b8a6",
+              color: selected ? "#6d28d9" : multiple ? "#1d4ed8" : "#0f766e",
+              fillColor: selected
+                ? "#8b5cf6"
+                : multiple
+                  ? "#3b82f6"
+                  : "#14b8a6",
               fillOpacity: 0.95,
-              weight: selected ? 4 : 2,
+              weight: selected ? 4 : multiple ? 3 : 2,
             }}
           >
-            <Popup>
-              <div className="min-w-[230px] max-w-[290px]">
-                {event.imageUrl ? (
-                  <img
-                    src={event.imageUrl}
-                    alt=""
-                    className="mb-3 h-28 w-full rounded-xl object-cover"
-                  />
-                ) : null}
+            {multiple ? (
+              <Tooltip
+                permanent
+                direction="center"
+                offset={[0, 0]}
+                opacity={1}
+                className="hkff-marker-count"
+              >
+                <span className="text-[11px] font-black text-blue-800">
+                  {group.events.length}
+                </span>
+              </Tooltip>
+            ) : null}
 
-                <strong className="text-sm leading-5">{event.title}</strong>
-
-                <div className="mt-2 text-xs leading-5 text-slate-600">
-                  {event.venue}
-                  {event.district ? ` · ${event.district}` : ""}
-                </div>
-
-                {event.mtrStation ? (
-                  <div className="mt-1 text-xs text-slate-500">
-                    港鐵 {event.mtrStation}
+            <Popup minWidth={multiple ? 300 : 230} maxWidth={340}>
+              {multiple ? (
+                <div className="max-h-[360px] min-w-[280px] overflow-y-auto">
+                  <div className="mb-2 border-b border-slate-200 pb-2">
+                    <strong className="text-sm">
+                      {group.events.length} 個活動｜同一地點
+                    </strong>
+                    <div className="mt-1 text-xs leading-5 text-slate-500">
+                      {first.venue}
+                      {first.district ? ` · ${first.district}` : ""}
+                    </div>
                   </div>
-                ) : null}
 
-                <div className="mt-1 text-xs font-semibold text-slate-700">
-                  {event.date} · {event.time}
+                  <div className="space-y-2">
+                    {group.events.map((event) => (
+                      <div
+                        key={event.id}
+                        className={
+                          event.id === selectedEventId
+                            ? "rounded-xl border border-purple-300 bg-purple-50 p-3"
+                            : "rounded-xl border border-slate-200 bg-white p-3"
+                        }
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onSelectEvent(event.id)}
+                          className="block w-full text-left"
+                        >
+                          <span className="block text-xs font-black leading-5 text-slate-900">
+                            {event.title}
+                          </span>
+                          <span className="mt-1 block text-[11px] font-semibold text-slate-600">
+                            {event.date} · {event.time}
+                          </span>
+                          {typeof event.distanceKm === "number" ? (
+                            <span className="mt-1 block text-[11px] font-bold text-blue-700">
+                              約 {event.distanceKm.toFixed(1)} km
+                            </span>
+                          ) : null}
+                        </button>
+
+                        <div className="mt-2 flex gap-2">
+                          <a
+                            href={`/events/${event.id}`}
+                            className="rounded-lg bg-teal-700 px-2.5 py-1.5 text-[11px] font-bold text-white"
+                          >
+                            活動詳情
+                          </a>
+                          {event.mapUrl ? (
+                            <a
+                              href={event.mapUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700"
+                            >
+                              路線
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              ) : (
+                <div className="min-w-[230px] max-w-[290px]">
+                  {first.imageUrl ? (
+                    <img
+                      src={first.imageUrl}
+                      alt=""
+                      className="mb-3 h-28 w-full rounded-xl object-cover"
+                    />
+                  ) : null}
 
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {event.isFree ? (
-                    <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">
-                      免費
-                    </span>
-                  ) : null}
-                  {event.isSenFriendly ? (
-                    <span className="rounded-full bg-purple-50 px-2 py-1 text-[11px] font-bold text-purple-700">
-                      SEN友善
-                    </span>
-                  ) : null}
-                  {typeof event.distanceKm === "number" ? (
-                    <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700">
-                      約 {event.distanceKm.toFixed(1)} km
-                    </span>
-                  ) : null}
-                </div>
+                  <strong className="text-sm leading-5">{first.title}</strong>
 
-                <div className="mt-3 flex gap-2">
-                  <a
-                    href={`/events/${event.id}`}
-                    className="rounded-lg bg-teal-700 px-3 py-2 text-xs font-bold text-white"
-                  >
-                    活動詳情
-                  </a>
-                  {event.mapUrl ? (
+                  <div className="mt-2 text-xs leading-5 text-slate-600">
+                    {first.venue}
+                    {first.district ? ` · ${first.district}` : ""}
+                  </div>
+
+                  {first.mtrStation ? (
+                    <div className="mt-1 text-xs text-slate-500">
+                      港鐵 {first.mtrStation}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-1 text-xs font-semibold text-slate-700">
+                    {first.date} · {first.time}
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {first.isFree ? (
+                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">
+                        免費
+                      </span>
+                    ) : null}
+                    {first.isSenFriendly ? (
+                      <span className="rounded-full bg-purple-50 px-2 py-1 text-[11px] font-bold text-purple-700">
+                        SEN友善
+                      </span>
+                    ) : null}
+                    {typeof first.distanceKm === "number" ? (
+                      <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700">
+                        約 {first.distanceKm.toFixed(1)} km
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-3 flex gap-2">
                     <a
-                      href={event.mapUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700"
+                      href={`/events/${first.id}`}
+                      className="rounded-lg bg-teal-700 px-3 py-2 text-xs font-bold text-white"
                     >
-                      路線
+                      活動詳情
                     </a>
-                  ) : null}
+                    {first.mapUrl ? (
+                      <a
+                        href={first.mapUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700"
+                      >
+                        路線
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
+              )}
             </Popup>
           </CircleMarker>
         );
