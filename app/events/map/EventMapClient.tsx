@@ -44,10 +44,12 @@ function FitMap({
   events,
   userLocation,
   fitRequest,
+  enabled,
 }: {
   events: MapEvent[];
   userLocation: UserLocation;
   fitRequest: number;
+  enabled: boolean;
 }) {
   const map = useMap();
   const eventsRef = useRef(events);
@@ -59,6 +61,8 @@ function FitMap({
   }, [events, userLocation]);
 
   useEffect(() => {
+    if (!enabled) return;
+
     const points: [number, number][] = eventsRef.current
       .filter(
         (event) =>
@@ -88,7 +92,7 @@ function FitMap({
       padding: [48, 48],
       maxZoom: 14,
     });
-  }, [fitRequest, map]);
+  }, [enabled, fitRequest, map]);
 
   return null;
 }
@@ -145,6 +149,7 @@ export default function EventMapClient({
   onSelectEvent,
   fitRequest,
   onBoundsChange,
+  fitEnabled = true,
 }: {
   events: MapEvent[];
   userLocation: UserLocation;
@@ -152,6 +157,7 @@ export default function EventMapClient({
   onSelectEvent: (eventId: string) => void;
   fitRequest: number;
   onBoundsChange?: (bounds: MapBounds) => void;
+  fitEnabled?: boolean;
 }) {
   const selectedEvent =
     events.find((event) => event.id === selectedEventId) || null;
