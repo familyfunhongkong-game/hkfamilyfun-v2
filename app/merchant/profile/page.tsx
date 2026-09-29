@@ -27,10 +27,6 @@ export default function MerchantProfilePage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    void load();
-  }, []);
-
   async function load() {
     const client = supabase;
     if (!client) {
@@ -69,6 +65,10 @@ export default function MerchantProfilePage() {
     setDescription(m.description || "");
     setLoading(false);
   }
+
+  useEffect(() => {
+    void load();
+  }, []);
 
   async function save() {
     if (!merchant || !supabase) return;
