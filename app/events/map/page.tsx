@@ -9,7 +9,7 @@ import type { MapEvent } from "./EventMapClient";
 const EventMapClient = dynamic(() => import("./EventMapClient"), {
   ssr: false,
   loading: () => (
-    <div className="flex min-h-[520px] items-center justify-center bg-slate-100 text-sm font-bold text-slate-500 lg:min-h-[calc(100vh-8rem)]">
+    <div className="flex h-full min-h-[52vh] items-center justify-center bg-slate-100 text-sm font-bold text-slate-500 lg:min-h-[calc(100vh-10rem)]">
       正在載入地圖...
     </div>
   ),
@@ -40,13 +40,16 @@ type EventRecord = {
   longitude?: number | null;
 };
 
+type DisplayEvent = EventRecord & {
+  distanceKm: number | null;
+};
+
 type UserLocation = {
   latitude: number;
   longitude: number;
 } | null;
 
-type DateFilter = "all" | "today" | "tomorrow" | "weekend";
-type MobileView = "map" | "list";
+type RadiusFilter = "all" | "2" | "5" | "10" | "20";
 
 function safeText(value: unknown, fallback = "") {
   if (value === null || value === undefined) return fallback;
@@ -67,6 +70,14 @@ function normalizeTags(value: unknown): string[] {
   }
 
   return [];
+}
+
+function isFreeEvent(event: EventRecord) {
+  return (
+    Boolean(event.is_free) ||
+    safeText(event.price_display_mode).toLowerCase() === "free" ||
+    safeText(event.price_label).includes("免費")
+  );
 }
 
 function mapUrl(event: EventRecord) {
@@ -97,56 +108,11 @@ function timeText(event: EventRecord) {
   return end ? `${start} - ${end}` : start;
 }
 
-function getHongKongToday() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Hong_Kong",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
-function addCalendarDays(dateTextValue: string, days: number) {
-  const [year, month, day] = dateTextValue.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day + days));
-  return [
-    date.getUTCFullYear(),
-    String(date.getUTCMonth() + 1).padStart(2, "0"),
-    String(date.getUTCDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function getCalendarDayOfWeek(dateTextValue: string) {
-  const [year, month, day] = dateTextValue.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-}
-
-function overlapsDate(event: EventRecord, target: string) {
-  if (!event.start_date) return false;
-  const end = event.end_date || event.start_date;
-  return event.start_date <= target && end >= target;
-}
-
-function overlapsRange(event: EventRecord, start: string, end: string) {
-  if (!event.start_date) return false;
-  const eventEnd = event.end_date || event.start_date;
-  return event.start_date <= end && eventEnd >= start;
-}
-
-function matchesDateFilter(event: EventRecord, filter: DateFilter) {
-  if (filter === "all") return true;
-
-  const today = getHongKongToday();
-
-  if (filter === "today") return overlapsDate(event, today);
-  if (filter === "tomorrow") return overlapsDate(event, addCalendarDays(today, 1));
-
-  const dayOfWeek = getCalendarDayOfWeek(today);
-  const daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
-  const saturday = addCalendarDays(today, daysUntilSaturday);
-  const sunday = addCalendarDays(saturday, 1);
-
-  return overlapsRange(event, saturday, sunday);
+function hasCoordinates(event: EventRecord) {
+  return (
+    Number.isFinite(Number(event.latitude)) &&
+    Number.isFinite(Number(event.longitude))
+  );
 }
 
 function haversineKm(
@@ -169,29 +135,20 @@ function haversineKm(
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function isFreeEvent(event: EventRecord) {
-  return (
-    Boolean(event.is_free) ||
-    safeText(event.price_display_mode).toLowerCase() === "free" ||
-    safeText(event.price_label).includes("免費")
-  );
-}
-
 export default function NearbyEventsMapPage() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
   const [keyword, setKeyword] = useState("");
   const [district, setDistrict] = useState("全部地區");
-  const [mtr, setMtr] = useState("全部港鐵");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [freeOnly, setFreeOnly] = useState(false);
   const [senOnly, setSenOnly] = useState(false);
-  const [radiusKm, setRadiusKm] = useState("all");
+  const [radius, setRadius] = useState<RadiusFilter>("all");
   const [userLocation, setUserLocation] = useState<UserLocation>(null);
+  const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [mobileView, setMobileView] = useState<MobileView>("map");
+  const [fitRequest, setFitRequest] = useState(0);
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
@@ -233,17 +190,7 @@ export default function NearbyEventsMapPage() {
     [events],
   );
 
-  const mtrStations = useMemo(
-    () => [
-      "全部港鐵",
-      ...Array.from(
-        new Set(events.map((event) => safeText(event.mtr_station)).filter(Boolean)),
-      ).sort(),
-    ],
-    [events],
-  );
-
-  const filtered = useMemo(() => {
+  const filtered = useMemo<DisplayEvent[]>(() => {
     const text = keyword.trim().toLowerCase();
 
     const rows = events
@@ -265,20 +212,10 @@ export default function NearbyEventsMapPage() {
         const matchesKeyword = !text || haystack.includes(text);
         const matchesDistrict =
           district === "全部地區" || safeText(event.district) === district;
-        const matchesMtr =
-          mtr === "全部港鐵" || safeText(event.mtr_station) === mtr;
         const matchesFree = !freeOnly || isFreeEvent(event);
         const matchesSen = !senOnly || Boolean(event.is_sen_friendly);
-        const matchesDate = matchesDateFilter(event, dateFilter);
 
-        return (
-          matchesKeyword &&
-          matchesDistrict &&
-          matchesMtr &&
-          matchesFree &&
-          matchesSen &&
-          matchesDate
-        );
+        return matchesKeyword && matchesDistrict && matchesFree && matchesSen;
       })
       .map((event) => {
         const lat = Number(event.latitude);
@@ -296,11 +233,9 @@ export default function NearbyEventsMapPage() {
         return { ...event, distanceKm };
       })
       .filter((event) => {
-        if (!userLocation || radiusKm === "all") return true;
-        return (
-          typeof event.distanceKm === "number" &&
-          event.distanceKm <= Number(radiusKm)
-        );
+        if (!userLocation || radius === "all") return true;
+        if (typeof event.distanceKm !== "number") return false;
+        return event.distanceKm <= Number(radius);
       });
 
     if (userLocation) {
@@ -313,19 +248,20 @@ export default function NearbyEventsMapPage() {
           typeof b.distanceKm === "number"
             ? b.distanceKm
             : Number.POSITIVE_INFINITY;
-        return aDistance - bDistance;
+
+        if (aDistance !== bDistance) return aDistance - bDistance;
+
+        return safeText(a.start_date).localeCompare(safeText(b.start_date));
       });
     }
 
     return rows;
   }, [
-    dateFilter,
     district,
     events,
     freeOnly,
     keyword,
-    mtr,
-    radiusKm,
+    radius,
     senOnly,
     userLocation,
   ]);
@@ -333,37 +269,56 @@ export default function NearbyEventsMapPage() {
   const mappedEvents = useMemo<MapEvent[]>(
     () =>
       filtered
-        .filter(
-          (event) =>
-            Number.isFinite(Number(event.latitude)) &&
-            Number.isFinite(Number(event.longitude)),
-        )
+        .filter(hasCoordinates)
         .map((event) => ({
           id: event.id,
           title: safeText(event.title_tc, "未命名活動"),
           venue: safeText(event.venue_name, event.address || "場地待定"),
           district: safeText(event.district),
+          mtrStation: safeText(event.mtr_station),
           date: dateText(event),
           time: timeText(event),
           latitude: Number(event.latitude),
           longitude: Number(event.longitude),
           distanceKm:
             typeof event.distanceKm === "number" ? event.distanceKm : null,
-          coverImage: event.cover_image_url || null,
+          imageUrl: event.cover_image_url || null,
+          mapUrl: mapUrl(event),
           isFree: isFreeEvent(event),
           isSenFriendly: Boolean(event.is_sen_friendly),
         })),
     [filtered],
   );
 
-  const selectedEvent =
-    filtered.find((event) => event.id === selectedEventId) || null;
+  const activeFilterCount =
+    (district !== "全部地區" ? 1 : 0) +
+    (freeOnly ? 1 : 0) +
+    (senOnly ? 1 : 0) +
+    (radius !== "all" ? 1 : 0);
+
+  const unmappedCount = filtered.length - mappedEvents.length;
 
   useEffect(() => {
-    if (selectedEventId && !filtered.some((event) => event.id === selectedEventId)) {
+    if (
+      selectedEventId &&
+      !filtered.some((event) => event.id === selectedEventId)
+    ) {
       setSelectedEventId(null);
     }
   }, [filtered, selectedEventId]);
+
+  useEffect(() => {
+    if (!selectedEventId) return;
+
+    const timer = window.setTimeout(() => {
+      cardRefs.current[selectedEventId]?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedEventId]);
 
   function useMyLocation() {
     setLocationMessage("");
@@ -373,6 +328,7 @@ export default function NearbyEventsMapPage() {
       return;
     }
 
+    setLocating(true);
     setLocationMessage("正在取得你的位置…");
 
     navigator.geolocation.getCurrentPosition(
@@ -381,11 +337,16 @@ export default function NearbyEventsMapPage() {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         });
-        setRadiusKm("10");
-        setLocationMessage("已取得位置，預設顯示10公里內活動並由近至遠排序。");
+        setRadius("all");
+        setLocating(false);
+        setLocationMessage("定位成功。活動已按目前位置由近至遠排列；位置不會儲存。");
+        setFitRequest((value) => value + 1);
       },
       () => {
-        setLocationMessage("未能取得位置。你可以在瀏覽器允許 Location 後再試。");
+        setLocating(false);
+        setLocationMessage(
+          "未能取得位置。請在瀏覽器允許 Location，或繼續用地區／港鐵搜尋。",
+        );
       },
       {
         enableHighAccuracy: false,
@@ -397,431 +358,364 @@ export default function NearbyEventsMapPage() {
 
   function clearMyLocation() {
     setUserLocation(null);
-    setRadiusKm("all");
-    setLocationMessage("已取消附近排序及距離篩選。");
+    setRadius("all");
+    setLocationMessage("已停止使用目前位置。");
+    setFitRequest((value) => value + 1);
   }
 
-  function selectEvent(eventId: string, switchToMap = false) {
-    setSelectedEventId(eventId);
-
-    if (switchToMap) {
-      setMobileView("map");
-    }
-
-    window.setTimeout(() => {
-      cardRefs.current[eventId]?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
-    }, 50);
-  }
-
-  function resetFilters() {
+  function clearFilters() {
     setKeyword("");
     setDistrict("全部地區");
-    setMtr("全部港鐵");
-    setDateFilter("all");
     setFreeOnly(false);
     setSenOnly(false);
-    if (!userLocation) setRadiusKm("all");
+    setRadius("all");
+    setSelectedEventId(null);
+    setFitRequest((value) => value + 1);
+  }
+
+  function selectEvent(eventId: string) {
+    setSelectedEventId(eventId);
   }
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-sm font-black text-teal-700">Nearby・地點探索</p>
-              <h1 className="mt-1 text-3xl font-black tracking-tight">
-                地圖搵香港附近親子活動
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                地圖同活動清單會同步。開啟定位後可按距離搵附近活動；位置只留在目前瀏覽器，不會儲存。
-              </p>
-            </div>
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-teal-700">
+              Nearby Explorer
+            </p>
+            <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">
+              地圖搵附近親子活動
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              拖動地圖、按標記或用目前位置搵最近活動。定位只留喺瀏覽器。
+            </p>
+          </div>
 
+          <div className="flex flex-wrap gap-2">
             <Link
               href="/events"
               className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
             >
-              切換完整活動列表
+              ☰ 活動列表
             </Link>
-          </div>
-
-          <div className="mt-5 grid gap-3 xl:grid-cols-[1.4fr_0.8fr_0.8fr_auto_auto]">
-            <input
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              placeholder="搜尋活動、場地、港鐵站..."
-              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-            />
-
-            <select
-              value={district}
-              onChange={(event) => setDistrict(event.target.value)}
-              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700"
-            >
-              {districts.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-
-            <select
-              value={mtr}
-              onChange={(event) => setMtr(event.target.value)}
-              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700"
-            >
-              {mtrStations.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-
-            <label className="flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700">
-              <input
-                type="checkbox"
-                checked={freeOnly}
-                onChange={(event) => setFreeOnly(event.target.checked)}
-              />
-              免費
-            </label>
-
-            <label className="flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700">
-              <input
-                type="checkbox"
-                checked={senOnly}
-                onChange={(event) => setSenOnly(event.target.checked)}
-              />
-              SEN友善
-            </label>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {([
-              ["all", "全部日期"],
-              ["today", "今日"],
-              ["tomorrow", "明日"],
-              ["weekend", "今個週末"],
-            ] as [DateFilter, string][]).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setDateFilter(value)}
-                className={
-                  dateFilter === value
-                    ? "rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white"
-                    : "rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-black text-slate-600 hover:bg-slate-50"
-                }
-              >
-                {label}
-              </button>
-            ))}
-
             <button
               type="button"
-              onClick={userLocation ? clearMyLocation : useMyLocation}
-              className={
-                userLocation
-                  ? "rounded-full bg-blue-700 px-4 py-2 text-xs font-black text-white"
-                  : "rounded-full bg-teal-700 px-4 py-2 text-xs font-black text-white"
-              }
+              onClick={() => setFitRequest((value) => value + 1)}
+              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
             >
-              {userLocation ? "✓ 已使用我的位置" : "📍 使用我的位置"}
-            </button>
-
-            {userLocation ? (
-              <select
-                value={radiusKm}
-                onChange={(event) => setRadiusKm(event.target.value)}
-                className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-black text-blue-800"
-              >
-                <option value="all">不限距離</option>
-                <option value="2">2 km 內</option>
-                <option value="5">5 km 內</option>
-                <option value="10">10 km 內</option>
-                <option value="20">20 km 內</option>
-              </select>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-black text-slate-600"
-            >
-              清除篩選
+              ⛶ 顯示全部
             </button>
           </div>
-
-          {locationMessage ? (
-            <p className="mt-3 rounded-2xl bg-blue-50 px-4 py-3 text-xs font-bold text-blue-800">
-              {locationMessage}
-            </p>
-          ) : null}
         </div>
       </section>
 
-      <div className="sticky top-[76px] z-30 border-b border-slate-200 bg-white p-2 lg:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-2 rounded-2xl bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => setMobileView("map")}
-            className={
-              mobileView === "map"
-                ? "rounded-xl bg-white px-4 py-2 text-sm font-black text-teal-700 shadow-sm"
-                : "rounded-xl px-4 py-2 text-sm font-black text-slate-500"
-            }
-          >
-            🗺️ 地圖
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileView("list")}
-            className={
-              mobileView === "list"
-                ? "rounded-xl bg-white px-4 py-2 text-sm font-black text-teal-700 shadow-sm"
-                : "rounded-xl px-4 py-2 text-sm font-black text-slate-500"
-            }
-          >
-            ☰ 活動 {filtered.length}
-          </button>
-        </div>
-      </div>
+      <section className="mx-auto max-w-[1600px] p-3 sm:p-4 lg:h-[calc(100vh-10rem)] lg:p-5">
+        <div className="grid gap-3 lg:h-full lg:grid-cols-[430px_minmax(0,1fr)]">
+          <aside className="order-2 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm lg:order-1 lg:flex lg:h-full lg:flex-col">
+            <div className="border-b border-slate-200 p-4">
+              <div className="relative">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                  🔎
+                </span>
+                <input
+                  value={keyword}
+                  onChange={(event) => setKeyword(event.target.value)}
+                  placeholder="搜尋活動、場地、港鐵站..."
+                  className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                />
+              </div>
 
-      {errorText ? (
-        <div className="mx-auto max-w-7xl px-4 py-8">
-          <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm font-bold text-rose-800">
-            {errorText}
-          </div>
-        </div>
-      ) : (
-        <section className="mx-auto max-w-[1600px] lg:grid lg:grid-cols-[minmax(360px,42%)_1fr]">
-          <div
-            className={
-              mobileView === "list"
-                ? "block bg-slate-50 lg:block"
-                : "hidden bg-slate-50 lg:block"
-            }
-          >
-            <div className="border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-black text-slate-700">
-                  {loading
-                    ? "正在讀取..."
-                    : `${filtered.length} 個活動 · ${mappedEvents.length} 個可在地圖顯示`}
-                </p>
-                {userLocation ? (
-                  <span className="text-xs font-bold text-blue-700">
-                    由近至遠
-                  </span>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <select
+                  value={district}
+                  onChange={(event) => setDistrict(event.target.value)}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-700"
+                >
+                  {districts.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={radius}
+                  disabled={!userLocation}
+                  onChange={(event) =>
+                    setRadius(event.target.value as RadiusFilter)
+                  }
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  <option value="all">不限距離</option>
+                  <option value="2">2 km 內</option>
+                  <option value="5">5 km 內</option>
+                  <option value="10">10 km 內</option>
+                  <option value="20">20 km 內</option>
+                </select>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFreeOnly((value) => !value)}
+                  className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                    freeOnly
+                      ? "border-emerald-600 bg-emerald-600 text-white"
+                      : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  免費
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSenOnly((value) => !value)}
+                  className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                    senOnly
+                      ? "border-purple-600 bg-purple-600 text-white"
+                      : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  SEN友善
+                </button>
+
+                <button
+                  type="button"
+                  onClick={userLocation ? clearMyLocation : useMyLocation}
+                  disabled={locating}
+                  className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                    userLocation
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  } disabled:opacity-60`}
+                >
+                  {locating
+                    ? "定位中…"
+                    : userLocation
+                      ? "📍 已使用我的位置"
+                      : "📍 附近我"}
+                </button>
+
+                {activeFilterCount > 0 || keyword ? (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="rounded-full px-3 py-2 text-xs font-black text-rose-600 hover:bg-rose-50"
+                  >
+                    清除篩選
+                  </button>
                 ) : null}
               </div>
+
+              {locationMessage ? (
+                <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold leading-5 text-blue-800">
+                  {locationMessage}
+                </p>
+              ) : null}
             </div>
 
-            <div className="space-y-3 p-3 sm:p-4 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
-              {!loading && filtered.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
-                  <h2 className="text-xl font-black">暫未找到符合條件的活動</h2>
-                  <p className="mt-2 text-sm text-slate-500">
-                    可以取消部分篩選，或者擴大附近距離。
-                  </p>
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 text-xs font-bold text-slate-500">
+              <span>
+                {loading
+                  ? "正在讀取..."
+                  : `${filtered.length} 個活動 · ${mappedEvents.length} 個地圖定位`}
+              </span>
+              {unmappedCount > 0 ? (
+                <span title="仍會顯示喺列表">
+                  {unmappedCount} 個未定位
+                </span>
+              ) : null}
+            </div>
+
+            <div className="max-h-[48vh] overflow-y-auto p-3 lg:max-h-none lg:flex-1">
+              {errorText ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-800">
+                  {errorText}
                 </div>
               ) : null}
 
-              {filtered.map((event) => {
-                const selected = event.id === selectedEventId;
-                const hasCoordinates =
-                  Number.isFinite(Number(event.latitude)) &&
-                  Number.isFinite(Number(event.longitude));
-
-                return (
-                  <article
-                    key={event.id}
-                    ref={(node) => {
-                      cardRefs.current[event.id] = node;
-                    }}
-                    className={
-                      selected
-                        ? "overflow-hidden rounded-3xl border-2 border-purple-500 bg-white shadow-lg ring-4 ring-purple-100"
-                        : "overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm hover:border-teal-300 hover:shadow-md"
-                    }
+              {!loading && !errorText && !filtered.length ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center">
+                  <p className="font-black">暫未找到符合條件的活動</p>
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="mt-3 text-sm font-black text-teal-700"
                   >
-                    <button
-                      type="button"
-                      onClick={() => hasCoordinates && selectEvent(event.id)}
-                      className="grid w-full grid-cols-[112px_1fr] text-left sm:grid-cols-[140px_1fr]"
-                    >
-                      {event.cover_image_url ? (
-                        <img
-                          src={event.cover_image_url}
-                          alt=""
-                          className="h-full min-h-[160px] w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex min-h-[160px] items-center justify-center bg-gradient-to-br from-teal-100 via-blue-100 to-purple-100 text-3xl">
-                          📍
-                        </div>
-                      )}
+                    清除篩選再試
+                  </button>
+                </div>
+              ) : null}
 
-                      <div className="min-w-0 p-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          <span className="rounded-full bg-teal-50 px-2.5 py-1 text-[11px] font-black text-teal-700">
-                            {safeText(event.district, "地區待定")}
-                          </span>
+              <div className="space-y-3">
+                {filtered.map((event) => {
+                  const selected = event.id === selectedEventId;
+                  const tags = normalizeTags(event.tags);
+
+                  return (
+                    <article
+                      key={event.id}
+                      ref={(node) => {
+                        cardRefs.current[event.id] = node;
+                      }}
+                      onClick={() => selectEvent(event.id)}
+                      className={`cursor-pointer overflow-hidden rounded-2xl border bg-white transition ${
+                        selected
+                          ? "border-purple-400 shadow-md ring-2 ring-purple-100"
+                          : "border-slate-200 hover:border-teal-300 hover:shadow-sm"
+                      }`}
+                    >
+                      <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-3 p-3">
+                        <div className="relative">
+                          {event.cover_image_url ? (
+                            <img
+                              src={event.cover_image_url}
+                              alt=""
+                              className="h-28 w-28 rounded-xl object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-28 w-28 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 via-blue-100 to-purple-100 text-3xl">
+                              📍
+                            </div>
+                          )}
+
+                          {!hasCoordinates(event) ? (
+                            <span className="absolute bottom-1 left-1 rounded-md bg-slate-950/80 px-1.5 py-1 text-[10px] font-bold text-white">
+                              未定位
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap gap-1.5">
+                            {isFreeEvent(event) ? (
+                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">
+                                免費
+                              </span>
+                            ) : null}
+                            {event.is_sen_friendly ? (
+                              <span className="rounded-full bg-purple-50 px-2 py-1 text-[10px] font-black text-purple-700">
+                                SEN
+                              </span>
+                            ) : null}
+                            {typeof event.distanceKm === "number" ? (
+                              <span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">
+                                {event.distanceKm.toFixed(1)} km
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <h2 className="mt-2 line-clamp-2 text-sm font-black leading-5 text-slate-950">
+                            {safeText(event.title_tc, "未命名活動")}
+                          </h2>
+
+                          <p className="mt-1 line-clamp-1 text-xs font-semibold text-slate-500">
+                            {safeText(event.venue_name, event.address || "場地待定")}
+                          </p>
+
+                          <p className="mt-1 text-[11px] font-bold text-slate-500">
+                            {dateText(event)} · {timeText(event)}
+                          </p>
 
                           {event.mtr_station ? (
-                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600">
+                            <p className="mt-1 text-[11px] text-slate-500">
                               港鐵 {event.mtr_station}
-                            </span>
-                          ) : null}
-
-                          {isFreeEvent(event) ? (
-                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
-                              免費
-                            </span>
-                          ) : null}
-
-                          {typeof event.distanceKm === "number" ? (
-                            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-black text-blue-700">
-                              {event.distanceKm.toFixed(1)} km
-                            </span>
+                              {event.district ? ` · ${event.district}` : ""}
+                            </p>
+                          ) : event.district ? (
+                            <p className="mt-1 text-[11px] text-slate-500">
+                              {event.district}
+                            </p>
                           ) : null}
                         </div>
-
-                        <h2 className="mt-2 line-clamp-2 text-base font-black leading-6 text-slate-950">
-                          {safeText(event.title_tc, "未命名活動")}
-                        </h2>
-
-                        <p className="mt-1 line-clamp-1 text-xs font-semibold text-slate-500">
-                          {safeText(event.venue_name, event.address || "場地待定")}
-                        </p>
-
-                        <p className="mt-2 text-xs font-bold text-slate-600">
-                          {dateText(event)} · {timeText(event)}
-                        </p>
-
-                        {hasCoordinates ? (
-                          <p className="mt-3 text-xs font-black text-teal-700">
-                            在地圖顯示 →
-                          </p>
-                        ) : (
-                          <p className="mt-3 text-xs font-bold text-amber-700">
-                            此活動暫未有精確地圖定位
-                          </p>
-                        )}
                       </div>
-                    </button>
 
-                    <div className="flex gap-2 border-t border-slate-100 p-3">
-                      <Link
-                        href={`/events/${event.id}`}
-                        className="flex-1 rounded-xl bg-slate-950 px-3 py-2 text-center text-xs font-black text-white"
-                      >
-                        活動詳情
-                      </Link>
-                      <a
-                        href={mapUrl(event)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-center text-xs font-black text-slate-700"
-                      >
-                        Google Maps路線
-                      </a>
-                    </div>
-                  </article>
-                );
-              })}
+                      {selected ? (
+                        <div className="border-t border-purple-100 bg-purple-50/50 px-3 py-3">
+                          {tags.length ? (
+                            <div className="mb-2 flex flex-wrap gap-1.5">
+                              {tags.slice(0, 3).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-purple-700"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+
+                          <div className="flex flex-wrap gap-2">
+                            <Link
+                              href={`/events/${event.id}`}
+                              onClick={(clickEvent) => clickEvent.stopPropagation()}
+                              className="rounded-full bg-purple-700 px-3 py-2 text-xs font-black text-white"
+                            >
+                              活動詳情
+                            </Link>
+                            <a
+                              href={mapUrl(event)}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(clickEvent) => clickEvent.stopPropagation()}
+                              className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700"
+                            >
+                              路線 / Google Maps
+                            </a>
+                          </div>
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </aside>
 
-          <div
-            className={
-              mobileView === "map"
-                ? "relative block min-h-[calc(100vh-12rem)] lg:block"
-                : "relative hidden min-h-[calc(100vh-12rem)] lg:block"
-            }
-          >
-            <div className="overflow-hidden bg-white lg:sticky lg:top-[76px] lg:h-[calc(100vh-76px)]">
-              <EventMapClient
-                events={mappedEvents}
-                userLocation={userLocation}
-                selectedEventId={selectedEventId}
-                onSelectEvent={(eventId) => selectEvent(eventId)}
-              />
+          <div className="order-1 lg:order-2 lg:h-full">
+            <div className="relative h-full overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
+              {!errorText ? (
+                <EventMapClient
+                  events={mappedEvents}
+                  userLocation={userLocation}
+                  selectedEventId={selectedEventId}
+                  onSelectEvent={selectEvent}
+                  fitRequest={fitRequest}
+                />
+              ) : (
+                <div className="flex min-h-[52vh] items-center justify-center p-8 text-center text-sm font-bold text-rose-700 lg:min-h-full">
+                  暫時未能載入活動地圖。
+                </div>
+              )}
 
-              <div className="pointer-events-none absolute left-3 top-3 z-[500] rounded-2xl bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow-lg backdrop-blur">
-                {mappedEvents.length} 個地圖活動
+              <div className="pointer-events-none absolute left-3 top-3 z-[500] flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2">
+                <div className="rounded-full bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow-md backdrop-blur">
+                  📍 {mappedEvents.length} 個位置
+                </div>
+                {userLocation ? (
+                  <div className="rounded-full bg-blue-600 px-3 py-2 text-xs font-black text-white shadow-md">
+                    已啟用附近排序
+                  </div>
+                ) : null}
               </div>
 
-              {selectedEvent ? (
-                <div className="absolute bottom-4 left-4 right-4 z-[500] mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white/95 p-4 shadow-2xl backdrop-blur">
-                  <div className="flex gap-3">
-                    {selectedEvent.cover_image_url ? (
-                      <img
-                        src={selectedEvent.cover_image_url}
-                        alt=""
-                        className="h-20 w-24 flex-none rounded-2xl object-cover"
-                      />
-                    ) : null}
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-xs font-black text-teal-700">
-                            {safeText(selectedEvent.district, "香港")}
-                            {typeof selectedEvent.distanceKm === "number"
-                              ? ` · ${selectedEvent.distanceKm.toFixed(1)} km`
-                              : ""}
-                          </p>
-                          <h2 className="mt-1 line-clamp-2 text-sm font-black leading-5">
-                            {safeText(selectedEvent.title_tc, "未命名活動")}
-                          </h2>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setSelectedEventId(null)}
-                          className="rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-500"
-                          aria-label="關閉活動卡"
-                        >
-                          ✕
-                        </button>
-                      </div>
-
-                      <p className="mt-1 line-clamp-1 text-xs text-slate-500">
-                        {safeText(
-                          selectedEvent.venue_name,
-                          selectedEvent.address || "場地待定",
-                        )}
-                      </p>
-
-                      <div className="mt-3 flex gap-2">
-                        <Link
-                          href={`/events/${selectedEvent.id}`}
-                          className="rounded-xl bg-teal-700 px-3 py-2 text-xs font-black text-white"
-                        >
-                          活動詳情
-                        </Link>
-                        <a
-                          href={mapUrl(selectedEvent)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700"
-                        >
-                          路線
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
+              <div className="absolute bottom-3 right-3 z-[500]">
+                <button
+                  type="button"
+                  onClick={() => setFitRequest((value) => value + 1)}
+                  className="rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-xs font-black text-slate-700 shadow-lg backdrop-blur hover:bg-white"
+                >
+                  ⛶ 重置地圖
+                </button>
+              </div>
             </div>
-          </div>
-        </section>
-      )}
 
-      <p className="border-t border-slate-200 bg-white px-4 py-5 text-center text-xs text-slate-400">
-        Map data © OpenStreetMap contributors · Google Maps只用作外部路線連結
-      </p>
+            <p className="mt-2 px-2 text-center text-[11px] text-slate-400 lg:text-right">
+              地圖資料 © OpenStreetMap contributors · 路線按鈕會開啟 Google Maps
+            </p>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
