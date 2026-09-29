@@ -6,6 +6,7 @@ const url = "https://uiyrbqqvgnfhfdhedmav.supabase.co";
 const publishableKey =
   "sb_publishable_w2KLFSsWv5uKFEmUC4ABLA_DvHEAhdX";
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const siteUrl = process.env.SITE_URL || "https://hkfamilyfun-v2.vercel.app";
 
 if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
 
@@ -169,6 +170,32 @@ async function main() {
     assert(submitted.data.status === "submitted", "Event did not submit");
     assert(Boolean(submitted.data.submitted_at), "submitted_at was not recorded");
 
+    const notificationResponse = await fetch(
+      `${siteUrl}/api/merchant-notifications`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${signedIn.data.session.access_token}`,
+        },
+        body: JSON.stringify({
+          action: "event_submitted",
+          event_id: eventId,
+        }),
+      },
+    );
+
+    const notificationBody = await notificationResponse.json().catch(() => ({}));
+
+    assert(
+      notificationResponse.ok,
+      `Production notification API failed with HTTP ${notificationResponse.status}`,
+    );
+    assert(
+      notificationBody.sent === true,
+      `Production Resend notification is not configured or failed: ${notificationBody.reason || notificationBody.error || "unknown"}`,
+    );
+
     const forbiddenPublish = await merchantClient
       .from("events")
       .update({ status: "published" })
@@ -267,6 +294,7 @@ async function main() {
             "admin_can_approve_merchant",
             "approved_merchant_can_create_draft",
             "merchant_can_submit_complete_event",
+            "production_admin_notification_sent",
             "merchant_cannot_self_publish",
             "approved_event_not_public",
             "admin_can_publish",
