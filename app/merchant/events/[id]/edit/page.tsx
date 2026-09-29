@@ -1161,7 +1161,7 @@ export default function MerchantEventEditPage() {
       return { data: null, errorMessage: "Supabase client 未能初始化。" };
     }
 
-    let safePayload = { ...payload };
+    const safePayload = { ...payload };
 
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const { data, error } = await client
@@ -1257,8 +1257,9 @@ export default function MerchantEventEditPage() {
       setMessage("已提交 HK Family Fun 審批。");
 
       try {
-        const { data: sessionData } = await supabase?.auth.getSession()!;
-        const accessToken = sessionData?.session?.access_token;
+        const client = supabase;
+        const sessionResult = client ? await client.auth.getSession() : null;
+        const accessToken = sessionResult?.data.session?.access_token;
 
         if (accessToken) {
           void fetch("/api/merchant-notifications", {
