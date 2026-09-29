@@ -183,11 +183,11 @@ export default function MerchantRegisterPage() {
               </span>
               <input
                 required
-                minLength={8}
+                minLength={12}
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="最少 8 個字元"
+                placeholder="最少 12 個字元"
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </label>
@@ -198,7 +198,7 @@ export default function MerchantRegisterPage() {
               </span>
               <input
                 required
-                minLength={8}
+                minLength={12}
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
