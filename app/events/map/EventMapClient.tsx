@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   CircleMarker,
   MapContainer,
@@ -22,10 +22,10 @@ export type MapEvent = {
   latitude: number;
   longitude: number;
   distanceKm?: number | null;
-  coverImage?: string | null;
+  imageUrl?: string | null;
+  mapUrl?: string | null;
   isFree?: boolean;
   isSenFriendly?: boolean;
-  mapUrl?: string | null;
 };
 
 export type MapBounds = {
@@ -50,9 +50,16 @@ function FitMap({
   fitRequest: number;
 }) {
   const map = useMap();
+  const eventsRef = useRef(events);
+  const userLocationRef = useRef(userLocation);
 
   useEffect(() => {
-    const points: [number, number][] = events
+    eventsRef.current = events;
+    userLocationRef.current = userLocation;
+  }, [events, userLocation]);
+
+  useEffect(() => {
+    const points: [number, number][] = eventsRef.current
       .filter(
         (event) =>
           Number.isFinite(event.latitude) &&
@@ -60,8 +67,11 @@ function FitMap({
       )
       .map((event) => [event.latitude, event.longitude]);
 
-    if (userLocation) {
-      points.push([userLocation.latitude, userLocation.longitude]);
+    if (userLocationRef.current) {
+      points.push([
+        userLocationRef.current.latitude,
+        userLocationRef.current.longitude,
+      ]);
     }
 
     if (points.length === 0) {
@@ -78,37 +88,7 @@ function FitMap({
       padding: [48, 48],
       maxZoom: 14,
     });
-  }, [events, fitRequest, map, userLocation]);
-
-  return null;
-}
-
-function ViewportReporter({
-  onBoundsChange,
-}: {
-  onBoundsChange?: (bounds: MapBounds) => void;
-}) {
-  const map = useMapEvents({
-    moveend: reportBounds,
-  });
-
-  function reportBounds() {
-    if (!onBoundsChange) return;
-    const bounds = map.getBounds();
-
-    onBoundsChange({
-      north: bounds.getNorth(),
-      south: bounds.getSouth(),
-      east: bounds.getEast(),
-      west: bounds.getWest(),
-    });
-  }
-
-  useEffect(() => {
-    reportBounds();
-    // Initial viewport snapshot only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fitRequest, map]);
 
   return null;
 }
@@ -120,10 +100,40 @@ function FocusSelected({ event }: { event: MapEvent | null }) {
     if (!event) return;
 
     map.flyTo([event.latitude, event.longitude], Math.max(map.getZoom(), 14), {
-      animate: true,
-      duration: 0.6,
+      duration: 0.65,
     });
   }, [event, map]);
+
+  return null;
+}
+
+function ViewportReporter({
+  onBoundsChange,
+}: {
+  onBoundsChange?: (bounds: MapBounds) => void;
+}) {
+  const map = useMapEvents({
+    moveend: reportBounds,
+    zoomend: reportBounds,
+  });
+
+  function reportBounds() {
+    if (!onBoundsChange) return;
+
+    const bounds = map.getBounds();
+    onBoundsChange({
+      north: bounds.getNorth(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      west: bounds.getWest(),
+    });
+  }
+
+  useEffect(() => {
+    reportBounds();
+    // Initial snapshot only; subsequent updates come from map move/zoom events.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return null;
 }
@@ -133,15 +143,15 @@ export default function EventMapClient({
   userLocation,
   selectedEventId,
   onSelectEvent,
+  fitRequest,
   onBoundsChange,
-  fitRequest = 0,
 }: {
   events: MapEvent[];
   userLocation: UserLocation;
-  selectedEventId?: string | null;
-  onSelectEvent?: (eventId: string) => void;
+  selectedEventId: string | null;
+  onSelectEvent: (eventId: string) => void;
+  fitRequest: number;
   onBoundsChange?: (bounds: MapBounds) => void;
-  fitRequest?: number;
 }) {
   const selectedEvent =
     events.find((event) => event.id === selectedEventId) || null;
@@ -152,11 +162,11 @@ export default function EventMapClient({
       zoom={11}
       scrollWheelZoom
       zoomControl
-      className="h-full min-h-[520px] w-full lg:min-h-[calc(100vh-76px)]"
+      className="h-full min-h-[52vh] w-full lg:min-h-[calc(100vh-10rem)]"
     >
       <TileLayer
-        attribution="&copy; OpenStreetMap contributors"
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; OpenStreetMap contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
       <FitMap
@@ -181,8 +191,8 @@ export default function EventMapClient({
           <Popup>
             <div className="min-w-[170px]">
               <strong>你的位置</strong>
-              <div className="mt-1 text-xs leading-5 text-slate-600">
-                只用於今次瀏覽器距離計算，不會儲存。
+              <div className="mt-1 text-xs text-slate-600">
+                只用於今次瀏覽器附近活動排序，不會儲存。
               </div>
             </div>
           </Popup>
@@ -198,7 +208,7 @@ export default function EventMapClient({
             center={[event.latitude, event.longitude]}
             radius={selected ? 13 : 9}
             eventHandlers={{
-              click: () => onSelectEvent?.(event.id),
+              click: () => onSelectEvent(event.id),
             }}
             pathOptions={{
               color: selected ? "#6d28d9" : "#0f766e",
@@ -207,17 +217,34 @@ export default function EventMapClient({
               weight: selected ? 4 : 2,
             }}
           >
-            <Popup minWidth={245} maxWidth={310}>
-              <div className="max-w-[290px]">
-                {event.coverImage ? (
+            <Popup>
+              <div className="min-w-[230px] max-w-[290px]">
+                {event.imageUrl ? (
                   <img
-                    src={event.coverImage}
+                    src={event.imageUrl}
                     alt=""
                     className="mb-3 h-28 w-full rounded-xl object-cover"
                   />
                 ) : null}
 
-                <div className="flex flex-wrap gap-1.5">
+                <strong className="text-sm leading-5">{event.title}</strong>
+
+                <div className="mt-2 text-xs leading-5 text-slate-600">
+                  {event.venue}
+                  {event.district ? ` · ${event.district}` : ""}
+                </div>
+
+                {event.mtrStation ? (
+                  <div className="mt-1 text-xs text-slate-500">
+                    港鐵 {event.mtrStation}
+                  </div>
+                ) : null}
+
+                <div className="mt-1 text-xs font-semibold text-slate-700">
+                  {event.date} · {event.time}
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-1">
                   {event.isFree ? (
                     <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">
                       免費
@@ -230,23 +257,9 @@ export default function EventMapClient({
                   ) : null}
                   {typeof event.distanceKm === "number" ? (
                     <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700">
-                      {event.distanceKm.toFixed(1)} km
+                      約 {event.distanceKm.toFixed(1)} km
                     </span>
                   ) : null}
-                </div>
-
-                <strong className="mt-2 block text-sm leading-5 text-slate-950">
-                  {event.title}
-                </strong>
-
-                <div className="mt-2 text-xs leading-5 text-slate-600">
-                  {event.venue}
-                  {event.district ? ` · ${event.district}` : ""}
-                  {event.mtrStation ? ` · 港鐵 ${event.mtrStation}` : ""}
-                </div>
-
-                <div className="mt-1 text-xs font-semibold text-slate-700">
-                  {event.date} · {event.time}
                 </div>
 
                 <div className="mt-3 flex gap-2">
