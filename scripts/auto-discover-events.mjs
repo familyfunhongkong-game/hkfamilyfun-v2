@@ -453,7 +453,7 @@ async function extractEvent(url, sourceName) {
   if (
     !looksFamilyRelevant(title + " " + description)
   ) {
-    return null;
+    return { event: null, reason: "not_family" };
   }
 
   const startDate = dateOnly(
@@ -464,8 +464,10 @@ async function extractEvent(url, sourceName) {
       jsonLd?.endDate || jsonLd?.startDate || pageText,
     ) || startDate;
 
-  if (!startDate) return null;
-  if (endDate && endDate < hkToday()) return null;
+  if (!startDate) return { event: null, reason: "missing_date" };
+  if (endDate && endDate < hkToday()) {
+    return { event: null, reason: "expired" };
+  }
 
   const location = jsonLd?.location || {};
   const address =
@@ -507,6 +509,7 @@ async function extractEvent(url, sourceName) {
     ) || offerPrice === 0;
 
   return {
+    event: {
     title_tc: title || "自動發現活動",
     title: title || "Auto-discovered event",
     short_description_tc: description.slice(0, 180),
@@ -551,6 +554,8 @@ async function extractEvent(url, sourceName) {
       ". Requires Admin review before publishing.",
     source_fingerprint: fingerprint(url),
     updated_at: new Date().toISOString(),
+    },
+    reason: "accepted",
   };
 }
 
@@ -683,17 +688,44 @@ async function main() {
   );
 
   const discovered = [];
+  const diagnostics = {
+    sourceFailures: 0,
+    candidateLinks: 0,
+    duplicateDiscoveredUrl: 0,
+    duplicateExistingUrl: 0,
+    duplicateFingerprint: 0,
+    duplicateCheckErrors: 0,
+    notFamily: 0,
+    missingDate: 0,
+    expired: 0,
+    extractionErrors: 0,
+    accepted: 0,
+    insertErrors: 0,
+  };
+  const perSource = {};
 
   for (const source of sources) {
     try {
       const html = await fetchHtml(source.url);
-      for (const url of extractLinks(html, source)) {
+      const sourceLinks = extractLinks(html, source);
+      perSource[source.name] = {
+        candidateLinks: sourceLinks.length,
+        failed: false,
+      };
+
+      for (const url of sourceLinks) {
         discovered.push({
           url,
           sourceName: source.name,
         });
       }
     } catch (error) {
+      diagnostics.sourceFailures += 1;
+      perSource[source.name] = {
+        candidateLinks: 0,
+        failed: true,
+        error: String(error?.message || error).slice(0, 180),
+      };
       console.warn(
         "Source failed:",
         source.name,
@@ -705,9 +737,14 @@ async function main() {
   const unique = [];
   const seen = new Set();
 
+  diagnostics.candidateLinks = discovered.length;
+
   for (const item of discovered) {
     const key = normalizeUrl(item.url);
-    if (seen.has(key)) continue;
+    if (seen.has(key)) {
+      diagnostics.duplicateDiscoveredUrl += 1;
+      continue;
+    }
     seen.add(key);
     unique.push(item);
   }
@@ -741,7 +778,10 @@ async function main() {
     if (inserted.length >= MAX_NEW_EVENTS) break;
 
     const normalizedCandidate = normalizeUrl(item.url);
-    if (existingUrls.has(normalizedCandidate)) continue;
+    if (existingUrls.has(normalizedCandidate)) {
+      diagnostics.duplicateExistingUrl += 1;
+      continue;
+    }
 
     const fp = fingerprint(item.url);
 
@@ -753,6 +793,7 @@ async function main() {
         .maybeSingle();
 
     if (duplicateError) {
+      diagnostics.duplicateCheckErrors += 1;
       console.warn(
         "Duplicate check failed:",
         item.url,
@@ -761,15 +802,26 @@ async function main() {
       continue;
     }
 
-    if (existing) continue;
+    if (existing) {
+      diagnostics.duplicateFingerprint += 1;
+      continue;
+    }
 
     try {
-      let event = await extractEvent(
+      const extraction = await extractEvent(
         item.url,
         item.sourceName,
       );
 
-      if (!event) continue;
+      if (!extraction.event) {
+        if (extraction.reason === "not_family") diagnostics.notFamily += 1;
+        if (extraction.reason === "missing_date") diagnostics.missingDate += 1;
+        if (extraction.reason === "expired") diagnostics.expired += 1;
+        continue;
+      }
+
+      diagnostics.accepted += 1;
+      let event = extraction.event;
 
       if (DRY_RUN) {
         acceptedDryRun.push({
@@ -796,6 +848,7 @@ async function main() {
         .single();
 
       if (error) {
+        diagnostics.insertErrors += 1;
         console.warn(
           "Insert failed:",
           item.url,
@@ -806,6 +859,7 @@ async function main() {
 
       inserted.push(data);
     } catch (error) {
+      diagnostics.extractionErrors += 1;
       console.warn(
         "Event extraction failed:",
         item.url,
@@ -832,6 +886,8 @@ async function main() {
         sources: sources.length,
         candidateLinks: unique.length,
         dryRun: DRY_RUN,
+        diagnostics,
+        perSource,
         inserted: inserted.length,
         insertedEvents: inserted,
         acceptedDryRun,
