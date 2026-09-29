@@ -58,6 +58,12 @@ type EventRecord = {
   start_time?: string | null;
   end_time?: string | null;
 
+  recurrence_type?: string | null;
+  recurrence_weekdays?: number[] | null;
+  recurrence_include_dates?: string[] | null;
+  recurrence_exclude_dates?: string[] | null;
+  recurrence_note?: string | null;
+
   venue_name?: string | null;
   venue_name_tc?: string | null;
   venue_name_en?: string | null;
@@ -293,6 +299,14 @@ function formatDateRange(event: EventRecord): string {
   const end = formatDate(event.end_date);
 
   if (!event.start_date && !event.end_date) return "日期待定";
+
+  if (
+    safeText(event.recurrence_type, "none").toLowerCase() === "weekly" &&
+    safeText(event.recurrence_note)
+  ) {
+    return `${start} 至 ${end}｜${safeText(event.recurrence_note)}`;
+  }
+
   if (!event.end_date || start === end) return start;
 
   return `${start} 至 ${end}`;
@@ -505,7 +519,7 @@ function getCoverFilter(event: EventRecord): CSSProperties {
 
 function canShowPublic(event: EventRecord): boolean {
   const status = safeText(event.status || event.approval_status, "draft").toLowerCase();
-  return ["published", "approved", "live"].includes(status);
+  return status === "published";
 }
 
 function buildLocationText(event: EventRecord): string {
