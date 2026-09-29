@@ -34,9 +34,9 @@ For `GOOGLE_TOKEN_ENCRYPTION_KEY`, use a long random secret. Do not expose it as
 
 ## Privacy design
 
-The planner requests Google Calendar read-only access.
+The planner requests only the Google Calendar `calendar.freebusy` scope.
 
-The website uses the Google FreeBusy endpoint and only needs busy time ranges for itinerary conflict avoidance.
+The website uses the Google FreeBusy endpoint and only receives busy time ranges for itinerary conflict avoidance; it does not request full calendar-event contents.
 
 OAuth tokens are encrypted server-side and stored in an HttpOnly Secure cookie. They are not stored in localStorage.
 
