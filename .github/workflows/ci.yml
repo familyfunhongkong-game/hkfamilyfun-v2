@@ -33,6 +33,9 @@ jobs:
           node --check scripts/migrate-legacy-familyfun.mjs
           node --check scripts/compare-legacy-hashes.mjs
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Type check
         run: npm run type-check
 
