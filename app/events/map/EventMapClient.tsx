@@ -16,6 +16,7 @@ export type MapEvent = {
   title: string;
   venue: string;
   district: string;
+  mtrStation?: string;
   date: string;
   time: string;
   latitude: number;
@@ -24,6 +25,7 @@ export type MapEvent = {
   coverImage?: string | null;
   isFree?: boolean;
   isSenFriendly?: boolean;
+  mapUrl?: string | null;
 };
 
 export type MapBounds = {
@@ -41,9 +43,11 @@ type UserLocation = {
 function FitMap({
   events,
   userLocation,
+  fitRequest,
 }: {
   events: MapEvent[];
   userLocation: UserLocation;
+  fitRequest: number;
 }) {
   const map = useMap();
 
@@ -74,7 +78,7 @@ function FitMap({
       padding: [48, 48],
       maxZoom: 14,
     });
-  }, [events, map, userLocation]);
+  }, [events, fitRequest, map, userLocation]);
 
   return null;
 }
@@ -86,12 +90,12 @@ function ViewportReporter({
 }) {
   const map = useMapEvents({
     moveend: reportBounds,
-    zoomend: reportBounds,
   });
 
   function reportBounds() {
     if (!onBoundsChange) return;
     const bounds = map.getBounds();
+
     onBoundsChange({
       north: bounds.getNorth(),
       south: bounds.getSouth(),
@@ -109,17 +113,15 @@ function ViewportReporter({
   return null;
 }
 
-function FocusSelected({
-  event,
-}: {
-  event: MapEvent | null;
-}) {
+function FocusSelected({ event }: { event: MapEvent | null }) {
   const map = useMap();
 
   useEffect(() => {
     if (!event) return;
+
     map.flyTo([event.latitude, event.longitude], Math.max(map.getZoom(), 14), {
-      duration: 0.65,
+      animate: true,
+      duration: 0.6,
     });
   }, [event, map]);
 
@@ -131,11 +133,15 @@ export default function EventMapClient({
   userLocation,
   selectedEventId,
   onSelectEvent,
+  onBoundsChange,
+  fitRequest = 0,
 }: {
   events: MapEvent[];
   userLocation: UserLocation;
   selectedEventId?: string | null;
   onSelectEvent?: (eventId: string) => void;
+  onBoundsChange?: (bounds: MapBounds) => void;
+  fitRequest?: number;
 }) {
   const selectedEvent =
     events.find((event) => event.id === selectedEventId) || null;
@@ -145,16 +151,21 @@ export default function EventMapClient({
       center={[22.3193, 114.1694]}
       zoom={11}
       scrollWheelZoom
-      className="h-full min-h-[520px] w-full lg:min-h-[calc(100vh-8rem)]"
       zoomControl
+      className="h-full min-h-[520px] w-full lg:min-h-[calc(100vh-76px)]"
     >
       <TileLayer
-        attribution='&copy; OpenStreetMap contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution="&copy; OpenStreetMap contributors"
+        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      <FitMap events={events} userLocation={userLocation} />
+      <FitMap
+        events={events}
+        userLocation={userLocation}
+        fitRequest={fitRequest}
+      />
       <FocusSelected event={selectedEvent} />
+      <ViewportReporter onBoundsChange={onBoundsChange} />
 
       {userLocation ? (
         <CircleMarker
@@ -170,8 +181,8 @@ export default function EventMapClient({
           <Popup>
             <div className="min-w-[170px]">
               <strong>你的位置</strong>
-              <div className="mt-1 text-xs text-slate-600">
-                只用於今次瀏覽器附近活動排序，不會儲存。
+              <div className="mt-1 text-xs leading-5 text-slate-600">
+                只用於今次瀏覽器距離計算，不會儲存。
               </div>
             </div>
           </Popup>
@@ -196,8 +207,8 @@ export default function EventMapClient({
               weight: selected ? 4 : 2,
             }}
           >
-            <Popup>
-              <div className="min-w-[230px] max-w-[290px]">
+            <Popup minWidth={245} maxWidth={310}>
+              <div className="max-w-[290px]">
                 {event.coverImage ? (
                   <img
                     src={event.coverImage}
@@ -206,18 +217,7 @@ export default function EventMapClient({
                   />
                 ) : null}
 
-                <strong className="text-sm leading-5">{event.title}</strong>
-
-                <div className="mt-2 text-xs leading-5 text-slate-600">
-                  {event.venue}
-                  {event.district ? ` · ${event.district}` : ""}
-                </div>
-
-                <div className="mt-1 text-xs font-semibold text-slate-700">
-                  {event.date} · {event.time}
-                </div>
-
-                <div className="mt-2 flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {event.isFree ? (
                     <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">
                       免費
@@ -230,17 +230,43 @@ export default function EventMapClient({
                   ) : null}
                   {typeof event.distanceKm === "number" ? (
                     <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700">
-                      約 {event.distanceKm.toFixed(1)} km
+                      {event.distanceKm.toFixed(1)} km
                     </span>
                   ) : null}
                 </div>
 
-                <a
-                  href={`/events/${event.id}`}
-                  className="mt-3 inline-block rounded-lg bg-teal-700 px-3 py-2 text-xs font-bold text-white"
-                >
-                  活動詳情
-                </a>
+                <strong className="mt-2 block text-sm leading-5 text-slate-950">
+                  {event.title}
+                </strong>
+
+                <div className="mt-2 text-xs leading-5 text-slate-600">
+                  {event.venue}
+                  {event.district ? ` · ${event.district}` : ""}
+                  {event.mtrStation ? ` · 港鐵 ${event.mtrStation}` : ""}
+                </div>
+
+                <div className="mt-1 text-xs font-semibold text-slate-700">
+                  {event.date} · {event.time}
+                </div>
+
+                <div className="mt-3 flex gap-2">
+                  <a
+                    href={`/events/${event.id}`}
+                    className="rounded-lg bg-teal-700 px-3 py-2 text-xs font-bold text-white"
+                  >
+                    活動詳情
+                  </a>
+                  {event.mapUrl ? (
+                    <a
+                      href={event.mapUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700"
+                    >
+                      路線
+                    </a>
+                  ) : null}
+                </div>
               </div>
             </Popup>
           </CircleMarker>
