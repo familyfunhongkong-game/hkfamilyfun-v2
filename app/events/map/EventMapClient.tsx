@@ -7,6 +7,7 @@ import {
   Popup,
   TileLayer,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 import type { LatLngBoundsExpression } from "leaflet";
 
@@ -23,6 +24,13 @@ export type MapEvent = {
   coverImage?: string | null;
   isFree?: boolean;
   isSenFriendly?: boolean;
+};
+
+export type MapBounds = {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
 };
 
 type UserLocation = {
@@ -67,6 +75,36 @@ function FitMap({
       maxZoom: 14,
     });
   }, [events, map, userLocation]);
+
+  return null;
+}
+
+function ViewportReporter({
+  onBoundsChange,
+}: {
+  onBoundsChange?: (bounds: MapBounds) => void;
+}) {
+  const map = useMapEvents({
+    moveend: reportBounds,
+    zoomend: reportBounds,
+  });
+
+  function reportBounds() {
+    if (!onBoundsChange) return;
+    const bounds = map.getBounds();
+    onBoundsChange({
+      north: bounds.getNorth(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      west: bounds.getWest(),
+    });
+  }
+
+  useEffect(() => {
+    reportBounds();
+    // Initial viewport snapshot only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return null;
 }
