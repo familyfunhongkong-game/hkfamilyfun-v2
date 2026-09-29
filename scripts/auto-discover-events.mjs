@@ -180,6 +180,108 @@ function hkToday() {
   }).format(new Date());
 }
 
+function extractLabelValue(text, label, nextLabels = []) {
+  const escapeRegex = (value) =>
+    String(value).replace(/[.*+?^$()|[\]\\]/g, "\\function hkToday() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+");
+
+  const escapedLabel = escapeRegex(label);
+  const nextPattern = nextLabels.length
+    ? "(?=\\s*(?:" + nextLabels.map(escapeRegex).join("|") + ")\\s*[:：])"
+    : "$";
+
+  const regex = new RegExp(
+    escapedLabel + "\\s*[:：]\\s*(.*?)\\s*" + nextPattern,
+    "i",
+  );
+
+  return String(text || "").match(regex)?.[1]?.trim() || "";
+}
+
+function chineseDateRange(value) {
+  const matches = Array.from(
+    String(value || "").matchAll(/(\d{4})年(\d{1,2})月(\d{1,2})日/g),
+  ).map((match) =>
+    [
+      match[1],
+      match[2].padStart(2, "0"),
+      match[3].padStart(2, "0"),
+    ].join("-"),
+  );
+
+  if (!matches.length) {
+    const fallback = dateOnly(value);
+    return { startDate: fallback, endDate: fallback };
+  }
+
+  return {
+    startDate: matches[0],
+    endDate: matches[matches.length - 1] || matches[0],
+  };
+}
+
+function chineseClockTo24(period, hourText, minuteText) {
+  let hour = Number(hourText);
+  const minute = Number(minuteText || "0");
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return "";
+
+  const marker = String(period || "").trim();
+
+  if ((marker === "下午" || marker === "晚上") && hour < 12) hour += 12;
+  if (marker === "上午" && hour === 12) hour = 0;
+  if (marker === "中午" && hour < 11) hour += 12;
+
+  if (hour > 23 || minute > 59) return "";
+
+  return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
+}
+
+function chineseTimeRange(value) {
+  const matches = Array.from(
+    String(value || "").matchAll(
+      /(上午|下午|中午|晚上)?\s*(\d{1,2})時(?:([0-5]?\d)分)?/g,
+    ),
+  );
+
+  if (!matches.length) {
+    return {
+      startTime: timeOnly(value) || null,
+      endTime: null,
+    };
+  }
+
+  const first = matches[0];
+  const last = matches[matches.length - 1];
+
+  return {
+    startTime: chineseClockTo24(first[1], first[2], first[3]) || null,
+    endTime:
+      matches.length > 1
+        ? chineseClockTo24(last[1], last[2], last[3]) || null
+        : null,
+  };
+}
+
+function isHkplEventDetail(url) {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.hostname === "www.hkpl.gov.hk" &&
+      parsed.pathname.includes("/tc/extension-activities/event-detail/")
+    );
+  } catch {
+    return false;
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -444,11 +546,22 @@ async function validateImageUrl(value) {
 async function extractEvent(url, sourceName) {
   const html = await fetchHtml(url);
   const jsonLd = findEventJsonLd(extractJsonLd(html));
-  const title = cleanText(jsonLd?.name || getTitle(html));
+  const fullPageText = cleanText(html);
+  const hkplDetail = isHkplEventDetail(url);
+
+  const rawTitle = cleanText(jsonLd?.name || getTitle(html));
+  const title = hkplDetail
+    ? rawTitle.replace(/^香港公共圖書館\s*[-–—]\s*/i, "").trim()
+    : rawTitle;
+
+  const hkplRemarks = hkplDetail
+    ? extractLabelValue(fullPageText, "備註", ["查詢電話"])
+    : "";
+
   const description = cleanText(
-    jsonLd?.description || getDescription(html),
+    hkplRemarks || jsonLd?.description || getDescription(html),
   );
-  const pageText = cleanText(html).slice(0, 25000);
+  const pageText = fullPageText.slice(0, 25000);
 
   if (
     !looksFamilyRelevant(title + " " + description)
@@ -456,13 +569,43 @@ async function extractEvent(url, sourceName) {
     return { event: null, reason: "not_family" };
   }
 
-  const startDate = dateOnly(
-    jsonLd?.startDate || pageText,
-  );
-  const endDate =
-    dateOnly(
-      jsonLd?.endDate || jsonLd?.startDate || pageText,
-    ) || startDate;
+  let startDate = "";
+  let endDate = "";
+  let parsedStartTime = null;
+  let parsedEndTime = null;
+  let hkplVenue = "";
+  let hkplOrganizer = "";
+
+  if (hkplDetail) {
+    const dateValue = extractLabelValue(fullPageText, "日期", ["時間"]);
+    const timeValue = extractLabelValue(fullPageText, "時間", ["地點"]);
+    hkplVenue = extractLabelValue(
+      fullPageText,
+      "地點",
+      ["機構", "備註", "查詢電話"],
+    );
+    hkplOrganizer = extractLabelValue(
+      fullPageText,
+      "機構",
+      ["備註", "查詢電話"],
+    );
+
+    const parsedDates = chineseDateRange(dateValue);
+    startDate = parsedDates.startDate;
+    endDate = parsedDates.endDate || parsedDates.startDate;
+
+    const parsedTimes = chineseTimeRange(timeValue);
+    parsedStartTime = parsedTimes.startTime;
+    parsedEndTime = parsedTimes.endTime;
+  } else {
+    startDate = dateOnly(
+      jsonLd?.startDate || pageText,
+    );
+    endDate =
+      dateOnly(
+        jsonLd?.endDate || jsonLd?.startDate || pageText,
+      ) || startDate;
+  }
 
   if (!startDate) return { event: null, reason: "missing_date" };
   if (endDate && endDate < hkToday()) {
@@ -500,7 +643,13 @@ async function extractEvent(url, sourceName) {
     absoluteUrl(String(rawImageValue || ""), url) ||
     getImage(html, url);
 
-  const image = await validateImageUrl(imageCandidate);
+  const image =
+    hkplDetail &&
+    /\/common\/(?:thematic|mainsite|tc\/common|en\/common)\/images\//i.test(
+      imageCandidate,
+    )
+      ? ""
+      : await validateImageUrl(imageCandidate);
 
   const offerPrice = Number(offers?.price);
   const isFree =
@@ -516,12 +665,14 @@ async function extractEvent(url, sourceName) {
     description_tc: description,
     start_date: startDate,
     end_date: endDate || startDate,
-    start_time: timeOnly(jsonLd?.startDate) || null,
-    end_time: timeOnly(jsonLd?.endDate) || null,
-    venue_name: cleanText(location.name || ""),
-    address: cleanText(address),
+    start_time:
+      parsedStartTime || timeOnly(jsonLd?.startDate) || null,
+    end_time:
+      parsedEndTime || timeOnly(jsonLd?.endDate) || null,
+    venue_name: cleanText(hkplVenue || location.name || ""),
+    address: cleanText(hkplVenue || address),
     organizer_name: cleanText(
-      jsonLd?.organizer?.name || sourceName,
+      hkplOrganizer || jsonLd?.organizer?.name || sourceName,
     ),
     cover_image_url: image,
     gallery_image_urls: image ? [image] : [],
