@@ -794,6 +794,15 @@ export default function NearbyEventsMapPage() {
 
                         <div className="min-w-0">
                           <div className="flex flex-wrap gap-1.5">
+                            {hasCoordinates(event) ? (
+                              <span className="rounded-full bg-teal-50 px-2 py-1 text-[10px] font-black text-teal-700">
+                                📍 已定位
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700">
+                                未定位
+                              </span>
+                            )}
                             {isFreeEvent(event) ? (
                               <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">
                                 免費
