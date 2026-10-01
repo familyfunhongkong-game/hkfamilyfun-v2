@@ -4,6 +4,8 @@ import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { getClientLocale } from "@/lib/i18n/client";
+import { localizedText, type AppLocale } from "@/lib/i18n/config";
 
 type JsonValue =
   | string
@@ -18,9 +20,14 @@ type EventRecord = {
 
   title?: string | null;
   title_tc?: string | null;
+  title_sc?: string | null;
   title_en?: string | null;
   short_description_tc?: string | null;
+  short_description_sc?: string | null;
+  short_description_en?: string | null;
   description_tc?: string | null;
+  description_sc?: string | null;
+  description_en?: string | null;
   highlights?: string | null;
   terms?: string | null;
   remarks?: string | null;
@@ -62,8 +69,12 @@ type EventRecord = {
 
   venue_name?: string | null;
   venue_name_tc?: string | null;
+  venue_name_sc?: string | null;
+  venue_name_en?: string | null;
   address?: string | null;
   address_tc?: string | null;
+  address_sc?: string | null;
+  address_en?: string | null;
   area?: string | null;
   district?: string | null;
   mtr_station?: string | null;
@@ -880,10 +891,12 @@ function EventCard({
   event,
   favoriteIds,
   onToggleFavorite,
+  locale,
 }: {
   event: EventRecord;
   favoriteIds: string[];
   onToggleFavorite: (eventId: string) => void;
+  locale: AppLocale;
 }) {
   const [shareCopied, setShareCopied] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -904,15 +917,30 @@ function EventCard({
           ...getCoverFilter(event),
         };
 
-  const title = safeText(event.title_tc || event.title, "未命名活動");
-  const shortDescription = safeText(
-    event.short_description_tc,
-    safeText(event.description_tc, "活動詳情請參閱主辦方公布資料。"),
-  );
-  const venue = safeText(
-    event.venue_name_tc || event.venue_name,
-    safeText(event.address_tc || event.address, safeText(event.district, "地點待定")),
-  );
+  const title = localizedText(locale, {
+    tc: event.title_tc || event.title,
+    sc: event.title_sc,
+    en: event.title_en,
+    fallback: locale === "en" ? "Untitled event" : "未命名活動",
+  });
+  const shortDescription = localizedText(locale, {
+    tc: event.short_description_tc || event.description_tc,
+    sc: event.short_description_sc || event.description_sc,
+    en: event.short_description_en || event.description_en,
+    fallback:
+      locale === "en"
+        ? "See the organizer's official information for event details."
+        : "活動詳情請參閱主辦方公布資料。",
+  });
+  const venue = localizedText(locale, {
+    tc: event.venue_name_tc || event.venue_name || event.address_tc || event.address,
+    sc: event.venue_name_sc || event.address_sc,
+    en: event.venue_name_en || event.address_en,
+    fallback: safeText(
+      event.district,
+      locale === "en" ? "Location TBC" : "地點待定",
+    ),
+  });
   const district = safeText(event.district || event.area);
   const mtr = safeText(event.mtr_station);
   const price = formatPrice(event);
@@ -1239,6 +1267,7 @@ function EventCard({
 }
 
 export default function PublicEventsPage() {
+  const [locale, setLocale] = useState<AppLocale>("zh-Hant");
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
@@ -1268,7 +1297,7 @@ export default function PublicEventsPage() {
     }
 
     const { data, error } = await client
-      .from("public_events")
+      .from("public_events_i18n")
       .select("*")
       .order("start_date", { ascending: true });
 
@@ -1284,6 +1313,7 @@ export default function PublicEventsPage() {
   }
 
   useEffect(() => {
+    setLocale(getClientLocale());
     loadEvents();
     setFavoriteIds(readFavoriteIds());
   }, []);
@@ -1362,14 +1392,24 @@ export default function PublicEventsPage() {
       next = next.filter((event) => {
         const haystack = [
           event.title_tc,
+          event.title_sc,
+          event.title_en,
           event.title,
           event.short_description_tc,
+          event.short_description_sc,
+          event.short_description_en,
           event.description_tc,
+          event.description_sc,
+          event.description_en,
           event.merchant_name,
           event.organizer_name,
           event.venue_name_tc,
+          event.venue_name_sc,
+          event.venue_name_en,
           event.venue_name,
           event.address_tc,
+          event.address_sc,
+          event.address_en,
           event.address,
           event.district,
           event.area,
@@ -1735,6 +1775,7 @@ export default function PublicEventsPage() {
                 event={event}
                 favoriteIds={favoriteIds}
                 onToggleFavorite={toggleFavorite}
+                locale={locale}
               />
             ))}
           </div>
