@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
+import { getServerLocale } from "@/lib/i18n/server";
+import { getPublicMessages } from "@/lib/i18n/public-messages";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +75,9 @@ export default async function CalendarPage({
 }: {
   searchParams?: { month?: string };
 }) {
-  const events = await getPublishedEvents();
+  const locale = await getServerLocale();
+  const p = getPublicMessages(locale);
+  const events = await getPublishedEvents(locale);
   const selectedMonth = monthKey(searchParams?.month);
   const [year, month] = selectedMonth.split("-").map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -111,12 +115,12 @@ export default async function CalendarPage({
             </Link>
 
             <div className="text-center">
-              <p className="text-sm font-black text-purple-700">活動日曆</p>
+              <p className="text-sm font-black text-purple-700">{p.calendarTitle}</p>
               <h1 className="mt-1 text-2xl font-black">
-                {year}年{month}月
+                {locale === "en" ? `${new Intl.DateTimeFormat("en-HK", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1))}` : `${year}年${month}月`}
               </h1>
               <p className="mt-1 text-xs text-slate-500">
-                只顯示仍有效並已發布的活動
+                {p.calendarPublishedOnly}
               </p>
             </div>
 
@@ -134,12 +138,12 @@ export default async function CalendarPage({
               href="/calendar"
               className="rounded-full bg-blue-600 px-5 py-2 text-sm font-black text-white hover:bg-blue-700"
             >
-              返回今個月
+              {p.currentMonth}
             </Link>
           </div>
 
           <div className="grid grid-cols-7 border-l border-t border-slate-100 text-center text-sm">
-            {["日", "一", "二", "三", "四", "五", "六"].map((day) => (
+            {(locale === "en" ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] : ["日", "一", "二", "三", "四", "五", "六"]).map((day) => (
               <div
                 key={day}
                 className="border-b border-r border-slate-100 bg-slate-50 px-2 py-3 font-black text-slate-500"
@@ -207,10 +211,10 @@ export default async function CalendarPage({
               <p className="text-sm font-black text-purple-700">
                 {year}年{month}月
               </p>
-              <h2 className="mt-1 text-2xl font-black">已發布活動</h2>
+              <h2 className="mt-1 text-2xl font-black">{p.publishedEvents}</h2>
             </div>
             <span className="rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-700">
-              {monthEvents.length} 個
+              {monthEvents.length} {p.eventsUnit}
             </span>
           </div>
 
@@ -244,7 +248,7 @@ export default async function CalendarPage({
                     </p>
                   </div>
                   <span className="self-center rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
-                    {event.price || "詳情請見官方網站"}
+                    {event.price || "{p.officialDetails}"}
                   </span>
                 </Link>
               ))}
@@ -252,16 +256,16 @@ export default async function CalendarPage({
           ) : (
             <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
               <p className="font-black text-slate-800">
-                暫未有這個月的已發布活動
+                暫未有這個月的{p.publishedEvents}
               </p>
               <p className="mt-2 text-sm text-slate-500">
-                新活動經平台審批後會自動出現在日曆。
+                {p.noMonthDesc}
               </p>
               <Link
                 href="/events"
                 className="mt-5 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
               >
-                查看全部活動
+                {p.viewAll}
               </Link>
             </div>
           )}
