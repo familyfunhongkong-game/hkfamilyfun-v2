@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
+import { getEventListMessages } from "@/lib/i18n/event-page-messages";
 
 type JsonValue =
   | string
@@ -1052,7 +1053,7 @@ function EventCard({
     <article className="group flex h-full flex-col overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg">
       <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
         <Link href={`/events/${event.id}`} className="absolute inset-0 z-0">
-          <span className="sr-only">查看 {title}</span>
+          <span className="sr-only">{m.details}: {title}</span>
         </Link>
 
         <ResilientEventImage
@@ -1089,7 +1090,7 @@ function EventCard({
               ? "bg-rose-500 text-white"
               : "bg-white/95 text-slate-700 hover:bg-rose-50 hover:text-rose-600",
           ].join(" ")}
-          aria-label={isFavorite ? "取消收藏" : "收藏活動"}
+          aria-label={isFavorite ? m.unfavorite : m.favorite}
         >
           {isFavorite ? "❤️" : "♡"}
         </button>
@@ -1165,7 +1166,7 @@ function EventCard({
 
         <div className="mt-4 grid gap-2 text-sm">
           <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-            <p className="text-xs font-black text-slate-400">日期</p>
+            <p className="text-xs font-black text-slate-400">{m.date}</p>
             <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
               {formatDateRange(event, locale)}
             </p>
@@ -1173,22 +1174,22 @@ function EventCard({
 
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-              <p className="text-xs font-black text-slate-400">時間</p>
+              <p className="text-xs font-black text-slate-400">{m.time}</p>
               <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
                 {formatTimeRange(event, locale)}
               </p>
             </div>
 
             <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-              <p className="text-xs font-black text-slate-400">地區</p>
+              <p className="text-xs font-black text-slate-400">{m.district}</p>
               <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
-                {district || "地區待定"}
+                {district || m.districtTbc}
               </p>
             </div>
           </div>
 
           <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-            <p className="text-xs font-black text-slate-400">場地</p>
+            <p className="text-xs font-black text-slate-400">{m.venue}</p>
             <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
               {venue}
             </p>
@@ -1217,7 +1218,7 @@ function EventCard({
                 href={`/events/${event.id}`}
                 className="inline-flex items-center justify-center rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
               >
-                查看詳情
+                {m.details}
               </Link>
 
               {actionUrl ? (
@@ -1253,7 +1254,7 @@ function EventCard({
                 </a>
               ) : (
                 <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
-                  📍 地圖待定
+                  {m.mapPending}
                 </span>
               )}
 
@@ -1264,11 +1265,11 @@ function EventCard({
                   rel="noreferrer"
                   className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
                 >
-                  官網資料
+                  {m.officialInfo}
                 </a>
               ) : (
                 <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
-                  官網待定
+                  {m.officialPending}
                 </span>
               )}
 
@@ -1289,6 +1290,7 @@ function EventCard({
 
 export default function PublicEventsPage() {
   const [locale, setLocale] = useState<AppLocale>("zh-Hant");
+  const m = getEventListMessages(locale);
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
@@ -1592,14 +1594,14 @@ export default function PublicEventsPage() {
           <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
               <div className="flex flex-wrap gap-2">
-                <Badge tone="purple">香港親子活動</Badge>
-                <Badge tone="green">{events.length} 個公開活動</Badge>
-                <Badge tone="amber">今日 {todayCount} 個</Badge>
-                <Badge tone="rose">已收藏 {favoriteIds.length}</Badge>
+                <Badge tone="purple">{m.kicker}</Badge>
+                <Badge tone="green">{m.publicCount(events.length)}</Badge>
+                <Badge tone="amber">{m.todayCount(todayCount)}</Badge>
+                <Badge tone="rose">{m.savedCount(favoriteIds.length)}</Badge>
               </div>
 
               <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-950 lg:text-5xl">
-                搜尋香港親子活動
+                {m.title}
               </h1>
 
               <p className="mt-4 max-w-3xl text-base font-medium leading-8 text-slate-600">
@@ -1612,20 +1614,20 @@ export default function PublicEventsPage() {
               <QuickEntry
                 href="/today"
                 icon="☀️"
-                title="今日活動"
-                desc="快速查看今日適合帶小朋友去的活動。"
+                title={m.quickToday}
+                desc={m.quickTodayDesc}
               />
               <QuickEntry
                 href="/calendar"
                 icon="🗓️"
-                title="活動日曆"
-                desc="按日期及時間瀏覽活動。"
+                title={m.quickCalendar}
+                desc={m.quickCalendarDesc}
               />
               <QuickEntry
                 href="/events/map"
                 icon="🗺️"
-                title="附近活動地圖"
-                desc="按地點搜尋附近親子活動。"
+                title={m.quickMap}
+                desc={m.quickMapDesc}
               />
             </div>
           </div>
@@ -1635,27 +1637,27 @@ export default function PublicEventsPage() {
       <section className="mx-auto max-w-[1500px] px-4 py-6">
         <div className="grid gap-4 md:grid-cols-4">
           <StatCard
-            label="公開活動"
+            label={m.summaryPublic}
             value={events.length}
-            note="只顯示已發布活動"
+            note={m.summaryPublicDesc}
             tone="slate"
           />
           <StatCard
-            label="免費活動"
+            label={m.summaryFree}
             value={freeCount}
-            note="適合想控制預算的家庭"
+            note={m.summaryFreeDesc}
             tone="green"
           />
           <StatCard
-            label="圖片完成"
+            label={m.summaryImages}
             value={imageReadyCount}
-            note="已有活動封面或 Gallery"
+            note={m.summaryImagesDesc}
             tone="purple"
           />
           <StatCard
-            label="我的收藏"
+            label={m.summaryFavorites}
             value={favoriteIds.length}
-            note="暫存在此瀏覽器"
+            note={m.summaryFavoritesDesc}
             tone="amber"
           />
         </div>
@@ -1665,7 +1667,7 @@ export default function PublicEventsPage() {
             <input
               value={keyword}
               onChange={(changeEvent) => setKeyword(changeEvent.target.value)}
-              placeholder="搜尋活動名稱、商戶、地點、分類、港鐵站..."
+              placeholder={m.placeholder}
               className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             />
 
@@ -1674,10 +1676,10 @@ export default function PublicEventsPage() {
               onChange={(changeEvent) => setSortMode(changeEvent.target.value as SortMode)}
               className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
-              <option value="recommended">推薦排序</option>
-              <option value="date_asc">活動日期近至遠</option>
-              <option value="date_desc">活動日期遠至近</option>
-              <option value="newest">最新發布</option>
+              <option value="recommended">{m.sortRecommended}</option>
+              <option value="date_asc">{m.sortDateAsc}</option>
+              <option value="date_desc">{m.sortDateDesc}</option>
+              <option value="newest">{m.sortNewest}</option>
             </select>
           </div>
 
@@ -1719,7 +1721,7 @@ export default function PublicEventsPage() {
               onChange={(changeEvent) => setDistrictFilter(changeEvent.target.value)}
               className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
-              <option value="all">全部地區</option>
+              <option value="all">{m.allDistricts}</option>
               {districtOptions.map((district) => (
                 <option key={district} value={district}>
                   {district}
@@ -1732,7 +1734,7 @@ export default function PublicEventsPage() {
               onChange={(changeEvent) => setCategoryFilter(changeEvent.target.value)}
               className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
-              <option value="all">全部分類</option>
+              <option value="all">{m.allCategories}</option>
               {categoryOptions.map((category) => (
                 <option key={category} value={category}>
                   {category}
@@ -1743,7 +1745,7 @@ export default function PublicEventsPage() {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-bold text-slate-500">
-              顯示 {filteredEvents.length} / {events.length} 個公開活動
+              {m.shown(filteredEvents.length, events.length)}
             </p>
 
             <button
@@ -1751,7 +1753,7 @@ export default function PublicEventsPage() {
               onClick={clearFilters}
               className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
             >
-              清除篩選
+              {m.clearFilters}
             </button>
           </div>
         </div>
@@ -1767,24 +1769,24 @@ export default function PublicEventsPage() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-2xl">
               親
             </div>
-            <p className="text-sm font-black text-slate-700">正在讀取活動資料...</p>
+            <p className="text-sm font-black text-slate-700">{m.loading}</p>
           </div>
         ) : null}
 
         {!loading && filteredEvents.length === 0 ? (
           <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
             <p className="text-xl font-black text-slate-950">
-              暫時沒有符合條件的活動
+              {m.emptyTitle}
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              請更改日期、地區、分類或關鍵字再試。
+              {m.emptyDesc}
             </p>
             <button
               type="button"
               onClick={clearFilters}
               className="mt-5 rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
             >
-              清除全部篩選
+              {m.clearAll}
             </button>
           </div>
         ) : null}
