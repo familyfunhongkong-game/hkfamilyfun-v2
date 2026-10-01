@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import EventImageFallback from "@/components/event-image-fallback";
 import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
@@ -952,15 +951,6 @@ export default function PublicEventDetailPage() {
                   className="h-full w-full object-cover"
                   style={coverStyle}
                 />
-
-                <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-purple-700 shadow-sm backdrop-blur">
-                    {getCategoryLabel(event)}
-                  </span>
-                  <span className="rounded-full bg-amber-100/95 px-3 py-1 text-xs font-black text-amber-700 shadow-sm backdrop-blur">
-                    {formatPrice(event)}
-                  </span>
-                </div>
 
                 <button
                   type="button"
