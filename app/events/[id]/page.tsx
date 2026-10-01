@@ -914,7 +914,7 @@ export default function PublicEventDetailPage() {
   const registrationUrl = getRegistrationUrl(event);
   const officialUrl = getOfficialWebsiteUrl(event);
   const actionUrl = getPrimaryActionUrl(event);
-  const actionLabel = getPrimaryActionLabel(event);
+  const actionLabel = getPrimaryActionLabel(event, locale);
 
   const isFallbackCover = images[0]?.url === FALLBACK_IMAGE;
 
@@ -975,8 +975,8 @@ export default function PublicEventDetailPage() {
 
               <div className="p-6 lg:p-8">
                 <div className="mb-4 flex flex-wrap gap-2">
-                  <Badge tone="purple">{getCategoryLabel(event)}</Badge>
-                  <Badge tone="amber">{formatPrice(event)}</Badge>
+                  <Badge tone="purple">{getCategoryLabel(event, locale)}</Badge>
+                  <Badge tone="amber">{formatPrice(event, locale)}</Badge>
                   {mtr ? <Badge tone="slate">{mtr}</Badge> : null}
                 </div>
 
@@ -989,10 +989,10 @@ export default function PublicEventDetailPage() {
                 </p>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-2">
-                  <InfoPill label="日期" value={formatDateRange(event)} />
-                  <InfoPill label="時間" value={formatTimeRange(event)} />
+                  <InfoPill label="日期" value={formatDateRange(event, locale)} />
+                  <InfoPill label="時間" value={formatTimeRange(event, locale)} />
                   <InfoPill label="地點" value={venue} />
-                  <InfoPill label="收費" value={formatPrice(event)} />
+                  <InfoPill label="收費" value={formatPrice(event, locale)} />
                 </div>
 
                 {tags.length > 0 ? (
@@ -1351,10 +1351,10 @@ export default function PublicEventDetailPage() {
             <h3 className="text-sm font-black text-slate-950">快速資料</h3>
 
             <div className="mt-4 space-y-2">
-              <InfoPill label="活動分類" value={getCategoryLabel(event)} />
-              <InfoPill label="日期" value={formatDateRange(event)} />
-              <InfoPill label="時間" value={formatTimeRange(event)} />
-              <InfoPill label="收費" value={formatPrice(event)} />
+              <InfoPill label="活動分類" value={getCategoryLabel(event, locale)} />
+              <InfoPill label="日期" value={formatDateRange(event, locale)} />
+              <InfoPill label="時間" value={formatTimeRange(event, locale)} />
+              <InfoPill label="收費" value={formatPrice(event, locale)} />
               <InfoPill label="主辦單位" value={merchantName} />
             </div>
           </div>
