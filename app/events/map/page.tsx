@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import EventImageFallback from "@/components/event-image-fallback";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 import type { MapBounds, MapEvent } from "./EventMapClient";
@@ -803,12 +804,19 @@ export default function NearbyEventsMapPage() {
                           {event.cover_image_url ? (
                             <img
                               src={event.cover_image_url}
-                              alt=""
+                              alt={localizedText(locale, {
+                                tc: event.title_tc,
+                                sc: event.title_sc,
+                                en: event.title_en,
+                                fallback: uiText(locale, "活動圖片", "活动图片", "Event image"),
+                              })}
+                              loading="lazy"
+                              decoding="async"
                               className="h-28 w-28 rounded-xl object-cover"
                             />
                           ) : (
-                            <div className="flex h-28 w-28 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 via-blue-100 to-purple-100 text-3xl">
-                              📍
+                            <div className="h-28 w-28 overflow-hidden rounded-xl">
+                              <EventImageFallback compact />
                             </div>
                           )}
 
