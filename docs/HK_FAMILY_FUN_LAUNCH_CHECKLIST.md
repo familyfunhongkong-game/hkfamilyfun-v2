@@ -1,6 +1,6 @@
 # HK Family Fun V2 — Launch Checklist
 
-Updated: 2026-09-30
+Updated: 2026-10-01
 
 ## Canonical branch
 - `main` is the current canonical working branch.
@@ -24,6 +24,7 @@ Updated: 2026-09-30
 ## Core product scope that must remain working
 - Public event discovery, Today, Calendar and nearby map
 - Traditional Chinese-first UI with TC / SC / EN support
+- Persistent language selector (繁 / 简 / EN) with server-side cookie storage
 - Date / district / MTR / age / category / price / free / SEN filters
 - Event details with official registration / source CTA
 - Merchant registration / login / password reset
@@ -46,6 +47,16 @@ Updated: 2026-09-30
 - Supabase project is healthy
 - RLS/security work remains in place
 - Quality gate restored to main on 2026-09-30
+- Core i18n database fields added for title / short description / description / venue / address (SC + EN)
+- Security-invoker public i18n view added and anon-tested: 0 non-published events exposed
+- Current 10 active published events backfilled with SC + EN titles and descriptions
+- Home / Today / Calendar shell and event content now read selected locale with TC fallback
+- Public Events search now searches TC / SC / EN content and renders localized event content
+- Public Event Detail now renders localized event content
+- Merchant event editor can save TC / SC / EN title, descriptions, venue and address
+- Admin event review includes language completeness checks and language readiness badges
+- Latest checked Vercel deployment for merchant trilingual editor reached READY
+- Vercel runtime errors: none found in the last 24 hours at the time of this update
 
 ## Required before public domain cutover
 - GitHub quality gate must pass on latest main
@@ -71,11 +82,12 @@ Updated: 2026-09-30
 - Only then connect / switch `hkfamilyfun.com`
 
 ## Current known blockers / risks
-1. Vercel connected account can see the HK Family Fun team, but current connector returns 403 when listing deployments. Do not change domain/DNS until access is restored.
+1. Vercel project/deployment listing is now available and latest deployments can be verified as READY, but direct deployment-page fetch/smoke-test access through the connector is still denied. Do not change domain/DNS until browser-level production smoke testing is completed.
 2. PR #3 (`phase-1c-merchant-portal` -> `main`) is draft and heavily diverged; do not merge it as a launch shortcut.
-3. Supabase leaked-password protection is disabled.
+3. Supabase leaked-password protection is still disabled.
 4. Database now contains 232 events, substantially more than the prior 49-event snapshot; legacy/import reconciliation is required before cleanup.
-5. `event_images` table has 0 rows, so image/media linkage must be verified against the actual storage/object workflow before launch.
+5. `event_images` table has 0 rows while event image objects exist in storage, so image/media linkage must be verified against the actual storage/object workflow before launch.
+6. Automated translation is not yet enabled. Planned low-cost path: OpenCC-compatible TC→SC conversion locally; optional Azure Translator F0 for EN at create/update time only. Public rendering always falls back to TC so translation outages cannot blank event pages.
 
 ## Launch rule
 Do not switch `hkfamilyfun.com` to the rebuilt site until the latest `main` build passes, authenticated Merchant/Admin E2E passes, data/media reconciliation is complete, and final public smoke testing is clean.
