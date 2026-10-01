@@ -1536,6 +1536,7 @@ export default function PublicEventsPage() {
     return next;
   }, [
     events,
+    locale,
     favoriteIds,
     keyword,
     dateFilter,
