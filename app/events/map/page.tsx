@@ -4,6 +4,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { getClientLocale } from "@/lib/i18n/client";
+import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 import type { MapBounds, MapEvent } from "./EventMapClient";
 
 const EventMapClient = dynamic(() => import("./EventMapClient"), {
@@ -18,9 +20,17 @@ const EventMapClient = dynamic(() => import("./EventMapClient"), {
 type EventRecord = {
   id: string;
   title_tc?: string | null;
+  title_sc?: string | null;
+  title_en?: string | null;
   short_description_tc?: string | null;
+  short_description_sc?: string | null;
+  short_description_en?: string | null;
   venue_name?: string | null;
+  venue_name_sc?: string | null;
+  venue_name_en?: string | null;
   address?: string | null;
+  address_sc?: string | null;
+  address_en?: string | null;
   district?: string | null;
   mtr_station?: string | null;
   start_date?: string | null;
@@ -213,6 +223,7 @@ function haversineKm(
 }
 
 export default function NearbyEventsMapPage() {
+  const [locale, setLocale] = useState<AppLocale>("zh-Hant");
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
@@ -234,6 +245,8 @@ export default function NearbyEventsMapPage() {
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
+    setLocale(getClientLocale());
+
     async function loadEvents() {
       if (!supabase) {
         setErrorText("網站暫時未能連接活動資料庫。");
@@ -242,9 +255,9 @@ export default function NearbyEventsMapPage() {
       }
 
       const { data, error } = await supabase
-        .from("public_events")
+        .from("public_events_i18n")
         .select(
-          "id,title_tc,short_description_tc,venue_name,address,district,mtr_station,start_date,end_date,start_time,end_time,price_display_mode,price_label,is_free,is_sen_friendly,category,activity_category,tags,cover_image_url,google_map_url,latitude,longitude",
+          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,venue_name,venue_name_sc,venue_name_en,address,address_sc,address_en,district,mtr_station,start_date,end_date,start_time,end_time,price_display_mode,price_label,is_free,is_sen_friendly,category,activity_category,tags,cover_image_url,google_map_url,latitude,longitude",
         )
         .eq("status", "published")
         .order("start_date", { ascending: true });
@@ -290,9 +303,17 @@ export default function NearbyEventsMapPage() {
       .filter((event) => {
         const haystack = [
           event.title_tc,
+          event.title_sc,
+          event.title_en,
           event.short_description_tc,
+          event.short_description_sc,
+          event.short_description_en,
           event.venue_name,
+          event.venue_name_sc,
+          event.venue_name_en,
           event.address,
+          event.address_sc,
+          event.address_en,
           event.district,
           event.mtr_station,
           event.category,
@@ -382,8 +403,18 @@ export default function NearbyEventsMapPage() {
         .filter(hasCoordinates)
         .map((event) => ({
           id: event.id,
-          title: safeText(event.title_tc, "未命名活動"),
-          venue: safeText(event.venue_name, event.address || "場地待定"),
+          title: localizedText(locale, {
+            tc: event.title_tc,
+            sc: event.title_sc,
+            en: event.title_en,
+            fallback: uiText(locale, "未命名活動", "未命名活动", "Untitled event"),
+          }),
+          venue: localizedText(locale, {
+            tc: event.venue_name || event.address,
+            sc: event.venue_name_sc || event.address_sc,
+            en: event.venue_name_en || event.address_en,
+            fallback: uiText(locale, "場地待定", "场地待定", "Venue TBC"),
+          }),
           district: safeText(event.district),
           mtrStation: safeText(event.mtr_station),
           date: dateText(event),
@@ -397,7 +428,7 @@ export default function NearbyEventsMapPage() {
           isFree: isFreeEvent(event),
           isSenFriendly: Boolean(event.is_sen_friendly),
         })),
-    [filtered],
+    [filtered, locale],
   );
 
   const selectedEvent =
@@ -516,10 +547,10 @@ export default function NearbyEventsMapPage() {
               Nearby Explorer
             </p>
             <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">
-              地圖搵附近親子活動
+              {uiText(locale, "地圖搵附近親子活動", "地图找附近亲子活动", "Find Family Events Nearby")}
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              拖動地圖、按標記或用目前位置搵最近活動。定位只留喺瀏覽器。
+              {uiText(locale, "拖動地圖、按標記或用目前位置搵最近活動。定位只留喺瀏覽器。", "拖动地图、按标记或使用当前位置寻找最近活动。定位只保留在浏览器。", "Move the map, select a marker or use your current location to find nearby events. Your location stays in your browser.")}
             </p>
           </div>
 
@@ -528,7 +559,7 @@ export default function NearbyEventsMapPage() {
               href="/events"
               className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
             >
-              ☰ 完整活動列表
+              ☰ {uiText(locale, "完整活動列表", "完整活动列表", "Full Event List")}
             </Link>
             <button
               type="button"
@@ -538,7 +569,7 @@ export default function NearbyEventsMapPage() {
               }}
               className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
             >
-              ⛶ 顯示全部
+              ⛶ {uiText(locale, "顯示全部", "显示全部", "Show All")}
             </button>
           </div>
         </div>
@@ -555,7 +586,7 @@ export default function NearbyEventsMapPage() {
                 : "rounded-xl px-4 py-2 text-sm font-black text-slate-500"
             }
           >
-            🗺️ 地圖
+            🗺️ {uiText(locale, "地圖", "地图", "Map")}
           </button>
           <button
             type="button"
@@ -566,7 +597,7 @@ export default function NearbyEventsMapPage() {
                 : "rounded-xl px-4 py-2 text-sm font-black text-slate-500"
             }
           >
-            ☰ 活動 {filtered.length}
+            ☰ {uiText(locale, "活動", "活动", "Events")} {filtered.length}
           </button>
         </div>
       </div>
@@ -588,7 +619,7 @@ export default function NearbyEventsMapPage() {
                 <input
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
-                  placeholder="搜尋活動、場地、港鐵站..."
+                  placeholder={uiText(locale, "搜尋活動、場地、港鐵站...", "搜索活动、场地、港铁站...", "Search events, venues or MTR...")}
                   className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
                 />
               </div>
@@ -617,10 +648,10 @@ export default function NearbyEventsMapPage() {
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {([
-                  ["all", "全部日期"],
-                  ["today", "今日"],
-                  ["tomorrow", "明日"],
-                  ["weekend", "今個週末"],
+                  ["all", uiText(locale, "全部日期", "全部日期", "All Dates")],
+                  ["today", uiText(locale, "今日", "今天", "Today")],
+                  ["tomorrow", uiText(locale, "明日", "明天", "Tomorrow")],
+                  ["weekend", uiText(locale, "今個週末", "这个周末", "This Weekend")],
                 ] as [DateFilter, string][]).map(([value, label]) => (
                   <button
                     key={value}
@@ -647,7 +678,7 @@ export default function NearbyEventsMapPage() {
                       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                   }`}
                 >
-                  免費
+                  {uiText(locale, "免費", "免费", "Free")}
                 </button>
 
                 <button
@@ -659,7 +690,7 @@ export default function NearbyEventsMapPage() {
                       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                   }`}
                 >
-                  SEN友善
+                  {uiText(locale, "SEN友善", "SEN友善", "SEN Friendly")}
                 </button>
 
                 <button
@@ -673,10 +704,10 @@ export default function NearbyEventsMapPage() {
                   } disabled:opacity-60`}
                 >
                   {locating
-                    ? "定位中…"
+                    ? uiText(locale, "定位中…", "定位中…", "Locating…")
                     : userLocation
-                      ? "📍 已使用我的位置"
-                      : "📍 附近我"}
+                      ? `📍 ${uiText(locale, "已使用我的位置", "已使用我的位置", "Using My Location")}`
+                      : `📍 ${uiText(locale, "附近我", "附近我", "Near Me")}`}
                 </button>
 
                 {userLocation ? (
@@ -687,11 +718,11 @@ export default function NearbyEventsMapPage() {
                     }
                     className="rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-800"
                   >
-                    <option value="all">不限距離</option>
-                    <option value="2">2 km內</option>
-                    <option value="5">5 km內</option>
-                    <option value="10">10 km內</option>
-                    <option value="20">20 km內</option>
+                    <option value="all">{uiText(locale, "不限距離", "不限距离", "Any Distance")}</option>
+                    <option value="2">2 km {uiText(locale, "內", "内", "radius")}</option>
+                    <option value="5">5 km {uiText(locale, "內", "内", "radius")}</option>
+                    <option value="10">10 km {uiText(locale, "內", "内", "radius")}</option>
+                    <option value="20">20 km {uiText(locale, "內", "内", "radius")}</option>
                   </select>
                 ) : null}
 
@@ -701,7 +732,7 @@ export default function NearbyEventsMapPage() {
                     onClick={clearFilters}
                     className="rounded-full px-3 py-2 text-xs font-black text-rose-600 hover:bg-rose-50"
                   >
-                    清除篩選
+                    {uiText(locale, "清除篩選", "清除筛选", "Clear Filters")}
                   </button>
                 ) : null}
               </div>
@@ -716,7 +747,7 @@ export default function NearbyEventsMapPage() {
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 text-xs font-bold text-slate-500">
               <span>
                 {loading
-                  ? "正在讀取..."
+                  ? uiText(locale, "正在讀取...", "正在读取...", "Loading...")
                   : `${filtered.length} 個活動 · ${mappedPlaceCount} 個地點`}
               </span>
               {unmappedCount > 0 ? (
@@ -735,13 +766,13 @@ export default function NearbyEventsMapPage() {
 
               {!loading && !errorText && !filtered.length ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center">
-                  <p className="font-black">暫未找到符合條件的活動</p>
+                  <p className="font-black">{uiText(locale, "暫未找到符合條件的活動", "暂未找到符合条件的活动", "No matching events found")}</p>
                   <button
                     type="button"
                     onClick={clearFilters}
                     className="mt-3 text-sm font-black text-teal-700"
                   >
-                    清除篩選再試
+                    {uiText(locale, "清除篩選再試", "清除筛选再试", "Clear Filters")}
                   </button>
                 </div>
               ) : null}
@@ -821,11 +852,21 @@ export default function NearbyEventsMapPage() {
                           </div>
 
                           <h2 className="mt-2 line-clamp-2 text-sm font-black leading-5 text-slate-950">
-                            {safeText(event.title_tc, "未命名活動")}
+                            {localizedText(locale, {
+                              tc: event.title_tc,
+                              sc: event.title_sc,
+                              en: event.title_en,
+                              fallback: uiText(locale, "未命名活動", "未命名活动", "Untitled event"),
+                            })}
                           </h2>
 
                           <p className="mt-1 line-clamp-1 text-xs font-semibold text-slate-500">
-                            {safeText(event.venue_name, event.address || "場地待定")}
+                            {localizedText(locale, {
+                              tc: event.venue_name || event.address,
+                              sc: event.venue_name_sc || event.address_sc,
+                              en: event.venue_name_en || event.address_en,
+                              fallback: uiText(locale, "場地待定", "场地待定", "Venue TBC"),
+                            })}
                           </p>
 
                           <p className="mt-1 text-[11px] font-bold text-slate-500">
@@ -834,7 +875,7 @@ export default function NearbyEventsMapPage() {
 
                           {event.mtr_station ? (
                             <p className="mt-1 text-[11px] text-slate-500">
-                              港鐵 {event.mtr_station}
+                              {uiText(locale, "港鐵", "港铁", "MTR")} {event.mtr_station}
                               {event.district ? ` · ${event.district}` : ""}
                             </p>
                           ) : event.district ? (
@@ -871,7 +912,7 @@ export default function NearbyEventsMapPage() {
                             onClick={(clickEvent) => clickEvent.stopPropagation()}
                             className="rounded-full bg-slate-950 px-3 py-2 text-xs font-black text-white"
                           >
-                            活動詳情
+                            {uiText(locale, "活動詳情", "活动详情", "Event Details")}
                           </Link>
                           <a
                             href={mapUrl(event)}
@@ -880,7 +921,7 @@ export default function NearbyEventsMapPage() {
                             onClick={(clickEvent) => clickEvent.stopPropagation()}
                             className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700"
                           >
-                            Google Maps路線
+                            {uiText(locale, "Google Maps路線", "Google Maps路线", "Google Maps")}
                           </a>
                           {mapped ? (
                             <button
@@ -892,7 +933,7 @@ export default function NearbyEventsMapPage() {
                               }}
                               className="rounded-full border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-black text-teal-700 lg:hidden"
                             >
-                              地圖顯示
+                              {uiText(locale, "地圖顯示", "地图显示", "Show on Map")}
                             </button>
                           ) : null}
                         </div>
