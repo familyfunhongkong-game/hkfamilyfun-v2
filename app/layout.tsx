@@ -287,10 +287,24 @@ export default async function RootLayout({
           {m.skipToContent}
         </a>
         <SiteHeader locale={locale} m={m} />
-        <div id="main-content" tabIndex={-1}>
+        <div
+          id="main-content"
+          tabIndex={-1}
+          className="pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0"
+        >
           {children}
         </div>
         <SiteFooter m={m} />
+        <MobileBottomNav
+          ariaLabel={m.parentArea}
+          items={[
+            { href: "/", label: m.navHome, icon: "🏠" },
+            { href: "/today", label: m.navToday, icon: "⏰" },
+            { href: "/events", label: m.navSearch, icon: "🔎" },
+            { href: "/events/map", label: m.navMap, icon: "🗺️" },
+            { href: "/calendar", label: m.navCalendar, icon: "🗓️" },
+          ]}
+        />
       </body>
     </html>
   );
