@@ -7,7 +7,6 @@ import { getMessages } from "@/lib/i18n/messages";
 import { getServerLocale } from "@/lib/i18n/server";
 import { localeHtmlLang } from "@/lib/i18n/config";
 import "./globals.css";
-import "leaflet/dist/leaflet.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const host = (await headers()).get("host")?.toLowerCase() || "";
