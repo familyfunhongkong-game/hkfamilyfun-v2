@@ -16,9 +16,15 @@ type EventRecord = {
   id: string;
   merchant_id?: string | null;
   title_tc?: string | null;
+  title_sc?: string | null;
+  title_en?: string | null;
   title?: string | null;
   short_description_tc?: string | null;
+  short_description_sc?: string | null;
+  short_description_en?: string | null;
   description_tc?: string | null;
+  description_sc?: string | null;
+  description_en?: string | null;
   highlights?: string | null;
   terms?: string | null;
   remarks?: string | null;
@@ -38,7 +44,11 @@ type EventRecord = {
   recurrence_note?: string | null;
 
   venue_name?: string | null;
+  venue_name_sc?: string | null;
+  venue_name_en?: string | null;
   address?: string | null;
+  address_sc?: string | null;
+  address_en?: string | null;
   area?: string | null;
   district?: string | null;
   mtr_station?: string | null;
@@ -85,8 +95,14 @@ type MerchantRecord = {
 
 type FormState = {
   title_tc: string;
+  title_sc: string;
+  title_en: string;
   short_description_tc: string;
+  short_description_sc: string;
+  short_description_en: string;
   description_tc: string;
+  description_sc: string;
+  description_en: string;
   activity_category: string;
   highlights: string;
   terms: string;
@@ -105,7 +121,11 @@ type FormState = {
   recurrence_note: string;
 
   venue_name: string;
+  venue_name_sc: string;
+  venue_name_en: string;
   address: string;
+  address_sc: string;
+  address_en: string;
   area: string;
   district: string;
   mtr_station: string;
@@ -153,8 +173,14 @@ const MAX_IMAGES = 6;
 
 const emptyForm: FormState = {
   title_tc: "",
+  title_sc: "",
+  title_en: "",
   short_description_tc: "",
+  short_description_sc: "",
+  short_description_en: "",
   description_tc: "",
+  description_sc: "",
+  description_en: "",
   activity_category: "親子活動",
   highlights: "",
   terms: "",
@@ -173,7 +199,11 @@ const emptyForm: FormState = {
   recurrence_note: "",
 
   venue_name: "",
+  venue_name_sc: "",
+  venue_name_en: "",
   address: "",
+  address_sc: "",
+  address_en: "",
   area: "",
   district: "",
   mtr_station: "",
@@ -570,8 +600,14 @@ function formFromEvent(event: EventRecord): FormState {
 
   return {
     title_tc: safeText(event.title_tc || event.title),
+    title_sc: safeText(event.title_sc),
+    title_en: safeText(event.title_en),
     short_description_tc: safeText(event.short_description_tc),
+    short_description_sc: safeText(event.short_description_sc),
+    short_description_en: safeText(event.short_description_en),
     description_tc: safeText(event.description_tc),
+    description_sc: safeText(event.description_sc),
+    description_en: safeText(event.description_en),
     activity_category: readActivityCategory(event),
     highlights: safeText(event.highlights),
     terms: safeText(event.terms),
@@ -596,7 +632,11 @@ function formFromEvent(event: EventRecord): FormState {
     recurrence_note: safeText(event.recurrence_note),
 
     venue_name: safeText(event.venue_name),
+    venue_name_sc: safeText(event.venue_name_sc),
+    venue_name_en: safeText(event.venue_name_en),
     address: safeText(event.address),
+    address_sc: safeText(event.address_sc),
+    address_en: safeText(event.address_en),
     area: safeText(event.area),
     district: safeText(event.district),
     mtr_station: safeText(event.mtr_station),
@@ -1078,9 +1118,15 @@ export default function MerchantEventEditPage() {
 
     const payload: Record<string, unknown> = {
       title_tc: form.title_tc || "未命名活動草稿",
+      title_sc: form.title_sc || null,
+      title_en: form.title_en || null,
       title: form.title_tc || "Untitled event",
       short_description_tc: form.short_description_tc,
+      short_description_sc: form.short_description_sc || null,
+      short_description_en: form.short_description_en || null,
       description_tc: form.description_tc,
+      description_sc: form.description_sc || null,
+      description_en: form.description_en || null,
       activity_category: form.activity_category,
 
       highlights: form.highlights,
@@ -1104,7 +1150,11 @@ export default function MerchantEventEditPage() {
         form.recurrence_type === "weekly" ? form.recurrence_note.trim() || null : null,
 
       venue_name: form.venue_name,
+      venue_name_sc: form.venue_name_sc || null,
+      venue_name_en: form.venue_name_en || null,
       address: form.address,
+      address_sc: form.address_sc || null,
+      address_en: form.address_en || null,
       area: form.area,
       district: form.district,
       mtr_station: form.mtr_station,
@@ -1453,9 +1503,19 @@ export default function MerchantEventEditPage() {
           {step === 0 ? (
             <Section title="Step 1：基本資料" desc="先確認活動名稱、分類及簡介。">
               <Input
-                label="活動名稱"
+                label="活動名稱（繁中）"
                 value={form.title_tc}
                 onChange={(value) => updateField("title_tc", value)}
+              />
+              <Input
+                label="活动名称（简中）"
+                value={form.title_sc}
+                onChange={(value) => updateField("title_sc", value)}
+              />
+              <Input
+                label="Event title (English)"
+                value={form.title_en}
+                onChange={(value) => updateField("title_en", value)}
               />
               <Input
                 label="活動分類"
@@ -1463,9 +1523,19 @@ export default function MerchantEventEditPage() {
                 onChange={(value) => updateField("activity_category", value)}
               />
               <Textarea
-                label="短簡介"
+                label="短簡介（繁中）"
                 value={form.short_description_tc}
                 onChange={(value) => updateField("short_description_tc", value)}
+              />
+              <Textarea
+                label="短简介（简中）"
+                value={form.short_description_sc}
+                onChange={(value) => updateField("short_description_sc", value)}
+              />
+              <Textarea
+                label="Short description (English)"
+                value={form.short_description_en}
+                onChange={(value) => updateField("short_description_en", value)}
               />
               <Input
                 label="標籤"
@@ -1581,14 +1651,34 @@ export default function MerchantEventEditPage() {
                 onChange={(value) => updateField("end_time", value)}
               />
               <Input
-                label="場地名稱"
+                label="場地名稱（繁中）"
                 value={form.venue_name}
                 onChange={(value) => updateField("venue_name", value)}
               />
               <Input
-                label="詳細地址"
+                label="场地名称（简中）"
+                value={form.venue_name_sc}
+                onChange={(value) => updateField("venue_name_sc", value)}
+              />
+              <Input
+                label="Venue name (English)"
+                value={form.venue_name_en}
+                onChange={(value) => updateField("venue_name_en", value)}
+              />
+              <Input
+                label="詳細地址（繁中）"
                 value={form.address}
                 onChange={(value) => updateField("address", value)}
+              />
+              <Input
+                label="详细地址（简中）"
+                value={form.address_sc}
+                onChange={(value) => updateField("address_sc", value)}
+              />
+              <Input
+                label="Address (English)"
+                value={form.address_en}
+                onChange={(value) => updateField("address_en", value)}
               />
               <Input
                 label="地區"
@@ -2056,9 +2146,19 @@ export default function MerchantEventEditPage() {
               desc="最後檢查活動內容、注意事項、主辦資料及完整度。"
             >
               <Textarea
-                label="詳細介紹"
+                label="詳細介紹（繁中）"
                 value={form.description_tc}
                 onChange={(value) => updateField("description_tc", value)}
+              />
+              <Textarea
+                label="详细介绍（简中）"
+                value={form.description_sc}
+                onChange={(value) => updateField("description_sc", value)}
+              />
+              <Textarea
+                label="Detailed description (English)"
+                value={form.description_en}
+                onChange={(value) => updateField("description_en", value)}
               />
               <Textarea
                 label="活動亮點（一行一項）"
