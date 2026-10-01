@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import EventImageFallback from "@/components/event-image-fallback";
+import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 import type { MapBounds, MapEvent } from "./EventMapClient";
@@ -801,8 +801,8 @@ export default function NearbyEventsMapPage() {
                     >
                       <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-3 p-3">
                         <div className="relative">
-                          {event.cover_image_url ? (
-                            <img
+                          <div className="h-28 w-28 overflow-hidden rounded-xl">
+                            <ResilientEventImage
                               src={event.cover_image_url}
                               alt={localizedText(locale, {
                                 tc: event.title_tc,
@@ -811,14 +811,10 @@ export default function NearbyEventsMapPage() {
                                 fallback: uiText(locale, "活動圖片", "活动图片", "Event image"),
                               })}
                               loading="lazy"
-                              decoding="async"
-                              className="h-28 w-28 rounded-xl object-cover"
+                              compactFallback
+                              className="h-28 w-28 object-cover"
                             />
-                          ) : (
-                            <div className="h-28 w-28 overflow-hidden rounded-xl">
-                              <EventImageFallback compact />
-                            </div>
-                          )}
+                          </div>
 
                           {mapped ? (
                             <span className="absolute bottom-1 left-1 rounded-md bg-teal-700/95 px-1.5 py-1 text-[10px] font-bold text-white">
