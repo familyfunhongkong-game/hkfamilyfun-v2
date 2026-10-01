@@ -1,5 +1,9 @@
 ﻿import type { Metadata } from "next";
 import Link from "next/link";
+import LanguageSwitcher from "@/components/language-switcher";
+import { getMessages } from "@/lib/i18n/messages";
+import { getServerLocale } from "@/lib/i18n/server";
+import { localeHtmlLang } from "@/lib/i18n/config";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 
@@ -55,57 +59,17 @@ export const metadata: Metadata = {
 };
 
 const parentLinks = [
-  {
-    href: "/",
-    label: "首頁",
-    icon: "🏠",
-    hoverClass: "hover:bg-blue-50 hover:text-blue-700",
-  },
-  {
-    href: "/calendar",
-    label: "活動日曆",
-    icon: "🗓️",
-    hoverClass: "hover:bg-blue-50 hover:text-blue-700",
-  },
-  {
-    href: "/today",
-    label: "今日活動",
-    icon: "⏰",
-    hoverClass: "hover:bg-pink-50 hover:text-pink-700",
-  },
-  {
-    href: "/events",
-    label: "搜尋活動",
-    icon: "🔎",
-    hoverClass: "hover:bg-purple-50 hover:text-purple-700",
-  },
-  {
-    href: "/events/map",
-    label: "地點探索",
-    icon: "🗺️",
-    hoverClass: "hover:bg-teal-50 hover:text-teal-700",
-  },
-  {
-    href: "/planner",
-    label: "行程助手",
-    icon: "✨",
-    hoverClass: "hover:bg-violet-50 hover:text-violet-700",
-  },
-  {
-    href: "/tips",
-    label: "報料區",
-    icon: "💬",
-    hoverClass: "hover:bg-violet-50 hover:text-violet-700",
-  },
-  {
-    href: "/favorites",
-    label: "收藏",
-    icon: "💖",
-    hoverClass: "hover:bg-rose-50 hover:text-rose-700",
-  },
-];
+  { href: "/", key: "navHome", icon: "🏠", hoverClass: "hover:bg-blue-50 hover:text-blue-700" },
+  { href: "/calendar", key: "navCalendar", icon: "🗓️", hoverClass: "hover:bg-blue-50 hover:text-blue-700" },
+  { href: "/today", key: "navToday", icon: "⏰", hoverClass: "hover:bg-pink-50 hover:text-pink-700" },
+  { href: "/events", key: "navSearch", icon: "🔎", hoverClass: "hover:bg-purple-50 hover:text-purple-700" },
+  { href: "/events/map", key: "navMap", icon: "🗺️", hoverClass: "hover:bg-teal-50 hover:text-teal-700" },
+  { href: "/planner", key: "navPlanner", icon: "✨", hoverClass: "hover:bg-violet-50 hover:text-violet-700" },
+  { href: "/tips", key: "navTips", icon: "💬", hoverClass: "hover:bg-violet-50 hover:text-violet-700" },
+  { href: "/favorites", key: "navFavorites", icon: "💖", hoverClass: "hover:bg-rose-50 hover:text-rose-700" },
+] as const;
 
-function SiteHeader() {
+function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServerLocale>>; m: ReturnType<typeof getMessages> }) {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
@@ -122,7 +86,7 @@ function SiteHeader() {
               HK Family Fun
             </span>
             <span className="block text-xs text-slate-500">
-              香港親子活動平台
+              {m.platformSubtitle}
             </span>
           </span>
         </Link>
@@ -135,7 +99,7 @@ function SiteHeader() {
               className={`rounded-2xl px-3 py-2 transition ${item.hoverClass}`}
             >
               <span className="mr-1">{item.icon}</span>
-              {item.label}
+              {m[item.key]}
             </Link>
           ))}
         </nav>
@@ -145,22 +109,23 @@ function SiteHeader() {
             href="/merchant-join"
             className="text-sm font-bold text-slate-600 hover:text-purple-700"
           >
-            商戶加入
+            {m.merchantJoin}
           </Link>
 
           <Link
             href="/merchant/register"
             className="rounded-full bg-purple-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-purple-800"
           >
-            商戶免費登記
+            {m.merchantRegister}
           </Link>
+          <LanguageSwitcher locale={locale} label={m.language} />
         </div>
       </div>
     </header>
   );
 }
 
-function SiteFooter() {
+function SiteFooter({ m }: { m: ReturnType<typeof getMessages> }) {
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
@@ -178,63 +143,63 @@ function SiteFooter() {
                 HK Family Fun
               </span>
               <span className="block text-xs text-slate-500">
-                香港親子活動平台
+                {m.platformSubtitle}
               </span>
             </span>
           </Link>
 
           <p className="mt-4 max-w-sm text-sm leading-7 text-slate-500">
-            一站式搜尋香港親子活動，幫助家長輕鬆找到適合小朋友的精彩體驗。
+            {m.footerIntro}
           </p>
         </div>
 
         <div>
-          <h2 className="text-sm font-black text-slate-950">家長入口</h2>
+          <h2 className="text-sm font-black text-slate-950">{m.parentArea}</h2>
           <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-600">
             <Link href="/today" className="hover:text-purple-700">
-              今日活動
+              {m.navToday}
             </Link>
             <Link href="/calendar" className="hover:text-purple-700">
-              活動日曆
+              {m.navCalendar}
             </Link>
             <Link href="/events" className="hover:text-purple-700">
-              搜尋活動
+              {m.navSearch}
             </Link>
             <Link href="/events/map" className="hover:text-purple-700">
-              地點探索
+              {m.navMap}
             </Link>
             <Link href="/tips" className="hover:text-purple-700">
-              報料區
+              {m.navTips}
             </Link>
             <Link href="/favorites" className="hover:text-purple-700">
-              收藏
+              {m.navFavorites}
             </Link>
           </div>
         </div>
 
         <div>
-          <h2 className="text-sm font-black text-slate-950">商戶專區</h2>
+          <h2 className="text-sm font-black text-slate-950">{m.merchantArea}</h2>
           <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-600">
             <Link href="/merchant-join" className="hover:text-purple-700">
-              商戶加入
+              {m.merchantJoin}
             </Link>
             <Link href="/merchant-pricing" className="hover:text-purple-700">
-              商戶方案
+              {m.merchantPlans}
             </Link>
             <Link href="/merchant/register" className="hover:text-purple-700">
-              商戶免費登記
+              {m.merchantRegister}
             </Link>
             <Link href="/merchant/login" className="hover:text-purple-700">
-              商戶登入
+              {m.merchantLogin}
             </Link>
             <Link href="/merchant/events/import" className="hover:text-purple-700">
-              智能匯入活動
+              {m.smartImport}
             </Link>
           </div>
         </div>
 
         <div>
-          <h2 className="text-sm font-black text-slate-950">聯絡我們</h2>
+          <h2 className="text-sm font-black text-slate-950">{m.contactUs}</h2>
           <div className="mt-4 space-y-2 text-sm leading-7 text-slate-600">
             <p>
               WhatsApp:{" "}
@@ -271,22 +236,22 @@ function SiteFooter() {
           </div>
 
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
-            HK Family Fun 現階段不代收活動款項；家長會直接連到商戶官方報名渠道。
+            {m.paymentNotice}
           </div>
         </div>
       </div>
 
       <div className="border-t border-slate-100 px-4 py-5">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-xs text-slate-500 md:flex-row">
-          <p>© 2026 HK Family Fun. 保留所有權利。</p>
+          <p>{m.rights}</p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/about" className="hover:text-purple-700">關於我們</Link>
-            <Link href="/contact" className="hover:text-purple-700">聯絡我們</Link>
-            <Link href="/report" className="hover:text-purple-700">報錯／舉報</Link>
-            <Link href="/terms" className="hover:text-purple-700">服務條款</Link>
-            <Link href="/privacy" className="hover:text-purple-700">私隱政策</Link>
-            <Link href="/disclaimer" className="hover:text-purple-700">免責聲明</Link>
-            <Link href="/merchant-terms" className="hover:text-purple-700">商戶條款</Link>
+            <Link href="/about" className="hover:text-purple-700">{m.about}</Link>
+            <Link href="/contact" className="hover:text-purple-700">{m.contact}</Link>
+            <Link href="/report" className="hover:text-purple-700">{m.report}</Link>
+            <Link href="/terms" className="hover:text-purple-700">{m.terms}</Link>
+            <Link href="/privacy" className="hover:text-purple-700">{m.privacy}</Link>
+            <Link href="/disclaimer" className="hover:text-purple-700">{m.disclaimer}</Link>
+            <Link href="/merchant-terms" className="hover:text-purple-700">{m.merchantTerms}</Link>
           </div>
         </div>
       </div>
@@ -294,7 +259,7 @@ function SiteFooter() {
   );
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -302,9 +267,9 @@ export default function RootLayout({
   return (
     <html lang="zh-Hant">
       <body className="bg-slate-50 text-slate-950 antialiased">
-        <SiteHeader />
+        <SiteHeader locale={locale} m={m} />
         {children}
-        <SiteFooter />
+        <SiteFooter m={m} />
       </body>
     </html>
   );
