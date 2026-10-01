@@ -18,8 +18,14 @@ type EventRecord = {
 
   title?: string | null;
   title_tc?: string | null;
+  title_sc?: string | null;
+  title_en?: string | null;
   short_description_tc?: string | null;
+  short_description_sc?: string | null;
+  short_description_en?: string | null;
   description_tc?: string | null;
+  description_sc?: string | null;
+  description_en?: string | null;
   highlights?: string | null;
   terms?: string | null;
   remarks?: string | null;
@@ -57,8 +63,12 @@ type EventRecord = {
 
   venue_name?: string | null;
   venue_name_tc?: string | null;
+  venue_name_sc?: string | null;
+  venue_name_en?: string | null;
   address?: string | null;
   address_tc?: string | null;
+  address_sc?: string | null;
+  address_en?: string | null;
   area?: string | null;
   district?: string | null;
   mtr_station?: string | null;
@@ -826,11 +836,17 @@ export default function AdminEventsPage() {
       next = next.filter((event) => {
         const haystack = [
           event.title_tc,
+          event.title_sc,
+          event.title_en,
           event.title,
           event.short_description_tc,
+          event.short_description_sc,
+          event.short_description_en,
           event.merchant_name,
           event.organizer_name,
           event.venue_name_tc,
+          event.venue_name_sc,
+          event.venue_name_en,
           event.venue_name,
           event.district,
           event.mtr_station,
@@ -1033,15 +1049,25 @@ export default function AdminEventsPage() {
               const tone = getStatusTone(status);
               const title = safeText(event.title_tc || event.title, "未命名活動");
               const shortDescription = safeText(
-                event.short_description_tc,
+                event.short_description_tc ||
+                  event.short_description_sc ||
+                  event.short_description_en,
                 "未提供短簡介。",
               );
+              const languageReady = [
+                Boolean(safeText(event.title_tc)),
+                Boolean(safeText(event.title_sc)),
+                Boolean(safeText(event.title_en)),
+              ].filter(Boolean).length;
               const merchantName = safeText(
                 event.merchant_name || event.organizer_name,
                 "未填商戶名稱",
               );
               const venue = safeText(
-                event.venue_name_tc || event.venue_name,
+                event.venue_name_tc ||
+                  event.venue_name_sc ||
+                  event.venue_name_en ||
+                  event.venue_name,
                 safeText(
                   event.address_tc || event.address,
                   safeText(event.district, "地點待定"),
