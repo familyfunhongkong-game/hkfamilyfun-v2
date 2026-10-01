@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import EventImageFallback from "@/components/event-image-fallback";
+import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 
@@ -943,19 +944,14 @@ export default function PublicEventDetailPage() {
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
               <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
-                {isFallbackCover ? (
-                  <EventImageFallback />
-                ) : (
-                  <img
-                    src={images[0]?.url || FALLBACK_IMAGE}
-                    alt={title}
-                    loading="eager"
-                    fetchPriority="high"
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                    style={coverStyle}
-                  />
-                )}
+                <ResilientEventImage
+                  src={isFallbackCover ? null : images[0]?.url}
+                  alt={title}
+                  loading="eager"
+                  fetchPriority="high"
+                  className="h-full w-full object-cover"
+                  style={coverStyle}
+                />
 
                 <div className="absolute left-4 top-4 flex flex-wrap gap-2">
                   <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-purple-700 shadow-sm backdrop-blur">
@@ -1141,18 +1137,18 @@ export default function PublicEventDetailPage() {
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
               <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-purple-50 via-white to-amber-50">
                 <div className="relative aspect-[16/9] overflow-hidden">
-                  {selectedImage?.url === FALLBACK_IMAGE ? (
-                    <EventImageFallback compact />
-                  ) : (
-                    <img
-                      src={selectedImage?.url || FALLBACK_IMAGE}
-                      alt={selectedImage?.label || title}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-cover"
-                      style={selectedImageStyle}
-                    />
-                  )}
+                  <ResilientEventImage
+                    src={
+                      selectedImage?.url === FALLBACK_IMAGE
+                        ? null
+                        : selectedImage?.url
+                    }
+                    alt={selectedImage?.label || title}
+                    loading="lazy"
+                    compactFallback
+                    className="h-full w-full object-cover"
+                    style={selectedImageStyle}
+                  />
 
                   <div className="absolute left-4 top-4 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
                     {selectedImage?.label || "圖片"}
