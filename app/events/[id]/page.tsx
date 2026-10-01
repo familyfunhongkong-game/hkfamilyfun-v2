@@ -32,7 +32,11 @@ type EventRecord = {
   description_sc?: string | null;
   description_en?: string | null;
   highlights?: string | null;
+  highlights_sc?: string | null;
+  highlights_en?: string | null;
   terms?: string | null;
+  terms_sc?: string | null;
+  terms_en?: string | null;
   remarks?: string | null;
   tags?: string[] | JsonValue | null;
 
@@ -118,8 +122,14 @@ type EventRecord = {
   google_map_embed_url?: string | null;
 
   parent_note_tc?: string | null;
+  parent_note_sc?: string | null;
+  parent_note_en?: string | null;
   safety_note_tc?: string | null;
+  safety_note_sc?: string | null;
+  safety_note_en?: string | null;
   cancellation_policy_tc?: string | null;
+  cancellation_policy_sc?: string | null;
+  cancellation_policy_en?: string | null;
 
   source_type?: string | null;
   created_at?: string | null;
@@ -919,6 +929,49 @@ export default function PublicEventDetailPage() {
     sc: event.description_sc,
     en: event.description_en,
     fallback: locale === "en" ? "Detailed event information is not available yet." : "暫未提供詳細活動內容。",
+  });
+  const highlights = localizedText(locale, {
+    tc: event.highlights,
+    sc: event.highlights_sc,
+    en: event.highlights_en,
+  });
+  const terms = localizedText(locale, {
+    tc: event.terms,
+    sc: event.terms_sc,
+    en: event.terms_en,
+  });
+  const parentNote = localizedText(locale, {
+    tc: event.parent_note_tc,
+    sc: event.parent_note_sc,
+    en: event.parent_note_en,
+    fallback: uiText(
+      locale,
+      "請出發前再次向主辦方確認活動日期、時間、名額、收費及報名安排。",
+      "请出发前再次向主办方确认活动日期、时间、名额、收费及报名安排。",
+      "Before visiting, reconfirm the event date, time, availability, fees and registration arrangements with the organizer.",
+    ),
+  });
+  const safetyNote = localizedText(locale, {
+    tc: event.safety_note_tc,
+    sc: event.safety_note_sc,
+    en: event.safety_note_en,
+    fallback: uiText(
+      locale,
+      "請按小朋友年齡、體力及現場人流情況評估是否適合參加。",
+      "请按小朋友年龄、体力及现场人流情况评估是否适合参加。",
+      "Consider your child’s age, stamina and crowd conditions when deciding whether the activity is suitable.",
+    ),
+  });
+  const cancellationPolicy = localizedText(locale, {
+    tc: event.cancellation_policy_tc,
+    sc: event.cancellation_policy_sc,
+    en: event.cancellation_policy_en,
+    fallback: uiText(
+      locale,
+      "請以主辦方公布的最新安排為準。",
+      "请以主办方公布的最新安排为准。",
+      "Refer to the organizer’s latest published arrangements.",
+    ),
   });
 
   const venue = localizedText(locale, {
