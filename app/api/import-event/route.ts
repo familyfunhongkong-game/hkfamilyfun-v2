@@ -613,6 +613,7 @@ export async function POST(request: NextRequest) {
     let event = emptyEvent(parsedUrl.toString());
 
     let html = "";
+    let readerText = "";
     let fetchError = "";
 
     try {
@@ -645,10 +646,37 @@ export async function POST(request: NextRequest) {
             contentType.includes("text/xml") ||
             contentType.includes("text/plain");
 
-          if (!allowedContent) {
-            fetchError = contentType.includes("application/pdf")
-              ? "PDF 網址暫未支援自動抽取；請先建立草稿，再於編輯頁補充資料及圖片。"
-              : `此網址內容格式暫未支援（${contentType || "unknown"}）。`;
+          if (contentType.includes("application/pdf")) {
+            try {
+              const readerResponse = await fetch(
+                `https://r.jina.ai/${finalUrl.toString()}`,
+                {
+                  method: "GET",
+                  headers: {
+                    accept: "text/plain",
+                    "accept-language": "zh-HK,zh;q=0.9,en;q=0.8",
+                  },
+                  cache: "no-store",
+                  signal: AbortSignal.timeout(20000),
+                },
+              );
+
+              if (!readerResponse.ok) {
+                fetchError = `PDF Reader 回應 ${readerResponse.status}，請手動補充活動資料。`;
+              } else {
+                readerText = (await readerResponse.text()).slice(0, 100000);
+                if (!readerText.trim()) {
+                  fetchError = "PDF Reader 未能抽取文字，請手動補充活動資料。";
+                }
+              }
+            } catch (readerError) {
+              fetchError =
+                readerError instanceof Error
+                  ? `PDF Reader 失敗：${readerError.message}`
+                  : "PDF Reader 失敗，請手動補充活動資料。";
+            }
+          } else if (!allowedContent) {
+            fetchError = `此網址內容格式暫未支援（${contentType || "unknown"}）。`;
           } else {
             const declaredLength = Number(response.headers.get("content-length") || "0");
             if (declaredLength > MAX_SOURCE_BYTES) {
@@ -725,6 +753,59 @@ export async function POST(request: NextRequest) {
       event.extraction_notes.push("已完成 server-side HTML / meta / JSON-LD 結構化抽取。");
     }
 
+    if (readerText) {
+      const titleMatch =
+        readerText.match(/^Title:\\s*(.+)$/im) ||
+        readerText.match(/^#\\s+(.+)$/m);
+      const normalizedReaderText = readerText
+        .replace(/^Title:\\s*.+$/im, "")
+        .replace(/^URL Source:\\s*.+$/im, "")
+        .replace(/^Published Time:\\s*.+$/im, "")
+        .replace(/^Markdown Content:\\s*$/im, "")
+        .replace(/\\n{3,}/g, "\\n\\n")
+        .trim()
+        .slice(0, 20000);
+
+      event = {
+        ...event,
+        title_tc: event.title_tc || (titleMatch?.[1] || "").trim(),
+        short_description_tc:
+          event.short_description_tc || normalizedReaderText.slice(0, 160),
+        description_tc:
+          event.description_tc || normalizedReaderText.slice(0, 5000),
+      };
+
+      const dateRange = extractDateRangeFromText(normalizedReaderText);
+      if (!event.start_date) event.start_date = dateRange.start_date;
+      if (!event.end_date) event.end_date = dateRange.end_date;
+
+      const venue = extractVenueFromText(normalizedReaderText);
+      event = {
+        ...event,
+        venue_name: event.venue_name || venue.venue_name,
+        address: event.address || venue.address,
+        area: event.area || venue.area,
+        district: event.district || venue.district,
+        mtr_station: event.mtr_station || venue.mtr_station,
+      };
+
+      const price = extractPrices(normalizedReaderText);
+      if (price) {
+        event = {
+          ...event,
+          price_display_mode: price.price_display_mode,
+          price_label: price.price_label,
+          min_price: price.min_price,
+          max_price: price.max_price,
+          offer_price: price.offer_price,
+          original_price: price.original_price,
+        };
+      }
+
+      event.extraction_notes.push(
+        "已透過 PDF Reader 抽取文字；請商戶 / Admin 再核對原始 PDF 的日期、地點、價格及報名資料。",
+      );
+    }
 
     if (!event.title_tc) {
       event.extraction_notes.push("未能抽取活動名稱，請商戶手動填寫。");
