@@ -934,6 +934,7 @@ function EventCard({
 }) {
   const [shareCopied, setShareCopied] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const m = getEventListMessages(locale);
 
   const images = getGalleryImages(event);
   const safeActiveIndex =
