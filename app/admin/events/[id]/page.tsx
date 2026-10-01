@@ -533,12 +533,45 @@ function getStatusTone(status?: string | null): StatusTone {
 
 function buildChecklist(event: EventRecord, images: GalleryImage[]): ChecklistItem[] {
   const actionUrl = getPrimaryActionUrl(event);
+  const tcReady = Boolean(
+    safeText(event.title_tc) &&
+      safeText(event.short_description_tc || event.description_tc),
+  );
+  const scReady = Boolean(
+    safeText(event.title_sc) &&
+      safeText(event.short_description_sc || event.description_sc),
+  );
+  const enReady = Boolean(
+    safeText(event.title_en) &&
+      safeText(event.short_description_en || event.description_en),
+  );
   const description = safeText(event.description_tc || event.short_description_tc);
   const price = formatPrice(event);
   const hasMap = isValidUrl(event.google_map_url) || isValidUrl(event.google_map_embed_url);
   const hasRealImage = images.length > 0 && images[0]?.url !== FALLBACK_IMAGE;
 
   return [
+    {
+      key: "lang_tc",
+      label: "繁中內容",
+      done: tcReady,
+      level: "critical",
+      note: "繁中標題及簡介／詳細內容。",
+    },
+    {
+      key: "lang_sc",
+      label: "簡中內容",
+      done: scReady,
+      level: "warning",
+      note: "簡中標題及簡介／詳細內容。",
+    },
+    {
+      key: "lang_en",
+      label: "English content",
+      done: enReady,
+      level: "warning",
+      note: "English title and short/detailed description.",
+    },
     {
       key: "title",
       label: "活動名稱",
