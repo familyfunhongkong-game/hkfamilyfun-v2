@@ -849,7 +849,7 @@ export default function PublicEventDetailPage() {
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-6xl">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">正在載入活動資料...</p>
+            <p className="text-sm font-bold text-slate-500">{m.loading}</p>
           </div>
         </div>
       </main>
@@ -861,13 +861,13 @@ export default function PublicEventDetailPage() {
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-4xl">
           <div className="rounded-3xl border border-rose-200 bg-white p-8 shadow-sm">
-            <p className="text-sm font-extrabold text-rose-600">活動讀取失敗</p>
+            <p className="text-sm font-extrabold text-rose-600">{m.loadFailed}</p>
             <p className="mt-2 text-sm text-slate-600">{errorText}</p>
             <Link
               href="/events"
               className="mt-6 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-extrabold text-white"
             >
-              返回活動列表
+              {m.back}
             </Link>
           </div>
         </div>
@@ -880,18 +880,18 @@ export default function PublicEventDetailPage() {
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-4xl">
           <div className="rounded-3xl border border-amber-200 bg-white p-8 shadow-sm">
-            <Badge tone="amber">未公開</Badge>
+            <Badge tone="amber">{m.notPublished}</Badge>
             <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950">
-              此活動尚未公開或已封存
+              {m.notPublishedTitle}
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              此活動可能仍在商戶草稿、審批中、已拒絕或已封存狀態，因此暫時不會在公開頁顯示。
+              {m.notPublishedDesc}
             </p>
             <Link
               href="/events"
               className="mt-6 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
             >
-              返回活動列表
+              {m.back}
             </Link>
           </div>
         </div>
@@ -973,7 +973,7 @@ export default function PublicEventDetailPage() {
             href="/events"
             className="text-sm font-extrabold text-purple-700 hover:text-purple-900"
           >
-            ← 返回活動列表
+            ← {m.back}
           </Link>
 
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -998,7 +998,7 @@ export default function PublicEventDetailPage() {
                       : "bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-600",
                   ].join(" ")}
                 >
-                  {isFavorite ? "❤️ 已收藏" : "♡ 收藏"}
+                  {isFavorite ? `❤️ ${m.saved}` : `♡ ${m.save}`}
                 </button>
               </div>
 
@@ -1018,10 +1018,10 @@ export default function PublicEventDetailPage() {
                 </p>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-2">
-                  <InfoPill label="日期" value={formatDateRange(event, locale)} />
-                  <InfoPill label="時間" value={formatTimeRange(event, locale)} />
-                  <InfoPill label="地點" value={venue} />
-                  <InfoPill label="收費" value={formatPrice(event, locale)} />
+                  <InfoPill label={m.date} value={formatDateRange(event, locale)} />
+                  <InfoPill label={m.time} value={formatTimeRange(event, locale)} />
+                  <InfoPill label={m.location} value={venue} />
+                  <InfoPill label={m.price} value={formatPrice(event, locale)} />
                 </div>
 
                 {tags.length > 0 ? (
