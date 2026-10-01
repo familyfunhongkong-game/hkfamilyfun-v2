@@ -1116,6 +1116,9 @@ export default function AdminEventsPage() {
 
                       <div className="absolute left-3 top-3 flex flex-wrap gap-2">
                         <Badge tone={tone}>{getStatusLabel(event)}</Badge>
+                        <Badge tone={languageReady === 3 ? "green" : "amber"}>
+                          語言 {languageReady}/3
+                        </Badge>
                         <Badge tone={ready ? "green" : "rose"}>
                           {completeness}%
                         </Badge>
