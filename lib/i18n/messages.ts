@@ -30,6 +30,7 @@ export const messages = {
     disclaimer: "免責聲明",
     merchantTerms: "商戶條款",
     language: "語言",
+    skipToContent: "跳到主要內容",
   },
   "zh-Hans": {
     platformSubtitle: "香港亲子活动平台",
@@ -60,6 +61,7 @@ export const messages = {
     disclaimer: "免责声明",
     merchantTerms: "商户条款",
     language: "语言",
+    skipToContent: "跳到主要内容",
   },
   en: {
     platformSubtitle: "Hong Kong Family Activity Platform",
@@ -90,6 +92,7 @@ export const messages = {
     disclaimer: "Disclaimer",
     merchantTerms: "Merchant Terms",
     language: "Language",
+    skipToContent: "Skip to main content",
   },
 } as const satisfies Record<AppLocale, Record<string, string>>;
 
