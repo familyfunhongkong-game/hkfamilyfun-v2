@@ -267,7 +267,7 @@ function getBaseGalleryImages(event: EventRecord): GalleryImage[] {
     return [
       {
         url: FALLBACK_IMAGE,
-        label: "HK Family Fun 預設圖片",
+        label: "HK Family Fun 預設{t("圖片", "图片", "Image")}",
         isCover: true,
       },
     ];
@@ -275,7 +275,7 @@ function getBaseGalleryImages(event: EventRecord): GalleryImage[] {
 
   return ordered.map((url, index) => ({
     url,
-    label: index === 0 ? "封面圖片" : `Gallery 圖片 ${index}`,
+    label: index === 0 ? "封面{t("圖片", "图片", "Image")}" : `Gallery {t("圖片", "图片", "Image")} ${index}`,
     isCover: index === 0,
   }));
 }
@@ -684,6 +684,7 @@ export default function PublicEventDetailPage() {
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const t = (tc: string, sc: string, en: string) => uiText(locale, tc, sc, en);
 
   useEffect(() => {
     setLocale(getClientLocale());
@@ -694,18 +695,20 @@ export default function PublicEventDetailPage() {
     let ignore = false;
 
     async function loadEvent() {
+      const activeLocale = getClientLocale();
+      setLocale(activeLocale);
       setLoading(true);
       setErrorText("");
 
       if (!eventId || !UUID_REGEX.test(eventId)) {
-        setErrorText("活動連結格式不正確，請由活動列表重新進入。");
+        setErrorText(uiText(activeLocale, "活動連結格式不正確，請由活動列表重新進入。", "活动链接格式不正确，请由活动列表重新进入。", "This event link is invalid. Please return to the event list."));
         setEvent(null);
         setLoading(false);
         return;
       }
 
       if (!supabase) {
-        setErrorText("網站暫時未能連接資料庫，請稍後再試。");
+        setErrorText(uiText(activeLocale, "網站暫時未能連接資料庫，請稍後再試。", "网站暂时未能连接数据库，请稍后再试。", "The event database is temporarily unavailable. Please try again later."));
         setLoading(false);
         return;
       }
@@ -719,14 +722,14 @@ export default function PublicEventDetailPage() {
       if (ignore) return;
 
       if (error) {
-        setErrorText(error.message || "讀取活動資料失敗。");
+        setErrorText(error.message || uiText(activeLocale, "讀取活動資料失敗。", "读取活动资料失败。", "Failed to load event details."));
         setEvent(null);
         setLoading(false);
         return;
       }
 
       if (!data) {
-        setErrorText("找不到此活動。");
+        setErrorText(uiText(activeLocale, "找不到此活動。", "找不到此活动。", "This event could not be found."));
         setEvent(null);
         setLoading(false);
         return;
@@ -820,7 +823,7 @@ export default function PublicEventDetailPage() {
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-6xl">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">正在載入活動資料...</p>
+            <p className="text-sm font-bold text-slate-500">{t("正在載入活動資料...", "正在加载活动资料...", "Loading event details...")}</p>
           </div>
         </div>
       </main>
@@ -832,13 +835,13 @@ export default function PublicEventDetailPage() {
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-4xl">
           <div className="rounded-3xl border border-rose-200 bg-white p-8 shadow-sm">
-            <p className="text-sm font-extrabold text-rose-600">活動讀取失敗</p>
+            <p className="text-sm font-extrabold text-rose-600">{t("活動讀取失敗", "活动读取失败", "Unable to Load Event")}</p>
             <p className="mt-2 text-sm text-slate-600">{errorText}</p>
             <Link
               href="/events"
               className="mt-6 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-extrabold text-white"
             >
-              返回活動列表
+              {t("返回活動列表", "返回活动列表", "Back to Events")}
             </Link>
           </div>
         </div>
@@ -851,18 +854,18 @@ export default function PublicEventDetailPage() {
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-4xl">
           <div className="rounded-3xl border border-amber-200 bg-white p-8 shadow-sm">
-            <Badge tone="amber">未公開</Badge>
+            <Badge tone="amber">{t("未公開", "未公开", "Not Published")}</Badge>
             <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950">
-              此活動尚未公開或已封存
+              此活動尚{t("未公開", "未公开", "Not Published")}或已封存
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              此活動可能仍在商戶草稿、審批中、已拒絕或已封存狀態，因此暫時不會在公開頁顯示。
+              {t("此活動可能仍在商戶草稿、審批中、已拒絕或已封存狀態，因此暫時不會在公開頁顯示。", "此活动可能仍在商户草稿、审批中、已拒绝或已归档状态，因此暂时不会在公开页显示。", "This event may still be a draft, under review, rejected or archived, so it is not currently shown publicly.")}
             </p>
             <Link
               href="/events"
               className="mt-6 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
             >
-              返回活動列表
+              {t("返回活動列表", "返回活动列表", "Back to Events")}
             </Link>
           </div>
         </div>
@@ -874,7 +877,7 @@ export default function PublicEventDetailPage() {
     tc: event.title_tc || event.title,
     sc: event.title_sc,
     en: event.title_en,
-    fallback: locale === "en" ? "Untitled event" : "未命名活動",
+    fallback: t("未命名活動", "未命名活动", "Untitled event"),
   });
   const shortDescription = localizedText(locale, {
     tc: event.short_description_tc,
@@ -889,14 +892,14 @@ export default function PublicEventDetailPage() {
     tc: event.description_tc,
     sc: event.description_sc,
     en: event.description_en,
-    fallback: locale === "en" ? "Detailed event information is not available yet." : "暫未提供詳細活動內容。",
+    fallback: t("暫未提供詳細活動內容。", "暂未提供详细活动内容。", "Detailed event information is not available yet."),
   });
 
   const venue = localizedText(locale, {
     tc: event.venue_name_tc || event.venue_name || event.address_tc || event.address,
     sc: event.venue_name_sc || event.address_sc,
     en: event.venue_name_en || event.address_en,
-    fallback: safeText(event.district, locale === "en" ? "Location TBC" : "地點待定"),
+    fallback: safeText(event.district, t("地點待定", "地点待定", "Location TBC")),
   });
   const address = localizedText(locale, {
     tc: event.address_tc || event.address,
@@ -908,7 +911,7 @@ export default function PublicEventDetailPage() {
 
   const merchantName = safeText(
     event.merchant_name || event.organizer_name,
-    "HK Family Fun 商戶",
+    t("HK Family Fun 商戶", "HK Family Fun 商户", "HK Family Fun Merchant"),
   );
 
   const registrationUrl = getRegistrationUrl(event);
@@ -944,7 +947,7 @@ export default function PublicEventDetailPage() {
             href="/events"
             className="text-sm font-extrabold text-purple-700 hover:text-purple-900"
           >
-            ← 返回活動列表
+            ← {t("返回活動列表", "返回活动列表", "Back to Events")}
           </Link>
 
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -969,7 +972,7 @@ export default function PublicEventDetailPage() {
                       : "bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-600",
                   ].join(" ")}
                 >
-                  {isFavorite ? "❤️ 已收藏" : "♡ 收藏"}
+                  {isFavorite ? "❤️ {t("已收藏", "已收藏", "Saved")}" : "♡ {t("收藏", "收藏", "Save")}"}
                 </button>
               </div>
 
@@ -989,10 +992,10 @@ export default function PublicEventDetailPage() {
                 </p>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-2">
-                  <InfoPill label="日期" value={formatDateRange(event, locale)} />
-                  <InfoPill label="時間" value={formatTimeRange(event, locale)} />
-                  <InfoPill label="地點" value={venue} />
-                  <InfoPill label="收費" value={formatPrice(event, locale)} />
+                  <InfoPill label={t("日期", "日期", "Date")} value={formatDateRange(event, locale)} />
+                  <InfoPill label={t("時間", "时间", "Time")} value={formatTimeRange(event, locale)} />
+                  <InfoPill label={t("地點", "地点", "Location")} value={venue} />
+                  <InfoPill label={t("收費", "收费", "Price")} value={formatPrice(event, locale)} />
                 </div>
 
                 {tags.length > 0 ? (
@@ -1012,9 +1015,9 @@ export default function PublicEventDetailPage() {
 
             <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
               <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-sm font-black text-slate-950">報名及查詢</p>
+                <p className="text-sm font-black text-slate-950">{t("報名及查詢", "报名及查询", "Registration & Enquiries")}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  出發前請向主辦方確認日期、時間、名額、收費及報名安排。
+                  {t("出發前請向主辦方確認日期、時間、名額、收費及報名安排。", "出发前请向主办方确认日期、时间、名额、收费及报名安排。", "Before visiting, confirm the date, time, availability, price and registration arrangements with the organizer.")}
                 </p>
 
                 {actionUrl ? (
@@ -1049,7 +1052,7 @@ export default function PublicEventDetailPage() {
                     </a>
                   ) : (
                     <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
-                      地圖待定
+                      {t("地圖待定", "地图待定", "Map TBC")}
                     </span>
                   )}
 
@@ -1058,7 +1061,7 @@ export default function PublicEventDetailPage() {
                     onClick={() => shareEvent(title, shortDescription)}
                     className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
                   >
-                    {copiedShare ? "已複製連結" : "🔗 分享"}
+                    {copiedShare ? "{t("已複製連結", "已复制链接", "Link Copied")}" : "🔗 {t("分享", "分享", "Share")}"}
                   </button>
                 </div>
 
@@ -1073,7 +1076,7 @@ export default function PublicEventDetailPage() {
                         : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50",
                     ].join(" ")}
                   >
-                    {isFavorite ? "❤️ 已收藏" : "♡ 收藏"}
+                    {isFavorite ? "❤️ {t("已收藏", "已收藏", "Saved")}" : "♡ {t("收藏", "收藏", "Save")}"}
                   </button>
 
                   {officialUrl ? (
@@ -1083,35 +1086,35 @@ export default function PublicEventDetailPage() {
                       rel="noreferrer"
                       className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
                     >
-                      官網資料
+                      {t("官網資料", "官网资料", "Official Website")}
                     </a>
                   ) : (
                     <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
-                      官網待定
+                      {t("官網待定", "官网待定", "Official Link TBC")}
                     </span>
                   )}
                 </div>
 
                 <div className="mt-5 space-y-2">
-                  <InfoPill label="主辦單位" value={merchantName} />
-                  <InfoPill label="活動圖片" value={`${images.length} 張`} />
+                  <InfoPill label="{t("主辦單位", "主办单位", "Organizer")}" value={merchantName} />
+                  <InfoPill label="{t("活動{t("圖片", "图片", "Image")}", "活动图片", "Event Images")}" value={`${images.length} ${t("張", "张", images.length === 1 ? "image" : "images")}`} />
                 </div>
               </div>
 
               <div className="rounded-3xl border border-purple-100 bg-purple-50 p-5">
-                <p className="text-sm font-black text-purple-950">家長下一步</p>
+                <p className="text-sm font-black text-purple-950">{t("家長下一步", "家长下一步", "Next Steps")}</p>
                 <ol className="mt-3 space-y-2 text-xs font-bold leading-6 text-purple-800">
-                  <li>1. 查看日期、時間、地點及收費。</li>
-                  <li>2. 用 Google Map 預先規劃路線。</li>
-                  <li>3. 前往報名或活動官網確認名額。</li>
-                  <li>4. 收藏或分享給家人朋友。</li>
+                  <li>{t("1. 查看日期、時間、地點及收費。", "1. 查看日期、时间、地点及收费。", "1. Check the date, time, location and price.")}</li>
+                  <li>{t("2. 用 Google Map 預先規劃路線。", "2. 用 Google Map 预先规划路线。", "2. Plan your route with Google Maps.")}</li>
+                  <li>{t("3. 前往報名或活動官網確認名額。", "3. 前往报名或活动官网确认名额。", "3. Check availability on the registration or official page.")}</li>
+                  <li>{t("4. 收藏或分享給家人朋友。", "4. 收藏或分享给家人朋友。", "4. Save or share the event with family and friends.")}</li>
                 </ol>
               </div>
 
               <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
-                <p className="text-sm font-black text-amber-900">家長提示</p>
+                <p className="text-sm font-black text-amber-900">{t("家長提示", "家长提示", "Parent Note")}</p>
                 <p className="mt-2 text-sm font-medium leading-7 text-amber-800">
-                  HK Family Fun 只整理活動資訊。活動內容、名額、收費、報名及取消安排，以主辦方最新公布為準。
+                  {t("HK Family Fun 只整理活動資訊。活動內容、名額、收費、報名及取消安排，以主辦方最新公布為準。", "HK Family Fun 只整理活动资讯。活动内容、名额、收费、报名及取消安排，以主办方最新公布为准。", "HK Family Fun organizes event information only. Event details, availability, fees, registration and cancellation arrangements are subject to the organizer’s latest information.")}
                 </p>
               </div>
             </aside>
@@ -1121,13 +1124,13 @@ export default function PublicEventDetailPage() {
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section className="space-y-6">
-          <SectionCard title="活動圖片 Gallery" icon="🖼️">
+          <SectionCard title="{t("活動{t("圖片", "图片", "Image")}", "活动图片", "Event Images")} Gallery" icon="🖼️">
             <div className="mb-4 rounded-2xl border border-purple-100 bg-purple-50 p-4">
               <p className="text-sm font-black text-purple-900">
-                點擊縮圖切換圖片
+                {t("點擊縮圖切換{t("圖片", "图片", "Image")}", "点击缩图切换图片", "Select a Thumbnail to Change Image")}
               </p>
               <p className="mt-1 text-xs font-bold leading-5 text-purple-700">
-                瀏覽活動圖片；圖片排序由商戶後台管理。
+                瀏覽{t("活動{t("圖片", "图片", "Image")}", "活动图片", "Event Images")}；{t("圖片", "图片", "Image")}排序由商戶後台管理。
               </p>
             </div>
 
@@ -1148,7 +1151,7 @@ export default function PublicEventDetailPage() {
                   />
 
                   <div className="absolute left-4 top-4 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
-                    {selectedImage?.label || "圖片"}
+                    {selectedImage?.label || "{t("圖片", "图片", "Image")}"}
                   </div>
 
                   <div className="absolute bottom-4 right-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow-sm backdrop-blur">
@@ -1205,14 +1208,14 @@ export default function PublicEventDetailPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="活動詳情" icon="✨">
+          <SectionCard title={t("活動詳情", "活动详情", "Event Details")} icon="✨">
             <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
               {description}
             </div>
           </SectionCard>
 
           {safeText(event.highlights) ? (
-            <SectionCard title="活動亮點" icon="⭐">
+            <SectionCard title={t("活動亮點", "活动亮点", "Highlights")} icon="⭐">
               <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
                 {safeText(event.highlights)}
               </div>
@@ -1220,28 +1223,28 @@ export default function PublicEventDetailPage() {
           ) : null}
 
           {safeText(event.terms) ? (
-            <SectionCard title="注意事項" icon="⚠️">
+            <SectionCard title={t("注意事項", "注意事项", "Important Notes")} icon="⚠️">
               <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
                 {safeText(event.terms)}
               </div>
             </SectionCard>
           ) : null}
 
-          <SectionCard title="地點及交通" icon="📍">
+          <SectionCard title={t("地點及交通", "地点及交通", "Location & Transport")} icon="📍">
             <div className="grid gap-3 md:grid-cols-2">
-              <InfoPill label="場地" value={venue} />
-              <InfoPill label="地區" value={district || "地區待定"} />
-              <InfoPill label="港鐵站" value={mtr || "港鐵站待定"} />
-              <InfoPill label="地址" value={address || "地址待定"} />
+              <InfoPill label={t("場地", "场地", "Venue")} value={venue} />
+              <InfoPill label={t("地區", "地区", "District")} value={district || t("地區待定", "地区待定", "District TBC")} />
+              <InfoPill label={t("港鐵站", "港铁站", "MTR Station")} value={mtr || t("港鐵站待定", "港铁站待定", "MTR TBC")} />
+              <InfoPill label={t("地址", "地址", "Address")} value={address || t("地址待定", "地址待定", "Address TBC")} />
             </div>
 
             <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <p className="text-sm font-black text-slate-950">前往活動地點</p>
+              <p className="text-sm font-black text-slate-950">{t("前往活動地點", "前往活动地点", "Getting There")}</p>
               <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
                 {venue}
               </p>
               <p className="mt-1 text-sm leading-6 text-slate-500">
-                {address || buildLocationText(event) || "地址待定"}
+                {address || buildLocationText(event) || t("地址待定", "地址待定", "Address TBC")}
               </p>
 
               <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -1252,11 +1255,11 @@ export default function PublicEventDetailPage() {
                     rel="noreferrer"
                     className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800"
                   >
-                    📍 開啟 Google Map
+                    📍 {t("開啟 Google Map", "打开 Google Map", "Open Google Maps")}
                   </a>
                 ) : (
                   <span className="inline-flex items-center justify-center rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-400">
-                    地圖待定
+                    {t("地圖待定", "地图待定", "Map TBC")}
                   </span>
                 )}
 
@@ -1267,7 +1270,7 @@ export default function PublicEventDetailPage() {
                   }
                   className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
                 >
-                  {copiedAddress ? "已複製地址" : "複製地址"}
+                  {copiedAddress ? "{t("已{t("複製地址", "复制地址", "Copy Address")}", "已复制地址", "Address Copied")}" : "{t("複製地址", "复制地址", "Copy Address")}"}
                 </button>
 
                 <button
@@ -1275,7 +1278,7 @@ export default function PublicEventDetailPage() {
                   onClick={() => shareEvent(title, shortDescription)}
                   className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
                 >
-                  {copiedShare ? "已複製連結" : "分享活動"}
+                  {copiedShare ? "{t("已複製連結", "已复制链接", "Link Copied")}" : "{t("分享活動", "分享活动", "Share Event")}"}
                 </button>
               </div>
             </div>
@@ -1284,7 +1287,7 @@ export default function PublicEventDetailPage() {
               <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <div className="border-b border-slate-100 px-4 py-3">
                   <p className="text-xs font-black text-slate-500">
-                    Google Map 預覽
+                    {t("Google Map 預覽", "Google Map 预览", "Google Map Preview")}
                   </p>
                   <p className="mt-1 line-clamp-1 text-sm font-bold text-slate-800">
                     {venue}
@@ -1302,19 +1305,19 @@ export default function PublicEventDetailPage() {
             ) : (
               <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
                 <p className="text-sm font-black text-slate-600">
-                  暫時未能顯示地圖預覽
+                  {t("暫時未能顯示地圖預覽", "暂时未能显示地图预览", "Map Preview Unavailable")}
                 </p>
                 <p className="mt-2 text-xs font-medium text-slate-500">
-                  請檢查活動地址、場地名稱或 Google Map URL。
+                  {t("請檢查活動地址、場地名稱或 Google Map URL。", "请检查活动地址、场地名称或 Google Map URL。", "Please check the event address, venue name or Google Maps URL.")}
                 </p>
               </div>
             )}
           </SectionCard>
 
-          <SectionCard title="家長留意事項" icon="👨‍👩‍👧‍👦">
+          <SectionCard title={t("家長留意事項", "家长留意事项", "Parent Information")} icon="👨‍👩‍👧‍👦">
             <div className="grid gap-4">
               <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-100">
-                <p className="text-xs font-black text-amber-700">家長提示</p>
+                <p className="text-xs font-black text-amber-700">{t("家長提示", "家长提示", "Parent Note")}</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-7 text-amber-900">
                   {safeText(
                     event.parent_note_tc,
@@ -1324,7 +1327,7 @@ export default function PublicEventDetailPage() {
               </div>
 
               <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
-                <p className="text-xs font-black text-sky-700">安全提示</p>
+                <p className="text-xs font-black text-sky-700">{t("安全提示", "安全提示", "Safety Note")}</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-7 text-sky-900">
                   {safeText(
                     event.safety_note_tc,
@@ -1334,7 +1337,7 @@ export default function PublicEventDetailPage() {
               </div>
 
               <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
-                <p className="text-xs font-black text-slate-700">取消及退款政策</p>
+                <p className="text-xs font-black text-slate-700">{t("取消及退款政策", "取消及退款政策", "Cancellation & Refund Policy")}</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-7 text-slate-700">
                   {safeText(
                     event.cancellation_policy_tc,
@@ -1348,21 +1351,21 @@ export default function PublicEventDetailPage() {
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-black text-slate-950">快速資料</h3>
+            <h3 className="text-sm font-black text-slate-950">{t("快速資料", "快速资料", "Quick Facts")}</h3>
 
             <div className="mt-4 space-y-2">
-              <InfoPill label="活動分類" value={getCategoryLabel(event, locale)} />
-              <InfoPill label="日期" value={formatDateRange(event, locale)} />
-              <InfoPill label="時間" value={formatTimeRange(event, locale)} />
-              <InfoPill label="收費" value={formatPrice(event, locale)} />
-              <InfoPill label="主辦單位" value={merchantName} />
+              <InfoPill label={t("活動分類", "活动分类", "Category")} value={getCategoryLabel(event, locale)} />
+              <InfoPill label={t("日期", "日期", "Date")} value={formatDateRange(event, locale)} />
+              <InfoPill label={t("時間", "时间", "Time")} value={formatTimeRange(event, locale)} />
+              <InfoPill label={t("收費", "收费", "Price")} value={formatPrice(event, locale)} />
+              <InfoPill label="{t("主辦單位", "主办单位", "Organizer")}" value={merchantName} />
             </div>
           </div>
 
           <div className="rounded-3xl border border-purple-100 bg-purple-50 p-5">
-            <h3 className="text-sm font-black text-purple-950">分享提醒</h3>
+            <h3 className="text-sm font-black text-purple-950">{t("分享提醒", "分享提醒", "Before You Share")}</h3>
             <p className="mt-3 text-xs font-bold leading-6 text-purple-800">
-              活動資料可能會因天氣、人流、主辦方安排而變更。建議出發前先查看官方頁面或向主辦方確認。
+              {t("活動資料可能會因天氣、人流、主辦方安排而變更。建議出發前先查看官方頁面或向主辦方確認。", "活动资料可能会因天气、人流、主办方安排而变更。建议出发前先查看官方页面或向主办方确认。", "Event details may change due to weather, crowd levels or organizer arrangements. Check the official page or confirm with the organizer before visiting.")}
             </p>
           </div>
 
@@ -1370,7 +1373,7 @@ export default function PublicEventDetailPage() {
             href="/events"
             className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-slate-700 hover:bg-slate-50"
           >
-            查看更多親子活動
+            {t("查看更多親子活動", "查看更多亲子活动", "Explore More Family Events")}
           </Link>
         </aside>
       </div>
