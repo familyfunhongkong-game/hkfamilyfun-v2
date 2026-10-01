@@ -58,3 +58,15 @@ export function localizedText(
   if (locale === "en") return en || tc || sc || fallback;
   return tc || sc || en || fallback;
 }
+
+
+export function uiText(
+  locale: AppLocale,
+  tc: string,
+  sc: string,
+  en: string,
+) {
+  if (locale === "zh-Hans") return sc;
+  if (locale === "en") return en;
+  return tc;
+}
