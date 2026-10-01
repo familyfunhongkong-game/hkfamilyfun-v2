@@ -1,11 +1,18 @@
 import type { Event, PriceType } from "@/lib/types";
 import { supabase } from "@/lib/supabase/client";
+import { localizedText, type AppLocale } from "@/lib/i18n/config";
 
 type DatabaseEvent = {
   id: string;
   title_tc: string | null;
+  title_sc?: string | null;
+  title_en?: string | null;
   short_description_tc: string | null;
+  short_description_sc?: string | null;
+  short_description_en?: string | null;
   description_tc: string | null;
+  description_sc?: string | null;
+  description_en?: string | null;
   organizer_name: string | null;
   merchant_name?: string | null;
   event_url: string | null;
@@ -15,7 +22,11 @@ type DatabaseEvent = {
   booking_url?: string | null;
   official_url?: string | null;
   venue_name: string | null;
+  venue_name_sc?: string | null;
+  venue_name_en?: string | null;
   address: string | null;
+  address_sc?: string | null;
+  address_en?: string | null;
   district: string | null;
   mtr_station: string | null;
   start_date: string | null;
@@ -158,12 +169,25 @@ function formatPrice(event: DatabaseEvent) {
   return "詳情請見官方網站";
 }
 
-function mapDatabaseEvent(event: DatabaseEvent): Event {
+function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
   return {
     id: event.id,
-    title: event.title_tc || "未命名活動",
-    shortDescription: event.short_description_tc || "",
-    description: event.description_tc || event.short_description_tc || "",
+    title: localizedText(locale, {
+      tc: event.title_tc,
+      sc: event.title_sc,
+      en: event.title_en,
+      fallback: locale === "en" ? "Untitled event" : "未命名活動",
+    }),
+    shortDescription: localizedText(locale, {
+      tc: event.short_description_tc,
+      sc: event.short_description_sc,
+      en: event.short_description_en,
+    }),
+    description: localizedText(locale, {
+      tc: event.description_tc || event.short_description_tc,
+      sc: event.description_sc || event.short_description_sc,
+      en: event.description_en || event.short_description_en,
+    }),
     date: formatDate(event.start_date),
     endDate: event.end_date || undefined,
     recurrenceType:
@@ -179,10 +203,10 @@ function mapDatabaseEvent(event: DatabaseEvent): Event {
       : [],
     recurrenceNote: event.recurrence_note || undefined,
     time: formatTime(event.start_time, event.end_time),
-    district: event.district || "香港",
-    mtrStation: event.mtr_station || "待定",
+    district: event.district || (locale === "en" ? "Hong Kong" : "香港"),
+    mtrStation: event.mtr_station || (locale === "en" ? "TBC" : "待定"),
     ageRange: formatAgeRange(event.age_min, event.age_max),
-    organizer: event.organizer_name || event.merchant_name || "主辦單位待定",
+    organizer: event.organizer_name || event.merchant_name || (locale === "en" ? "Organizer TBC" : "主辦單位待定"),
     tags: normalizeTags(event.tags),
     category: event.activity_category || event.category || "親子活動",
     priceType: (
@@ -204,18 +228,23 @@ function mapDatabaseEvent(event: DatabaseEvent): Event {
       event.source_url ||
       undefined,
     featured: Boolean(event.is_featured),
-    address: event.address || undefined,
+    address:
+      localizedText(locale, {
+        tc: event.address,
+        sc: event.address_sc,
+        en: event.address_en,
+      }) || undefined,
   };
 }
 
-export async function getPublishedEvents(): Promise<Event[]> {
+export async function getPublishedEvents(locale: AppLocale = "zh-Hant"): Promise<Event[]> {
   if (!supabase) {
     console.warn("Supabase 未設定，無法讀取活動資料。");
     return [];
   }
 
   const { data, error } = await supabase
-    .from("public_events")
+    .from("public_events_i18n")
     .select("*")
     .eq("status", "published")
     .order("start_date", { ascending: true });
@@ -227,11 +256,12 @@ export async function getPublishedEvents(): Promise<Event[]> {
 
   return ((data || []) as DatabaseEvent[])
     .filter((event) => !isExpiredEvent(event))
-    .map(mapDatabaseEvent);
+    .map((event) => mapDatabaseEvent(event, locale));
 }
 
 export async function getPublishedEventById(
   id: string,
+  locale: AppLocale = "zh-Hant",
 ): Promise<Event | null> {
   if (!supabase) {
     console.warn("Supabase 未設定，無法讀取活動資料。");
@@ -253,5 +283,5 @@ export async function getPublishedEventById(
   const event = data as DatabaseEvent;
   if (isExpiredEvent(event)) return null;
 
-  return mapDatabaseEvent(event);
+  return mapDatabaseEvent(event, locale);
 }
