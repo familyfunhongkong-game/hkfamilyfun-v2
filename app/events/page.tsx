@@ -4,6 +4,7 @@ import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import EventImageFallback from "@/components/event-image-fallback";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 
@@ -1023,21 +1024,13 @@ function EventCard({
         </Link>
 
         {isFallback ? (
-          <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
-            <div className="grid h-16 w-16 place-items-center rounded-3xl bg-purple-700 text-2xl font-black text-white shadow-sm">
-              親
-            </div>
-            <p className="mt-3 text-sm font-black text-purple-900">
-              HK Family Fun
-            </p>
-            <p className="mt-1 text-xs font-bold text-slate-500">
-              活動圖片準備中
-            </p>
-          </div>
+          <EventImageFallback compact />
         ) : (
           <img
             src={hero}
             alt={title}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
             style={coverStyle}
           />
