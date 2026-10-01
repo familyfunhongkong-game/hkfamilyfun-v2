@@ -264,8 +264,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getServerLocale();
+  const m = getMessages(locale);
+
   return (
-    <html lang="zh-Hant">
+    <html lang={localeHtmlLang(locale)}>
       <body className="bg-slate-50 text-slate-950 antialiased">
         <SiteHeader locale={locale} m={m} />
         {children}
