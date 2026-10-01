@@ -976,10 +976,10 @@ function EventCard({
   });
   const district = safeText(event.district || event.area);
   const mtr = safeText(event.mtr_station);
-  const price = formatPrice(event);
-  const category = getCategoryLabel(event);
+  const price = formatPrice(event, locale);
+  const category = getCategoryLabel(event, locale);
   const tags = getTagArray(event.tags);
-  const ctaLabel = getPrimaryActionLabel(event);
+  const ctaLabel = getPrimaryActionLabel(event, locale);
   const actionUrl = getPrimaryActionUrl(event);
   const officialUrl = getOfficialWebsiteUrl(event);
   const registrationUrl = getRegistrationUrl(event);
@@ -1171,7 +1171,7 @@ function EventCard({
           <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
             <p className="text-xs font-black text-slate-400">日期</p>
             <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
-              {formatDateRange(event)}
+              {formatDateRange(event, locale)}
             </p>
           </div>
 
@@ -1179,7 +1179,7 @@ function EventCard({
             <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
               <p className="text-xs font-black text-slate-400">時間</p>
               <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
-                {formatTimeRange(event)}
+                {formatTimeRange(event, locale)}
               </p>
             </div>
 
@@ -1406,7 +1406,7 @@ export default function PublicEventsPage() {
   }, []);
 
   const districtOptions = useMemo(() => getDistrictOptions(events), [events]);
-  const categoryOptions = useMemo(() => getCategoryOptions(events), [events]);
+  const categoryOptions = useMemo(() => getCategoryOptions(events, locale), [events, locale]);
 
   const filteredEvents = useMemo(() => {
     const text = keyword.trim().toLowerCase();
@@ -1477,14 +1477,14 @@ export default function PublicEventsPage() {
     }
 
     if (categoryFilter !== "all") {
-      next = next.filter((event) => getCategoryLabel(event) === categoryFilter);
+      next = next.filter((event) => getCategoryLabel(event, locale) === categoryFilter);
     }
 
     if (senOnly) {
       next = next.filter(
         (event) =>
           Boolean(event.is_sen_friendly) ||
-          getCategoryLabel(event) === "SEN 友善" ||
+          getCategoryLabel(event, locale) === uiText(locale, "SEN 友善", "SEN 友善", "SEN Friendly") ||
           getTagArray(event.tags).some((tag) => tag.toUpperCase().includes("SEN")),
       );
     }
@@ -1493,7 +1493,7 @@ export default function PublicEventsPage() {
       next = next.filter(
         (event) =>
           Boolean(event.is_indoor) ||
-          getCategoryLabel(event) === "室內活動" ||
+          getCategoryLabel(event, locale) === uiText(locale, "室內活動", "室内活动", "Indoor") ||
           getTagArray(event.tags).some((tag) => tag.includes("室內")),
       );
     }
@@ -1685,19 +1685,19 @@ export default function PublicEventsPage() {
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            {dateFilters.map((filter) => (
+            {dateFilterKeys.map((key) => (
               <button
-                key={filter.key}
+                key={key}
                 type="button"
-                onClick={() => setDateFilter(filter.key)}
+                onClick={() => setDateFilter(key)}
                 className={[
                   "rounded-full px-4 py-2 text-sm font-black transition",
-                  dateFilter === filter.key
+                  dateFilter === key
                     ? "bg-purple-700 text-white"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200",
                 ].join(" ")}
               >
-                {filter.label}
+                {dateFilterLabel(locale, key)}
               </button>
             ))}
           </div>
@@ -1710,9 +1710,9 @@ export default function PublicEventsPage() {
               }
               className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             >
-              {priceFilters.map((filter) => (
-                <option key={filter.key} value={filter.key}>
-                  {filter.label}
+              {priceFilterKeys.map((key) => (
+                <option key={key} value={key}>
+                  {priceFilterLabel(locale, key)}
                 </option>
               ))}
             </select>
