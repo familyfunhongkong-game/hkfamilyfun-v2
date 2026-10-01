@@ -1153,13 +1153,13 @@ export default function PublicEventDetailPage() {
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section className="space-y-6">
-          <SectionCard title="活動圖片 Gallery" icon="🖼️">
+          <SectionCard title={m.gallery} icon="🖼️">
             <div className="mb-4 rounded-2xl border border-purple-100 bg-purple-50 p-4">
               <p className="text-sm font-black text-purple-900">
-                點擊縮圖切換圖片
+                {m.galleryHint}
               </p>
               <p className="mt-1 text-xs font-bold leading-5 text-purple-700">
-                瀏覽活動圖片；圖片排序由商戶後台管理。
+                {m.galleryDesc}
               </p>
             </div>
 
@@ -1180,7 +1180,7 @@ export default function PublicEventDetailPage() {
                   />
 
                   <div className="absolute left-4 top-4 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
-                    {selectedImage?.label || "圖片"}
+                    {selectedImage?.label || m.image}
                   </div>
 
                   <div className="absolute bottom-4 right-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow-sm backdrop-blur">
@@ -1206,18 +1206,14 @@ export default function PublicEventDetailPage() {
                       className="group w-full overflow-hidden rounded-xl bg-white text-left"
                     >
                       <div className="aspect-[16/10] overflow-hidden rounded-xl bg-gradient-to-br from-purple-50 via-white to-amber-50">
-                        {image.url === FALLBACK_IMAGE ? (
-                          <div className="flex h-full w-full items-center justify-center text-sm font-black text-purple-800">
-                            HK Family Fun
-                          </div>
-                        ) : (
-                          <img
-                            src={image.url}
-                            alt={image.label}
-                            className="h-full w-full object-cover transition group-hover:scale-[1.03]"
-                            style={image.isCover ? coverStyle : undefined}
-                          />
-                        )}
+                        <ResilientEventImage
+                          src={image.url === FALLBACK_IMAGE ? null : image.url}
+                          alt={image.label}
+                          loading="lazy"
+                          compactFallback
+                          className="h-full w-full object-cover transition group-hover:scale-[1.03]"
+                          style={image.isCover ? coverStyle : undefined}
+                        />
                       </div>
 
                       <div className="flex items-center justify-between px-1 py-2">
@@ -1237,14 +1233,14 @@ export default function PublicEventDetailPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="活動詳情" icon="✨">
+          <SectionCard title={m.details} icon="✨">
             <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
               {description}
             </div>
           </SectionCard>
 
           {safeText(event.highlights) ? (
-            <SectionCard title="活動亮點" icon="⭐">
+            <SectionCard title={m.highlights} icon="⭐">
               <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
                 {safeText(event.highlights)}
               </div>
@@ -1252,28 +1248,28 @@ export default function PublicEventDetailPage() {
           ) : null}
 
           {safeText(event.terms) ? (
-            <SectionCard title="注意事項" icon="⚠️">
+            <SectionCard title={m.important} icon="⚠️">
               <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
                 {safeText(event.terms)}
               </div>
             </SectionCard>
           ) : null}
 
-          <SectionCard title="地點及交通" icon="📍">
+          <SectionCard title={m.transport} icon="📍">
             <div className="grid gap-3 md:grid-cols-2">
-              <InfoPill label="場地" value={venue} />
-              <InfoPill label="地區" value={district || "地區待定"} />
-              <InfoPill label="港鐵站" value={mtr || "港鐵站待定"} />
-              <InfoPill label="地址" value={address || "地址待定"} />
+              <InfoPill label={m.venue} value={venue} />
+              <InfoPill label={m.district} value={district || m.districtTbc} />
+              <InfoPill label={m.mtr} value={mtr || m.mtrTbc} />
+              <InfoPill label={m.address} value={address || m.addressTbc} />
             </div>
 
             <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <p className="text-sm font-black text-slate-950">前往活動地點</p>
+              <p className="text-sm font-black text-slate-950">{m.gettingThere}</p>
               <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
                 {venue}
               </p>
               <p className="mt-1 text-sm leading-6 text-slate-500">
-                {address || buildLocationText(event) || "地址待定"}
+                {address || buildLocationText(event) || m.addressTbc}
               </p>
 
               <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -1284,11 +1280,11 @@ export default function PublicEventDetailPage() {
                     rel="noreferrer"
                     className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800"
                   >
-                    📍 開啟 Google Map
+                    📍 {m.openMap}
                   </a>
                 ) : (
                   <span className="inline-flex items-center justify-center rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-400">
-                    地圖待定
+                    {m.mapTbc}
                   </span>
                 )}
 
@@ -1299,7 +1295,7 @@ export default function PublicEventDetailPage() {
                   }
                   className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
                 >
-                  {copiedAddress ? "已複製地址" : "複製地址"}
+                  {copiedAddress ? m.addressCopied : m.copyAddress}
                 </button>
 
                 <button
@@ -1307,7 +1303,7 @@ export default function PublicEventDetailPage() {
                   onClick={() => shareEvent(title, shortDescription)}
                   className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
                 >
-                  {copiedShare ? "已複製連結" : "分享活動"}
+                  {copiedShare ? m.linkCopied : m.shareEvent}
                 </button>
               </div>
             </div>
@@ -1316,7 +1312,7 @@ export default function PublicEventDetailPage() {
               <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <div className="border-b border-slate-100 px-4 py-3">
                   <p className="text-xs font-black text-slate-500">
-                    Google Map 預覽
+                    {m.mapPreview}
                   </p>
                   <p className="mt-1 line-clamp-1 text-sm font-bold text-slate-800">
                     {venue}
@@ -1334,10 +1330,10 @@ export default function PublicEventDetailPage() {
             ) : (
               <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
                 <p className="text-sm font-black text-slate-600">
-                  暫時未能顯示地圖預覽
+                  {m.mapPreviewUnavailable}
                 </p>
                 <p className="mt-2 text-xs font-medium text-slate-500">
-                  請檢查活動地址、場地名稱或 Google Map URL。
+                  {m.mapCheck}
                 </p>
               </div>
             )}
