@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  LOCALE_COOKIE,
   SUPPORTED_LOCALES,
   localeLabel,
   type AppLocale,
