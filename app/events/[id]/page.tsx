@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { getClientLocale } from "@/lib/i18n/client";
+import { localizedText, type AppLocale } from "@/lib/i18n/config";
 
 type JsonValue =
   | string
@@ -19,9 +21,14 @@ type EventRecord = {
 
   title?: string | null;
   title_tc?: string | null;
+  title_sc?: string | null;
   title_en?: string | null;
   short_description_tc?: string | null;
+  short_description_sc?: string | null;
+  short_description_en?: string | null;
   description_tc?: string | null;
+  description_sc?: string | null;
+  description_en?: string | null;
   highlights?: string | null;
   terms?: string | null;
   remarks?: string | null;
@@ -66,9 +73,11 @@ type EventRecord = {
 
   venue_name?: string | null;
   venue_name_tc?: string | null;
+  venue_name_sc?: string | null;
   venue_name_en?: string | null;
   address?: string | null;
   address_tc?: string | null;
+  address_sc?: string | null;
   address_en?: string | null;
   area?: string | null;
   district?: string | null;
@@ -659,6 +668,7 @@ export default function PublicEventDetailPage() {
   const rawEventId = String(params?.id || "");
   const eventId = decodeURIComponent(rawEventId);
 
+  const [locale, setLocale] = useState<AppLocale>("zh-Hant");
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
@@ -668,6 +678,7 @@ export default function PublicEventDetailPage() {
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   useEffect(() => {
+    setLocale(getClientLocale());
     setFavoriteIds(readFavoriteIds());
   }, []);
 
@@ -692,7 +703,7 @@ export default function PublicEventDetailPage() {
       }
 
       const { data, error } = await supabase
-        .from("public_events")
+        .from("public_events_i18n")
         .select("*")
         .eq("id", eventId)
         .maybeSingle();
@@ -851,18 +862,39 @@ export default function PublicEventDetailPage() {
     );
   }
 
-  const title = safeText(event.title_tc || event.title, "未命名活動");
-  const shortDescription = safeText(
-    event.short_description_tc,
-    "HK Family Fun 精選親子活動，出發前請向主辦方確認最新安排。",
-  );
-  const description = safeText(event.description_tc, "暫未提供詳細活動內容。");
+  const title = localizedText(locale, {
+    tc: event.title_tc || event.title,
+    sc: event.title_sc,
+    en: event.title_en,
+    fallback: locale === "en" ? "Untitled event" : "未命名活動",
+  });
+  const shortDescription = localizedText(locale, {
+    tc: event.short_description_tc,
+    sc: event.short_description_sc,
+    en: event.short_description_en,
+    fallback:
+      locale === "en"
+        ? "HK Family Fun selected family activity. Please confirm the latest arrangements with the organizer before visiting."
+        : "HK Family Fun 精選親子活動，出發前請向主辦方確認最新安排。",
+  });
+  const description = localizedText(locale, {
+    tc: event.description_tc,
+    sc: event.description_sc,
+    en: event.description_en,
+    fallback: locale === "en" ? "Detailed event information is not available yet." : "暫未提供詳細活動內容。",
+  });
 
-  const venue = safeText(
-    event.venue_name_tc || event.venue_name,
-    safeText(event.address_tc || event.address, safeText(event.district, "地點待定")),
-  );
-  const address = safeText(event.address_tc || event.address, "");
+  const venue = localizedText(locale, {
+    tc: event.venue_name_tc || event.venue_name || event.address_tc || event.address,
+    sc: event.venue_name_sc || event.address_sc,
+    en: event.venue_name_en || event.address_en,
+    fallback: safeText(event.district, locale === "en" ? "Location TBC" : "地點待定"),
+  });
+  const address = localizedText(locale, {
+    tc: event.address_tc || event.address,
+    sc: event.address_sc,
+    en: event.address_en,
+  });
   const district = safeText(event.district, "");
   const mtr = safeText(event.mtr_station, "");
 
