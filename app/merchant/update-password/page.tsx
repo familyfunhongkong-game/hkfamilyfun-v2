@@ -27,13 +27,12 @@ export default function MerchantUpdatePasswordPage() {
     const {
       data: { subscription },
     } = client.auth.onAuthStateChange((event, session) => {
-      if (!active) {
-        return;
-      }
+      if (!active) return;
 
-      if (event === "PASSWORD_RECOVERY" || event === "INITIAL_SESSION") {
+      if (event === "PASSWORD_RECOVERY") {
         setHasRecoverySession(Boolean(session));
         setIsChecking(false);
+        return;
       }
 
       if (event === "SIGNED_OUT") {
@@ -42,19 +41,10 @@ export default function MerchantUpdatePasswordPage() {
       }
     });
 
-    void client.auth.getSession().then(({ data, error }) => {
-      if (!active) return;
-
-      if (error) {
-        setHasRecoverySession(false);
-        setErrorMessage("未能驗證重設密碼連結，請重新申請。");
-      } else {
-        setHasRecoverySession(Boolean(data.session));
-      }
-
-      setIsChecking(false);
-    });
-
+    // A normal authenticated session must never unlock the password-recovery form.
+    // Supabase emits PASSWORD_RECOVERY when the user arrives through a valid
+    // password-reset link. Waiting briefly also gives the client time to parse
+    // the recovery token from the redirect URL.
     const verificationTimeout = window.setTimeout(() => {
       if (!active) return;
       setIsChecking(false);
