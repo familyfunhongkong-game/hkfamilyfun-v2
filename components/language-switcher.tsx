@@ -17,20 +17,27 @@ export default function LanguageSwitcher({
 }) {
   const [busy, setBusy] = useState(false);
 
-  function changeLocale(nextLocale: AppLocale) {
+  async function changeLocale(nextLocale: AppLocale) {
     if (nextLocale === locale || busy) return;
 
     setBusy(true);
 
-    document.cookie = [
-      `${LOCALE_COOKIE}=${encodeURIComponent(nextLocale)}`,
-      "Path=/",
-      "Max-Age=31536000",
-      "SameSite=Lax",
-      "Secure",
-    ].join("; ");
+    try {
+      const response = await fetch("/api/locale", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ locale: nextLocale }),
+      });
 
-    window.location.reload();
+      if (!response.ok) {
+        setBusy(false);
+        return;
+      }
+
+      window.location.reload();
+    } catch {
+      setBusy(false);
+    }
   }
 
   return (
