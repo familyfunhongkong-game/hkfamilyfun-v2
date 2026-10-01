@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
+const MAX_PDF_BYTES = 12 * 1024 * 1024;
 
 type JsonObject = Record<string, unknown>;
 
@@ -466,6 +467,64 @@ function applyJsonLd(
   };
 }
 
+function applyReaderText(
+  event: ExtractedEvent,
+  readerText: string,
+  note = "已透過 PDF Reader 抽取文字；請商戶 / Admin 再核對原始 PDF 的日期、地點、價格及報名資料。",
+) {
+  const titleMatch =
+    readerText.match(/^Title:\\s*(.+)$/im) ||
+    readerText.match(/^#\\s+(.+)$/m);
+
+  const normalizedReaderText = readerText
+    .replace(/^Title:\\s*.+$/im, "")
+    .replace(/^URL Source:\\s*.+$/im, "")
+    .replace(/^Published Time:\\s*.+$/im, "")
+    .replace(/^Markdown Content:\\s*$/im, "")
+    .replace(/\\n{3,}/g, "\\n\\n")
+    .trim()
+    .slice(0, 20000);
+
+  let next: ExtractedEvent = {
+    ...event,
+    title_tc: event.title_tc || (titleMatch?.[1] || "").trim(),
+    short_description_tc:
+      event.short_description_tc || normalizedReaderText.slice(0, 160),
+    description_tc:
+      event.description_tc || normalizedReaderText.slice(0, 5000),
+  };
+
+  const dateRange = extractDateRangeFromText(normalizedReaderText);
+  if (!next.start_date) next.start_date = dateRange.start_date;
+  if (!next.end_date) next.end_date = dateRange.end_date;
+
+  const venue = extractVenueFromText(normalizedReaderText);
+  next = {
+    ...next,
+    venue_name: next.venue_name || venue.venue_name,
+    address: next.address || venue.address,
+    area: next.area || venue.area,
+    district: next.district || venue.district,
+    mtr_station: next.mtr_station || venue.mtr_station,
+  };
+
+  const price = extractPrices(normalizedReaderText);
+  if (price) {
+    next = {
+      ...next,
+      price_display_mode: price.price_display_mode,
+      price_label: price.price_label,
+      min_price: price.min_price,
+      max_price: price.max_price,
+      offer_price: price.offer_price,
+      original_price: price.original_price,
+    };
+  }
+
+  next.extraction_notes.push(note);
+  return next;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authorization = request.headers.get("authorization") || "";
@@ -527,6 +586,118 @@ export async function POST(request: NextRequest) {
         { ok: false, error: "商戶帳戶尚未獲批准，暫時不能使用智能網址匯入。" },
         { status: 403 }
       );
+    }
+
+    const requestContentType = (
+      request.headers.get("content-type") || ""
+    ).toLowerCase();
+
+    if (requestContentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const uploaded = formData.get("file");
+
+      if (!(uploaded instanceof File)) {
+        return NextResponse.json(
+          { ok: false, error: "請選擇 PDF 檔案。" },
+          { status: 400 },
+        );
+      }
+
+      const fileName = uploaded.name || "event.pdf";
+      const isPdf =
+        uploaded.type.toLowerCase().includes("pdf") ||
+        fileName.toLowerCase().endsWith(".pdf");
+
+      if (!isPdf) {
+        return NextResponse.json(
+          { ok: false, error: "目前直接上載只支援 PDF 檔案。" },
+          { status: 415 },
+        );
+      }
+
+      if (uploaded.size <= 0 || uploaded.size > MAX_PDF_BYTES) {
+        return NextResponse.json(
+          { ok: false, error: "PDF 必須小於 12MB。" },
+          { status: 413 },
+        );
+      }
+
+      const readerForm = new FormData();
+      readerForm.append("file", uploaded, fileName);
+
+      const jinaKey = String(process.env.JINA_API_KEY || "").trim();
+      const readerHeaders: HeadersInit = {
+        accept: "text/plain",
+        "accept-language": "zh-HK,zh;q=0.9,en;q=0.8",
+      };
+
+      if (jinaKey) {
+        readerHeaders.authorization = `Bearer ${jinaKey}`;
+      }
+
+      let readerResponse: Response;
+
+      try {
+        readerResponse = await fetch("https://r.jina.ai/", {
+          method: "POST",
+          headers: readerHeaders,
+          body: readerForm,
+          cache: "no-store",
+          signal: AbortSignal.timeout(30000),
+        });
+      } catch {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "PDF Reader 暫時未能連線，請稍後再試或改用 PDF 網址。",
+          },
+          { status: 503 },
+        );
+      }
+
+      if (!readerResponse.ok) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `PDF Reader 回應 ${readerResponse.status}，請稍後再試。`,
+          },
+          { status: 502 },
+        );
+      }
+
+      const readerText = (await readerResponse.text()).slice(0, 100000);
+
+      if (!readerText.trim()) {
+        return NextResponse.json(
+          { ok: false, error: "PDF Reader 未能抽取文字，請改用手動建立草稿。" },
+          { status: 422 },
+        );
+      }
+
+      let event = emptyEvent("");
+      event = applyReaderText(
+        event,
+        readerText,
+        `已直接讀取上載 PDF「${fileName}」。請核對所有抽取資料；原 PDF 不會自動公開或儲存。`,
+      );
+
+      if (!event.title_tc) {
+        event.extraction_notes.push("未能抽取活動名稱，請商戶手動填寫。");
+      }
+
+      if (!event.start_date) {
+        event.extraction_notes.push("未能穩定抽取活動日期，請商戶手動確認。");
+      }
+
+      event.extraction_notes.push(
+        "PDF 上載只用作即時文字抽取；系統不會將原始 PDF 自動發布。匯入結果只會建立草稿。",
+      );
+
+      return NextResponse.json({
+        ok: true,
+        source_type: "pdf_upload",
+        event,
+      });
     }
 
     const body = await request.json();
@@ -754,57 +925,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (readerText) {
-      const titleMatch =
-        readerText.match(/^Title:\\s*(.+)$/im) ||
-        readerText.match(/^#\\s+(.+)$/m);
-      const normalizedReaderText = readerText
-        .replace(/^Title:\\s*.+$/im, "")
-        .replace(/^URL Source:\\s*.+$/im, "")
-        .replace(/^Published Time:\\s*.+$/im, "")
-        .replace(/^Markdown Content:\\s*$/im, "")
-        .replace(/\\n{3,}/g, "\\n\\n")
-        .trim()
-        .slice(0, 20000);
-
-      event = {
-        ...event,
-        title_tc: event.title_tc || (titleMatch?.[1] || "").trim(),
-        short_description_tc:
-          event.short_description_tc || normalizedReaderText.slice(0, 160),
-        description_tc:
-          event.description_tc || normalizedReaderText.slice(0, 5000),
-      };
-
-      const dateRange = extractDateRangeFromText(normalizedReaderText);
-      if (!event.start_date) event.start_date = dateRange.start_date;
-      if (!event.end_date) event.end_date = dateRange.end_date;
-
-      const venue = extractVenueFromText(normalizedReaderText);
-      event = {
-        ...event,
-        venue_name: event.venue_name || venue.venue_name,
-        address: event.address || venue.address,
-        area: event.area || venue.area,
-        district: event.district || venue.district,
-        mtr_station: event.mtr_station || venue.mtr_station,
-      };
-
-      const price = extractPrices(normalizedReaderText);
-      if (price) {
-        event = {
-          ...event,
-          price_display_mode: price.price_display_mode,
-          price_label: price.price_label,
-          min_price: price.min_price,
-          max_price: price.max_price,
-          offer_price: price.offer_price,
-          original_price: price.original_price,
-        };
-      }
-
-      event.extraction_notes.push(
-        "已透過 PDF Reader 抽取文字；請商戶 / Admin 再核對原始 PDF 的日期、地點、價格及報名資料。",
-      );
+      event = applyReaderText(event, readerText);
     }
 
     if (!event.title_tc) {
