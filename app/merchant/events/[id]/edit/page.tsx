@@ -734,6 +734,7 @@ export default function MerchantEventEditPage() {
   const [message, setMessage] = useState("");
   const [previewMode, setPreviewMode] = useState<"card" | "detail">("card");
   const [uploading, setUploading] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">(
     "idle"
@@ -765,6 +766,121 @@ export default function MerchantEventEditPage() {
       ...previous,
       [key]: value,
     }));
+  }
+
+  async function autoFillTranslations() {
+    if (!editable || translating) return;
+
+    const client = supabase;
+
+    if (!client) {
+      setMessage("系統暫時未能連接帳戶服務。");
+      return;
+    }
+
+    const fields: Record<string, string> = {};
+
+    if ((!form.title_sc || !form.title_en) && form.title_tc.trim()) {
+      fields.title_tc = form.title_tc.trim();
+    }
+
+    if (
+      (!form.short_description_sc || !form.short_description_en) &&
+      form.short_description_tc.trim()
+    ) {
+      fields.short_description_tc = form.short_description_tc.trim();
+    }
+
+    if (
+      (!form.description_sc || !form.description_en) &&
+      form.description_tc.trim()
+    ) {
+      fields.description_tc = form.description_tc.trim();
+    }
+
+    if (
+      (!form.venue_name_sc || !form.venue_name_en) &&
+      form.venue_name.trim()
+    ) {
+      fields.venue_name = form.venue_name.trim();
+    }
+
+    if ((!form.address_sc || !form.address_en) && form.address.trim()) {
+      fields.address = form.address.trim();
+    }
+
+    if (!Object.keys(fields).length) {
+      setMessage("繁／簡／英內容已齊，暫時無需要再翻譯。");
+      return;
+    }
+
+    setTranslating(true);
+    setMessage("正在自動補簡中及 English，原有人工翻譯不會被覆蓋…");
+
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await client.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        setMessage("登入狀態已失效，請重新登入。");
+        return;
+      }
+
+      const response = await fetch("/api/translate-event", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          event_id: eventId,
+          fields,
+        }),
+      });
+
+      const json = await response.json();
+
+      if (!response.ok || !json?.ok) {
+        setMessage(json?.error || "未能完成自動翻譯。");
+        return;
+      }
+
+      const translated = (json.translations || {}) as Record<string, string>;
+
+      setForm((previous) => ({
+        ...previous,
+        title_sc: previous.title_sc || translated.title_sc || "",
+        title_en: previous.title_en || translated.title_en || "",
+        short_description_sc:
+          previous.short_description_sc ||
+          translated.short_description_sc ||
+          "",
+        short_description_en:
+          previous.short_description_en ||
+          translated.short_description_en ||
+          "",
+        description_sc:
+          previous.description_sc || translated.description_sc || "",
+        description_en:
+          previous.description_en || translated.description_en || "",
+        venue_name_sc:
+          previous.venue_name_sc || translated.venue_name_sc || "",
+        venue_name_en:
+          previous.venue_name_en || translated.venue_name_en || "",
+        address_sc: previous.address_sc || translated.address_sc || "",
+        address_en: previous.address_en || translated.address_en || "",
+      }));
+
+      setMessage(
+        `已自動補翻譯（約 ${Number(json.translated_characters || 0)} 字元）。請快速核對後再儲存草稿。`,
+      );
+    } catch {
+      setMessage("自動翻譯暫時未能完成，現有活動資料未有任何更改。");
+    } finally {
+      setTranslating(false);
+    }
   }
 
   function setImageOrder(images: string[]) {
@@ -1497,6 +1613,25 @@ export default function MerchantEventEditPage() {
                   {index + 1}. {label}
                 </button>
               ))}
+            </div>
+
+            <div className="mt-3 flex flex-col gap-2 rounded-2xl border border-blue-100 bg-blue-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-black text-blue-900">
+                  三語智能助手
+                </p>
+                <p className="mt-1 text-xs leading-5 text-blue-700">
+                  先填繁中，再一鍵補簡中 + English。只補空白欄位，不會覆蓋人工翻譯。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={autoFillTranslations}
+                disabled={!editable || translating}
+                className="shrink-0 rounded-full bg-blue-700 px-4 py-2 text-xs font-black text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {translating ? "翻譯中…" : "✨ 自動補簡中 + English"}
+              </button>
             </div>
           </div>
 
