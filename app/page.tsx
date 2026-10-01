@@ -1,43 +1,31 @@
 import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
+import { getServerLocale } from "@/lib/i18n/server";
+import { getPublicMessages } from "@/lib/i18n/public-messages";
 
 export const dynamic = "force-dynamic";
 
-const quickActions = [
-  {
-    title: "今日活動",
-    subtitle: "即睇今日仍然有效的親子節目",
-    href: "/today",
-    tone: "bg-pink-50 border-pink-100 text-pink-700",
-    icon: "⏰",
-  },
-  {
-    title: "活動日曆",
-    subtitle: "按日期計劃平日及週末親子時間",
-    href: "/calendar",
-    tone: "bg-blue-50 border-blue-100 text-blue-700",
-    icon: "🗓️",
-  },
-  {
-    title: "地點探索",
-    subtitle: "按地區、港鐵站及地址搵活動",
-    href: "/events/map",
-    tone: "bg-teal-50 border-teal-100 text-teal-700",
-    icon: "📍",
-  },
-];
 
-const categories = [
-  { label: "免費活動", href: "/events?price=free", icon: "🎁" },
-  { label: "商場活動", href: "/events?category=mall", icon: "🏬" },
-  { label: "工作坊", href: "/events?category=workshop", icon: "🎨" },
-  { label: "SEN 友善", href: "/events?sen=true", icon: "💛" },
-  { label: "室內活動", href: "/events?indoor=true", icon: "🏠" },
-  { label: "今個週末", href: "/events?date=weekend", icon: "🌈" },
-];
 
 export default async function HomePage() {
-  const events = await getPublishedEvents();
+  const locale = await getServerLocale();
+  const p = getPublicMessages(locale);
+  const events = await getPublishedEvents(locale);
+
+  const quickActions = [
+    { title: p.quickTodayTitle, subtitle: p.quickTodaySubtitle, href: "/today", tone: "bg-pink-50 border-pink-100 text-pink-700", icon: "⏰" },
+    { title: p.quickCalendarTitle, subtitle: p.quickCalendarSubtitle, href: "/calendar", tone: "bg-blue-50 border-blue-100 text-blue-700", icon: "🗓️" },
+    { title: p.quickMapTitle, subtitle: p.quickMapSubtitle, href: "/events/map", tone: "bg-teal-50 border-teal-100 text-teal-700", icon: "📍" },
+  ];
+
+  const categories = [
+    { label: p.freeEvents, href: "/events?price=free", icon: "🎁" },
+    { label: p.mallEvents, href: "/events?category=mall", icon: "🏬" },
+    { label: p.workshops, href: "/events?category=workshop", icon: "🎨" },
+    { label: p.senFriendly, href: "/events?sen=true", icon: "💛" },
+    { label: p.indoorEvents, href: "/events?indoor=true", icon: "🏠" },
+    { label: p.weekend, href: "/events?date=weekend", icon: "🌈" },
+  ];
   const featured = events.filter((event) => event.featured);
   const upcoming = (featured.length ? featured : events).slice(0, 6);
 
@@ -47,17 +35,17 @@ export default async function HomePage() {
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8">
           <div>
             <p className="text-sm font-black text-purple-700">
-              HK Family Fun 香港親子活動平台
+              {p.homeKicker}
             </p>
 
             <h1 className="mt-3 text-4xl font-black leading-tight tracking-tight text-slate-950 sm:text-5xl">
-              香港親子活動，
+              {p.homeTitle1}
               <br />
-              一站搵齊。
+              {p.homeTitle2}
             </h1>
 
             <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600">
-              按日期、地區、港鐵站、價錢及活動類型搜尋親子活動。
+              按日期、地區、港鐵站、價錢及活動類型{p.searchEvents}。
               活動報名會連接主辦單位官方渠道，HK Family Fun 現階段不代收活動款項。
             </p>
 
@@ -66,19 +54,19 @@ export default async function HomePage() {
                 href="/events"
                 className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-purple-800"
               >
-                搜尋親子活動
+                {p.searchEvents}
               </Link>
               <Link
                 href="/calendar"
                 className="rounded-full border border-blue-300 bg-blue-50 px-5 py-3 text-sm font-black text-blue-700"
               >
-                開啟活動日曆
+                {p.openCalendar}
               </Link>
               <Link
                 href="/merchant-join"
                 className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700"
               >
-                商戶加入
+                {p.merchantJoin}
               </Link>
             </div>
 
@@ -102,12 +90,12 @@ export default async function HomePage() {
           </div>
 
           <div className="rounded-[2rem] border border-purple-100 bg-white p-6 shadow-xl shadow-purple-100/60">
-            <p className="text-sm font-black text-purple-700">最新已發布活動</p>
+            <p className="text-sm font-black text-purple-700">{p.latestPublished}</p>
             <h2 className="mt-2 text-2xl font-black">
-              {events.length ? `現有 ${events.length} 個有效活動` : "新活動正在整理中"}
+              {events.length ? p.activeEvents(events.length) : p.newEventsSoon}
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              平台只顯示仍有效及已通過發布流程的活動。過期活動不會繼續出現在公開搜尋。
+              {p.publishedOnly}
             </p>
 
             {events[0] ? (
@@ -134,9 +122,9 @@ export default async function HomePage() {
               </Link>
             ) : (
               <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-                <p className="font-black text-slate-800">暫未有有效公開活動</p>
+                <p className="font-black text-slate-800">{p.noPublicEvents}</p>
                 <p className="mt-2 text-sm text-slate-500">
-                  我們不會用示範活動冒充真實活動。
+                  {p.noDemoEvents}
                 </p>
               </div>
             )}
@@ -147,16 +135,16 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-black text-purple-700">快速探索</p>
+            <p className="text-sm font-black text-purple-700">{p.quickExplore}</p>
             <h2 className="mt-2 text-2xl font-black text-slate-950">
-              用你最常用的方法搵活動
+              {p.exploreTitle}
             </h2>
           </div>
           <Link
             href="/events"
             className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700"
           >
-            查看全部活動
+            {p.viewAll}
           </Link>
         </div>
 
@@ -179,16 +167,16 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-black text-pink-700">活動精選</p>
+            <p className="text-sm font-black text-pink-700">{p.featured}</p>
             <h2 className="mt-2 text-2xl font-black text-slate-950">
-              即將舉行
+              {p.upcoming}
             </h2>
           </div>
           <Link
             href="/calendar"
             className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white"
           >
-            用日曆查看
+            {p.useCalendar}
           </Link>
         </div>
 
@@ -211,7 +199,7 @@ export default async function HomePage() {
                       {event.date}
                     </span>
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-                      {event.price || "詳情請見官方網站"}
+                      {event.price || p.officialDetails}
                     </span>
                   </div>
                   <h3 className="mt-3 text-xl font-black text-slate-950">
@@ -226,7 +214,7 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
-            暫未有即將舉行的已發布活動。
+            暫未有{p.upcoming}的已發布活動。
           </div>
         )}
       </section>
@@ -234,18 +222,18 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-[2rem] border border-teal-100 bg-white p-6 shadow-sm">
-            <p className="text-sm font-black text-teal-700">地點探索</p>
+            <p className="text-sm font-black text-teal-700">{p.locationExplore}</p>
             <h2 className="mt-2 text-2xl font-black text-slate-950">
-              按地區、港鐵站及地址搵活動
+              {p.locationTitle}
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              活動資料會使用主辦單位提供的地址連接 Google Maps，不會使用示範座標。
+              {p.locationDesc}
             </p>
             <Link
               href="/events/map"
               className="mt-5 inline-flex rounded-full bg-teal-600 px-5 py-3 text-sm font-black text-white"
             >
-              開啟地點探索
+              開啟{p.locationExplore}
             </Link>
           </div>
 
