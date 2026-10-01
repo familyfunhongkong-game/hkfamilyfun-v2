@@ -7,7 +7,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
-import { localizedText, type AppLocale } from "@/lib/i18n/config";
+import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 
 type JsonValue =
   | string
@@ -280,8 +280,8 @@ function getBaseGalleryImages(event: EventRecord): GalleryImage[] {
   }));
 }
 
-function formatDate(value?: string | null): string {
-  if (!value) return "日期待定";
+function formatDate(value: string | null | undefined, locale: AppLocale): string {
+  if (!value) return uiText(locale, "日期待定", "日期待定", "Date TBC");
 
   // Database event dates are calendar dates, not moments in time.
   // Parse YYYY-MM-DD in local calendar space so UTC/timezone conversion
@@ -297,32 +297,39 @@ function formatDate(value?: string | null): string {
 
   if (Number.isNaN(date.getTime())) return value;
 
-  return date.toLocaleDateString("zh-HK", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return date.toLocaleDateString(
+    locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK",
+    {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    },
+  );
 }
 
-function formatDateRange(event: EventRecord): string {
-  const start = formatDate(event.start_date);
-  const end = formatDate(event.end_date);
+function formatDateRange(event: EventRecord, locale: AppLocale): string {
+  const start = formatDate(event.start_date, locale);
+  const end = formatDate(event.end_date, locale);
 
-  if (!event.start_date && !event.end_date) return "日期待定";
+  if (!event.start_date && !event.end_date) {
+    return uiText(locale, "日期待定", "日期待定", "Date TBC");
+  }
 
   if (
     safeText(event.recurrence_type, "none").toLowerCase() === "weekly" &&
     safeText(event.recurrence_note)
   ) {
-    return `${start} 至 ${end}｜${safeText(event.recurrence_note)}`;
+    return locale === "en"
+      ? `${start} – ${end} | ${safeText(event.recurrence_note)}`
+      : `${start} 至 ${end}｜${safeText(event.recurrence_note)}`;
   }
 
   if (!event.end_date || start === end) return start;
 
-  return `${start} 至 ${end}`;
+  return locale === "en" ? `${start} – ${end}` : `${start} 至 ${end}`;
 }
 
-function formatTimeRange(event: EventRecord): string {
+function formatTimeRange(event: EventRecord, locale: AppLocale): string {
   const normalizeTime = (value: unknown) => {
     const text = safeText(value);
     return /^\d{2}:\d{2}/.test(text) ? text.slice(0, 5) : text;
@@ -331,13 +338,13 @@ function formatTimeRange(event: EventRecord): string {
   const start = normalizeTime(event.start_time);
   const end = normalizeTime(event.end_time);
 
-  if (!start && !end) return "時間待定";
+  if (!start && !end) return uiText(locale, "時間待定", "时间待定", "Time TBC");
   if (start && end) return `${start} - ${end}`;
 
-  return start || end || "時間待定";
+  return start || end || uiText(locale, "時間待定", "时间待定", "Time TBC");
 }
 
-function formatPrice(event: EventRecord): string {
+function formatPrice(event: EventRecord, locale: AppLocale): string {
   const priceMode = safeText(
     event.price_display_mode || event.price_type,
   ).toLowerCase();
@@ -350,40 +357,40 @@ function formatPrice(event: EventRecord): string {
 
   if (priceLabel) return priceLabel;
 
-  if (priceMode === "hidden") return "不顯示價錢";
-  if (priceMode === "free") return "免費";
-  if (priceMode === "quota") return quotaLabel || "名額有限";
+  if (priceMode === "hidden") return uiText(locale, "不顯示價錢", "不显示价格", "Price hidden");
+  if (priceMode === "free") return uiText(locale, "免費", "免费", "Free");
+  if (priceMode === "quota") return quotaLabel || uiText(locale, "名額有限", "名额有限", "Limited places");
 
   if (priceMode === "early_bird") {
     if (offerPrice && originalPrice) {
-      return `早鳥優惠 HK$${offerPrice}（原價 HK$${originalPrice}）`;
+      return uiText(locale, `早鳥優惠 HK$${offerPrice}（原價 HK$${originalPrice}）`, `早鸟优惠 HK$${offerPrice}（原价 HK$${originalPrice}）`, `Early bird HK$${offerPrice} (regular HK$${originalPrice})`);
     }
-    if (offerPrice) return `早鳥優惠 HK$${offerPrice}`;
-    return "早鳥優惠待確認";
+    if (offerPrice) return uiText(locale, `早鳥優惠 HK$${offerPrice}`, `早鸟优惠 HK$${offerPrice}`, `Early bird HK$${offerPrice}`);
+    return uiText(locale, "早鳥優惠待確認", "早鸟优惠待确认", "Early-bird price TBC");
   }
 
   if (priceMode === "range") {
     if (minPrice && maxPrice && minPrice !== maxPrice) {
       return `HK$${minPrice}–HK$${maxPrice}`;
     }
-    if (minPrice) return `HK$${minPrice} 起`;
-    return "價錢範圍待確認";
+    if (minPrice) return locale === "en" ? `From HK$${minPrice}` : `HK$${minPrice} 起`;
+    return uiText(locale, "價錢範圍待確認", "价格范围待确认", "Price range TBC");
   }
 
   if (priceMode === "fixed") {
     if (minPrice) return `HK$${minPrice}`;
-    return "固定收費待確認";
+    return uiText(locale, "固定收費待確認", "固定收费待确认", "Fixed price TBC");
   }
 
   if (priceMode === "from" || priceMode === "paid") {
-    if (minPrice) return `HK$${minPrice} 起`;
-    return "收費活動";
+    if (minPrice) return locale === "en" ? `From HK$${minPrice}` : `HK$${minPrice} 起`;
+    return uiText(locale, "收費活動", "收费活动", "Paid event");
   }
 
-  return "收費待確認";
+  return uiText(locale, "收費待確認", "收费待确认", "Price TBC");
 }
 
-function getCategoryLabel(event: EventRecord): string {
+function getCategoryLabel(event: EventRecord, locale: AppLocale): string {
   const raw = safeText(
     event.activity_category ||
       event.category ||
@@ -392,27 +399,27 @@ function getCategoryLabel(event: EventRecord): string {
     "親子活動",
   );
 
-  const map: Record<string, string> = {
-    kids: "親子活動",
-    parent_child: "親子活動",
-    family: "親子活動",
-    workshop: "工作坊",
-    market: "市集",
-    exhibition: "展覽",
-    festival: "節慶活動",
-    education: "教育活動",
-    arts: "藝術創作",
-    cooking: "烹飪",
-    sports: "運動",
-    music: "音樂",
-    theatre: "劇場",
-    outdoor: "戶外活動",
-    indoor: "室內活動",
-    sen: "SEN 友善",
-    free: "免費活動",
+  const labels: Record<string, [string, string, string]> = {
+    kids: ["親子活動", "亲子活动", "Family Activity"],
+    parent_child: ["親子活動", "亲子活动", "Family Activity"],
+    family: ["親子活動", "亲子活动", "Family Activity"],
+    workshop: ["工作坊", "工作坊", "Workshop"],
+    market: ["市集", "市集", "Market"],
+    exhibition: ["展覽", "展览", "Exhibition"],
+    festival: ["節慶活動", "节庆活动", "Festival"],
+    education: ["教育活動", "教育活动", "Educational"],
+    arts: ["藝術創作", "艺术创作", "Arts"],
+    cooking: ["烹飪", "烹饪", "Cooking"],
+    sports: ["運動", "运动", "Sports"],
+    music: ["音樂", "音乐", "Music"],
+    theatre: ["劇場", "剧场", "Theatre"],
+    outdoor: ["戶外活動", "户外活动", "Outdoor"],
+    indoor: ["室內活動", "室内活动", "Indoor"],
+    sen: ["SEN 友善", "SEN 友善", "SEN Friendly"],
+    free: ["免費活動", "免费活动", "Free Event"],
   };
 
-  return map[raw] || raw;
+  return labels[raw] ? uiText(locale, ...labels[raw]) : raw;
 }
 
 function getTagArray(value: unknown): string[] {
@@ -459,22 +466,22 @@ function getPrimaryActionUrl(event: EventRecord): string | null {
   return getRegistrationUrl(event) || getOfficialWebsiteUrl(event);
 }
 
-function getPrimaryActionLabel(event: EventRecord): string {
+function getPrimaryActionLabel(event: EventRecord, locale: AppLocale): string {
   const custom = safeText(event.cta_label || event.cta_text);
   const registrationUrl = getRegistrationUrl(event);
   const officialUrl = getOfficialWebsiteUrl(event);
   const ctaType = safeText(event.cta_type).toLowerCase();
 
-  if (registrationUrl) return custom || "前往報名";
-  if (ctaType === "whatsapp") return custom || "WhatsApp 報名";
-  if (ctaType === "google_form") return custom || "Google Form 報名";
-  if (officialUrl) return custom || "活動官網查看更多";
+  if (registrationUrl) return custom || uiText(locale, "前往報名", "前往报名", "Register");
+  if (ctaType === "whatsapp") return custom || uiText(locale, "WhatsApp 報名", "WhatsApp 报名", "Register via WhatsApp");
+  if (ctaType === "google_form") return custom || uiText(locale, "Google Form 報名", "Google Form 报名", "Register via Google Form");
+  if (officialUrl) return custom || uiText(locale, "活動官網查看更多", "活动官网查看更多", "View Official Website");
   if (ctaType === "none" || event.registration_required === false) {
-    return "無需報名";
+    return uiText(locale, "無需報名", "无需报名", "No Registration Required");
   }
-  if (ctaType === "contact" || event.registration_required) return "請向主辦查詢";
+  if (ctaType === "contact" || event.registration_required) return uiText(locale, "請向主辦查詢", "请向主办查询", "Contact Organizer");
 
-  return custom || "活動官網查看更多";
+  return custom || uiText(locale, "活動官網查看更多", "活动官网查看更多", "View Official Website");
 }
 
 function getCoverTransform(event: EventRecord): CSSProperties {
