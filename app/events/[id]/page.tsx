@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase/client";
 import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
+import { getEventDetailMessages } from "@/lib/i18n/event-page-messages";
 
 type JsonValue =
   | string
@@ -684,6 +685,7 @@ export default function PublicEventDetailPage() {
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const m = getEventDetailMessages(locale);
 
   useEffect(() => {
     setLocale(getClientLocale());
@@ -694,18 +696,32 @@ export default function PublicEventDetailPage() {
     let ignore = false;
 
     async function loadEvent() {
+      const activeLocale = getClientLocale();
+      setLocale(activeLocale);
       setLoading(true);
       setErrorText("");
 
       if (!eventId || !UUID_REGEX.test(eventId)) {
-        setErrorText("活動連結格式不正確，請由活動列表重新進入。");
+        setErrorText(
+          activeLocale === "en"
+            ? "This event link is invalid. Please return to the event list."
+            : activeLocale === "zh-Hans"
+              ? "活动链接格式不正确，请由活动列表重新进入。"
+              : "活動連結格式不正確，請由活動列表重新進入。",
+        );
         setEvent(null);
         setLoading(false);
         return;
       }
 
       if (!supabase) {
-        setErrorText("網站暫時未能連接資料庫，請稍後再試。");
+        setErrorText(
+          activeLocale === "en"
+            ? "The event database is temporarily unavailable. Please try again later."
+            : activeLocale === "zh-Hans"
+              ? "网站暂时未能连接数据库，请稍后再试。"
+              : "網站暫時未能連接資料庫，請稍後再試。",
+        );
         setLoading(false);
         return;
       }
@@ -719,14 +735,27 @@ export default function PublicEventDetailPage() {
       if (ignore) return;
 
       if (error) {
-        setErrorText(error.message || "讀取活動資料失敗。");
+        setErrorText(
+          error.message ||
+            (activeLocale === "en"
+              ? "Failed to load event details."
+              : activeLocale === "zh-Hans"
+                ? "读取活动资料失败。"
+                : "讀取活動資料失敗。"),
+        );
         setEvent(null);
         setLoading(false);
         return;
       }
 
       if (!data) {
-        setErrorText("找不到此活動。");
+        setErrorText(
+          activeLocale === "en"
+            ? "This event could not be found."
+            : activeLocale === "zh-Hans"
+              ? "找不到此活动。"
+              : "找不到此活動。",
+        );
         setEvent(null);
         setLoading(false);
         return;
