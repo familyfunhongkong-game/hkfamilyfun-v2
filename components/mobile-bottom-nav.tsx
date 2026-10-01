@@ -9,12 +9,12 @@ type Item = {
   icon: string;
 };
 
-export default function MobileBottomNav({ items }: { items: Item[] }) {
+export default function MobileBottomNav({\n  items,\n  ariaLabel,\n}: {\n  items: Item[];\n  ariaLabel: string;\n}) {
   const pathname = usePathname();
 
   return (
     <nav
-      aria-label="Primary mobile navigation"
+      aria-label={ariaLabel}
       className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200/80 bg-white/95 shadow-[0_-10px_35px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
