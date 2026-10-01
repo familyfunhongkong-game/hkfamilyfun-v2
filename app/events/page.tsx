@@ -6,7 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import EventImageFallback from "@/components/event-image-fallback";
 import { getClientLocale } from "@/lib/i18n/client";
-import { localizedText, type AppLocale } from "@/lib/i18n/config";
+import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 
 type JsonValue =
   | string
@@ -130,19 +130,35 @@ const FALLBACK_IMAGE =
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
 
-const dateFilters: { key: DateFilter; label: string }[] = [
-  { key: "all", label: "全部日期" },
-  { key: "today", label: "今日" },
-  { key: "tomorrow", label: "明日" },
-  { key: "weekend", label: "今個週末" },
-  { key: "month", label: "本月" },
+const dateFilterKeys: DateFilter[] = [
+  "all",
+  "today",
+  "tomorrow",
+  "weekend",
+  "month",
 ];
 
-const priceFilters: { key: PriceFilter; label: string }[] = [
-  { key: "all", label: "全部收費" },
-  { key: "free", label: "免費" },
-  { key: "paid", label: "收費" },
-];
+const priceFilterKeys: PriceFilter[] = ["all", "free", "paid"];
+
+function dateFilterLabel(locale: AppLocale, key: DateFilter) {
+  const labels: Record<DateFilter, [string, string, string]> = {
+    all: ["全部日期", "全部日期", "All Dates"],
+    today: ["今日", "今天", "Today"],
+    tomorrow: ["明日", "明天", "Tomorrow"],
+    weekend: ["今個週末", "这个周末", "This Weekend"],
+    month: ["本月", "本月", "This Month"],
+  };
+  return uiText(locale, ...labels[key]);
+}
+
+function priceFilterLabel(locale: AppLocale, key: PriceFilter) {
+  const labels: Record<PriceFilter, [string, string, string]> = {
+    all: ["全部收費", "全部收费", "All Prices"],
+    free: ["免費", "免费", "Free"],
+    paid: ["收費", "收费", "Paid"],
+  };
+  return uiText(locale, ...labels[key]);
+}
 
 function safeText(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;
@@ -339,8 +355,8 @@ function hasRealImage(event: EventRecord): boolean {
   return Boolean(images.length && images[0]?.url !== FALLBACK_IMAGE);
 }
 
-function formatDate(value?: string | null): string {
-  if (!value) return "日期待定";
+function formatDate(value: string | null | undefined, locale: AppLocale): string {
+  if (!value) return uiText(locale, "日期待定", "日期待定", "Date TBC");
 
   // Database event dates are calendar dates, not moments in time.
   // Parse YYYY-MM-DD in local calendar space so UTC/timezone conversion
@@ -356,34 +372,39 @@ function formatDate(value?: string | null): string {
 
   if (Number.isNaN(date.getTime())) return value;
 
-  return date.toLocaleDateString("zh-HK", {
+  return date.toLocaleDateString(
+    locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK",
+    {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  });
+    },
+  );
 }
 
-function formatDateRange(event: EventRecord): string {
-  const start = formatDate(event.start_date);
-  const end = formatDate(event.end_date);
+function formatDateRange(event: EventRecord, locale: AppLocale): string {
+  const start = formatDate(event.start_date, locale);
+  const end = formatDate(event.end_date, locale);
 
-  if (!event.start_date && !event.end_date) return "日期待定";
+  if (!event.start_date && !event.end_date) {
+    return uiText(locale, "日期待定", "日期待定", "Date TBC");
+  }
   if (!event.end_date || start === end) return start;
 
-  return `${start} 至 ${end}`;
+  return locale === "en" ? `${start} – ${end}` : `${start} 至 ${end}`;
 }
 
-function formatTimeRange(event: EventRecord): string {
+function formatTimeRange(event: EventRecord, locale: AppLocale): string {
   const start = safeText(event.start_time);
   const end = safeText(event.end_time);
 
-  if (!start && !end) return "時間待定";
+  if (!start && !end) return uiText(locale, "時間待定", "时间待定", "Time TBC");
   if (start && end) return `${start} - ${end}`;
 
-  return start || end || "時間待定";
+  return start || end || uiText(locale, "時間待定", "时间待定", "Time TBC");
 }
 
-function formatPrice(event: EventRecord): string {
+function formatPrice(event: EventRecord, locale: AppLocale): string {
   const priceMode = safeText(
     event.price_display_mode || event.price_type,
   ).toLowerCase();
@@ -396,40 +417,40 @@ function formatPrice(event: EventRecord): string {
 
   if (priceLabel) return priceLabel;
 
-  if (priceMode === "hidden") return "不顯示價錢";
-  if (priceMode === "free") return "免費";
-  if (priceMode === "quota") return quotaLabel || "名額有限";
+  if (priceMode === "hidden") return uiText(locale, "不顯示價錢", "不显示价格", "Price hidden");
+  if (priceMode === "free") return uiText(locale, "免費", "免费", "Free");
+  if (priceMode === "quota") return quotaLabel || uiText(locale, "名額有限", "名额有限", "Limited places");
 
   if (priceMode === "early_bird") {
     if (offerPrice && originalPrice) {
-      return `早鳥優惠 HK$${offerPrice}（原價 HK$${originalPrice}）`;
+      return locale === "en" ? `Early bird HK$${offerPrice} (regular HK$${originalPrice})` : uiText(locale, `早鳥優惠 HK$${offerPrice}（原價 HK$${originalPrice}）`, `早鸟优惠 HK$${offerPrice}（原价 HK$${originalPrice}）`, `Early bird HK$${offerPrice} (regular HK$${originalPrice})`);
     }
-    if (offerPrice) return `早鳥優惠 HK$${offerPrice}`;
-    return "早鳥優惠待確認";
+    if (offerPrice) return uiText(locale, `早鳥優惠 HK$${offerPrice}`, `早鸟优惠 HK$${offerPrice}`, `Early bird HK$${offerPrice}`);
+    return uiText(locale, "早鳥優惠待確認", "早鸟优惠待确认", "Early-bird price TBC");
   }
 
   if (priceMode === "range") {
     if (minPrice && maxPrice && minPrice !== maxPrice) {
       return `HK$${minPrice}–HK$${maxPrice}`;
     }
-    if (minPrice) return `HK$${minPrice} 起`;
-    return "價錢範圍待確認";
+    if (minPrice) return locale === "en" ? `From HK$${minPrice}` : `HK$${minPrice} ${uiText(locale, "起", "起", "from")}`;
+    return uiText(locale, "價錢範圍待確認", "价格范围待确认", "Price range TBC");
   }
 
   if (priceMode === "fixed") {
     if (minPrice) return `HK$${minPrice}`;
-    return "固定收費待確認";
+    return uiText(locale, "固定收費待確認", "固定收费待确认", "Fixed price TBC");
   }
 
   if (priceMode === "from" || priceMode === "paid") {
-    if (minPrice) return `HK$${minPrice} 起`;
-    return "收費活動";
+    if (minPrice) return locale === "en" ? `From HK$${minPrice}` : `HK$${minPrice} ${uiText(locale, "起", "起", "from")}`;
+    return uiText(locale, "收費活動", "收费活动", "Paid event");
   }
 
-  return "收費待確認";
+  return uiText(locale, "收費待確認", "收费待确认", "Price TBC");
 }
 
-function getCategoryLabel(event: EventRecord): string {
+function getCategoryLabel(event: EventRecord, locale: AppLocale): string {
   const raw = safeText(
     event.category ||
       event.activity_category ||
@@ -438,26 +459,32 @@ function getCategoryLabel(event: EventRecord): string {
     "親子活動",
   );
 
-  const map: Record<string, string> = {
-    kids: "親子活動",
-    parent_child: "親子活動",
-    workshop: "工作坊",
-    market: "市集",
-    exhibition: "展覽",
-    sports: "運動",
-    music: "音樂",
-    theatre: "劇場",
-    outdoor: "戶外活動",
-    indoor: "室內活動",
-    mall: "商場活動",
-    education: "教育活動",
-    arts: "藝術創作",
-    cooking: "烹飪",
-    sen: "SEN 友善",
-    free: "免費活動",
+  const labels: Record<string, [string, string, string]> = {
+    kids: ["親子活動", "亲子活动", "Family Activity"],
+    parent_child: ["親子活動", "亲子活动", "Family Activity"],
+    "親子活動": ["親子活動", "亲子活动", "Family Activity"],
+    "亲子活动": ["親子活動", "亲子活动", "Family Activity"],
+    workshop: ["工作坊", "工作坊", "Workshop"],
+    "工作坊": ["工作坊", "工作坊", "Workshop"],
+    market: ["市集", "市集", "Market"],
+    "市集": ["市集", "市集", "Market"],
+    exhibition: ["展覽", "展览", "Exhibition"],
+    "展覽": ["展覽", "展览", "Exhibition"],
+    "展览": ["展覽", "展览", "Exhibition"],
+    sports: ["運動", "运动", "Sports"],
+    music: ["音樂", "音乐", "Music"],
+    theatre: ["劇場", "剧场", "Theatre"],
+    outdoor: ["戶外活動", "户外活动", "Outdoor"],
+    indoor: ["室內活動", "室内活动", "Indoor"],
+    mall: ["商場活動", "商场活动", "Mall Event"],
+    education: ["教育活動", "教育活动", "Educational"],
+    arts: ["藝術創作", "艺术创作", "Arts"],
+    cooking: ["烹飪", "烹饪", "Cooking"],
+    sen: ["SEN 友善", "SEN 友善", "SEN Friendly"],
+    free: ["免費活動", "免费活动", "Free Event"],
   };
 
-  return map[raw] || raw;
+  return labels[raw] ? uiText(locale, ...labels[raw]) : raw;
 }
 
 function getRegistrationUrl(event: EventRecord): string | null {
@@ -478,20 +505,20 @@ function getPrimaryActionUrl(event: EventRecord): string | null {
   return getRegistrationUrl(event) || getOfficialWebsiteUrl(event);
 }
 
-function getPrimaryActionLabel(event: EventRecord): string {
+function getPrimaryActionLabel(event: EventRecord, locale: AppLocale): string {
   const custom = safeText(event.cta_label || event.cta_text);
   if (custom) return custom;
 
   const ctaType = safeText(event.cta_type).toLowerCase();
 
-  if (getRegistrationUrl(event)) return "前往報名";
-  if (ctaType === "whatsapp") return "WhatsApp 報名";
-  if (ctaType === "google_form") return "Google Form 報名";
-  if (getOfficialWebsiteUrl(event)) return "活動官網查看更多";
-  if (ctaType === "none" || event.registration_required === false) return "無需報名";
-  if (ctaType === "contact" || event.registration_required) return "請向主辦查詢";
+  if (getRegistrationUrl(event)) return uiText(locale, "前往報名", "前往报名", "Register");
+  if (ctaType === "whatsapp") return uiText(locale, "WhatsApp 報名", "WhatsApp 报名", "Register via WhatsApp");
+  if (ctaType === "google_form") return uiText(locale, "Google Form 報名", "Google Form 报名", "Register via Google Form");
+  if (getOfficialWebsiteUrl(event)) return uiText(locale, "活動官網查看更多", "活动官网查看更多", "View Official Website");
+  if (ctaType === "none" || event.registration_required === false) return uiText(locale, "無需報名", "无需报名", "No Registration Required");
+  if (ctaType === "contact" || event.registration_required) return uiText(locale, "請向主辦查詢", "请向主办查询", "Contact Organizer");
 
-  return "活動官網查看更多";
+  return uiText(locale, "活動官網查看更多", "活动官网查看更多", "View Official Website");
 }
 
 function getGoogleMapUrl(event: EventRecord): string | null {
@@ -550,9 +577,14 @@ function isFreeEvent(event: EventRecord): boolean {
   const priceMode = safeText(
     event.price_display_mode || event.price_type,
   ).toLowerCase();
-  const priceText = formatPrice(event);
+  const priceText = safeText(event.price_label || event.price_text).toLowerCase();
 
-  return priceMode === "free" || priceText === "免費";
+  return (
+    priceMode === "free" ||
+    priceText.includes("免費") ||
+    priceText.includes("免费") ||
+    priceText === "free"
+  );
 }
 
 function getHongKongToday(): string {
@@ -754,9 +786,9 @@ function getDistrictOptions(events: EventRecord[]): string[] {
   ).sort();
 }
 
-function getCategoryOptions(events: EventRecord[]): string[] {
+function getCategoryOptions(events: EventRecord[], locale: AppLocale): string[] {
   return Array.from(
-    new Set(events.map((event) => getCategoryLabel(event)).filter(Boolean)),
+    new Set(events.map((event) => getCategoryLabel(event, locale)).filter(Boolean)),
   ).sort();
 }
 
