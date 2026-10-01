@@ -1041,9 +1041,9 @@ export default function PublicEventDetailPage() {
 
             <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
               <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-sm font-black text-slate-950">報名及查詢</p>
+                <p className="text-sm font-black text-slate-950">{m.registration}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  出發前請向主辦方確認日期、時間、名額、收費及報名安排。
+                  {m.registrationNote}
                 </p>
 
                 {actionUrl ? (
@@ -1078,7 +1078,7 @@ export default function PublicEventDetailPage() {
                     </a>
                   ) : (
                     <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
-                      地圖待定
+                      {m.mapTbc}
                     </span>
                   )}
 
@@ -1087,7 +1087,7 @@ export default function PublicEventDetailPage() {
                     onClick={() => shareEvent(title, shortDescription)}
                     className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
                   >
-                    {copiedShare ? "已複製連結" : "🔗 分享"}
+                    {copiedShare ? m.linkCopied : `🔗 ${m.share}`}
                   </button>
                 </div>
 
@@ -1102,7 +1102,7 @@ export default function PublicEventDetailPage() {
                         : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50",
                     ].join(" ")}
                   >
-                    {isFavorite ? "❤️ 已收藏" : "♡ 收藏"}
+                    {isFavorite ? `❤️ ${m.saved}` : `♡ ${m.save}`}
                   </button>
 
                   {officialUrl ? (
@@ -1112,35 +1112,38 @@ export default function PublicEventDetailPage() {
                       rel="noreferrer"
                       className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
                     >
-                      官網資料
+                      {m.official}
                     </a>
                   ) : (
                     <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
-                      官網待定
+                      {m.officialTbc}
                     </span>
                   )}
                 </div>
 
                 <div className="mt-5 space-y-2">
-                  <InfoPill label="主辦單位" value={merchantName} />
-                  <InfoPill label="活動圖片" value={`${images.length} 張`} />
+                  <InfoPill label={m.organizer} value={merchantName} />
+                  <InfoPill
+                    label={m.eventImages}
+                    value={`${images.length} ${locale === "en" && images.length === 1 ? "image" : m.imageUnit}`}
+                  />
                 </div>
               </div>
 
               <div className="rounded-3xl border border-purple-100 bg-purple-50 p-5">
-                <p className="text-sm font-black text-purple-950">家長下一步</p>
+                <p className="text-sm font-black text-purple-950">{m.nextSteps}</p>
                 <ol className="mt-3 space-y-2 text-xs font-bold leading-6 text-purple-800">
-                  <li>1. 查看日期、時間、地點及收費。</li>
-                  <li>2. 用 Google Map 預先規劃路線。</li>
-                  <li>3. 前往報名或活動官網確認名額。</li>
-                  <li>4. 收藏或分享給家人朋友。</li>
+                  <li>{m.step1}</li>
+                  <li>{m.step2}</li>
+                  <li>{m.step3}</li>
+                  <li>{m.step4}</li>
                 </ol>
               </div>
 
               <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
-                <p className="text-sm font-black text-amber-900">家長提示</p>
+                <p className="text-sm font-black text-amber-900">{m.parentNote}</p>
                 <p className="mt-2 text-sm font-medium leading-7 text-amber-800">
-                  HK Family Fun 只整理活動資訊。活動內容、名額、收費、報名及取消安排，以主辦方最新公布為準。
+                  {m.disclaimer}
                 </p>
               </div>
             </aside>
