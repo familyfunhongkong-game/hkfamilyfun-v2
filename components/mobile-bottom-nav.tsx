@@ -9,7 +9,13 @@ type Item = {
   icon: string;
 };
 
-export default function MobileBottomNav({\n  items,\n  ariaLabel,\n}: {\n  items: Item[];\n  ariaLabel: string;\n}) {
+export default function MobileBottomNav({
+  items,
+  ariaLabel,
+}: {
+  items: Item[];
+  ariaLabel: string;
+}) {
   const pathname = usePathname();
 
   return (
@@ -38,7 +44,10 @@ export default function MobileBottomNav({\n  items,\n  ariaLabel,\n}: {\n  items
               ].join(" ")}
             >
               {active ? (
-                <span className="absolute top-0 h-1 w-7 rounded-full bg-purple-600" />
+                <span
+                  aria-hidden="true"
+                  className="absolute top-0 h-1 w-7 rounded-full bg-purple-600"
+                />
               ) : null}
               <span className="text-xl leading-none" aria-hidden="true">
                 {item.icon}
