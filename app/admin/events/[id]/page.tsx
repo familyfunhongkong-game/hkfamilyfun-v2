@@ -19,9 +19,14 @@ type EventRecord = {
 
   title?: string | null;
   title_tc?: string | null;
+  title_sc?: string | null;
   title_en?: string | null;
   short_description_tc?: string | null;
+  short_description_sc?: string | null;
+  short_description_en?: string | null;
   description_tc?: string | null;
+  description_sc?: string | null;
+  description_en?: string | null;
   highlights?: string | null;
   terms?: string | null;
   remarks?: string | null;
@@ -68,9 +73,11 @@ type EventRecord = {
 
   venue_name?: string | null;
   venue_name_tc?: string | null;
+  venue_name_sc?: string | null;
   venue_name_en?: string | null;
   address?: string | null;
   address_tc?: string | null;
+  address_sc?: string | null;
   address_en?: string | null;
   area?: string | null;
   district?: string | null;
