@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import EventImageFallback from "@/components/event-image-fallback";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 
@@ -943,21 +944,14 @@ export default function PublicEventDetailPage() {
             <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
               <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
                 {isFallbackCover ? (
-                  <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
-                    <div className="grid h-20 w-20 place-items-center rounded-3xl bg-purple-700 text-3xl font-black text-white shadow-sm">
-                      親
-                    </div>
-                    <p className="mt-4 text-lg font-black text-purple-950">
-                      HK Family Fun
-                    </p>
-                    <p className="mt-1 text-sm font-bold text-slate-500">
-                      活動圖片準備中
-                    </p>
-                  </div>
+                  <EventImageFallback />
                 ) : (
                   <img
                     src={images[0]?.url || FALLBACK_IMAGE}
                     alt={title}
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
                     className="h-full w-full object-cover"
                     style={coverStyle}
                   />
@@ -1148,18 +1142,13 @@ export default function PublicEventDetailPage() {
               <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-purple-50 via-white to-amber-50">
                 <div className="relative aspect-[16/9] overflow-hidden">
                   {selectedImage?.url === FALLBACK_IMAGE ? (
-                    <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
-                      <div className="grid h-16 w-16 place-items-center rounded-3xl bg-purple-700 text-2xl font-black text-white shadow-sm">
-                        親
-                      </div>
-                      <p className="mt-3 text-sm font-black text-purple-950">
-                        活動圖片準備中
-                      </p>
-                    </div>
+                    <EventImageFallback compact />
                   ) : (
                     <img
                       src={selectedImage?.url || FALLBACK_IMAGE}
                       alt={selectedImage?.label || title}
+                      loading="lazy"
+                      decoding="async"
                       className="h-full w-full object-cover"
                       style={selectedImageStyle}
                     />
