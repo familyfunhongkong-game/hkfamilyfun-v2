@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { headers } from "next/headers";
 import LanguageSwitcher from "@/components/language-switcher";
+import MobileBottomNav from "@/components/mobile-bottom-nav";
 import { getMessages } from "@/lib/i18n/messages";
 import { getServerLocale } from "@/lib/i18n/server";
 import { localeHtmlLang } from "@/lib/i18n/config";
@@ -81,18 +82,17 @@ const parentLinks = [
 function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServerLocale>>; m: ReturnType<typeof getMessages> }) {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-3">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:gap-5 lg:px-8 lg:py-4">
+        <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           <Image
             src="/logo.png"
             alt="HK Family Fun"
             width={44}
             height={44}
             priority
-            className="h-11 w-11 object-contain"
+            className="h-10 w-10 shrink-0 object-contain sm:h-11 sm:w-11"
           />
-          <span>
-            <span className="block text-lg font-black leading-tight text-slate-950">
+          <span className="min-w-0">\n            <span className="block truncate text-base font-black leading-tight text-slate-950 sm:text-lg">
               HK Family Fun
             </span>
             <span className="block text-xs text-slate-500">
@@ -101,7 +101,7 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
           </span>
         </Link>
 
-        <nav className="flex flex-wrap items-center gap-1 text-sm font-bold text-slate-600">
+        <nav className="hidden items-center gap-1 text-sm font-bold text-slate-600 lg:flex">
           {parentLinks.map((item) => (
             <Link
               key={item.href}
@@ -114,17 +114,17 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
           ))}
         </nav>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <Link
             href="/merchant-join"
-            className="text-sm font-bold text-slate-600 hover:text-purple-700"
+            className="hidden text-sm font-bold text-slate-600 hover:text-purple-700 xl:inline"
           >
             {m.merchantJoin}
           </Link>
 
           <Link
             href="/merchant/register"
-            className="rounded-full bg-purple-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-purple-800"
+            className="hidden rounded-full bg-purple-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-purple-800 sm:inline-flex"
           >
             {m.merchantRegister}
           </Link>
