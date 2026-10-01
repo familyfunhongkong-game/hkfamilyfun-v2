@@ -45,8 +45,7 @@ export default async function HomePage() {
             </h1>
 
             <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600">
-              按日期、地區、港鐵站、價錢及活動類型{p.searchEvents}。
-              活動報名會連接主辦單位官方渠道，HK Family Fun 現階段不代收活動款項。
+              {p.homeIntro}
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -105,7 +104,10 @@ export default async function HomePage() {
               >
                 <img
                   src={events[0].image}
-                  alt=""
+                  alt={events[0].title}
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   className="h-56 w-full object-cover"
                 />
                 <div className="p-5">
@@ -190,7 +192,9 @@ export default async function HomePage() {
               >
                 <img
                   src={event.image}
-                  alt=""
+                  alt={event.title}
+                  loading="lazy"
+                  decoding="async"
                   className="h-48 w-full object-cover"
                 />
                 <div className="p-5">
@@ -214,7 +218,7 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
-            暫未有{p.upcoming}的已發布活動。
+            {p.emptyUpcoming}
           </div>
         )}
       </section>
@@ -233,25 +237,24 @@ export default async function HomePage() {
               href="/events/map"
               className="mt-5 inline-flex rounded-full bg-teal-600 px-5 py-3 text-sm font-black text-white"
             >
-              開啟{p.locationExplore}
+{p.openLocationExplore}
             </Link>
           </div>
 
           <div className="rounded-[2rem] border border-purple-100 bg-slate-950 p-6 text-white shadow-sm">
-            <p className="text-sm font-black text-purple-200">Merchant Portal</p>
+            <p className="text-sm font-black text-purple-200">{p.merchantPortalKicker}</p>
             <h2 className="mt-2 text-2xl font-black">
-              商戶自己管理活動，再交平台審批
+              {p.merchantPortalTitle}
             </h2>
             <p className="mt-3 text-sm leading-7 text-white/75">
-              已有活動網頁可使用智能網址匯入建立草稿；亦可以手動補資料、上載圖片、預覽後提交審批。
-              所有匯入結果都需要人工核對，不會自動發布。
+              {p.merchantPortalDesc}
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {[
-                ["1", "建立草稿"],
-                ["2", "提交審批"],
-                ["3", "批准後發布"],
+                ["1", p.merchantStepDraft],
+                ["2", p.merchantStepSubmit],
+                ["3", p.merchantStepPublish],
               ].map(([step, label]) => (
                 <div
                   key={step}
@@ -268,13 +271,13 @@ export default async function HomePage() {
                 href="/merchant/register"
                 className="rounded-full bg-white px-5 py-3 text-sm font-black text-purple-700"
               >
-                免費登記商戶
+                {p.merchantRegisterFree}
               </Link>
               <Link
                 href="/merchant/login"
                 className="rounded-full border border-white/30 px-5 py-3 text-sm font-black text-white"
               >
-                商戶登入
+                {p.merchantLogin}
               </Link>
             </div>
           </div>
