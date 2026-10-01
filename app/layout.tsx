@@ -1,5 +1,7 @@
 ﻿import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
+import { headers } from "next/headers";
 import LanguageSwitcher from "@/components/language-switcher";
 import { getMessages } from "@/lib/i18n/messages";
 import { getServerLocale } from "@/lib/i18n/server";
@@ -7,56 +9,64 @@ import { localeHtmlLang } from "@/lib/i18n/config";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://www.hkfamilyfun.com"),
-  title: {
-    default: "HK Family Fun｜香港親子活動平台",
-    template: "%s｜HK Family Fun",
-  },
-  description:
-    "HK Family Fun 是香港親子活動平台，幫助家長搜尋今日、週末、免費、室內、戶外、SEN 友善及不同地區的親子活動。",
-  keywords: [
-    "香港親子活動",
-    "親子好去處",
-    "香港週末活動",
-    "免費親子活動",
-    "兒童活動",
-    "SEN活動",
-    "親子工作坊",
-    "HK Family Fun",
-  ],
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    type: "website",
-    locale: "zh_HK",
-    siteName: "HK Family Fun",
-    url: "/",
-    title: "HK Family Fun｜香港親子活動平台",
+export async function generateMetadata(): Promise<Metadata> {
+  const host = (await headers()).get("host")?.toLowerCase() || "";
+  const isCanonicalHost =
+    host === "hkfamilyfun.com" || host === "www.hkfamilyfun.com";
+
+  return {
+    metadataBase: new URL("https://www.hkfamilyfun.com"),
+    title: {
+      default: "HK Family Fun｜香港親子活動平台",
+      template: "%s｜HK Family Fun",
+    },
     description:
-      "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
-    images: [
-      {
-        url: "/logo.png",
-        width: 100,
-        height: 100,
-        alt: "HK Family Fun",
-      },
+      "HK Family Fun 是香港親子活動平台，幫助家長搜尋今日、週末、免費、室內、戶外、SEN 友善及不同地區的親子活動。",
+    keywords: [
+      "香港親子活動",
+      "親子好去處",
+      "香港週末活動",
+      "免費親子活動",
+      "兒童活動",
+      "SEN活動",
+      "親子工作坊",
+      "HK Family Fun",
     ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "HK Family Fun｜香港親子活動平台",
-    description:
-      "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
-    images: ["/logo.png"],
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+    alternates: isCanonicalHost ? { canonical: "/" } : undefined,
+    openGraph: {
+      type: "website",
+      locale: "zh_HK",
+      siteName: "HK Family Fun",
+      url: isCanonicalHost ? "/" : undefined,
+      title: "HK Family Fun｜香港親子活動平台",
+      description:
+        "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
+      images: [
+        {
+          url: "/logo.png",
+          width: 100,
+          height: 100,
+          alt: "HK Family Fun",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "HK Family Fun｜香港親子活動平台",
+      description:
+        "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
+      images: ["/logo.png"],
+    },
+    robots: {
+      index: isCanonicalHost,
+      follow: isCanonicalHost,
+      googleBot: {
+        index: isCanonicalHost,
+        follow: isCanonicalHost,
+      },
+    },
+  };
+}
 
 const parentLinks = [
   { href: "/", key: "navHome", icon: "🏠", hoverClass: "hover:bg-blue-50 hover:text-blue-700" },
@@ -74,11 +84,12 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
-          <img
+          <Image
             src="/logo.png"
             alt="HK Family Fun"
             width={44}
             height={44}
+            priority
             className="h-11 w-11 object-contain"
           />
           <span>
@@ -131,7 +142,7 @@ function SiteFooter({ m }: { m: ReturnType<typeof getMessages> }) {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
         <div>
           <Link href="/" className="flex items-center gap-3">
-            <img
+            <Image
               src="/logo.png"
               alt="HK Family Fun"
               width={40}
@@ -270,8 +281,16 @@ export default async function RootLayout({
   return (
     <html lang={localeHtmlLang(locale)}>
       <body className="bg-slate-50 text-slate-950 antialiased">
+        <a
+          href="#main-content"
+          className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white shadow-lg transition focus:translate-y-0"
+        >
+          {m.skipToContent}
+        </a>
         <SiteHeader locale={locale} m={m} />
-        {children}
+        <div id="main-content" tabIndex={-1}>
+          {children}
+        </div>
         <SiteFooter m={m} />
       </body>
     </html>
