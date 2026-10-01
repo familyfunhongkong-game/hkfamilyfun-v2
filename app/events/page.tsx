@@ -4,7 +4,7 @@ import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import EventImageFallback from "@/components/event-image-fallback";
+import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 
@@ -1055,18 +1055,14 @@ function EventCard({
           <span className="sr-only">查看 {title}</span>
         </Link>
 
-        {isFallback ? (
-          <EventImageFallback compact />
-        ) : (
-          <img
-            src={hero}
-            alt={title}
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-            style={coverStyle}
-          />
-        )}
+        <ResilientEventImage
+          src={isFallback ? null : hero}
+          alt={title}
+          loading="lazy"
+          compactFallback
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+          style={coverStyle}
+        />
 
         <div className="absolute left-3 top-3 z-10 flex max-w-[82%] flex-wrap gap-2">
           <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-black text-purple-700 shadow-sm backdrop-blur">
