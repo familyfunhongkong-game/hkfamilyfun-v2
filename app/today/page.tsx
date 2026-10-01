@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
+import { getServerLocale } from "@/lib/i18n/server";
+import { getPublicMessages } from "@/lib/i18n/public-messages";
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +20,15 @@ function occursOn(eventDate: string, endDate: string | undefined, target: string
 }
 
 export default async function TodayPage() {
+  const locale = await getServerLocale();
+  const p = getPublicMessages(locale);
   const today = hkToday();
-  const events = await getPublishedEvents();
+  const events = await getPublishedEvents(locale);
   const todayEvents = events
     .filter((event) => occursOn(event.date, event.endDate, today))
     .sort((a, b) => a.time.localeCompare(b.time));
 
-  const displayDate = new Intl.DateTimeFormat("zh-HK", {
+  const displayDate = new Intl.DateTimeFormat(locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK", {
     timeZone: "Asia/Hong_Kong",
     year: "numeric",
     month: "long",
@@ -38,16 +42,16 @@ export default async function TodayPage() {
         <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-black text-white/80">今日活動</p>
-              <h1 className="mt-2 text-4xl font-black">今日活動時間表</h1>
+              <p className="text-sm font-black text-white/80">{p.todayKicker}</p>
+              <h1 className="mt-2 text-4xl font-black">{p.todayTitle}</h1>
               <p className="mt-3 text-sm leading-7 text-white/85">
-                {displayDate} · 只顯示仍有效並已發布的活動。
+                {displayDate} · {p.todayPublishedOnly}
               </p>
             </div>
 
             <div className="rounded-3xl bg-white/15 px-6 py-5 text-center backdrop-blur">
               <p className="text-4xl font-black">{todayEvents.length}</p>
-              <p className="mt-1 text-sm font-bold text-white/85">今日活動</p>
+              <p className="mt-1 text-sm font-bold text-white/85">{p.todayKicker}</p>
             </div>
           </div>
         </div>
@@ -89,13 +93,13 @@ export default async function TodayPage() {
 
                 <div className="flex items-center gap-3">
                   <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">
-                    {event.price || "詳情請見官方網站"}
+                    {event.price || p.officialDetails}
                   </span>
                   <Link
                     href={`/events/${event.id}`}
                     className="rounded-full bg-purple-700 px-4 py-2 text-sm font-black text-white hover:bg-purple-800"
                   >
-                    查看
+                    {p.view}
                   </Link>
                 </div>
               </article>
@@ -103,36 +107,36 @@ export default async function TodayPage() {
           </div>
         ) : (
           <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
-            <h2 className="text-xl font-black">今日暫未有已發布活動</h2>
+            <h2 className="text-xl font-black">{p.noToday}</h2>
             <p className="mt-2 text-sm leading-7 text-slate-600">
-              我們不會用示範活動填滿頁面；新活動完成審批後會自動顯示。
+              {p.noTodayDesc}
             </p>
             <Link
               href="/events"
               className="mt-5 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
             >
-              查看其他日期活動
+              {p.view}其他日期活動
             </Link>
           </div>
         )}
 
         <div className="mt-8 rounded-3xl bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-black">想睇更多活動？</h2>
+          <h2 className="text-xl font-black">{p.moreEvents}</h2>
           <p className="mt-2 text-sm leading-7 text-slate-600">
-            你可以到活動日曆、搜尋活動或地點探索，按日期、地區及港鐵站篩選。
+            {p.moreEventsDesc}
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
               href="/calendar"
               className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:border-purple-300 hover:text-purple-700"
             >
-              活動日曆
+              {p.calendarTitle}
             </Link>
             <Link
               href="/events/map"
               className="rounded-full bg-teal-600 px-5 py-3 text-sm font-black text-white hover:bg-teal-700"
             >
-              地點探索
+              {p.locationExplore}
             </Link>
           </div>
         </div>
