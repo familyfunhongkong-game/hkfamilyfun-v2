@@ -189,6 +189,33 @@ export default function ImportEventPage() {
 
   const score = useMemo(() => readyScore(draft), [draft]);
 
+  function applyExtractedDraft(extracted: DraftEvent, fallbackUrl = "") {
+    const images = normalizeImages([
+      extracted.cover_image_url,
+      ...(extracted.gallery_image_urls || []),
+    ]);
+
+    setDraft({
+      ...emptyDraft,
+      ...extracted,
+      source_url: extracted.source_url || fallbackUrl,
+      official_url: extracted.official_url || fallbackUrl,
+      registration_url:
+        extracted.registration_url || extracted.booking_url || fallbackUrl,
+      booking_url:
+        extracted.booking_url || extracted.registration_url || fallbackUrl,
+      gallery_image_urls: [
+        images[0] || "",
+        images[1] || "",
+        images[2] || "",
+        images[3] || "",
+        images[4] || "",
+      ],
+      cover_image_url: extracted.cover_image_url || images[0] || "",
+      extraction_notes: extracted.extraction_notes || [],
+    });
+  }
+
   function updateField<K extends keyof DraftEvent>(key: K, value: DraftEvent[K]) {
     setDraft((previous) => ({
       ...previous,
@@ -302,28 +329,7 @@ export default function ImportEventPage() {
       }
 
       const extracted = json.event as DraftEvent;
-      const images = normalizeImages([
-        extracted.cover_image_url,
-        ...(extracted.gallery_image_urls || []),
-      ]);
-
-      setDraft({
-        ...emptyDraft,
-        ...extracted,
-        source_url: extracted.source_url || targetUrl,
-        official_url: extracted.official_url || targetUrl,
-        registration_url: extracted.registration_url || extracted.booking_url || targetUrl,
-        booking_url: extracted.booking_url || extracted.registration_url || targetUrl,
-        gallery_image_urls: [
-          images[0] || "",
-          images[1] || "",
-          images[2] || "",
-          images[3] || "",
-          images[4] || "",
-        ],
-        cover_image_url: extracted.cover_image_url || images[0] || "",
-        extraction_notes: extracted.extraction_notes || [],
-      });
+      applyExtractedDraft(extracted, targetUrl);
 
       setMessage("已完成網址資料抽取。請逐項核對日期、地點、收費及報名資料後再儲存草稿。");
     } catch (error) {
@@ -335,6 +341,75 @@ export default function ImportEventPage() {
     }
 
     setExtracting(false);
+  }
+
+  async function extractFromPdf(file: File | null) {
+    if (!file) return;
+
+    if (
+      !file.type.toLowerCase().includes("pdf") &&
+      !file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      setMessage("請選擇 PDF 檔案。");
+      return;
+    }
+
+    if (file.size > 12 * 1024 * 1024) {
+      setMessage("PDF 必須小於 12MB。");
+      return;
+    }
+
+    setExtracting(true);
+    setMessage("");
+    setSavedId(null);
+
+    try {
+      if (!supabase) {
+        setMessage("Supabase client 未能初始化，暫時不能匯入活動。");
+        return;
+      }
+
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        setMessage("登入狀態已失效，請重新登入商戶帳戶。");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file, file.name);
+
+      const response = await fetch("/api/import-event", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${session.access_token}`,
+        },
+        body: formData,
+      });
+
+      const json = await response.json();
+
+      if (!response.ok || !json.ok) {
+        setMessage(json.error || "未能讀取 PDF 活動資料。");
+        return;
+      }
+
+      applyExtractedDraft(json.event as DraftEvent);
+      setMessage(
+        "已完成 PDF 文字抽取。原 PDF 不會自動發布；請逐項核對日期、地點、收費及報名資料後再儲存草稿。",
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "讀取 PDF 時發生未知錯誤。",
+      );
+    } finally {
+      setExtracting(false);
+    }
   }
 
   async function saveDraft() {
@@ -427,11 +502,10 @@ export default function ImportEventPage() {
             Merchant Portal · 智能網址匯入
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-            貼活動網址，自動建立可編輯草稿
+            貼活動網址或直接上載 PDF，自動建立可編輯草稿
           </h1>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
-            系統會讀取活動網頁的 HTML、Meta 及 JSON-LD 結構化資料，預填活動名稱、描述、
-            圖片、日期、地點、收費及 CTA。所有結果只會建立草稿，必須人工確認後才提交審批。
+            系統可讀取活動網頁的 HTML、Meta、JSON-LD，亦可直接從 PDF 抽取文字，預填活動名稱、描述、圖片、日期、地點、收費及 CTA。所有結果只會建立草稿，必須人工確認後才提交審批。
           </p>
         </div>
       </section>
@@ -459,6 +533,32 @@ export default function ImportEventPage() {
             >
               {extracting ? "正在抽取資料..." : "抽取活動資料"}
             </button>
+
+            <div className="my-4 flex items-center gap-3" aria-hidden="true">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="text-xs font-black text-slate-400">或</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <label className="block cursor-pointer rounded-2xl border border-dashed border-purple-300 bg-purple-50 p-4 text-center transition hover:border-purple-500 hover:bg-purple-100">
+              <span className="block text-sm font-black text-purple-900">
+                📄 直接上載 PDF
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-purple-700">
+                PDF 最多 12MB；只用作即時抽取文字，不會自動公開原檔。
+              </span>
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                disabled={extracting}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] || null;
+                  void extractFromPdf(file);
+                  event.currentTarget.value = "";
+                }}
+                className="sr-only"
+              />
+            </label>
 
             <button
               type="button"
