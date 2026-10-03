@@ -20,9 +20,10 @@ export async function GET() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { count, error } = await client
-    .from("public_events")
-    .select("id", { count: "exact", head: true });
+  const { data, count, error } = await client
+    .from("public_events_i18n")
+    .select("id", { count: "exact" })
+    .limit(1);
 
   if (error) {
     return NextResponse.json(
@@ -36,6 +37,7 @@ export async function GET() {
       ok: true,
       service: "hkfamilyfun-v2",
       publicEventCount: count ?? 0,
+      samplePublicEventId: data?.[0]?.id || null,
       buildSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
       checkedAt: new Date().toISOString(),
     },
