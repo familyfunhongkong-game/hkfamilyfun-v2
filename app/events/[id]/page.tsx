@@ -1292,18 +1292,18 @@ export default function PublicEventDetailPage() {
             </div>
           </SectionCard>
 
-          {safeText(event.highlights) ? (
+          {highlights ? (
             <SectionCard title={m.highlights} icon="⭐">
               <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
-                {safeText(event.highlights)}
+                {highlights}
               </div>
             </SectionCard>
           ) : null}
 
-          {safeText(event.terms) ? (
+          {terms ? (
             <SectionCard title={m.important} icon="⚠️">
               <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
-                {safeText(event.terms)}
+                {terms}
               </div>
             </SectionCard>
           ) : null}
@@ -1392,35 +1392,26 @@ export default function PublicEventDetailPage() {
             )}
           </SectionCard>
 
-          <SectionCard title="家長留意事項" icon="👨‍👩‍👧‍👦">
+          <SectionCard title={m.parentInfo} icon="👨‍👩‍👧‍👦">
             <div className="grid gap-4">
               <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-100">
-                <p className="text-xs font-black text-amber-700">家長提示</p>
+                <p className="text-xs font-black text-amber-700">{m.parentNote}</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-7 text-amber-900">
-                  {safeText(
-                    event.parent_note_tc,
-                    "請出發前再次向主辦方確認活動日期、時間、名額、收費及報名安排。",
-                  )}
+                  {parentNote}
                 </p>
               </div>
 
               <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
-                <p className="text-xs font-black text-sky-700">安全提示</p>
+                <p className="text-xs font-black text-sky-700">{m.safety}</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-7 text-sky-900">
-                  {safeText(
-                    event.safety_note_tc,
-                    "請按小朋友年齡、體力及現場人流情況評估是否適合參加。",
-                  )}
+                  {safetyNote}
                 </p>
               </div>
 
               <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
-                <p className="text-xs font-black text-slate-700">取消及退款政策</p>
+                <p className="text-xs font-black text-slate-700">{m.cancellation}</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-7 text-slate-700">
-                  {safeText(
-                    event.cancellation_policy_tc,
-                    "請以主辦方公布的最新安排為準。",
-                  )}
+                  {cancellationPolicy}
                 </p>
               </div>
             </div>
@@ -1429,21 +1420,21 @@ export default function PublicEventDetailPage() {
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-black text-slate-950">快速資料</h3>
+            <h3 className="text-sm font-black text-slate-950">{m.quickFacts}</h3>
 
             <div className="mt-4 space-y-2">
-              <InfoPill label="活動分類" value={getCategoryLabel(event, locale)} />
-              <InfoPill label="日期" value={formatDateRange(event, locale)} />
-              <InfoPill label="時間" value={formatTimeRange(event, locale)} />
-              <InfoPill label="收費" value={formatPrice(event, locale)} />
-              <InfoPill label="主辦單位" value={merchantName} />
+              <InfoPill label={m.category} value={getCategoryLabel(event, locale)} />
+              <InfoPill label={m.date} value={formatDateRange(event, locale)} />
+              <InfoPill label={m.time} value={formatTimeRange(event, locale)} />
+              <InfoPill label={m.price} value={formatPrice(event, locale)} />
+              <InfoPill label={m.organizer} value={merchantName} />
             </div>
           </div>
 
           <div className="rounded-3xl border border-purple-100 bg-purple-50 p-5">
-            <h3 className="text-sm font-black text-purple-950">分享提醒</h3>
+            <h3 className="text-sm font-black text-purple-950">{m.shareReminder}</h3>
             <p className="mt-3 text-xs font-bold leading-6 text-purple-800">
-              活動資料可能會因天氣、人流、主辦方安排而變更。建議出發前先查看官方頁面或向主辦方確認。
+              {m.shareReminderDesc}
             </p>
           </div>
 
@@ -1451,7 +1442,7 @@ export default function PublicEventDetailPage() {
             href="/events"
             className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-slate-700 hover:bg-slate-50"
           >
-            查看更多親子活動
+            {m.exploreMore}
           </Link>
         </aside>
       </div>
