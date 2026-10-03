@@ -1,111 +1,89 @@
-# HK Family Fun V2 - Complete Rebuild
+# HK Family Fun V2
 
-A comprehensive family activity discovery platform for Hong Kong with advanced admin features.
+HK Family Fun is a Hong Kong family-event discovery SaaS. The rebuilt platform combines a public event experience with Merchant and Admin portals so event data can be maintained without editing source code.
 
-## Features
+## Product surfaces
 
-### Public Platform
-- Event discovery (grid, calendar, timeline views)
-- Advanced filtering (category, district, age, price)
-- Community posts & discussions
-- Favorites/wishlist
-- Event recommendations
+### Public
+- Home, Today, Calendar, search-first Events, nearby Map and Event Detail
+- Traditional Chinese / Simplified Chinese / English
+- District, MTR, date, price, free, category, SEN and location discovery
+- Favorites, sharing, Google Maps and official organizer CTAs
+- Responsive mobile navigation and resilient event-image fallbacks
 
 ### Merchant Portal
-- Self-service event submission
-- Event management & analytics
-- Merchant dashboard
+- Registration, email/password authentication and password recovery
+- Event create / edit / autosave / preview / submit
+- Image upload, re-ordering and cover management
+- URL import and direct PDF upload into editable drafts
+- TC / SC / EN event content fields
+- Optional one-click SC + English translation when Azure Translator is configured
+- Merchant analytics and event-management dashboard
 
-### Admin Portal (Enhanced)
-- AI-powered event scraping from URLs
-- Auto-suggestion for headlines & descriptions
-- Batch image upload & optimization
-- Event approval workflow
-- Community moderation
-- Advanced analytics & reporting
+### Admin Portal
+- Merchant review and approval
+- Event CRUD through the shared admin-capable editor
+- Event approve / reject / publish / archive / delete workflow
+- Publication-readiness checks, preview and review notes
+- Promotional banner management and exports
 
-## Tech Stack
+## Current technology
 
-- **Frontend**: Next.js 14 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS + shadcn/ui
-- **Database**: Supabase (PostgreSQL)
-- **Auth**: Supabase Auth
-- **State**: TanStack Query + Zustand
-- **Forms**: React Hook Form + Zod
-- **Hosting**: Vercel
+- **Framework:** Next.js 16.3.6 App Router
+- **UI:** React 19.2 + Tailwind CSS
+- **Language:** TypeScript
+- **Database / Auth / Storage:** Supabase PostgreSQL + Supabase Auth + Storage
+- **Hosting / deployment:** Vercel
+- **Maps:** Leaflet / React Leaflet
+- **Forms / state:** React Hook Form, Zod, TanStack Query, Zustand
+- **Automation:** GitHub Actions quality, authenticated E2E, production smoke and event-maintenance workflows
 
-## Getting Started
+## Local development
 
-### Prerequisites
-- Node.js 18+
-- pnpm (recommended)
-- Supabase account
-- Vercel account (for deployment)
-
-### Installation
+Prerequisites:
+- Node.js 22
+- npm
+- access to the HK Family Fun V2 Supabase environment
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Setup environment
+npm ci
 cp .env.example .env.local
-# Edit .env.local with your Supabase credentials
-
-# Run development server
-pnpm dev
+npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the application.
+The development server runs on:
 
-### Database Setup
+```text
+http://localhost:3001
+```
+
+Before pushing:
 
 ```bash
-# Create tables and schema
-pnpm db:push
-
-# Seed initial data
-pnpm db:seed
+npm run lint
+npm run type-check
+npm run build
 ```
 
-## Project Structure
+## Project structure
 
-```
-src/
-├── app/                 # Next.js App Router pages
-│   ├── (public)/       # Public pages
-│   ├── (auth)/         # Auth pages
-│   ├── (merchant)/     # Merchant portal
-│   └── (admin)/        # Admin portal
-├── components/         # Reusable components
-├── lib/               # Utilities & helpers
-├── types/             # TypeScript types
-└── styles/            # Global styles
+```text
+app/                     Next.js routes and API handlers
+components/              Shared UI components
+lib/                     Supabase, i18n and application helpers
+scripts/                 E2E, migration and maintenance scripts
+supabase/migrations/     Database migrations
+docs/                    Operational and launch documentation
+.github/workflows/       CI, smoke, E2E and maintenance automation
+public/                  Static brand assets
 ```
 
-## Development
+## Deployment gates
 
-```bash
-# Type checking
-pnpm type-check
+Pushes to `main` are built by Vercel and checked by GitHub Actions. Portal-critical changes also run an authenticated Merchant/Admin/Auth E2E flow using temporary records that are cleaned up after the test. A production smoke workflow validates the deployed commit, main public routes, a live event detail, locale persistence, anonymous-write protection and staging `noindex`.
 
-# Linting
-pnpm lint
+See `docs/HK_FAMILY_FUN_LAUNCH_CHECKLIST.md` for current launch status and remaining external actions.
 
-# Format code
-pnpm format
-```
+## Important repository rule
 
-## Deployment
-
-Deployed on Vercel. Push to `main` branch to trigger automatic deployment.
-
-```bash
-pnpm build
-pnpm start
-```
-
-## License
-
-MIT
+`main` is the canonical rebuild branch. Do not blindly merge the old `phase-1c-merchant-portal` branch or PR #3; it is heavily diverged and must be audited feature-by-feature before any reuse.
