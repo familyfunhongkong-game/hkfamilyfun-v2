@@ -36,6 +36,7 @@ export async function GET() {
       ok: true,
       service: "hkfamilyfun-v2",
       publicEventCount: count ?? 0,
+      buildSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
       checkedAt: new Date().toISOString(),
     },
     { headers: { "Cache-Control": "no-store, max-age=0" } },
