@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
+import { eventOccursOn, eventOccursInRange } from "@/lib/events/recurrence";
 
 export const dynamic = "force-dynamic";
 
@@ -25,51 +26,6 @@ function shiftMonth(key: string, delta: number) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function dateWeekday(dateText: string) {
-  const match = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return -1;
-
-  return new Date(
-    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
-  ).getUTCDay();
-}
-
-function occursOn(
-  event: Awaited<ReturnType<typeof getPublishedEvents>>[number],
-  target: string,
-) {
-  const start = event.date;
-  const end = event.endDate || event.date;
-
-  if (!start || !end || target < start || target > end) return false;
-  if (event.recurrenceType !== "weekly") return true;
-
-  if (event.recurrenceIncludeDates?.includes(target)) return true;
-  if (event.recurrenceExcludeDates?.includes(target)) return false;
-
-  return (event.recurrenceWeekdays || []).includes(dateWeekday(target));
-}
-
-function overlapsMonth(
-  event: Awaited<ReturnType<typeof getPublishedEvents>>[number],
-  monthStart: string,
-  monthEnd: string,
-) {
-  const finalEnd = event.endDate || event.date;
-  if (event.date > monthEnd || finalEnd < monthStart) return false;
-  if (event.recurrenceType !== "weekly") return true;
-
-  const [year, month] = monthStart.split("-").map(Number);
-  const days = new Date(year, month, 0).getDate();
-
-  for (let day = 1; day <= days; day += 1) {
-    const target = `${monthStart.slice(0, 7)}-${String(day).padStart(2, "0")}`;
-    if (occursOn(event, target)) return true;
-  }
-
-  return false;
-}
-
 export default async function CalendarPage({
   searchParams,
 }: {
@@ -89,7 +45,18 @@ export default async function CalendarPage({
   const monthEvents = events.filter(
     (event) =>
       /^\d{4}-\d{2}-\d{2}$/.test(event.date) &&
-      overlapsMonth(event, monthStart, monthEnd),
+      eventOccursInRange(
+        {
+          startDate: event.date,
+          endDate: event.endDate,
+          recurrenceType: event.recurrenceType,
+          recurrenceWeekdays: event.recurrenceWeekdays,
+          recurrenceIncludeDates: event.recurrenceIncludeDates,
+          recurrenceExcludeDates: event.recurrenceExcludeDates,
+        },
+        monthStart,
+        monthEnd,
+      ),
   );
 
   const eventsByDay = new Map<number, typeof monthEvents>();
@@ -97,7 +64,19 @@ export default async function CalendarPage({
     const date = `${selectedMonth}-${String(day).padStart(2, "0")}`;
     eventsByDay.set(
       day,
-      monthEvents.filter((event) => occursOn(event, date)),
+      monthEvents.filter((event) =>
+        eventOccursOn(
+          {
+            startDate: event.date,
+            endDate: event.endDate,
+            recurrenceType: event.recurrenceType,
+            recurrenceWeekdays: event.recurrenceWeekdays,
+            recurrenceIncludeDates: event.recurrenceIncludeDates,
+            recurrenceExcludeDates: event.recurrenceExcludeDates,
+          },
+          date,
+        ),
+      ),
     );
   }
 
@@ -109,7 +88,7 @@ export default async function CalendarPage({
             <Link
               href={`/calendar?month=${shiftMonth(selectedMonth, -1)}`}
               className="rounded-full border border-slate-200 px-4 py-2 text-sm font-black hover:bg-slate-50"
-              aria-label="上一個月"
+              aria-label={p.previousMonth}
             >
               ‹
             </Link>
@@ -127,7 +106,7 @@ export default async function CalendarPage({
             <Link
               href={`/calendar?month=${shiftMonth(selectedMonth, 1)}`}
               className="rounded-full border border-slate-200 px-4 py-2 text-sm font-black hover:bg-slate-50"
-              aria-label="下一個月"
+              aria-label={p.nextMonth}
             >
               ›
             </Link>
@@ -209,7 +188,12 @@ export default async function CalendarPage({
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-sm font-black text-purple-700">
-                {year}年{month}月
+                {locale === "en"
+                  ? new Intl.DateTimeFormat("en-HK", {
+                      month: "long",
+                      year: "numeric",
+                    }).format(new Date(year, month - 1, 1))
+                  : `${year}年${month}月`}
               </p>
               <h2 className="mt-1 text-2xl font-black">{p.publishedEvents}</h2>
             </div>
@@ -228,7 +212,7 @@ export default async function CalendarPage({
                 >
                   <div className="rounded-2xl bg-orange-50 px-3 py-3 text-center text-sm font-black text-orange-700">
                     {event.recurrenceType === "weekly"
-                      ? event.recurrenceNote || "每週重複"
+                      ? event.recurrenceNote || p.weeklyRecurring
                       : event.date}
                     {event.recurrenceType !== "weekly" &&
                     event.endDate &&
@@ -248,7 +232,7 @@ export default async function CalendarPage({
                     </p>
                   </div>
                   <span className="self-center rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
-                    {event.price || "{p.officialDetails}"}
+                    {event.price || p.officialDetails}
                   </span>
                 </Link>
               ))}
@@ -256,7 +240,7 @@ export default async function CalendarPage({
           ) : (
             <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
               <p className="font-black text-slate-800">
-                暫未有這個月的{p.publishedEvents}
+                {p.noMonth}
               </p>
               <p className="mt-2 text-sm text-slate-500">
                 {p.noMonthDesc}
