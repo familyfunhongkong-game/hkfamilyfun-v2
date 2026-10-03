@@ -29,6 +29,74 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function buildSinglePagePdf(text) {
+  const safeText = String(text)
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
+
+  const stream = `BT
+/F1 18 Tf
+72 720 Td
+(${safeText}) Tj
+ET
+`;
+
+  const objects = [
+    `1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+`,
+    `2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+`,
+    `3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+`,
+    `4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+`,
+    `5 0 obj
+<< /Length ${Buffer.byteLength(stream, "utf8")} >>
+stream
+${stream}endstream
+endobj
+`,
+  ];
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+
+  for (const object of objects) {
+    offsets.push(Buffer.byteLength(pdf, "utf8"));
+    pdf += object;
+  }
+
+  const xrefOffset = Buffer.byteLength(pdf, "utf8");
+
+  pdf += `xref
+0 ${objects.length + 1}
+0000000000 65535 f 
+`;
+
+  for (let index = 1; index <= objects.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n 
+`;
+  }
+
+  pdf += `trailer
+<< /Size ${objects.length + 1} /Root 1 0 R >>
+startxref
+${xrefOffset}
+%%EOF
+`;
+
+  return Buffer.from(pdf, "utf8");
+}
+
 async function cleanup() {
   const paths = [storagePath, tempStoragePath].filter(Boolean);
   if (paths.length) {
@@ -422,6 +490,67 @@ async function main() {
       `Published event page returned HTTP ${publicPageResponse.status}`,
     );
     checks.push("published_event_route_returns_200");
+
+    const urlImportResponse = await fetch(`${siteUrl}/api/import-event`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${signedIn.data.session.access_token}`,
+      },
+      body: JSON.stringify({
+        url: `${siteUrl}/events/${eventId}`,
+      }),
+    });
+
+    const urlImportBody = await urlImportResponse.json().catch(() => ({}));
+
+    assert(
+      urlImportResponse.ok && urlImportBody.ok === true,
+      `URL import failed with HTTP ${urlImportResponse.status}: ${
+        urlImportBody.error || "unknown"
+      }`,
+    );
+    assert(
+      Boolean(urlImportBody.event?.title_tc),
+      "URL import did not extract an event title",
+    );
+    checks.push("authenticated_url_import_returns_editable_draft_data");
+
+    const pdfBytes = buildSinglePagePdf(
+      "HKFF E2E PDF Event - 16 January 2030 - HKFF E2E Test Venue",
+    );
+    const pdfForm = new FormData();
+    pdfForm.append(
+      "file",
+      new Blob([pdfBytes], { type: "application/pdf" }),
+      "hkff-e2e-event.pdf",
+    );
+
+    const pdfImportResponse = await fetch(`${siteUrl}/api/import-event`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${signedIn.data.session.access_token}`,
+      },
+      body: pdfForm,
+    });
+
+    const pdfImportBody = await pdfImportResponse.json().catch(() => ({}));
+
+    assert(
+      pdfImportResponse.ok && pdfImportBody.ok === true,
+      `Direct PDF import failed with HTTP ${pdfImportResponse.status}: ${
+        pdfImportBody.error || "unknown"
+      }`,
+    );
+    assert(
+      pdfImportBody.source_type === "pdf_upload",
+      "Direct PDF import did not return pdf_upload source type",
+    );
+    assert(
+      Boolean(pdfImportBody.event?.title_tc || pdfImportBody.event?.description_tc),
+      "Direct PDF import did not extract usable text",
+    );
+    checks.push("authenticated_direct_pdf_import_returns_editable_draft_data");
 
     const generatedRecovery = await admin.auth.admin.generateLink({
       type: "recovery",
