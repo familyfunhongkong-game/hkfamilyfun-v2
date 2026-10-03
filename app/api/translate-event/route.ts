@@ -7,6 +7,11 @@ const SOURCE_FIELDS = [
   "title_tc",
   "short_description_tc",
   "description_tc",
+  "highlights",
+  "terms",
+  "parent_note_tc",
+  "safety_note_tc",
+  "cancellation_policy_tc",
   "venue_name",
   "address",
 ] as const;
@@ -28,6 +33,13 @@ function targetField(source: SourceField, language: "zh-Hans" | "en") {
   if (source === "title_tc") return `title_${suffix}`;
   if (source === "short_description_tc") return `short_description_${suffix}`;
   if (source === "description_tc") return `description_${suffix}`;
+  if (source === "highlights") return `highlights_${suffix}`;
+  if (source === "terms") return `terms_${suffix}`;
+  if (source === "parent_note_tc") return `parent_note_${suffix}`;
+  if (source === "safety_note_tc") return `safety_note_${suffix}`;
+  if (source === "cancellation_policy_tc") {
+    return `cancellation_policy_${suffix}`;
+  }
   if (source === "venue_name") return `venue_name_${suffix}`;
   return `address_${suffix}`;
 }
@@ -175,7 +187,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (
-      totalCharacters > 15000 ||
+      totalCharacters > 24000 ||
       inputs.some((item) => item.text.length > 6000)
     ) {
       return NextResponse.json(
