@@ -1581,7 +1581,10 @@ export default function MerchantEventEditPage() {
     }, 1300);
 
     return () => window.clearTimeout(timer);
-  }, [form, loading, eventRecord]);
+    // saveEvent intentionally follows the latest render state; depending on its
+    // function identity would restart the autosave timer on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, loading, eventRecord, editable]);
 
   if (loading) {
     return (
