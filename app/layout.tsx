@@ -92,7 +92,8 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
             priority
             className="h-10 w-10 shrink-0 object-contain sm:h-11 sm:w-11"
           />
-          <span className="min-w-0">\n            <span className="block truncate text-base font-black leading-tight text-slate-950 sm:text-lg">
+          <span className="min-w-0">
+            <span className="block truncate text-base font-black leading-tight text-slate-950 sm:text-lg">
               HK Family Fun
             </span>
             <span className="block text-xs text-slate-500">
