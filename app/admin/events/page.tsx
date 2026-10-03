@@ -2,6 +2,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 
@@ -627,6 +628,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function AdminEventsPage() {
+  const router = useRouter();
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState("");
@@ -697,7 +699,7 @@ export default function AdminEventsPage() {
       return;
     }
 
-    window.location.href = `/merchant/events/${data.id}/edit`;
+    router.push(`/merchant/events/${data.id}/edit`);
   }
 
   async function updateEventStatus(
