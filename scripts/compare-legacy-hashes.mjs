@@ -54,9 +54,7 @@ const newHashed=current.map(e=>{
   };
 });
 
-const oldSemanticCount=countBy(legacy.map(x=>x.semantic_hash));
 const oldSourceCount=countBy(legacy.map(x=>x.source_hash));
-const newSemanticCount=countBy(newHashed.map(x=>x.semantic_hash));
 const newSourceCount=countBy(newHashed.map(x=>x.source_hash));
 
 const newSemantic=new Set(newHashed.map(x=>x.semantic_hash));
