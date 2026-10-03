@@ -1,93 +1,205 @@
 # HK Family Fun V2 — Launch Checklist
 
-Updated: 2026-10-01
+Updated: 2026-10-02 (America/Edmonton)
+
+## Quality target
+
+HK Family Fun V2 is being hardened toward an Awwwards / Webby / FWA-level product bar while preserving practical SaaS requirements:
+
+- clear information hierarchy and strong visual polish
+- mobile-first family discovery and one-hand navigation
+- fast, resilient event imagery and graceful fallbacks
+- TC / SC / EN consistency
+- accessibility, keyboard focus and reduced-motion support
+- stable Merchant/Admin workflows
+- secure role separation and database RLS
+- deterministic CI, authenticated E2E and production smoke gates
+
+Visual polish must never trade away accessibility, SEO, performance, data safety or operational stability.
 
 ## Canonical branch
-- `main` is the current canonical working branch.
-- Do not blindly merge `phase-1c-merchant-portal`: it is heavily diverged from `main` and PR #3 is stale.
-- Production domain cutover remains blocked until authenticated E2E, legacy-data reconciliation and production smoke tests pass.
 
-## Current live infrastructure snapshot
+- `main` is the only canonical rebuild branch.
+- Do **not** blindly merge `phase-1c-merchant-portal` / PR #3. It is heavily diverged from `main`.
+- Production domain cutover remains a separate final action after the remaining external gates below are cleared.
+
+## Live infrastructure snapshot
+
 - GitHub repository: `familyfunhongkong-game/hkfamilyfun-v2`
-- Supabase project: `hkfamilyfun-v2` (`uiyrbqqvgnfhfdhedmav`) — ACTIVE_HEALTHY
+- Supabase V2 project: `hkfamilyfun-v2` / `uiyrbqqvgnfhfdhedmav`
 - Supabase region: `ap-southeast-1`
-- Events: 232 total
-- Published: 37
-- Draft: 104
-- Archived: 85
-- Rejected: 1
-- Profiles: 3
-- Merchants: 2
-- `event_images` table rows: 0
-- Supabase security advisor: leaked-password protection still disabled
+- Vercel project: `hkfamilyfun-v2`
+- Events: **236**
+- Published: **37**
+- Current/future published: **10**
+- Draft: **108**
+- Approved: **5**
+- Rejected: **1**
+- Archived: **85**
+- Profiles: **3**
+- Merchants: **2**
+- Legacy events migrated into V2: **174**
+- `event-images` Storage objects: **30**
 
-## Core product scope that must remain working
-- Public event discovery, Today, Calendar and nearby map
-- Traditional Chinese-first UI with TC / SC / EN support
-- Persistent language selector (繁 / 简 / EN) with server-side cookie storage
-- Date / district / MTR / age / category / price / free / SEN filters
-- Event details with official registration / source CTA
-- Merchant registration / login / password reset
-- Merchant create / edit / preview / submit / delete
-- Merchant image upload and event management
-- Admin merchant approval
-- Admin event CRUD, approve / reject / publish
-- Admin-managed promotional banner workflow
-- URL / PDF event import
-- CSV / JSON export
-- Privacy-safe event analytics
-- Hong Kong date boundary handling
-- Supabase RLS and role separation
+The app currently uses `events.cover_image_url` + `gallery_image_urls` + Supabase Storage as the active image model. A zero-row legacy `event_images` table is therefore not, by itself, an application failure.
 
-## Verified / recently hardened
-- Map cards and viewport-only filtering updated on main
-- Merchant password recovery session check hardened
-- Merchant password UI aligned with 12-character policy
-- Axios security patch upgraded
-- Supabase project is healthy
-- RLS/security work remains in place
-- Quality gate restored to main on 2026-09-30
-- Core i18n database fields added for title / short description / description / venue / address (SC + EN)
-- Security-invoker public i18n view added and anon-tested: 0 non-published events exposed
-- Current 10 active published events backfilled with SC + EN titles and descriptions
-- Home / Today / Calendar shell and event content now read selected locale with TC fallback
-- Public Events search now searches TC / SC / EN content and renders localized event content
-- Public Event Detail now renders localized event content
-- Merchant event editor can save TC / SC / EN title, descriptions, venue and address
-- Admin event review includes language completeness checks and language readiness badges
-- Latest checked Vercel deployment for merchant trilingual editor reached READY
-- Vercel runtime errors: none found in the last 24 hours at the time of this update
+## Product scope implemented
 
-## Required before public domain cutover
-- GitHub quality gate must pass on latest main
-- Merchant authenticated E2E:
-  - login
-  - create event
-  - upload images
-  - edit
-  - preview
-  - submit
-- Admin authenticated E2E:
-  - login
-  - merchant approval
-  - event approve / reject / publish
-- URL/PDF import regression test
-- Confirm published event appears correctly on public site
-- Mobile + desktop smoke test: Home / Events / Today / Calendar / Map / Event Detail
-- Verify official CTA / share / favorite flows
-- Verify password-reset flow end-to-end
-- Reconcile old HK Family Fun data and media before destructive cleanup
-- Fix or explicitly accept every remaining production security warning
-- Confirm Vercel deployment access and production deployment status
-- Only then connect / switch `hkfamilyfun.com`
+### Public
+- Home / Today / Calendar / Events / Map / Event Detail
+- TC / SC / EN with persistent locale cookie and TC fallback
+- date / district / MTR / price / free / category / SEN / nearby discovery
+- favorites, share, Google Maps and official-organizer CTA
+- responsive mobile bottom navigation
+- resilient event-image fallback using the original HK Family Fun logo
+- staging `noindex` before domain cutover
 
-## Current known blockers / risks
-1. Vercel project/deployment listing is now available and latest deployments can be verified as READY, but direct deployment-page fetch/smoke-test access through the connector is still denied. Do not change domain/DNS until browser-level production smoke testing is completed.
-2. PR #3 (`phase-1c-merchant-portal` -> `main`) is draft and heavily diverged; do not merge it as a launch shortcut.
-3. Supabase leaked-password protection is still disabled.
-4. Database now contains 232 events, substantially more than the prior 49-event snapshot; legacy/import reconciliation is required before cleanup.
-5. `event_images` table has 0 rows while event image objects exist in storage, so image/media linkage must be verified against the actual storage/object workflow before launch.
-6. Automated translation is not yet enabled. Planned low-cost path: OpenCC-compatible TC→SC conversion locally; optional Azure Translator F0 for EN at create/update time only. Public rendering always falls back to TC so translation outages cannot blank event pages.
+### Merchant
+- registration and email/password login
+- 12-character password policy
+- password recovery
+- pending → approved merchant workflow
+- create / edit / autosave / preview / submit
+- image upload / delete / cover ordering
+- URL import and direct PDF upload into editable draft data
+- TC / SC / EN core fields
+- TC / SC / EN highlights, terms, parent note, safety note and cancellation/refund fields
+- optional one-click SC + English translation when Azure Translator is configured
 
-## Launch rule
-Do not switch `hkfamilyfun.com` to the rebuilt site until the latest `main` build passes, authenticated Merchant/Admin E2E passes, data/media reconciliation is complete, and final public smoke testing is clean.
+### Admin
+- merchant review / approval
+- event create / edit through the shared admin-capable editor
+- approve / reject / publish / archive / return-to-draft
+- permanent event deletion and event-image storage cleanup
+- review notes and publication-readiness checks
+- promotional banner / export workflows already present in the rebuild
+
+## Automated gates already verified
+
+### GitHub quality
+- Node 22
+- deterministic `npm ci`
+- dependency audit
+- ESLint
+- TypeScript `tsc --noEmit`
+- production `next build`
+
+### Authenticated Merchant/Admin/Auth E2E — PASS
+
+The temporary-data E2E has passed the following production Supabase workflow and cleans up after itself:
+
+- signup trigger creates pending merchant
+- legal acceptance audit fields recorded
+- merchant password login
+- pending merchant cannot create events
+- Admin can approve compliant merchant
+- approved merchant can create draft
+- merchant can upload and delete draft image
+- uploaded event image is publicly readable
+- merchant can save image reference
+- merchant can submit event
+- merchant cannot self-publish
+- approved-but-unpublished event does not leak publicly
+- Admin can publish
+- published event is public with i18n + image
+- published event route returns HTTP 200
+- password recovery changes the login password
+
+Database transaction dry-runs separately confirmed Merchant ownership, Admin access, legal-acceptance protection and self-publish blocking.
+
+### Production smoke — PASS baseline
+
+The production smoke gate has successfully verified:
+
+- exact Vercel commit deployment
+- `/`
+- `/api/health`
+- `/events`
+- `/today`
+- `/calendar`
+- `/events/map`
+- `/planner`
+- `/merchant/login`
+- `/merchant/register`
+- `/merchant/events/import`
+- `/admin`
+- one live published event detail
+- locale persistence cookie
+- anonymous import/translation writes rejected with 401
+- Vercel staging remains `noindex`
+
+The smoke workflow now skips superseded commits instead of treating cancelled obsolete Vercel deployments as product failures.
+
+## Security / data verification
+
+- public i18n view is `security_invoker` + `security_barrier`
+- anonymous public view test exposed **0 non-published events**
+- all 10 current public events have core Simplified Chinese + English content
+- Merchant cannot modify another merchant's non-public events
+- Merchant cannot modify legal acceptance audit fields
+- Merchant cannot directly publish
+- Admin review/publish permissions are enforced separately
+- Vercel runtime error checks have recently reported **0 runtime errors**
+
+### Remaining Supabase security action
+
+Supabase Security Advisor still reports:
+
+- **Leaked Password Protection Disabled**
+
+This requires an Auth dashboard setting and should be enabled before final domain cutover if the Supabase plan supports it.
+
+Performance Advisor also reports multiple-permissive-policy and unused-index notices. These are optimization findings, not evidence of a current public-data leak. Do not drop indexes or rewrite policies blindly before measuring query plans and preserving RLS behavior.
+
+## Legacy migration reconciliation
+
+The historical dry-run recorded:
+
+- old rows: **182**
+- old unique after internal dedupe: **174**
+- old duplicate rows removed: **8**
+- planned unique migration: **174**
+
+Current V2 production contains exactly **174** records marked `legacy_migration=true`.
+
+Reconciliation checks:
+- migrated unique count: **174 / 174**
+- duplicate legacy source fingerprints found: **0**
+- missing title: **0**
+- invalid date ranges: **0**
+- known missing start date: **1**
+- migrated records attached to new Merchant accounts: **0** by design
+
+Current/future legacy content:
+- 5 `approved` legacy events are current/future and all 5 have covers
+- other current/future legacy records without covers are kept as draft/archived and are not publicly exposed
+
+Do not automatically publish the 5 approved legacy events without re-checking the organizer's current official information.
+
+## Remaining launch actions
+
+### Required before switching `hkfamilyfun.com`
+
+1. Latest `main` must finish with CI + Quality + Production Smoke green after the final code/document commit.
+2. Run a final visual mobile + desktop review of Home / Events / Today / Calendar / Map / Event Detail after all UI changes. The HTTP smoke gate does not replace a visual regression pass.
+3. Run an authenticated integration regression for URL import and direct PDF upload. PDF parsing depends on the external Jina Reader service.
+4. Enable or explicitly accept the Supabase leaked-password-protection warning.
+5. Review the two existing Merchant records before launch. At least one is an older test/grandfathered record without the newer Terms/Privacy acceptance timestamps.
+6. Re-check the 5 hidden `approved` legacy events before choosing whether to publish them.
+7. Confirm final domain ownership/DNS/Vercel assignment, then move `hkfamilyfun.com` only after the gates above pass.
+
+### Operational configuration still outstanding
+
+- Production Merchant submission currently succeeds even if notification email fails.
+- The authenticated E2E reported `RESEND_API_KEY not configured`; if Admin email notification is required at launch, configure Resend in the Vercel production environment and rerun the notification gate.
+- Azure Translator is optional and is **not** a launch dependency. Without Azure keys, Merchant/Admin can still enter all TC / SC / EN fields manually and public pages fall back safely to TC.
+
+## Content backlog that does not block application launch
+
+- Some draft/archived legacy records still have no recoverable cover image.
+- Two current public records previously had no explicit cover URL; resilient branded fallback prevents a broken/blank card, but official imagery should still be added when permission/source quality is clear.
+- Continue editorial review of imported and auto-discovered drafts before publication.
+
+## Cutover rule
+
+Do **not** switch `hkfamilyfun.com` to the rebuilt site until the final latest-main automated gates are green and the remaining required external actions above are explicitly cleared.
