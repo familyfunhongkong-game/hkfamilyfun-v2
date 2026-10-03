@@ -1,11 +1,16 @@
 import { InfoSection, SimpleInfoPage } from "@/components/SimpleInfoPage";
+import { getExtraPublicMessages } from "@/lib/i18n/public-extra-messages";
+import { getServerLocale } from "@/lib/i18n/server";
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const locale = await getServerLocale();
+  const m = getExtraPublicMessages(locale).contact;
+
   return (
     <SimpleInfoPage
       eyebrow="Contact"
-      title="聯絡我們"
-      subtitle="活動資料更正、商戶合作、平台問題或其他查詢，歡迎聯絡 HK Family Fun。"
+      title={m.title}
+      subtitle={m.subtitle}
     >
       <InfoSection title="Email">
         <p>
@@ -29,12 +34,10 @@ export default function ContactPage() {
             +852 5701 8297
           </a>
         </p>
-        <p className="text-slate-500">
-          建議使用 WhatsApp 留言或 Email 聯絡，方便我們保留資料並跟進。
-        </p>
+        <p className="text-slate-500">{m.contactNote}</p>
       </InfoSection>
 
-      <InfoSection title="社交平台">
+      <InfoSection title={m.social}>
         <div className="flex flex-wrap gap-3">
           <a className="font-black text-purple-700" href="https://www.instagram.com/hk.familyfun" target="_blank" rel="noreferrer">Instagram</a>
           <a className="font-black text-purple-700" href="https://www.facebook.com/hk.familyfun1112" target="_blank" rel="noreferrer">Facebook</a>
