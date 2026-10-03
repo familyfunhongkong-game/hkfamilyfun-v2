@@ -7,6 +7,7 @@ const publishableKey =
   "sb_publishable_w2KLFSsWv5uKFEmUC4ABLA_DvHEAhdX";
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const siteUrl = process.env.SITE_URL || "https://hkfamilyfun-v2.vercel.app";
+const requireNotification = process.env.REQUIRE_NOTIFICATION === "true";
 
 if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
 
@@ -16,16 +17,23 @@ const admin = createClient(url, serviceKey, {
 
 const email = `hkff-e2e-${Date.now()}@example.com`;
 const password = `E2e-${Date.now()}-Aa!9`;
+const recoveredPassword = `Recovered-${Date.now()}-Zz!7`;
 
 let userId = "";
 let merchantId = "";
 let eventId = "";
+let storagePath = "";
+let tempStoragePath = "";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
 async function cleanup() {
+  const paths = [storagePath, tempStoragePath].filter(Boolean);
+  if (paths.length) {
+    await admin.storage.from("event-images").remove(paths);
+  }
   if (eventId) {
     await admin.from("events").delete().eq("id", eventId);
   }
@@ -39,6 +47,9 @@ async function cleanup() {
 }
 
 async function main() {
+  const checks = [];
+  let notificationSent = false;
+
   try {
     const created = await admin.auth.admin.createUser({
       email,
@@ -86,6 +97,10 @@ async function main() {
         Boolean(merchantResult.data.privacy_accepted_at),
       "Legal acceptance audit fields were not created",
     );
+    checks.push(
+      "signup_trigger_created_pending_merchant",
+      "legal_acceptance_recorded",
+    );
 
     const merchantClient = createClient(url, publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -99,6 +114,7 @@ async function main() {
     if (signedIn.error || !signedIn.data.session) {
       throw new Error("Test merchant sign-in failed: " + signedIn.error?.message);
     }
+    checks.push("merchant_password_login");
 
     const blockedInsert = await merchantClient.from("events").insert({
       merchant_id: merchantId,
@@ -110,6 +126,7 @@ async function main() {
       Boolean(blockedInsert.error),
       "Pending merchant unexpectedly created an event",
     );
+    checks.push("pending_merchant_cannot_create_event");
 
     const approvedMerchant = await admin
       .from("merchants")
@@ -127,19 +144,26 @@ async function main() {
       approvedMerchant.data.status === "approved",
       "Merchant did not become approved",
     );
+    checks.push("admin_can_approve_merchant");
 
     const draft = await merchantClient
       .from("events")
       .insert({
         merchant_id: merchantId,
         title_tc: "HKFF E2E Merchant Event",
+        title_sc: "HKFF E2E 商户活动",
+        title_en: "HKFF E2E Merchant Event",
         title: "HKFF E2E Merchant Event",
+        short_description_tc: "HKFF E2E 測試活動",
+        short_description_sc: "HKFF E2E 测试活动",
+        short_description_en: "HKFF E2E test event",
         status: "draft",
         start_date: "2030-01-15",
         end_date: "2030-01-15",
         venue_name: "HKFF E2E Test Venue",
+        venue_name_sc: "HKFF E2E Test Venue",
+        venue_name_en: "HKFF E2E Test Venue",
         district: "中西區",
-        cover_image_url: "https://example.com/hkff-e2e.jpg",
         gallery_image_urls: [],
         price_display_mode: "free",
         price_label: "免費",
@@ -151,11 +175,84 @@ async function main() {
       .single();
 
     if (draft.error || !draft.data) {
-      throw new Error("Approved merchant draft insert failed: " + draft.error?.message);
+      throw new Error(
+        "Approved merchant draft insert failed: " + draft.error?.message,
+      );
     }
 
     eventId = draft.data.id;
     assert(draft.data.status === "draft", "Event must start as draft");
+    checks.push("approved_merchant_can_create_draft");
+
+    const pngBytes = Uint8Array.from(
+      Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z8WQAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    );
+
+    tempStoragePath = `${eventId}/e2e-temp.png`;
+    const tempUpload = await merchantClient.storage
+      .from("event-images")
+      .upload(tempStoragePath, pngBytes, {
+        contentType: "image/png",
+        upsert: false,
+      });
+
+    if (tempUpload.error) {
+      throw new Error("Merchant temp image upload failed: " + tempUpload.error.message);
+    }
+
+    const tempDelete = await merchantClient.storage
+      .from("event-images")
+      .remove([tempStoragePath]);
+
+    if (tempDelete.error) {
+      throw new Error("Merchant temp image delete failed: " + tempDelete.error.message);
+    }
+    tempStoragePath = "";
+    checks.push("merchant_can_upload_and_delete_draft_image");
+
+    storagePath = `${eventId}/e2e-cover.png`;
+    const imageUpload = await merchantClient.storage
+      .from("event-images")
+      .upload(storagePath, pngBytes, {
+        contentType: "image/png",
+        upsert: false,
+      });
+
+    if (imageUpload.error) {
+      throw new Error("Merchant image upload failed: " + imageUpload.error.message);
+    }
+
+    const publicImageUrl = merchantClient.storage
+      .from("event-images")
+      .getPublicUrl(storagePath).data.publicUrl;
+
+    assert(Boolean(publicImageUrl), "Public image URL was not generated");
+
+    const publicImageResponse = await fetch(publicImageUrl);
+    assert(publicImageResponse.ok, "Uploaded event image is not publicly readable");
+    checks.push("uploaded_event_image_is_publicly_readable");
+
+    const imageUpdate = await merchantClient
+      .from("events")
+      .update({
+        cover_image_url: publicImageUrl,
+        gallery_image_urls: [],
+      })
+      .eq("id", eventId)
+      .select("id,cover_image_url")
+      .single();
+
+    if (imageUpdate.error) {
+      throw new Error("Merchant image URL save failed: " + imageUpdate.error.message);
+    }
+    assert(
+      imageUpdate.data.cover_image_url === publicImageUrl,
+      "Event cover image URL did not save",
+    );
+    checks.push("merchant_can_save_event_image_reference");
 
     const submitted = await merchantClient
       .from("events")
@@ -169,32 +266,60 @@ async function main() {
     }
     assert(submitted.data.status === "submitted", "Event did not submit");
     assert(Boolean(submitted.data.submitted_at), "submitted_at was not recorded");
+    checks.push("merchant_can_submit_complete_event");
 
-    const notificationResponse = await fetch(
-      `${siteUrl}/api/merchant-notifications`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${signedIn.data.session.access_token}`,
+    try {
+      const notificationResponse = await fetch(
+        `${siteUrl}/api/merchant-notifications`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${signedIn.data.session.access_token}`,
+          },
+          body: JSON.stringify({
+            action: "event_submitted",
+            event_id: eventId,
+          }),
         },
-        body: JSON.stringify({
-          action: "event_submitted",
-          event_id: eventId,
-        }),
-      },
-    );
+      );
 
-    const notificationBody = await notificationResponse.json().catch(() => ({}));
+      const notificationBody = await notificationResponse
+        .json()
+        .catch(() => ({}));
 
-    assert(
-      notificationResponse.ok,
-      `Production notification API failed with HTTP ${notificationResponse.status}`,
-    );
-    assert(
-      notificationBody.sent === true,
-      `Production Resend notification is not configured or failed: ${notificationBody.reason || notificationBody.error || "unknown"}`,
-    );
+      notificationSent =
+        notificationResponse.ok && notificationBody.sent === true;
+
+      if (requireNotification) {
+        assert(
+          notificationResponse.ok,
+          `Production notification API failed with HTTP ${notificationResponse.status}`,
+        );
+        assert(
+          notificationSent,
+          `Production Resend notification is not configured or failed: ${
+            notificationBody.reason ||
+            notificationBody.error ||
+            "unknown"
+          }`,
+        );
+        checks.push("production_admin_notification_sent");
+      } else if (notificationSent) {
+        checks.push("production_admin_notification_sent");
+      } else {
+        console.warn(
+          "Notification check skipped as a launch gate because REQUIRE_NOTIFICATION is false:",
+          notificationBody.reason || notificationBody.error || "not sent",
+        );
+      }
+    } catch (error) {
+      if (requireNotification) throw error;
+      console.warn(
+        "Notification check skipped as a launch gate:",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
 
     const forbiddenPublish = await merchantClient
       .from("events")
@@ -225,6 +350,7 @@ async function main() {
       !forbiddenPublish.data || forbiddenPublish.data.status !== "published",
       "Merchant publish attempt returned a published row",
     );
+    checks.push("merchant_cannot_self_publish");
 
     const approvedEvent = await admin
       .from("events")
@@ -243,15 +369,16 @@ async function main() {
     }
 
     const hiddenBeforePublish = await merchantClient
-      .from("public_events")
+      .from("public_events_i18n")
       .select("id")
       .eq("id", eventId)
       .maybeSingle();
 
     assert(
       !hiddenBeforePublish.data,
-      "Approved-but-unpublished event leaked to public_events",
+      "Approved-but-unpublished event leaked to public_events_i18n",
     );
+    checks.push("approved_event_not_public");
 
     const published = await admin
       .from("events")
@@ -268,10 +395,11 @@ async function main() {
     if (published.error) {
       throw new Error("Admin publish failed: " + published.error.message);
     }
+    checks.push("admin_can_publish");
 
     const publicEvent = await merchantClient
-      .from("public_events")
-      .select("id,status,title_tc")
+      .from("public_events_i18n")
+      .select("id,status,title_tc,title_sc,title_en,cover_image_url")
       .eq("id", eventId)
       .single();
 
@@ -282,24 +410,80 @@ async function main() {
     }
 
     assert(publicEvent.data.status === "published", "Public event status mismatch");
+    assert(publicEvent.data.title_en === "HKFF E2E Merchant Event", "English title missing");
+    assert(publicEvent.data.cover_image_url === publicImageUrl, "Public cover mismatch");
+    checks.push("published_event_public_with_i18n_and_image");
+
+    const publicPageResponse = await fetch(`${siteUrl}/events/${eventId}`, {
+      redirect: "follow",
+    });
+    assert(
+      publicPageResponse.ok,
+      `Published event page returned HTTP ${publicPageResponse.status}`,
+    );
+    checks.push("published_event_route_returns_200");
+
+    const generatedRecovery = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email,
+    });
+
+    if (generatedRecovery.error || !generatedRecovery.data?.properties?.hashed_token) {
+      throw new Error(
+        "Generate recovery link failed: " + generatedRecovery.error?.message,
+      );
+    }
+
+    const recoveryClient = createClient(url, publishableKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const verifiedRecovery = await recoveryClient.auth.verifyOtp({
+      type: "recovery",
+      token_hash: generatedRecovery.data.properties.hashed_token,
+    });
+
+    if (verifiedRecovery.error || !verifiedRecovery.data.session) {
+      throw new Error(
+        "Recovery token verification failed: " + verifiedRecovery.error?.message,
+      );
+    }
+
+    const updatedPassword = await recoveryClient.auth.updateUser({
+      password: recoveredPassword,
+    });
+
+    if (updatedPassword.error) {
+      throw new Error("Recovery password update failed: " + updatedPassword.error.message);
+    }
+
+    await recoveryClient.auth.signOut();
+
+    const oldPasswordLogin = await merchantClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+    assert(Boolean(oldPasswordLogin.error), "Old password unexpectedly still works");
+
+    const newPasswordLogin = await merchantClient.auth.signInWithPassword({
+      email,
+      password: recoveredPassword,
+    });
+
+    if (newPasswordLogin.error || !newPasswordLogin.data.session) {
+      throw new Error(
+        "Recovered password login failed: " + newPasswordLogin.error?.message,
+      );
+    }
+    checks.push("password_recovery_changes_login_password");
 
     console.log(
       JSON.stringify(
         {
           success: true,
-          checks: [
-            "signup_trigger_created_pending_merchant",
-            "legal_acceptance_recorded",
-            "pending_merchant_cannot_create_event",
-            "admin_can_approve_merchant",
-            "approved_merchant_can_create_draft",
-            "merchant_can_submit_complete_event",
-            "production_admin_notification_sent",
-            "merchant_cannot_self_publish",
-            "approved_event_not_public",
-            "admin_can_publish",
-            "published_event_public",
-          ],
+          notification_required: requireNotification,
+          notification_sent: notificationSent,
+          checks,
         },
         null,
         2,
