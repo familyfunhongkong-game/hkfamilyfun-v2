@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import ResilientEventImage from "@/components/resilient-event-image";
+import { getClientLocale } from "@/lib/i18n/client";
+import { localizedText, type AppLocale } from "@/lib/i18n/config";
+import { getExtraPublicMessages } from "@/lib/i18n/public-extra-messages";
 import { supabase } from "@/lib/supabase/client";
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
@@ -9,6 +13,8 @@ const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
 type FavoriteEvent = {
   id: string;
   title_tc?: string | null;
+  title_sc?: string | null;
+  title_en?: string | null;
   organizer_name?: string | null;
   merchant_name?: string | null;
   start_date?: string | null;
@@ -25,6 +31,7 @@ function readFavoriteIds(): string[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
+
     return Array.from(
       new Set(
         parsed
@@ -37,21 +44,48 @@ function readFavoriteIds(): string[] {
   }
 }
 
-function formatDate(event: FavoriteEvent) {
-  if (!event.start_date) return "日期待定";
-  if (!event.end_date || event.end_date === event.start_date) {
-    return event.start_date;
-  }
-  return `${event.start_date} 至 ${event.end_date}`;
+function formatEventDate(
+  event: FavoriteEvent,
+  locale: AppLocale,
+  fallback: string,
+) {
+  if (!event.start_date) return fallback;
+
+  const format = (value: string) => {
+    const date = new Date(`${value}T00:00:00+08:00`);
+    if (Number.isNaN(date.getTime())) return value;
+
+    return new Intl.DateTimeFormat(
+      locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK",
+      {
+        timeZone: "Asia/Hong_Kong",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      },
+    ).format(date);
+  };
+
+  const start = format(event.start_date);
+  if (!event.end_date || event.end_date === event.start_date) return start;
+
+  const end = format(event.end_date);
+  return locale === "en" ? `${start} – ${end}` : `${start} 至 ${end}`;
 }
 
 export default function FavoritesPage() {
+  const [locale, setLocale] = useState<AppLocale>("zh-Hant");
   const [events, setEvents] = useState<FavoriteEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
 
+  const m = getExtraPublicMessages(locale).favorites;
+
   useEffect(() => {
     let ignore = false;
+    const activeLocale = getClientLocale();
+    const activeMessages = getExtraPublicMessages(activeLocale).favorites;
+    setLocale(activeLocale);
 
     async function loadFavorites() {
       const ids = readFavoriteIds();
@@ -63,29 +97,26 @@ export default function FavoritesPage() {
       }
 
       if (!supabase) {
-        setErrorText("網站暫時未能連接活動資料庫。");
+        setErrorText(activeMessages.dbUnavailable);
         setLoading(false);
         return;
       }
 
       const { data, error } = await supabase
-        .from("public_events")
+        .from("public_events_i18n")
         .select(
-          "id,title_tc,organizer_name,merchant_name,start_date,end_date,district,cover_image_url,price_label,is_free",
+          "id,title_tc,title_sc,title_en,organizer_name,merchant_name,start_date,end_date,district,cover_image_url,price_label,is_free",
         )
         .in("id", ids);
 
       if (ignore) return;
 
       if (error) {
-        setErrorText(error.message || "讀取收藏活動失敗。");
+        setErrorText(error.message || activeMessages.loadFailed);
         setEvents([]);
       } else {
         const rows = (data || []) as FavoriteEvent[];
-        rows.sort(
-          (a, b) =>
-            ids.indexOf(a.id) - ids.indexOf(b.id),
-        );
+        rows.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
         setEvents(rows);
       }
 
@@ -112,11 +143,9 @@ export default function FavoritesPage() {
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <section className="bg-gradient-to-r from-pink-600 to-purple-700 text-white">
         <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-          <p className="text-sm font-black text-white/80">收藏</p>
-          <h1 className="mt-2 text-4xl font-black">你收藏的活動都在這裡</h1>
-          <p className="mt-4 text-sm leading-7 text-white/85">
-            收藏資料會保存在目前瀏覽器。已過期或已下架活動會自動從此頁消失。
-          </p>
+          <p className="text-sm font-black text-white/80">{m.kicker}</p>
+          <h1 className="mt-2 text-4xl font-black">{m.title}</h1>
+          <p className="mt-4 text-sm leading-7 text-white/85">{m.intro}</p>
         </div>
       </section>
 
@@ -129,7 +158,7 @@ export default function FavoritesPage() {
 
         {loading ? (
           <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center text-sm font-bold text-slate-500 shadow-sm">
-            正在讀取收藏活動...
+            {m.loading}
           </div>
         ) : null}
 
@@ -139,9 +168,9 @@ export default function FavoritesPage() {
               ♡
             </div>
 
-            <h2 className="mt-6 text-2xl font-black">沒有收藏的有效活動</h2>
+            <h2 className="mt-6 text-2xl font-black">{m.emptyTitle}</h2>
             <p className="mt-3 text-sm leading-7 text-slate-500">
-              在活動列表或活動詳情按「收藏」，之後便可以在這裡快速找回。
+              {m.emptyDesc}
             </p>
 
             <div className="mt-7 flex flex-wrap justify-center gap-3">
@@ -149,13 +178,13 @@ export default function FavoritesPage() {
                 href="/events"
                 className="rounded-full bg-pink-600 px-5 py-3 text-sm font-black text-white hover:bg-pink-700"
               >
-                瀏覽活動
+                {m.browse}
               </Link>
               <Link
                 href="/today"
                 className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:border-pink-300 hover:text-pink-700"
               >
-                今日活動
+                {m.today}
               </Link>
             </div>
           </div>
@@ -163,58 +192,63 @@ export default function FavoritesPage() {
 
         {!loading && events.length ? (
           <div className="grid gap-5 md:grid-cols-2">
-            {events.map((event) => (
-              <article
-                key={event.id}
-                className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm"
-              >
-                {event.cover_image_url ? (
-                  <img
-                    src={event.cover_image_url}
-                    alt=""
-                    className="h-52 w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-52 items-center justify-center bg-gradient-to-br from-purple-50 via-white to-pink-50">
-                    <div className="rounded-3xl bg-purple-700 px-5 py-4 text-xl font-black text-white">
-                      HK Family Fun
+            {events.map((event) => {
+              const title = localizedText(locale, {
+                tc: event.title_tc,
+                sc: event.title_sc,
+                en: event.title_en,
+                fallback: m.untitled,
+              });
+
+              return (
+                <article
+                  key={event.id}
+                  className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm"
+                >
+                  <div className="h-52 overflow-hidden">
+                    <ResilientEventImage
+                      src={event.cover_image_url}
+                      alt={title}
+                      loading="lazy"
+                      compactFallback
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+
+                  <div className="p-5">
+                    <p className="text-xs font-black text-purple-700">
+                      {formatEventDate(event, locale, m.dateTbc)}
+                    </p>
+                    <h2 className="mt-2 text-xl font-black text-slate-950">
+                      {title}
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-500">
+                      {event.organizer_name ||
+                        event.merchant_name ||
+                        m.organizerTbc}
+                      {" · "}
+                      {event.district || m.districtTbc}
+                    </p>
+
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <Link
+                        href={`/events/${event.id}`}
+                        className="rounded-full bg-purple-700 px-4 py-2 text-sm font-black text-white"
+                      >
+                        {m.view}
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => removeFavorite(event.id)}
+                        className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-700"
+                      >
+                        {m.remove}
+                      </button>
                     </div>
                   </div>
-                )}
-
-                <div className="p-5">
-                  <p className="text-xs font-black text-purple-700">
-                    {formatDate(event)}
-                  </p>
-                  <h2 className="mt-2 text-xl font-black text-slate-950">
-                    {event.title_tc || "未命名活動"}
-                  </h2>
-                  <p className="mt-2 text-sm text-slate-500">
-                    {event.organizer_name ||
-                      event.merchant_name ||
-                      "主辦單位待定"}
-                    {" · "}
-                    {event.district || "地區待定"}
-                  </p>
-
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <Link
-                      href={`/events/${event.id}`}
-                      className="rounded-full bg-purple-700 px-4 py-2 text-sm font-black text-white"
-                    >
-                      查看活動
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => removeFavorite(event.id)}
-                      className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-700"
-                    >
-                      移除收藏
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         ) : null}
       </section>
