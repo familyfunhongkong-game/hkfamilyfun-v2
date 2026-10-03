@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
+import { eventOccursOn } from "@/lib/events/recurrence";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,6 @@ function hkToday() {
   }).format(new Date());
 }
 
-function occursOn(eventDate: string, endDate: string | undefined, target: string) {
-  const end = endDate || eventDate;
-  return eventDate <= target && end >= target;
-}
 
 export default async function TodayPage() {
   const locale = await getServerLocale();
@@ -25,7 +22,19 @@ export default async function TodayPage() {
   const today = hkToday();
   const events = await getPublishedEvents(locale);
   const todayEvents = events
-    .filter((event) => occursOn(event.date, event.endDate, today))
+    .filter((event) =>
+      eventOccursOn(
+        {
+          startDate: event.date,
+          endDate: event.endDate,
+          recurrenceType: event.recurrenceType,
+          recurrenceWeekdays: event.recurrenceWeekdays,
+          recurrenceIncludeDates: event.recurrenceIncludeDates,
+          recurrenceExcludeDates: event.recurrenceExcludeDates,
+        },
+        today,
+      ),
+    )
     .sort((a, b) => a.time.localeCompare(b.time));
 
   const displayDate = new Intl.DateTimeFormat(locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK", {
@@ -115,7 +124,7 @@ export default async function TodayPage() {
               href="/events"
               className="mt-5 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
             >
-              {p.view}其他日期活動
+              {p.otherDates}
             </Link>
           </div>
         )}
