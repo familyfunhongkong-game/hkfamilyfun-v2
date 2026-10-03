@@ -492,6 +492,23 @@ async function main() {
     );
     checks.push("published_event_route_returns_200");
 
+    const privateImportResponse = await fetch(`${siteUrl}/api/import-event`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${signedIn.data.session.access_token}`,
+      },
+      body: JSON.stringify({
+        url: "http://127.0.0.1/",
+      }),
+    });
+
+    assert(
+      privateImportResponse.status === 400,
+      `Private-network import should be blocked with HTTP 400, got ${privateImportResponse.status}`,
+    );
+    checks.push("authenticated_private_network_import_is_blocked");
+
     const urlImportResponse = await fetch(`${siteUrl}/api/import-event`, {
       method: "POST",
       headers: {
