@@ -64,6 +64,9 @@ const publicMessages = {
     merchantStepPublish: "批准後發布",
     merchantRegisterFree: "免費登記商戶",
     merchantLogin: "商戶登入",
+    weeklyRecurring: "每週重複",
+    previousMonth: "上一個月",
+    nextMonth: "下一個月",
   },
   "zh-Hans": {
     homeKicker: "HK Family Fun 香港亲子活动平台",
@@ -128,6 +131,9 @@ const publicMessages = {
     merchantStepPublish: "批准后发布",
     merchantRegisterFree: "免费登记商户",
     merchantLogin: "商户登录",
+    weeklyRecurring: "每周重复",
+    previousMonth: "上一个月",
+    nextMonth: "下一个月",
   },
   en: {
     homeKicker: "HK Family Fun · Hong Kong Family Activity Platform",
@@ -192,6 +198,9 @@ const publicMessages = {
     merchantStepPublish: "Publish After Approval",
     merchantRegisterFree: "Free Merchant Sign-up",
     merchantLogin: "Merchant Login",
+    weeklyRecurring: "Weekly",
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
   },
 } satisfies Record<AppLocale, Record<string, string | ((count: number) => string)>>;
 
