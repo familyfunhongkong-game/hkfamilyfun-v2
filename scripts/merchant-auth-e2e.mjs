@@ -215,6 +215,23 @@ async function main() {
     );
     checks.push("admin_can_approve_merchant");
 
+    const urlImportResponse = await fetch(`${siteUrl}/api/import-event`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${signedIn.data.session.access_token}`,
+      },
+      body: JSON.stringify({ url: "https://example.com/" }),
+    });
+
+    const urlImportBody = await urlImportResponse.json().catch(() => ({}));
+
+    assert(
+      urlImportResponse.ok && urlImportBody?.ok === true && urlImportBody?.event,
+      `Authenticated URL import failed with HTTP ${urlImportResponse.status}`,
+    );
+    checks.push("authenticated_url_import_returns_editable_draft_data");
+
     const draft = await merchantClient
       .from("events")
       .insert({
