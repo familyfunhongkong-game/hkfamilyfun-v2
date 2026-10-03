@@ -145,6 +145,19 @@ jobs:
           headers="$(curl -i -sS --max-time 30             -X POST "$BASE/api/locale"             -H "Content-Type: application/json"             --data '{"locale":"en"}')"
           echo "$headers" | grep -qi "set-cookie: hkff_locale=en"
 
+      - name: Check locale-specific server rendering
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          curl -sS --max-time 30 -c /tmp/hkff-en.cookies             -X POST "$BASE/api/locale"             -H "Content-Type: application/json"             --data '{"locale":"en"}' >/dev/null
+          en_html="$(curl -L -sS --max-time 30 -b /tmp/hkff-en.cookies "$BASE/")"
+          echo "$en_html" | grep -qi '<html lang="en"'
+
+          curl -sS --max-time 30 -c /tmp/hkff-sc.cookies             -X POST "$BASE/api/locale"             -H "Content-Type: application/json"             --data '{"locale":"zh-Hans"}' >/dev/null
+          sc_html="$(curl -L -sS --max-time 30 -b /tmp/hkff-sc.cookies "$BASE/")"
+          echo "$sc_html" | grep -qi '<html lang="zh-Hans"'
+
       - name: Check protected APIs reject anonymous writes
         shell: bash
         run: |
@@ -170,6 +183,43 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends fonts-noto-cjk
           fc-cache -f
+
+      - name: Check rendered DOM for framework errors
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          browser="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$browser"
+
+          health="$(curl -L -sS --max-time 30 "$BASE/api/health")"
+          event_id="$(node -e '
+            const body = JSON.parse(process.argv[1]);
+            if (!body?.samplePublicEventId) process.exit(2);
+            process.stdout.write(body.samplePublicEventId);
+          ' "$health")"
+
+          routes=(
+            "/"
+            "/events"
+            "/today"
+            "/calendar"
+            "/events/map"
+            "/events/$event_id"
+          )
+
+          for route in "${routes[@]}"; do
+            url="$BASE$route"
+            echo "Rendering DOM $url"
+            dom="$(timeout 45s "$browser"               --headless=new               --no-sandbox               --disable-gpu               --disable-dev-shm-usage               --virtual-time-budget=5000               --dump-dom               "$url" 2>/dev/null)"
+
+            test "${#dom}" -gt 1000
+            echo "$dom" | grep -qi '<main'
+            if echo "$dom" | grep -Eqi 'data-nextjs-dialog|Application error|Internal Server Error'; then
+              echo "Framework error detected on $route"
+              exit 1
+            fi
+          done
 
       - name: Capture mobile and desktop visual regression screenshots
         shell: bash
