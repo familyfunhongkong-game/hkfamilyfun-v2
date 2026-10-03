@@ -26,7 +26,20 @@ type EventRecord = {
   description_sc?: string | null;
   description_en?: string | null;
   highlights?: string | null;
+  highlights_sc?: string | null;
+  highlights_en?: string | null;
   terms?: string | null;
+  terms_sc?: string | null;
+  terms_en?: string | null;
+  parent_note_tc?: string | null;
+  parent_note_sc?: string | null;
+  parent_note_en?: string | null;
+  safety_note_tc?: string | null;
+  safety_note_sc?: string | null;
+  safety_note_en?: string | null;
+  cancellation_policy_tc?: string | null;
+  cancellation_policy_sc?: string | null;
+  cancellation_policy_en?: string | null;
   remarks?: string | null;
   tags?: unknown;
   category?: unknown;
@@ -105,7 +118,20 @@ type FormState = {
   description_en: string;
   activity_category: string;
   highlights: string;
+  highlights_sc: string;
+  highlights_en: string;
   terms: string;
+  terms_sc: string;
+  terms_en: string;
+  parent_note_tc: string;
+  parent_note_sc: string;
+  parent_note_en: string;
+  safety_note_tc: string;
+  safety_note_sc: string;
+  safety_note_en: string;
+  cancellation_policy_tc: string;
+  cancellation_policy_sc: string;
+  cancellation_policy_en: string;
   remarks: string;
   tags: string;
 
@@ -183,7 +209,20 @@ const emptyForm: FormState = {
   description_en: "",
   activity_category: "親子活動",
   highlights: "",
+  highlights_sc: "",
+  highlights_en: "",
   terms: "",
+  terms_sc: "",
+  terms_en: "",
+  parent_note_tc: "",
+  parent_note_sc: "",
+  parent_note_en: "",
+  safety_note_tc: "",
+  safety_note_sc: "",
+  safety_note_en: "",
+  cancellation_policy_tc: "",
+  cancellation_policy_sc: "",
+  cancellation_policy_en: "",
   remarks: "",
   tags: "",
 
@@ -610,7 +649,20 @@ function formFromEvent(event: EventRecord): FormState {
     description_en: safeText(event.description_en),
     activity_category: readActivityCategory(event),
     highlights: safeText(event.highlights),
+    highlights_sc: safeText(event.highlights_sc),
+    highlights_en: safeText(event.highlights_en),
     terms: safeText(event.terms),
+    terms_sc: safeText(event.terms_sc),
+    terms_en: safeText(event.terms_en),
+    parent_note_tc: safeText(event.parent_note_tc),
+    parent_note_sc: safeText(event.parent_note_sc),
+    parent_note_en: safeText(event.parent_note_en),
+    safety_note_tc: safeText(event.safety_note_tc),
+    safety_note_sc: safeText(event.safety_note_sc),
+    safety_note_en: safeText(event.safety_note_en),
+    cancellation_policy_tc: safeText(event.cancellation_policy_tc),
+    cancellation_policy_sc: safeText(event.cancellation_policy_sc),
+    cancellation_policy_en: safeText(event.cancellation_policy_en),
     remarks: safeText(event.remarks),
     tags: safeText(event.tags),
 
@@ -799,6 +851,38 @@ export default function MerchantEventEditPage() {
     }
 
     if (
+      (!form.highlights_sc || !form.highlights_en) &&
+      form.highlights.trim()
+    ) {
+      fields.highlights = form.highlights.trim();
+    }
+
+    if ((!form.terms_sc || !form.terms_en) && form.terms.trim()) {
+      fields.terms = form.terms.trim();
+    }
+
+    if (
+      (!form.parent_note_sc || !form.parent_note_en) &&
+      form.parent_note_tc.trim()
+    ) {
+      fields.parent_note_tc = form.parent_note_tc.trim();
+    }
+
+    if (
+      (!form.safety_note_sc || !form.safety_note_en) &&
+      form.safety_note_tc.trim()
+    ) {
+      fields.safety_note_tc = form.safety_note_tc.trim();
+    }
+
+    if (
+      (!form.cancellation_policy_sc || !form.cancellation_policy_en) &&
+      form.cancellation_policy_tc.trim()
+    ) {
+      fields.cancellation_policy_tc = form.cancellation_policy_tc.trim();
+    }
+
+    if (
       (!form.venue_name_sc || !form.venue_name_en) &&
       form.venue_name.trim()
     ) {
@@ -865,6 +949,28 @@ export default function MerchantEventEditPage() {
           previous.description_sc || translated.description_sc || "",
         description_en:
           previous.description_en || translated.description_en || "",
+        highlights_sc:
+          previous.highlights_sc || translated.highlights_sc || "",
+        highlights_en:
+          previous.highlights_en || translated.highlights_en || "",
+        terms_sc: previous.terms_sc || translated.terms_sc || "",
+        terms_en: previous.terms_en || translated.terms_en || "",
+        parent_note_sc:
+          previous.parent_note_sc || translated.parent_note_sc || "",
+        parent_note_en:
+          previous.parent_note_en || translated.parent_note_en || "",
+        safety_note_sc:
+          previous.safety_note_sc || translated.safety_note_sc || "",
+        safety_note_en:
+          previous.safety_note_en || translated.safety_note_en || "",
+        cancellation_policy_sc:
+          previous.cancellation_policy_sc ||
+          translated.cancellation_policy_sc ||
+          "",
+        cancellation_policy_en:
+          previous.cancellation_policy_en ||
+          translated.cancellation_policy_en ||
+          "",
         venue_name_sc:
           previous.venue_name_sc || translated.venue_name_sc || "",
         venue_name_en:
@@ -1246,7 +1352,20 @@ export default function MerchantEventEditPage() {
       activity_category: form.activity_category,
 
       highlights: form.highlights,
+      highlights_sc: form.highlights_sc || null,
+      highlights_en: form.highlights_en || null,
       terms: form.terms,
+      terms_sc: form.terms_sc || null,
+      terms_en: form.terms_en || null,
+      parent_note_tc: form.parent_note_tc || null,
+      parent_note_sc: form.parent_note_sc || null,
+      parent_note_en: form.parent_note_en || null,
+      safety_note_tc: form.safety_note_tc || null,
+      safety_note_sc: form.safety_note_sc || null,
+      safety_note_en: form.safety_note_en || null,
+      cancellation_policy_tc: form.cancellation_policy_tc || null,
+      cancellation_policy_sc: form.cancellation_policy_sc || null,
+      cancellation_policy_en: form.cancellation_policy_en || null,
       remarks: form.remarks,
       tags: form.tags,
 
@@ -2296,14 +2415,79 @@ export default function MerchantEventEditPage() {
                 onChange={(value) => updateField("description_en", value)}
               />
               <Textarea
-                label="活動亮點（一行一項）"
+                label="活動亮點（繁中）"
                 value={form.highlights}
                 onChange={(value) => updateField("highlights", value)}
               />
               <Textarea
-                label="注意事項（一行一項）"
+                label="活动亮点（简中）"
+                value={form.highlights_sc}
+                onChange={(value) => updateField("highlights_sc", value)}
+              />
+              <Textarea
+                label="Highlights (English)"
+                value={form.highlights_en}
+                onChange={(value) => updateField("highlights_en", value)}
+              />
+              <Textarea
+                label="注意事項（繁中）"
                 value={form.terms}
                 onChange={(value) => updateField("terms", value)}
+              />
+              <Textarea
+                label="注意事项（简中）"
+                value={form.terms_sc}
+                onChange={(value) => updateField("terms_sc", value)}
+              />
+              <Textarea
+                label="Important notes (English)"
+                value={form.terms_en}
+                onChange={(value) => updateField("terms_en", value)}
+              />
+              <Textarea
+                label="家長提示（繁中）"
+                value={form.parent_note_tc}
+                onChange={(value) => updateField("parent_note_tc", value)}
+              />
+              <Textarea
+                label="家长提示（简中）"
+                value={form.parent_note_sc}
+                onChange={(value) => updateField("parent_note_sc", value)}
+              />
+              <Textarea
+                label="Parent note (English)"
+                value={form.parent_note_en}
+                onChange={(value) => updateField("parent_note_en", value)}
+              />
+              <Textarea
+                label="安全提示（繁中）"
+                value={form.safety_note_tc}
+                onChange={(value) => updateField("safety_note_tc", value)}
+              />
+              <Textarea
+                label="安全提示（简中）"
+                value={form.safety_note_sc}
+                onChange={(value) => updateField("safety_note_sc", value)}
+              />
+              <Textarea
+                label="Safety note (English)"
+                value={form.safety_note_en}
+                onChange={(value) => updateField("safety_note_en", value)}
+              />
+              <Textarea
+                label="取消及退款政策（繁中）"
+                value={form.cancellation_policy_tc}
+                onChange={(value) => updateField("cancellation_policy_tc", value)}
+              />
+              <Textarea
+                label="取消及退款政策（简中）"
+                value={form.cancellation_policy_sc}
+                onChange={(value) => updateField("cancellation_policy_sc", value)}
+              />
+              <Textarea
+                label="Cancellation & refund policy (English)"
+                value={form.cancellation_policy_en}
+                onChange={(value) => updateField("cancellation_policy_en", value)}
               />
               <Textarea
                 label="備註"
