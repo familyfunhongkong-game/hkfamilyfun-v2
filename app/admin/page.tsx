@@ -2,6 +2,11 @@ import Link from "next/link";
 
 const cards = [
   {
+    href: "/admin/notifications",
+    title: "通知中心",
+    description: "查看新商戶、待審活動及狀態更新。Email 暫時失效時仍可在站內收到通知。",
+  },
+  {
     href: "/admin/events",
     title: "活動審批",
     description: "查看草稿、待審批、已發布、拒絕及封存活動，進入詳情完成審批。",
