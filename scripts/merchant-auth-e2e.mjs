@@ -1,3 +1,4 @@
+// Latest-main regression trigger: keep authenticated merchant/admin flow covered after launch hardening.
 "use strict";
 
 import { createClient } from "@supabase/supabase-js";
