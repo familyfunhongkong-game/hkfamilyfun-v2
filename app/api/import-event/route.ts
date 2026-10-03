@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -7,6 +9,160 @@ const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
 const MAX_PDF_BYTES = 12 * 1024 * 1024;
 
 type JsonObject = Record<string, unknown>;
+
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 5;
+
+function isPrivateOrReservedIp(address: string) {
+  const normalized = address.toLowerCase().split("%")[0];
+  const family = isIP(normalized);
+
+  if (family === 4) {
+    const parts = normalized.split(".").map(Number);
+    if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) {
+      return true;
+    }
+
+    const [a, b, c] = parts;
+
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 0 && c === 0) ||
+      (a === 192 && b === 0 && c === 2) ||
+      (a === 192 && b === 168) ||
+      (a === 198 && (b === 18 || b === 19)) ||
+      (a === 198 && b === 51 && c === 100) ||
+      (a === 203 && b === 0 && c === 113) ||
+      a >= 224
+    );
+  }
+
+  if (family === 6) {
+    if (normalized === "::" || normalized === "::1") return true;
+
+    if (normalized.startsWith("::ffff:")) {
+      const mapped = normalized.slice("::ffff:".length);
+      return isPrivateOrReservedIp(mapped);
+    }
+
+    return (
+      normalized.startsWith("fc") ||
+      normalized.startsWith("fd") ||
+      normalized.startsWith("fe8") ||
+      normalized.startsWith("fe9") ||
+      normalized.startsWith("fea") ||
+      normalized.startsWith("feb") ||
+      normalized.startsWith("ff") ||
+      normalized.startsWith("2001:db8:")
+    );
+  }
+
+  return true;
+}
+
+function hasBlockedHostnameSyntax(hostname: string) {
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+
+  return (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host === "0.0.0.0" ||
+    host === "::" ||
+    host === "::1"
+  );
+}
+
+async function assertPublicHttpUrl(candidate: URL) {
+  if (!["http:", "https:"].includes(candidate.protocol)) {
+    throw new Error("只支援 http 或 https 網址。");
+  }
+
+  if (candidate.username || candidate.password) {
+    throw new Error("活動網址不可包含登入帳號或密碼。");
+  }
+
+  if (candidate.port && !["80", "443"].includes(candidate.port)) {
+    throw new Error("只支援一般 HTTP / HTTPS 網站連接埠。");
+  }
+
+  const hostname = candidate.hostname.replace(/^\[|\]$/g, "");
+
+  if (hasBlockedHostnameSyntax(hostname)) {
+    throw new Error("基於安全原因，此網址不可匯入。");
+  }
+
+  if (isIP(hostname)) {
+    if (isPrivateOrReservedIp(hostname)) {
+      throw new Error("基於安全原因，此網址不可匯入。");
+    }
+    return;
+  }
+
+  let addresses: Awaited<ReturnType<typeof lookup>>;
+
+  try {
+    addresses = await lookup(hostname, {
+      all: true,
+      order: "verbatim",
+    });
+  } catch {
+    throw new Error("未能安全解析活動網址。");
+  }
+
+  if (
+    !Array.isArray(addresses) ||
+    addresses.length === 0 ||
+    addresses.some((record) => isPrivateOrReservedIp(record.address))
+  ) {
+    throw new Error("基於安全原因，此網址不可匯入。");
+  }
+}
+
+async function fetchPublicUrl(
+  initialUrl: URL,
+  options: {
+    headers: HeadersInit;
+    timeoutMs: number;
+  },
+) {
+  let current = new URL(initialUrl.toString());
+
+  for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+    await assertPublicHttpUrl(current);
+
+    const response = await fetch(current, {
+      method: "GET",
+      headers: options.headers,
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(options.timeoutMs),
+    });
+
+    if (!REDIRECT_STATUSES.has(response.status)) {
+      return { response, finalUrl: current };
+    }
+
+    if (redirectCount === MAX_REDIRECTS) {
+      throw new Error("活動網址重新導向次數過多。");
+    }
+
+    const location = response.headers.get("location");
+    if (!location) {
+      throw new Error("活動網址重新導向資料不完整。");
+    }
+
+    current = new URL(location, current);
+  }
+
+  throw new Error("活動網址重新導向失敗。");
+}
 
 function isJsonObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -721,63 +877,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    try {
+      await assertPublicHttpUrl(parsedUrl);
+    } catch (validationError) {
       return NextResponse.json(
-        { ok: false, error: "只支援 http 或 https 網址。" },
-        { status: 400 }
-      );
-    }
-
-    if (parsedUrl.username || parsedUrl.password) {
-      return NextResponse.json(
-        { ok: false, error: "活動網址不可包含登入帳號或密碼。" },
-        { status: 400 }
-      );
-    }
-
-    const blockedHost = (hostname: string) => {
-      const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-      if (
-        host === "localhost" ||
-        host.endsWith(".localhost") ||
-        host.endsWith(".local") ||
-        host.endsWith(".internal") ||
-        host === "0.0.0.0" ||
-        host === "::" ||
-        host === "::1"
-      ) {
-        return true;
-      }
-
-      if (/^127\./.test(host) || /^10\./.test(host) || /^169\.254\./.test(host)) {
-        return true;
-      }
-
-      const private172 = host.match(/^172\.(\d{1,3})\./);
-      if (private172) {
-        const second = Number(private172[1]);
-        if (second >= 16 && second <= 31) return true;
-      }
-
-      if (/^192\.168\./.test(host)) return true;
-      if (/^fc/i.test(host) || /^fd/i.test(host) || /^fe8/i.test(host) || /^fe9/i.test(host) || /^fea/i.test(host) || /^feb/i.test(host)) {
-        return true;
-      }
-
-      return false;
-    };
-
-    if (blockedHost(parsedUrl.hostname)) {
-      return NextResponse.json(
-        { ok: false, error: "基於安全原因，此網址不可匯入。" },
-        { status: 400 }
-      );
-    }
-
-    if (parsedUrl.port && !["80", "443"].includes(parsedUrl.port)) {
-      return NextResponse.json(
-        { ok: false, error: "只支援一般 HTTP / HTTPS 網站連接埠。" },
-        { status: 400 }
+        {
+          ok: false,
+          error:
+            validationError instanceof Error
+              ? validationError.message
+              : "基於安全原因，此網址不可匯入。",
+        },
+        { status: 400 },
       );
     }
 
@@ -787,9 +898,10 @@ export async function POST(request: NextRequest) {
     let readerText = "";
     let fetchError = "";
 
+    let resolvedSourceUrl = parsedUrl.toString();
+
     try {
-      const response = await fetch(parsedUrl.toString(), {
-        method: "GET",
+      const { response, finalUrl } = await fetchPublicUrl(parsedUrl, {
         headers: {
           "user-agent":
             "Mozilla/5.0 (compatible; HKFamilyFunBot/1.0; +https://www.hkfamilyfun.com)",
@@ -797,18 +909,14 @@ export async function POST(request: NextRequest) {
             "text/html,application/xhtml+xml,application/xml,text/xml,text/plain;q=0.9,*/*;q=0.5",
           "accept-language": "zh-HK,zh;q=0.9,en;q=0.8",
         },
-        cache: "no-store",
-        redirect: "follow",
-        signal: AbortSignal.timeout(12000),
+        timeoutMs: 12000,
       });
+
+      resolvedSourceUrl = finalUrl.toString();
 
       if (!response.ok) {
         fetchError = `網站回應 ${response.status}，未能完整讀取內容。`;
       } else {
-        const finalUrl = new URL(response.url || parsedUrl.toString());
-        if (blockedHost(finalUrl.hostname)) {
-          fetchError = "重新導向至不安全網址，已停止匯入。";
-        } else {
           const contentType = (response.headers.get("content-type") || "").toLowerCase();
           const allowedContent =
             contentType.includes("text/html") ||
@@ -861,7 +969,6 @@ export async function POST(request: NextRequest) {
               }
             }
           }
-        }
       }
     } catch (error) {
       fetchError =
@@ -877,7 +984,7 @@ export async function POST(request: NextRequest) {
     if (html) {
       const title = getTitle(html);
       const description = getDescription(html);
-      const image = getImage(html, parsedUrl.toString());
+      const image = getImage(html, resolvedSourceUrl);
       const pageText = cleanText(html).slice(0, 20000);
 
       const jsonLdItems = extractJsonLd(html);
@@ -892,7 +999,7 @@ export async function POST(request: NextRequest) {
         gallery_image_urls: image ? [image] : [],
       };
 
-      event = applyJsonLd(event, jsonLdEvent, parsedUrl.toString());
+      event = applyJsonLd(event, jsonLdEvent, resolvedSourceUrl);
 
       const dateRange = extractDateRangeFromText(pageText);
       if (!event.start_date) event.start_date = dateRange.start_date;
