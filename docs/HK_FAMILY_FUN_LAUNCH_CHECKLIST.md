@@ -1,6 +1,6 @@
 # HK Family Fun V2 — Launch Checklist
 
-Updated: 2026-10-02 (America/Edmonton)
+Updated: 2026-10-03
 
 ## Quality target
 
@@ -29,11 +29,11 @@ Visual polish must never trade away accessibility, SEO, performance, data safety
 - Supabase V2 project: `hkfamilyfun-v2` / `uiyrbqqvgnfhfdhedmav`
 - Supabase region: `ap-southeast-1`
 - Vercel project: `hkfamilyfun-v2`
-- Events: **236**
-- Published: **37**
-- Current/future published: **10**
-- Draft: **108**
-- Approved: **5**
+- Events: **237**
+- Published: **41**
+- Current/future published: **14**
+- Draft: **109**
+- Approved: **1**
 - Rejected: **1**
 - Archived: **85**
 - Profiles: **3**
@@ -107,9 +107,9 @@ The temporary-data E2E has passed the following production Supabase workflow and
 
 Database transaction dry-runs separately confirmed Merchant ownership, Admin access, legal-acceptance protection and self-publish blocking.
 
-### Production smoke — PASS baseline
+### Production smoke — PASS
 
-The production smoke gate has successfully verified:
+The production smoke gate now verifies:
 
 - exact Vercel commit deployment
 - `/`
@@ -127,6 +127,9 @@ The production smoke gate has successfully verified:
 - locale persistence cookie
 - anonymous import/translation writes rejected with 401
 - Vercel staging remains `noindex`
+- TC / SC / EN locale cookies change the server-rendered document language
+- Chrome-rendered DOM contains the main application surface and no Next.js error overlay / Application error
+- mobile (390×844) and desktop (1440×1000) screenshots are captured for Home / Events / Today / Calendar / Map / Event Detail and retained as a workflow artifact
 
 The smoke workflow now skips superseded commits instead of treating cancelled obsolete Vercel deployments as product failures.
 
@@ -140,6 +143,14 @@ The smoke workflow now skips superseded commits instead of treating cancelled ob
 - Merchant cannot directly publish
 - Admin review/publish permissions are enforced separately
 - Vercel runtime error checks have recently reported **0 runtime errors**
+
+### Recurring-event correctness — VERIFIED
+
+- Today, Calendar and Events discovery share the same recurrence engine.
+- weekly weekdays, include dates and exclude dates are applied consistently.
+- PMQ Picture Book Library is configured Wed–Sun and is not treated as free.
+- Hong Kong Park Morning Bird Watching is configured Wednesday only with holiday exclusions.
+- Hong Kong Park Arts Corner is configured Sat/Sun plus explicit public-holiday dates.
 
 ### Remaining Supabase security action
 
@@ -170,23 +181,25 @@ Reconciliation checks:
 - known missing start date: **1**
 - migrated records attached to new Merchant accounts: **0** by design
 
-Current/future legacy content:
-- 5 `approved` legacy events are current/future and all 5 have covers
-- other current/future legacy records without covers are kept as draft/archived and are not publicly exposed
-
-Do not automatically publish the 5 approved legacy events without re-checking the organizer's current official information.
+Current/future legacy review:
+- Four re-verified legacy activities are now published after source/data correction: Hong Kong Park Arts Corner, Hong Kong Park Morning Bird Watching, PMQ Picture Book Library START FROM HERE, and the 13th Jackfruit Cultural Festival.
+- The long-running Bliss Infinite family-support programme remains `approved` but intentionally not public because it is a support service rather than a conventional event.
+- other current/future legacy records without recoverable/verified content remain draft/archived and are not publicly exposed.
 
 ## Remaining launch actions
 
 ### Required before switching `hkfamilyfun.com`
 
-1. Latest `main` must finish with CI + Quality + Production Smoke green after the final code/document commit.
-2. Run a final visual mobile + desktop review of Home / Events / Today / Calendar / Map / Event Detail after all UI changes. The HTTP smoke gate does not replace a visual regression pass.
-3. Run an authenticated integration regression for URL import and direct PDF upload. PDF parsing depends on the external Jina Reader service.
-4. Enable or explicitly accept the Supabase leaked-password-protection warning.
-5. Review the two existing Merchant records before launch. At least one is an older test/grandfathered record without the newer Terms/Privacy acceptance timestamps.
-6. Re-check the 5 hidden `approved` legacy events before choosing whether to publish them.
-7. Confirm final domain ownership/DNS/Vercel assignment, then move `hkfamilyfun.com` only after the gates above pass.
+1. Latest `main` must finish with CI + Quality + authenticated Merchant E2E + Production Smoke green after the final code/document commit.
+2. Perform the final human eyeball review of the retained mobile + desktop screenshot artifact. Automated Chrome DOM/error checks now run on every production smoke, but a final visual review is still required before domain cutover.
+3. Enable Supabase leaked-password protection if the current Supabase plan exposes that setting, or explicitly record acceptance of the remaining warning.
+4. If production Admin notification email is required at launch, configure `RESEND_API_KEY` in the Vercel production environment and rerun the notification gate.
+5. Confirm final domain ownership / DNS / Vercel assignment, then move `hkfamilyfun.com` only after the gates above pass.
+
+Completed launch reviews:
+- Authenticated URL import + direct PDF upload are covered by the production Merchant E2E and have passed.
+- Both existing Merchant records were reviewed; both remain `pending` because current Terms / Privacy acceptance timestamps are absent. They must not be auto-approved.
+- Five current/future legacy `approved` records were re-reviewed. Four genuine activities were corrected and published (Hong Kong Park Arts Corner, Hong Kong Park Morning Bird Watching, PMQ Picture Book Library START FROM HERE, and the 13th Jackfruit Cultural Festival). The long-running Bliss Infinite family-support programme was returned to `approved` and intentionally kept out of general event discovery.
 
 ### Operational configuration still outstanding
 
