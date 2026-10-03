@@ -57,9 +57,11 @@ type DatabaseEvent = {
   cover_image_url: string | null;
 };
 
-function formatDate(date: string | null) {
-  if (!date) return "日期待定";
-  return date;
+function formatDate(date: string | null, locale: AppLocale) {
+  if (date) return date;
+  if (locale === "en") return "Date TBC";
+  if (locale === "zh-Hans") return "日期待定";
+  return "日期待定";
 }
 
 function parseCalendarDate(value: string | null) {
@@ -92,8 +94,16 @@ function isExpiredEvent(event: DatabaseEvent) {
   return Boolean(today && end.getTime() < today.getTime());
 }
 
-function formatTime(startTime: string | null, endTime: string | null) {
-  if (!startTime) return "時間待定";
+function formatTime(
+  startTime: string | null,
+  endTime: string | null,
+  locale: AppLocale,
+) {
+  if (!startTime) {
+    if (locale === "en") return "Time TBC";
+    if (locale === "zh-Hans") return "时间待定";
+    return "時間待定";
+  }
 
   const start = startTime.slice(0, 5);
   const end = endTime ? endTime.slice(0, 5) : "";
@@ -101,11 +111,25 @@ function formatTime(startTime: string | null, endTime: string | null) {
   return end ? `${start} - ${end}` : start;
 }
 
-function formatAgeRange(min: number | null, max: number | null) {
-  if (min === null && max === null) return "適合所有年齡";
-  if (min !== null && max !== null) return `${min}-${max}歲`;
-  if (min !== null) return `${min}歲以上`;
-  return `${max}歲或以下`;
+function formatAgeRange(
+  min: number | null,
+  max: number | null,
+  locale: AppLocale,
+) {
+  if (locale === "en") {
+    if (min === null && max === null) return "All ages";
+    if (min !== null && max !== null) return `Ages ${min}–${max}`;
+    if (min !== null) return `Ages ${min}+`;
+    return `Up to age ${max}`;
+  }
+
+  const suffix = locale === "zh-Hans" ? "岁" : "歲";
+  if (min === null && max === null) {
+    return locale === "zh-Hans" ? "适合所有年龄" : "適合所有年齡";
+  }
+  if (min !== null && max !== null) return `${min}-${max}${suffix}`;
+  if (min !== null) return `${min}${suffix}${locale === "zh-Hans" ? "以上" : "以上"}`;
+  return `${max}${suffix}${locale === "zh-Hans" ? "或以下" : "或以下"}`;
 }
 
 function normalizeTags(value: unknown): string[] {
@@ -136,37 +160,82 @@ function normalizeTags(value: unknown): string[] {
   return [];
 }
 
-function formatPrice(event: DatabaseEvent) {
-  if (event.price_label?.trim()) return event.price_label.trim();
-
-  if (
+function formatPrice(event: DatabaseEvent, locale: AppLocale) {
+  const isFree =
     event.is_free ||
     event.price_type === "free" ||
-    event.price_display_mode === "free"
-  ) {
+    event.price_display_mode === "free";
+
+  if (isFree) {
+    if (locale === "en") return "Free";
+    if (locale === "zh-Hans") return "免费";
     return "免費";
   }
 
   const modernMin = Number(event.min_price);
   const modernMax = Number(event.max_price);
 
-  if (Number.isFinite(modernMin) && modernMin > 0) {
-    if (Number.isFinite(modernMax) && modernMax > 0 && modernMax !== modernMin) {
-      return `HK$${modernMin} - HK$${modernMax}`;
+  if (Number.isFinite(modernMin) && modernMin >= 0) {
+    if (
+      Number.isFinite(modernMax) &&
+      modernMax >= 0 &&
+      modernMax !== modernMin
+    ) {
+      return `HK${modernMin} - HK${modernMax}`;
     }
-    return `HK$${modernMin}`;
+    if (modernMin > 0) return `HK${modernMin}`;
   }
 
   if (event.price_min !== null && event.price_max !== null) {
     if (event.price_min === event.price_max) {
-      return `HK$${event.price_min}`;
+      return `HK${event.price_min}`;
     }
-    return `HK$${event.price_min} - HK$${event.price_max}`;
+    return `HK${event.price_min} - HK${event.price_max}`;
   }
 
-  if (event.price_min !== null) return `HK$${event.price_min}起`;
+  if (event.price_min !== null) {
+    return locale === "en"
+      ? `From HK${event.price_min}`
+      : `HK${event.price_min}${locale === "zh-Hans" ? "起" : "起"}`;
+  }
 
+  if (event.price_label?.trim()) return event.price_label.trim();
+
+  if (locale === "en") return "See official website for details";
+  if (locale === "zh-Hans") return "详情请见官方网站";
   return "詳情請見官方網站";
+}
+
+function localizeDistrict(value: string | null, locale: AppLocale) {
+  const raw = String(value || "").trim();
+  if (!raw) return locale === "en" ? "Hong Kong" : "香港";
+
+  const districts: Record<string, [string, string]> = {
+    "中西區": ["中西区", "Central and Western"],
+    "灣仔區": ["湾仔区", "Wan Chai"],
+    "東區": ["东区", "Eastern"],
+    "南區": ["南区", "Southern"],
+    "油尖旺區": ["油尖旺区", "Yau Tsim Mong"],
+    "深水埗區": ["深水埗区", "Sham Shui Po"],
+    "九龍城區": ["九龙城区", "Kowloon City"],
+    "黃大仙區": ["黄大仙区", "Wong Tai Sin"],
+    "觀塘區": ["观塘区", "Kwun Tong"],
+    "葵青區": ["葵青区", "Kwai Tsing"],
+    "荃灣區": ["荃湾区", "Tsuen Wan"],
+    "屯門區": ["屯门区", "Tuen Mun"],
+    "元朗區": ["元朗区", "Yuen Long"],
+    "北區": ["北区", "North"],
+    "大埔區": ["大埔区", "Tai Po"],
+    "沙田區": ["沙田区", "Sha Tin"],
+    "西貢區": ["西贡区", "Sai Kung"],
+    "離島區": ["离岛区", "Islands"],
+  };
+
+  const mapped = districts[raw];
+  if (!mapped) return raw;
+  if (locale === "zh-Hans") return mapped[0];
+  if (locale === "en") return mapped[1];
+  return raw;
 }
 
 function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
@@ -188,7 +257,7 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
       sc: event.description_sc || event.short_description_sc,
       en: event.description_en || event.short_description_en,
     }),
-    date: formatDate(event.start_date),
+    date: formatDate(event.start_date, locale),
     endDate: event.end_date || undefined,
     recurrenceType:
       event.recurrence_type === "weekly" ? "weekly" : "none",
@@ -202,10 +271,10 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
       ? event.recurrence_exclude_dates.map(String)
       : [],
     recurrenceNote: event.recurrence_note || undefined,
-    time: formatTime(event.start_time, event.end_time),
-    district: event.district || (locale === "en" ? "Hong Kong" : "香港"),
-    mtrStation: event.mtr_station || (locale === "en" ? "TBC" : "待定"),
-    ageRange: formatAgeRange(event.age_min, event.age_max),
+    time: formatTime(event.start_time, event.end_time, locale),
+    district: localizeDistrict(event.district, locale),
+    mtrStation: event.mtr_station || (locale === "en" ? "MTR TBC" : locale === "zh-Hans" ? "港铁站待定" : "港鐵站待定"),
+    ageRange: formatAgeRange(event.age_min, event.age_max, locale),
     organizer: event.organizer_name || event.merchant_name || (locale === "en" ? "Organizer TBC" : "主辦單位待定"),
     tags: normalizeTags(event.tags),
     category: event.activity_category || event.category || "親子活動",
@@ -214,7 +283,7 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
         ? "free"
         : event.price_type || "paid"
     ) as PriceType,
-    price: formatPrice(event),
+    price: formatPrice(event, locale),
     senFriendly: Boolean(event.is_sen_friendly),
     image:
       event.cover_image_url ||
@@ -269,7 +338,7 @@ export async function getPublishedEventById(
   }
 
   const { data, error } = await supabase
-    .from("public_events")
+    .from("public_events_i18n")
     .select("*")
     .eq("id", id)
     .eq("status", "published")
