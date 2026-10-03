@@ -8,6 +8,12 @@ import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 import { getEventListMessages } from "@/lib/i18n/event-page-messages";
+import {
+  addCalendarDays,
+  calendarDayOfWeek,
+  eventOccursInRange,
+  eventOccursOn,
+} from "@/lib/events/recurrence";
 
 type JsonValue =
   | string
@@ -603,65 +609,27 @@ function getHongKongToday(): string {
   return `${year}-${month}-${day}`;
 }
 
-function addCalendarDays(dateText: string, days: number): string {
-  const match = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return dateText;
-
-  const date = new Date(
-    Date.UTC(
-      Number(match[1]),
-      Number(match[2]) - 1,
-      Number(match[3]) + days,
-    ),
-  );
-
-  return [
-    date.getUTCFullYear(),
-    String(date.getUTCMonth() + 1).padStart(2, "0"),
-    String(date.getUTCDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function getCalendarDayOfWeek(dateText: string): number {
-  const match = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return 0;
-
-  return new Date(
-    Date.UTC(
-      Number(match[1]),
-      Number(match[2]) - 1,
-      Number(match[3]),
-    ),
-  ).getUTCDay();
-}
-
 function eventOverlapsDateText(
   event: EventRecord,
   targetDate: string,
 ): boolean {
-  const start = safeText(event.start_date);
-  const end = safeText(event.end_date || event.start_date);
-
-  if (!start || !end || targetDate < start || targetDate > end) return false;
-
-  const recurrenceType = safeText(event.recurrence_type, "none").toLowerCase();
-  if (recurrenceType !== "weekly") return true;
-
-  const includes = Array.isArray(event.recurrence_include_dates)
-    ? event.recurrence_include_dates.map(String)
-    : [];
-  const excludes = Array.isArray(event.recurrence_exclude_dates)
-    ? event.recurrence_exclude_dates.map(String)
-    : [];
-
-  if (includes.includes(targetDate)) return true;
-  if (excludes.includes(targetDate)) return false;
-
-  const weekdays = Array.isArray(event.recurrence_weekdays)
-    ? event.recurrence_weekdays.map(Number)
-    : [];
-
-  return weekdays.includes(getCalendarDayOfWeek(targetDate));
+  return eventOccursOn(
+    {
+      startDate: safeText(event.start_date),
+      endDate: safeText(event.end_date || event.start_date),
+      recurrenceType: safeText(event.recurrence_type, "none"),
+      recurrenceWeekdays: Array.isArray(event.recurrence_weekdays)
+        ? event.recurrence_weekdays.map(Number)
+        : [],
+      recurrenceIncludeDates: Array.isArray(event.recurrence_include_dates)
+        ? event.recurrence_include_dates.map(String)
+        : [],
+      recurrenceExcludeDates: Array.isArray(event.recurrence_exclude_dates)
+        ? event.recurrence_exclude_dates.map(String)
+        : [],
+    },
+    targetDate,
+  );
 }
 
 function eventOverlapsRange(
@@ -669,28 +637,28 @@ function eventOverlapsRange(
   rangeStart: string,
   rangeEnd: string,
 ): boolean {
-  const start = safeText(event.start_date);
-  const end = safeText(event.end_date || event.start_date);
-
-  if (!start || !end || start > rangeEnd || end < rangeStart) return false;
-
-  if (safeText(event.recurrence_type, "none").toLowerCase() !== "weekly") {
-    return true;
-  }
-
-  let current = start > rangeStart ? start : rangeStart;
-  const last = end < rangeEnd ? end : rangeEnd;
-
-  for (let guard = 0; current <= last && guard < 370; guard += 1) {
-    if (eventOverlapsDateText(event, current)) return true;
-    current = addCalendarDays(current, 1);
-  }
-
-  return false;
+  return eventOccursInRange(
+    {
+      startDate: safeText(event.start_date),
+      endDate: safeText(event.end_date || event.start_date),
+      recurrenceType: safeText(event.recurrence_type, "none"),
+      recurrenceWeekdays: Array.isArray(event.recurrence_weekdays)
+        ? event.recurrence_weekdays.map(Number)
+        : [],
+      recurrenceIncludeDates: Array.isArray(event.recurrence_include_dates)
+        ? event.recurrence_include_dates.map(String)
+        : [],
+      recurrenceExcludeDates: Array.isArray(event.recurrence_exclude_dates)
+        ? event.recurrence_exclude_dates.map(String)
+        : [],
+    },
+    rangeStart,
+    rangeEnd,
+  );
 }
 
 function getHongKongWeekendRange(today: string) {
-  const weekday = getCalendarDayOfWeek(today);
+  const weekday = calendarDayOfWeek(today);
 
   if (weekday === 6) {
     return {
