@@ -105,7 +105,7 @@ async function assertPublicHttpUrl(candidate: URL) {
     return;
   }
 
-  let addresses: Awaited<ReturnType<typeof lookup>>;
+  let addresses: Array<{ address: string; family: number }>;
 
   try {
     addresses = await lookup(hostname, {
