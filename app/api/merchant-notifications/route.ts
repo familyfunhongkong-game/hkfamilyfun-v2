@@ -58,6 +58,59 @@ async function sendMail(
   return { sent: true };
 }
 
+type NotificationInsert = {
+  kind: Action;
+  recipient_scope: "admin" | "merchant";
+  actor_user_id: string;
+  merchant_id?: string | null;
+  event_id?: string | null;
+  title: string;
+  message?: string | null;
+  status_snapshot?: string | null;
+  email_to?: string | null;
+};
+
+async function queueNotification(
+  client: ReturnType<typeof createClient>,
+  notification: NotificationInsert,
+) {
+  const { data, error } = await client
+    .from("platform_notifications")
+    .insert(notification)
+    .select("id")
+    .single();
+
+  if (error || !data?.id) {
+    return {
+      queued: false,
+      queue_id: null as string | null,
+      queue_error: error?.message || "Notification queue insert failed",
+    };
+  }
+
+  return {
+    queued: true,
+    queue_id: String(data.id),
+    queue_error: null as string | null,
+  };
+}
+
+async function markEmailResult(
+  client: ReturnType<typeof createClient>,
+  queueId: string | null,
+  result: { sent: boolean; reason?: string },
+) {
+  if (!queueId) return;
+
+  await client
+    .from("platform_notifications")
+    .update({
+      email_sent: result.sent,
+      email_error: result.sent ? null : result.reason || "Email was not sent",
+    })
+    .eq("id", queueId);
+}
+
 export async function POST(request: NextRequest) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     return json({ error: "Supabase environment is not configured." }, 500);
@@ -105,22 +158,44 @@ export async function POST(request: NextRequest) {
       return json({ error: "Merchant is unavailable or not pending." }, 403);
     }
 
+    const subject = `HK Family Fun｜新商戶待審批：${merchant.business_name || "未命名商戶"}`;
+    const message = [
+      "有新商戶完成註冊並等待平台審批。",
+      "",
+      `商戶：${merchant.business_name || "未命名商戶"}`,
+      merchant.contact_name ? `聯絡人：${merchant.contact_name}` : "",
+      merchant.contact_email ? `Email：${merchant.contact_email}` : "",
+      "",
+      `Admin：${SITE_URL}/admin/merchants`,
+    ].filter(Boolean).join("\n");
+
+    const queued = await queueNotification(client, {
+      kind: action,
+      recipient_scope: "admin",
+      actor_user_id: user.id,
+      merchant_id: merchant.id,
+      event_id: null,
+      title: subject,
+      message,
+      status_snapshot: merchant.status,
+      email_to: APPROVAL_EMAIL,
+    });
+
+    if (!queued.queued) {
+      return json(
+        { error: "Notification queue failed.", reason: queued.queue_error },
+        500,
+      );
+    }
+
     const result = await sendMail(
       APPROVAL_EMAIL,
-      `HK Family Fun｜新商戶待審批：${merchant.business_name || "未命名商戶"}`,
-      [
-        "有新商戶完成註冊並等待平台審批。",
-        "",
-        `商戶：${merchant.business_name || "未命名商戶"}`,
-        merchant.contact_name ? `聯絡人：${merchant.contact_name}` : "",
-        merchant.contact_email ? `Email：${merchant.contact_email}` : "",
-        "",
-        `Admin：${SITE_URL}/admin/merchants`,
-      ].filter(Boolean).join("\n"),
+      subject,
+      message,
       `merchant-review-${merchant.id}-${merchant.updated_at || merchant.created_at || "unknown"}`,
     );
 
-    return json(result);
+    return json({ ...result, queued: true, queue_id: queued.queue_id });
   }
 
   if (action === "event_submitted") {
@@ -136,21 +211,53 @@ export async function POST(request: NextRequest) {
       return json({ error: "Event is unavailable or not submitted." }, 403);
     }
 
+    const { data: merchant } = await client
+      .from("merchants")
+      .select("id,owner_user_id")
+      .eq("id", event.merchant_id)
+      .maybeSingle();
+
+    if (!merchant || merchant.owner_user_id !== user.id) {
+      return json({ error: "Event merchant ownership check failed." }, 403);
+    }
+
+    const subject = `HK Family Fun｜新活動待審批：${event.title_tc || "未命名活動"}`;
+    const message = [
+      "有商戶提交新活動等待審批。",
+      "",
+      `活動：${event.title_tc || "未命名活動"}`,
+      `Admin：${SITE_URL}/admin/events`,
+      "",
+      "活動在管理員發布前不會公開。",
+    ].join("\n");
+
+    const queued = await queueNotification(client, {
+      kind: action,
+      recipient_scope: "admin",
+      actor_user_id: user.id,
+      merchant_id: event.merchant_id,
+      event_id: event.id,
+      title: subject,
+      message,
+      status_snapshot: event.status,
+      email_to: APPROVAL_EMAIL,
+    });
+
+    if (!queued.queued) {
+      return json(
+        { error: "Notification queue failed.", reason: queued.queue_error },
+        500,
+      );
+    }
+
     const result = await sendMail(
       APPROVAL_EMAIL,
-      `HK Family Fun｜新活動待審批：${event.title_tc || "未命名活動"}`,
-      [
-        "有商戶提交新活動等待審批。",
-        "",
-        `活動：${event.title_tc || "未命名活動"}`,
-        `Admin：${SITE_URL}/admin/events`,
-        "",
-        "活動在管理員發布前不會公開。",
-      ].join("\n"),
+      subject,
+      message,
       `event-submitted-${event.id}-${event.updated_at || "unknown"}`,
     );
 
-    return json(result);
+    return json({ ...result, queued: true, queue_id: queued.queue_id });
   }
 
   const { data: isAdmin } = await client.rpc("is_platform_admin");
@@ -188,22 +295,45 @@ export async function POST(request: NextRequest) {
               ? "已封存"
               : event.status;
 
+    const subject = `HK Family Fun｜活動狀態更新：${event.title_tc || "活動"}`;
+    const message = [
+      `${merchant.business_name || "商戶"}你好：`,
+      "",
+      `活動：${event.title_tc || "未命名活動"}`,
+      `最新狀態：${label}`,
+      event.rejection_reason ? `平台備註：${event.rejection_reason}` : "",
+      "",
+      `Merchant Portal：${SITE_URL}/merchant/dashboard`,
+    ].filter(Boolean).join("\n");
+
+    const queued = await queueNotification(client, {
+      kind: action,
+      recipient_scope: "merchant",
+      actor_user_id: user.id,
+      merchant_id: event.merchant_id,
+      event_id: event.id,
+      title: subject,
+      message,
+      status_snapshot: event.status,
+      email_to: merchant.contact_email,
+    });
+
+    if (!queued.queued) {
+      return json(
+        { error: "Notification queue failed.", reason: queued.queue_error },
+        500,
+      );
+    }
+
     const result = await sendMail(
       merchant.contact_email,
-      `HK Family Fun｜活動狀態更新：${event.title_tc || "活動"}`,
-      [
-        `${merchant.business_name || "商戶"}你好：`,
-        "",
-        `活動：${event.title_tc || "未命名活動"}`,
-        `最新狀態：${label}`,
-        event.rejection_reason ? `平台備註：${event.rejection_reason}` : "",
-        "",
-        `Merchant Portal：${SITE_URL}/merchant/dashboard`,
-      ].filter(Boolean).join("\n"),
+      subject,
+      message,
       `event-status-${event.id}-${event.status}-${event.updated_at || "unknown"}`,
     );
+    await markEmailResult(client, queued.queue_id, result);
 
-    return json(result);
+    return json({ ...result, queued: true, queue_id: queued.queue_id });
   }
 
   if (action === "merchant_status_changed") {
@@ -228,23 +358,46 @@ export async function POST(request: NextRequest) {
             ? "已暫停"
             : "審批中";
 
+    const subject = `HK Family Fun｜商戶帳戶狀態：${label}`;
+    const message = [
+      `${merchant.business_name || "商戶"}你好：`,
+      "",
+      `商戶帳戶最新狀態：${label}`,
+      merchant.rejection_reason ? `平台備註：${merchant.rejection_reason}` : "",
+      "",
+      merchant.status === "approved"
+        ? `你現在可以登入 Merchant Portal 建立及提交活動：${SITE_URL}/merchant/login`
+        : `Merchant Portal：${SITE_URL}/merchant/login`,
+    ].filter(Boolean).join("\n");
+
+    const queued = await queueNotification(client, {
+      kind: action,
+      recipient_scope: "merchant",
+      actor_user_id: user.id,
+      merchant_id: body.merchant_id,
+      event_id: null,
+      title: subject,
+      message,
+      status_snapshot: merchant.status,
+      email_to: merchant.contact_email,
+    });
+
+    if (!queued.queued) {
+      return json(
+        { error: "Notification queue failed.", reason: queued.queue_error },
+        500,
+      );
+    }
+
     const result = await sendMail(
       merchant.contact_email,
-      `HK Family Fun｜商戶帳戶狀態：${label}`,
-      [
-        `${merchant.business_name || "商戶"}你好：`,
-        "",
-        `商戶帳戶最新狀態：${label}`,
-        merchant.rejection_reason ? `平台備註：${merchant.rejection_reason}` : "",
-        "",
-        merchant.status === "approved"
-          ? `你現在可以登入 Merchant Portal 建立及提交活動：${SITE_URL}/merchant/login`
-          : `Merchant Portal：${SITE_URL}/merchant/login`,
-      ].filter(Boolean).join("\n"),
+      subject,
+      message,
       `merchant-status-${body.merchant_id}-${merchant.status}-${merchant.updated_at || "unknown"}`,
     );
+    await markEmailResult(client, queued.queue_id, result);
 
-    return json(result);
+    return json({ ...result, queued: true, queue_id: queued.queue_id });
   }
 
   return json({ error: "Unsupported action" }, 400);
