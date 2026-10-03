@@ -27,8 +27,43 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
     steps:
-      - name: Wait for Vercel Git deployment
-        run: sleep 75
+      - name: Wait for matching Vercel Git deployment
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          for attempt in {1..30}; do
+            body="$(curl -L -sS --max-time 15 "$BASE/api/health" || true)"
+            echo "Attempt $attempt: $body"
+
+            current_sha="$(node -e '
+              try {
+                const body = JSON.parse(process.argv[1]);
+                process.stdout.write(body.buildSha || "");
+              } catch {}
+            ' "$body")"
+
+            ok="$(node -e '
+              try {
+                const body = JSON.parse(process.argv[1]);
+                process.stdout.write(body.ok === true ? "yes" : "no");
+              } catch {
+                process.stdout.write("no");
+              }
+            ' "$body")"
+
+            if [[ "$ok" == "yes" && "$current_sha" == "$EXPECTED_SHA" ]]; then
+              echo "Matching production deployment is ready: $current_sha"
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          echo "Timed out waiting for production deployment $EXPECTED_SHA"
+          exit 1
 
       - name: Check production routes
         shell: bash
