@@ -24,8 +24,6 @@ jobs:
     timeout-minutes: 10
     env:
       BASE: https://hkfamilyfun-v2.vercel.app
-      SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
-      SUPABASE_PUBLISHABLE_KEY: sb_publishable_w2KLFSsWv5uKFEmUC4ABLA_DvHEAhdX
 
     steps:
       - name: Wait for matching Vercel Git deployment
@@ -108,13 +106,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          events="$(curl -sS --max-time 30             "$SUPABASE_URL/rest/v1/public_events_i18n?select=id&limit=1"             -H "apikey: $SUPABASE_PUBLISHABLE_KEY"             -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY")"
-
+          health="$(curl -L -sS --max-time 30 "$BASE/api/health")"
           event_id="$(node -e '
-            const rows = JSON.parse(process.argv[1]);
-            if (!Array.isArray(rows) || !rows[0]?.id) process.exit(2);
-            process.stdout.write(rows[0].id);
-          ' "$events")"
+            const body = JSON.parse(process.argv[1]);
+            if (!body?.samplePublicEventId) process.exit(2);
+            process.stdout.write(body.samplePublicEventId);
+          ' "$health")"
 
           echo "Checking published event $event_id"
           code="$(curl -L -sS -o /tmp/event.html -w "%{http_code}" --max-time 30 "$BASE/events/$event_id")"
