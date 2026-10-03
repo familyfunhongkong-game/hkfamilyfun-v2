@@ -28,15 +28,20 @@ export default function ResilientEventImage({
   }
 
   return (
-    <img
-      src={normalizedSrc}
-      alt={alt}
-      loading={loading}
-      fetchPriority={fetchPriority}
-      decoding="async"
-      className={className}
-      style={style}
-      onError={() => setFailedSrc(normalizedSrc)}
-    />
+    <div className="relative h-full w-full overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <EventImageFallback compact={compactFallback} />
+      </div>
+      <img
+        src={normalizedSrc}
+        alt={alt}
+        loading={loading}
+        fetchPriority={fetchPriority}
+        decoding="async"
+        className={["relative z-10", className || ""].join(" ")}
+        style={style}
+        onError={() => setFailedSrc(normalizedSrc)}
+      />
+    </div>
   );
 }
