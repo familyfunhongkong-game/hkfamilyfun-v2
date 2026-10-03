@@ -70,47 +70,6 @@ type NotificationInsert = {
   email_to?: string | null;
 };
 
-async function queueNotification(
-  client: ReturnType<typeof createClient>,
-  notification: NotificationInsert,
-) {
-  const { data, error } = await client
-    .from("platform_notifications")
-    .insert(notification)
-    .select("id")
-    .single();
-
-  if (error || !data?.id) {
-    return {
-      queued: false,
-      queue_id: null as string | null,
-      queue_error: error?.message || "Notification queue insert failed",
-    };
-  }
-
-  return {
-    queued: true,
-    queue_id: String(data.id),
-    queue_error: null as string | null,
-  };
-}
-
-async function markEmailResult(
-  client: ReturnType<typeof createClient>,
-  queueId: string | null,
-  result: { sent: boolean; reason?: string },
-) {
-  if (!queueId) return;
-
-  await client
-    .from("platform_notifications")
-    .update({
-      email_sent: result.sent,
-      email_error: result.sent ? null : result.reason || "Email was not sent",
-    })
-    .eq("id", queueId);
-}
-
 export async function POST(request: NextRequest) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     return json({ error: "Supabase environment is not configured." }, 500);
@@ -125,6 +84,43 @@ export async function POST(request: NextRequest) {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  async function queueNotification(notification: NotificationInsert) {
+    const { data, error } = await client
+      .from("platform_notifications")
+      .insert(notification)
+      .select("id")
+      .single();
+
+    if (error || !data?.id) {
+      return {
+        queued: false,
+        queue_id: null as string | null,
+        queue_error: error?.message || "Notification queue insert failed",
+      };
+    }
+
+    return {
+      queued: true,
+      queue_id: String(data.id),
+      queue_error: null as string | null,
+    };
+  }
+
+  async function markEmailResult(
+    queueId: string | null,
+    result: { sent: boolean; reason?: string },
+  ) {
+    if (!queueId) return;
+
+    await client
+      .from("platform_notifications")
+      .update({
+        email_sent: result.sent,
+        email_error: result.sent ? null : result.reason || "Email was not sent",
+      })
+      .eq("id", queueId);
+  }
 
   const { data: userData, error: userError } = await client.auth.getUser(token);
   const user = userData.user;
@@ -169,7 +165,7 @@ export async function POST(request: NextRequest) {
       `Admin：${SITE_URL}/admin/merchants`,
     ].filter(Boolean).join("\n");
 
-    const queued = await queueNotification(client, {
+    const queued = await queueNotification({
       kind: action,
       recipient_scope: "admin",
       actor_user_id: user.id,
@@ -231,7 +227,7 @@ export async function POST(request: NextRequest) {
       "活動在管理員發布前不會公開。",
     ].join("\n");
 
-    const queued = await queueNotification(client, {
+    const queued = await queueNotification({
       kind: action,
       recipient_scope: "admin",
       actor_user_id: user.id,
@@ -306,7 +302,7 @@ export async function POST(request: NextRequest) {
       `Merchant Portal：${SITE_URL}/merchant/dashboard`,
     ].filter(Boolean).join("\n");
 
-    const queued = await queueNotification(client, {
+    const queued = await queueNotification({
       kind: action,
       recipient_scope: "merchant",
       actor_user_id: user.id,
@@ -331,7 +327,7 @@ export async function POST(request: NextRequest) {
       message,
       `event-status-${event.id}-${event.status}-${event.updated_at || "unknown"}`,
     );
-    await markEmailResult(client, queued.queue_id, result);
+    await markEmailResult(queued.queue_id, result);
 
     return json({ ...result, queued: true, queue_id: queued.queue_id });
   }
@@ -370,7 +366,7 @@ export async function POST(request: NextRequest) {
         : `Merchant Portal：${SITE_URL}/merchant/login`,
     ].filter(Boolean).join("\n");
 
-    const queued = await queueNotification(client, {
+    const queued = await queueNotification({
       kind: action,
       recipient_scope: "merchant",
       actor_user_id: user.id,
@@ -395,7 +391,7 @@ export async function POST(request: NextRequest) {
       message,
       `merchant-status-${body.merchant_id}-${merchant.status}-${merchant.updated_at || "unknown"}`,
     );
-    await markEmailResult(client, queued.queue_id, result);
+    await markEmailResult(queued.queue_id, result);
 
     return json({ ...result, queued: true, queue_id: queued.queue_id });
   }
