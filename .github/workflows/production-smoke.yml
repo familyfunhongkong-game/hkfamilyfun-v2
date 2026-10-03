@@ -163,6 +163,14 @@ jobs:
           html="$(curl -L -sS --max-time 30 "$BASE/")"
           echo "$html" | grep -qi "noindex"
 
+      - name: Install CJK fonts for visual regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-cache -f
+
       - name: Capture mobile and desktop visual regression screenshots
         shell: bash
         run: |
