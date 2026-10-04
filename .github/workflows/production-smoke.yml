@@ -104,6 +104,7 @@ jobs:
             "/merchant/register"
             "/merchant/events/import"
             "/admin"
+            "/admin/login"
           )
 
           for route in "${routes[@]}"; do
@@ -137,6 +138,20 @@ jobs:
           code="$(curl -L -sS -o /tmp/event.html -w "%{http_code}" --max-time 30 "$BASE/events/$event_id")"
           test "$code" -ge 200
           test "$code" -lt 400
+
+      - name: Check password-only admin login contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          admin_html="$(curl -L -sS --max-time 30 "$BASE/admin/login")"
+          echo "$admin_html" | grep -qi 'type="password"'
+          echo "$admin_html" | grep -qi 'type="email"'
+
+          if echo "$admin_html" | grep -Eqi 'autocomplete="one-time-code"|name="otp"|name="totp"|name="mfa"'; then
+            echo "Unexpected OTP/MFA input detected on Admin login"
+            exit 1
+          fi
 
       - name: Check locale persistence endpoint
         shell: bash
@@ -249,6 +264,7 @@ jobs:
             [calendar]="/calendar"
             [map]="/events/map"
             [event-detail]="/events/$event_id"
+            [admin-login]="/admin/login"
           )
 
           for name in "${!routes[@]}"; do
