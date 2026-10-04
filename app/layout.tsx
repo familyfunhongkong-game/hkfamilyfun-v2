@@ -2,7 +2,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { headers } from "next/headers";
-import { AtSign, Facebook, Instagram } from "lucide-react";
 import LanguageSwitcher from "@/components/language-switcher";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import { getMessages } from "@/lib/i18n/messages";
@@ -249,7 +248,14 @@ function SiteFooter({ m }: { m: ReturnType<typeof getMessages> }) {
               title="Instagram"
               className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-600 via-pink-500 to-amber-400 text-white shadow-sm transition hover:scale-105"
             >
-              <Instagram className="h-5 w-5" aria-hidden="true" />
+              <img
+                src="https://cdn.simpleicons.org/instagram/FFFFFF"
+                alt=""
+                aria-hidden="true"
+                width="20"
+                height="20"
+                className="h-5 w-5"
+              />
             </a>
             <a
               href="https://www.facebook.com/hk.familyfun1112"
@@ -259,7 +265,14 @@ function SiteFooter({ m }: { m: ReturnType<typeof getMessages> }) {
               title="Facebook"
               className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1877F2] text-white shadow-sm transition hover:scale-105"
             >
-              <Facebook className="h-5 w-5 fill-current" aria-hidden="true" />
+              <img
+                src="https://cdn.simpleicons.org/facebook/FFFFFF"
+                alt=""
+                aria-hidden="true"
+                width="20"
+                height="20"
+                className="h-5 w-5"
+              />
             </a>
             <a
               href="https://www.threads.com/@hk.familyfun"
@@ -269,7 +282,14 @@ function SiteFooter({ m }: { m: ReturnType<typeof getMessages> }) {
               title="Threads"
               className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black text-white shadow-sm transition hover:scale-105"
             >
-              <AtSign className="h-5 w-5" aria-hidden="true" />
+              <img
+                src="https://cdn.simpleicons.org/threads/FFFFFF"
+                alt=""
+                aria-hidden="true"
+                width="20"
+                height="20"
+                className="h-5 w-5"
+              />
             </a>
           </div>
 
