@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import ResilientEventImage from "@/components/resilient-event-image";
+import ClientPromotionSlot from "@/components/client-promotion-slot";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 import { getEventListMessages } from "@/lib/i18n/event-page-messages";
@@ -1602,6 +1603,8 @@ export default function PublicEventsPage() {
           </div>
         </div>
       </section>
+
+      <ClientPromotionSlot placement="events_top" locale={locale} limit={2} />
 
       <section className="mx-auto max-w-[1500px] px-4 py-6">
         <div className="grid gap-4 md:grid-cols-4">
