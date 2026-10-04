@@ -81,6 +81,18 @@ export async function POST(request: NextRequest) {
   const sourceResults: Array<Record<string, unknown>> = [];
 
   for (const source of sources) {
+    if (source.source_key === "drive_event_source_registry") {
+      sourceResults.push({
+        source: source.display_name,
+        status: "success",
+        rows_read: 0,
+        rows_upserted: 0,
+        errors: 0,
+        message: "Source registry is reserved for discovery automation and is not imported as event submissions.",
+      });
+      continue;
+    }
+
     const startedAt = new Date().toISOString();
     const { data: run } = await admin.client
       .from("data_sync_runs")
