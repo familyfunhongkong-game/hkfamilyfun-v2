@@ -862,6 +862,12 @@ export default function MerchantDashboardPage() {
                 手動新增活動
               </button>
               <Link
+                href="/merchant/notifications"
+                className="rounded-full border border-purple-200 bg-purple-50 px-5 py-2 text-sm font-bold text-purple-800 hover:bg-purple-100"
+              >
+                🔔 商戶通知
+              </Link>
+              <Link
                 href="/merchant/events/import"
                 className="rounded-full bg-purple-700 px-5 py-2 text-sm font-bold text-white hover:bg-purple-800"
               >
