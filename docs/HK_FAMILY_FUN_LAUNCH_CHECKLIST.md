@@ -210,11 +210,20 @@ Current/future legacy review:
 
 ### Required before switching `hkfamilyfun.com`
 
-1. Latest `main` must finish with CI + Quality + authenticated Merchant E2E + Production Smoke green after the final code/document commit.
-2. Perform the final human eyeball review of the retained mobile + desktop screenshot artifact. Automated Chrome DOM/error checks now run on every production smoke, but a final visual review is still required before domain cutover.
-3. Enable Supabase leaked-password protection if the current Supabase plan exposes that setting, or explicitly record acceptance of the remaining warning.
-4. If production Admin notification email is required at launch, configure `RESEND_API_KEY` in the Vercel production environment and rerun the notification gate.
-5. Confirm final domain ownership / DNS / Vercel assignment, then move `hkfamilyfun.com` only after the gates above pass.
+The rebuilt application itself has completed the four automated release gates on the current launch-candidate commit:
+- HK Family Fun CI — PASS
+- HK Family Fun Quality Gate — PASS
+- Merchant Auth E2E — PASS
+- Production Smoke Test — PASS
+
+The final human mobile + desktop screenshot review has also been completed and passed.
+
+The remaining pre-cutover actions are external configuration / ownership checks rather than unresolved application bugs:
+
+1. Enable Supabase leaked-password protection if the current Supabase plan exposes that setting, or explicitly record acceptance of the remaining warning.
+2. Connect/read the **old HK Family Fun Vercel account** and confirm where `hkfamilyfun.com` / `www.hkfamilyfun.com` are currently assigned before any move. Do not remove the old assignment until the new project is ready to receive the domain.
+3. If production Admin notification email is required at launch, configure `RESEND_API_KEY` in the Vercel production environment and rerun the notification gate. In-app notification queueing remains the operational fallback.
+4. Only after items 1–3 are resolved or explicitly accepted, assign `hkfamilyfun.com` to the rebuilt project and perform post-cutover smoke checks.
 
 Completed launch reviews:
 - Authenticated URL import + direct PDF upload are covered by the production Merchant E2E and have passed.
@@ -238,10 +247,14 @@ Completed launch reviews:
 
 Do **not** switch `hkfamilyfun.com` to the rebuilt site until the Supabase password-security decision is recorded and the old Vercel domain assignment is confirmed.
 
-At the time of this update, the latest pre-document release-gate SHA `1c3c70a0b4b3d892cdaabf865f2f26c24dce0565` completed:
+Current verified launch-candidate SHA: `55e9591bcf7a165e1ce741ea2a8b50482ee26903`
+
+Verified on that commit:
 - HK Family Fun CI — PASS
 - HK Family Fun Quality Gate — PASS
 - Merchant Auth E2E — PASS
 - Production Smoke Test — PASS
+- Vercel production runtime errors in the latest 24-hour check — 0
+- new Vercel project custom domains — none; only `hkfamilyfun-v2.vercel.app`
 
-This checklist commit must also finish the same four gates before it becomes the final cutover candidate.
+Any later commit must pass the same four automated gates before replacing this SHA as the cutover candidate.
