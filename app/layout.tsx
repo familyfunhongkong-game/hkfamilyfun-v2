@@ -43,7 +43,7 @@ export async function generateMetadata(): Promise<Metadata> {
         "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
       images: [
         {
-          url: "/logo.png",
+          url: "/api/brand/family-fun-logo",
           width: 100,
           height: 100,
           alt: "HK Family Fun",
@@ -55,7 +55,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: "HK Family Fun｜香港親子活動平台",
       description:
         "按日期、地區、港鐵站、價錢及活動類型搜尋香港親子活動。",
-      images: ["/logo.png"],
+      images: ["/api/brand/family-fun-logo"],
     },
     robots: {
       index: isCanonicalHost,
@@ -91,6 +91,7 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
               width={56}
               height={56}
               priority
+              unoptimized
               sizes="56px"
               className="h-14 w-14 shrink-0 object-contain object-center"
             />
@@ -150,6 +151,7 @@ function SiteFooter({ m }: { m: ReturnType<typeof getMessages> }) {
                 alt="HK Family Fun"
                 width={56}
                 height={56}
+                unoptimized
                 sizes="56px"
                 className="h-14 w-14 object-contain object-center"
               />
