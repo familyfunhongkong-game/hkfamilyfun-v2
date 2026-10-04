@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     safeCount(client, "platform_notifications", [["recipient_scope", "admin"]]),
     safeCount(client, "content_articles", [["status", "draft"]]),
     safeCount(client, "content_articles", [["status", "published"]]),
-    safeCount(client, "promotion_banners", [["status", "active"]]),
+    safeCount(client, "promo_banners", [["status", "active"]]),
     safeCount(client, "social_content_drafts", [["status", "draft"]]),
     safeCount(client, "intake_submissions", [["status", "new"]]),
     safeCount(client, "external_data_sources", [["active", "true"]]),
