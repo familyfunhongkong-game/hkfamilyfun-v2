@@ -183,7 +183,7 @@ export default function AdminOperationsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard label="待審活動" metric={metrics.submittedEvents} href="/admin/events" note="商戶或匯入後等待你審批。" />
             <MetricCard label="待審商戶" metric={metrics.pendingMerchants} href="/admin/merchants" note="新商戶等待批准。" />
-            <MetricCard label="Data Inbox" metric={metrics.intakeNew} note="Drive / Forms / Sheet 新資料待處理。" />
+            <MetricCard label="Data Inbox" metric={metrics.intakeNew} href="/admin/intake" note="Drive / Forms / Sheet 新資料待處理。" />
             <MetricCard label="未讀通知" metric={metrics.unreadNotifications} href="/admin/notifications" note="站內營運 queue，不依賴 email。" />
             <MetricCard label="全部活動" metric={metrics.totalEvents} href="/admin/events" note="Supabase events 主資料。" />
             <MetricCard label="已發布活動" metric={metrics.publishedEvents} href="/events" note="公眾目前可見活動。" />
