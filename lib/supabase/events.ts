@@ -79,6 +79,12 @@ function parseCalendarDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function isInternalTestEvent(event: DatabaseEvent) {
+  const title = String(event.title_tc || "").trim().toUpperCase();
+  const venue = String(event.venue_name || "").trim().toUpperCase();
+  return title.startsWith("HKFF E2E") || venue.includes("HKFF E2E TEST");
+}
+
 function isExpiredEvent(event: DatabaseEvent) {
   const end = parseCalendarDate(event.end_date || event.start_date);
   if (!end) return false;
@@ -324,7 +330,7 @@ export async function getPublishedEvents(locale: AppLocale = "zh-Hant"): Promise
   }
 
   return ((data || []) as DatabaseEvent[])
-    .filter((event) => !isExpiredEvent(event))
+    .filter((event) => !isInternalTestEvent(event) && !isExpiredEvent(event))
     .map((event) => mapDatabaseEvent(event, locale));
 }
 
@@ -350,7 +356,7 @@ export async function getPublishedEventById(
   }
 
   const event = data as DatabaseEvent;
-  if (isExpiredEvent(event)) return null;
+  if (isInternalTestEvent(event) || isExpiredEvent(event)) return null;
 
   return mapDatabaseEvent(event, locale);
 }
