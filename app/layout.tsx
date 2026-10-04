@@ -82,8 +82,8 @@ const parentLinks = [
 function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServerLocale>>; m: ReturnType<typeof getMessages> }) {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:gap-5 lg:px-8 lg:py-4">
-        <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-7 lg:py-4">
+        <Link href="/" className="flex shrink-0 items-center gap-2.5 sm:gap-3">
           <Image
             src="/logo.png"
             alt="HK Family Fun"
@@ -92,8 +92,8 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
             priority
             className="h-10 w-10 shrink-0 object-contain sm:h-11 sm:w-11"
           />
-          <span className="min-w-0">
-            <span className="block truncate text-base font-black leading-tight text-slate-950 sm:text-lg">
+          <span className="shrink-0">
+            <span className="block whitespace-nowrap text-base font-black leading-tight text-slate-950 sm:text-lg">
               HK Family Fun
             </span>
             <span className="block text-xs text-slate-500">
@@ -102,14 +102,13 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 text-sm font-bold text-slate-600 lg:flex">
+        <nav className="hidden flex-1 items-center justify-center gap-0.5 text-[13px] font-bold text-slate-600 lg:flex">
           {parentLinks.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`rounded-2xl px-3 py-2 transition ${item.hoverClass}`}
+              className={`whitespace-nowrap rounded-2xl px-2.5 py-2 transition ${item.hoverClass}`}
             >
-              <span className="mr-1">{item.icon}</span>
               {m[item.key]}
             </Link>
           ))}
@@ -118,14 +117,14 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <Link
             href="/merchant-join"
-            className="hidden text-sm font-bold text-slate-600 hover:text-purple-700 xl:inline"
+            className="hidden whitespace-nowrap text-[13px] font-bold text-slate-600 hover:text-purple-700 2xl:inline"
           >
             {m.merchantJoin}
           </Link>
 
           <Link
             href="/merchant/register"
-            className="hidden rounded-full bg-purple-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-purple-800 sm:inline-flex"
+            className="hidden whitespace-nowrap rounded-full bg-purple-700 px-3.5 py-2 text-[13px] font-bold text-white shadow-sm hover:bg-purple-800 md:inline-flex"
           >
             {m.merchantRegister}
           </Link>
