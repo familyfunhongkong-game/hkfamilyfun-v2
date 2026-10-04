@@ -45,6 +45,7 @@ export default function AdminIntakePage() {
   const [filter, setFilter] = useState("attention");
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
+  const [batchWorking, setBatchWorking] = useState(false);
   const [message, setMessage] = useState("");
   const [errorText, setErrorText] = useState("");
 
@@ -87,6 +88,51 @@ export default function AdminIntakePage() {
     }
     return rows.filter((row) => row.status === filter);
   }, [rows, filter]);
+
+  async function normalizeAll() {
+    if (!supabase) return;
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) {
+      setErrorText("請先登入 Admin。");
+      return;
+    }
+
+    const queue = rows.filter((row) =>
+      ["new", "needs_review"].includes(row.status),
+    );
+    if (!queue.length) {
+      setMessage("目前冇需要 Normalize 嘅 Intake。");
+      return;
+    }
+
+    setBatchWorking(true);
+    setMessage("");
+    setErrorText("");
+    let ok = 0;
+    let failed = 0;
+
+    for (const row of queue) {
+      try {
+        const response = await fetch("/api/admin/intake/normalize", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token,
+          },
+          body: JSON.stringify({ id: row.id }),
+        });
+        if (response.ok) ok += 1;
+        else failed += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+
+    setBatchWorking(false);
+    setMessage("Normalize All 完成：" + ok + " 成功，" + failed + " 失敗。");
+    await load();
+  }
 
   async function run(path: string, id: string) {
     if (!supabase) return;
@@ -147,7 +193,15 @@ export default function AdminIntakePage() {
             後仍需 Admin 審批先公開。
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void normalizeAll()}
+              disabled={batchWorking}
+              className="rounded-full bg-purple-700 px-4 py-2 text-xs font-black text-white disabled:opacity-50"
+            >
+              {batchWorking ? "批量整理中…" : "Normalize All"}
+            </button>
             {["attention", "new", "normalized", "needs_review", "linked", "ignored", "all"].map(
               (item) => (
                 <button
