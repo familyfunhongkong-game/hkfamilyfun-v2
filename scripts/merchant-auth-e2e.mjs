@@ -338,9 +338,8 @@ async function main() {
     checks.push("merchant_can_submit_complete_event");
 
     try {
-      const notificationResponse = await fetch(
-        `${siteUrl}/api/merchant-notifications`,
-        {
+      const notificationRequest = () =>
+        fetch(`${siteUrl}/api/merchant-notifications`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -350,21 +349,42 @@ async function main() {
             action: "event_submitted",
             event_id: eventId,
           }),
-        },
-      );
+        });
 
+      const notificationResponse = await notificationRequest();
       const notificationBody = await notificationResponse
         .json()
         .catch(() => ({}));
+
+      assert(
+        notificationResponse.ok,
+        `Production notification API failed with HTTP ${notificationResponse.status}`,
+      );
+      assert(
+        notificationBody.queued === true && Boolean(notificationBody.queue_id),
+        "Event submission did not create a durable in-app notification",
+      );
+      checks.push("event_submission_notification_queued");
+
+      const retryResponse = await notificationRequest();
+      const retryBody = await retryResponse.json().catch(() => ({}));
+
+      assert(
+        retryResponse.ok,
+        `Notification retry failed with HTTP ${retryResponse.status}`,
+      );
+      assert(
+        retryBody.queued === true &&
+          retryBody.duplicate === true &&
+          retryBody.queue_id === notificationBody.queue_id,
+        "Notification retry did not deduplicate to the existing queue item",
+      );
+      checks.push("event_submission_notification_deduplicated");
 
       notificationSent =
         notificationResponse.ok && notificationBody.sent === true;
 
       if (requireNotification) {
-        assert(
-          notificationResponse.ok,
-          `Production notification API failed with HTTP ${notificationResponse.status}`,
-        );
         assert(
           notificationSent,
           `Production Resend notification is not configured or failed: ${
@@ -378,16 +398,12 @@ async function main() {
         checks.push("production_admin_notification_sent");
       } else {
         console.warn(
-          "Notification check skipped as a launch gate because REQUIRE_NOTIFICATION is false:",
-          notificationBody.reason || notificationBody.error || "not sent",
+          "Resend email is optional for this core E2E; durable in-app queue passed:",
+          notificationBody.reason || notificationBody.error || "email not sent",
         );
       }
     } catch (error) {
-      if (requireNotification) throw error;
-      console.warn(
-        "Notification check skipped as a launch gate:",
-        error instanceof Error ? error.message : String(error),
-      );
+      throw error;
     }
 
     const forbiddenPublish = await merchantClient
