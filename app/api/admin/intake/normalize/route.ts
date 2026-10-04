@@ -39,14 +39,6 @@ function pick(payload: JsonMap, aliases: string[]) {
   return "";
 }
 
-function checked(payload: JsonMap, keyFragment: string) {
-  const needle = normalizeKey(keyFragment);
-  return Object.entries(payload).some(([key, value]) => {
-    if (!normalizeKey(key).includes(needle)) return false;
-    return /^(true|yes|是|1)$/i.test(clean(value));
-  });
-}
-
 function dateOnly(value: string) {
   const iso = value.match(/\b(20\d{2})[-\/.](\d{1,2})[-\/.](\d{1,2})\b/);
   if (!iso) return null;
