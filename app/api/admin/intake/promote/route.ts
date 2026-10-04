@@ -43,6 +43,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const minPrice =
+    typeof n.min_price === "number"
+      ? n.min_price
+      : Number.isFinite(Number(clean(n.min_price)))
+        ? Number(clean(n.min_price))
+        : null;
+  const tags = Array.isArray(n.tags)
+    ? n.tags.map((item) => clean(item)).filter(Boolean).join(",")
+    : clean(n.tags);
+  const isFree = clean(n.price_display_mode) === "free" || minPrice === 0;
+
   const payload = {
     title_tc: title,
     title_sc: clean(n.title_sc) || null,
@@ -53,13 +64,27 @@ export async function POST(request: NextRequest) {
     start_time: clean(n.start_time) || null,
     end_time: clean(n.end_time) || null,
     venue_name: clean(n.venue_name) || null,
+    address: clean(n.address) || null,
     district: clean(n.district) || null,
+    mtr_station: clean(n.mtr_station) || null,
+    activity_category: clean(n.activity_category) || null,
+    price_type: isFree ? "free" : minPrice !== null ? "paid" : "unknown",
     price_display_mode: clean(n.price_display_mode) || null,
-    min_price: typeof n.min_price === "number" ? n.min_price : null,
+    price_min: minPrice,
+    min_price: minPrice === null ? null : String(minPrice),
+    price_label: clean(n.price_label) || null,
+    is_free: isFree,
     registration_url: clean(n.registration_url) || null,
     official_url: clean(n.official_url) || null,
     source_url: clean(n.official_url || n.registration_url) || null,
-    tags: Array.isArray(n.tags) ? n.tags : [],
+    google_map_url: clean(n.google_map_url) || null,
+    cover_image_url: clean(n.cover_image_url) || null,
+    organizer_name: clean(n.organizer_name) || null,
+    contact_email: clean(n.contact_email) || null,
+    contact_phone: clean(n.contact_phone) || null,
+    whatsapp: clean(n.whatsapp) || null,
+    tags: tags || null,
+    source_type: "manual",
     status: "draft",
   };
 
