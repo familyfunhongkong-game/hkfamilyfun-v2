@@ -272,9 +272,9 @@ using (public.is_platform_admin())
 with check (public.is_platform_admin());
 
 
-grant select on public.content_articles, public.promotion_banners to anon;
-grant select on public.content_articles, public.promotion_banners to authenticated;
-grant insert, update, delete on public.content_articles, public.promotion_banners to authenticated;
+grant select on public.content_articles, public.promo_banners to anon;
+grant select on public.content_articles, public.promo_banners to authenticated;
+grant insert, update, delete on public.content_articles, public.promo_banners to authenticated;
 grant select, insert, update, delete
   on public.social_content_drafts,
      public.external_data_sources,
