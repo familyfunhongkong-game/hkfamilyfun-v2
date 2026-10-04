@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
 type CountResult = { count: number | null; error: { message?: string } | null };
 
 async function safeCount(
-  client: ReturnType<typeof createClient>,
+  client: SupabaseClient<any>,
   table: string,
   filters: Array<[string, string]> = [],
 ): Promise<{ count: number; available: boolean; error?: string }> {
