@@ -1,6 +1,6 @@
 # HK Family Fun V2 — Launch Checklist
 
-Updated: 2026-10-03
+Updated: 2026-10-04
 
 ## Quality target
 
@@ -22,6 +22,7 @@ Visual polish must never trade away accessibility, SEO, performance, data safety
 - `main` is the only canonical rebuild branch.
 - Do **not** blindly merge `phase-1c-merchant-portal` / PR #3. It is heavily diverged from `main`.
 - Production domain cutover remains a separate final action after the remaining external gates below are cleared.
+- Obsolete PR #3 (`phase-1c-merchant-portal`) is closed and explicitly marked DO NOT MERGE; the branch is retained only as historical reference.
 
 ## Live infrastructure snapshot
 
@@ -86,6 +87,8 @@ The app currently uses `events.cover_image_url` + `gallery_image_urls` + Supabas
 
 ### Authenticated Merchant/Admin/Auth E2E — PASS
 
+The workflow now runs on every `main` push with concurrency cancellation, so only the newest commit needs to finish. This makes Auth/RLS testing a real release gate rather than evidence from an older commit.
+
 The temporary-data E2E has passed the following production Supabase workflow and cleans up after itself:
 
 - signup trigger creates pending merchant
@@ -132,6 +135,23 @@ The production smoke gate now verifies:
 - mobile (390×844) and desktop (1440×1000) screenshots are captured for Home / Events / Today / Calendar / Map / Event Detail and retained as a workflow artifact
 
 The smoke workflow now skips superseded commits instead of treating cancelled obsolete Vercel deployments as product failures.
+
+### Final human visual review — PASS
+
+The retained mobile (390×844) and desktop (1440×1000) screenshot artifact was manually reviewed across Home / Events / Today / Calendar / Map / Event Detail.
+
+Issues found and corrected during the review:
+- desktop brand text was being truncated
+- desktop navigation labels were wrapping because the header was over-compressed
+- the Home featured image could over-crop official source artwork
+
+After correction, a new Production Smoke visual artifact was reviewed:
+- desktop brand is fully visible
+- desktop navigation stays on one line
+- mobile bottom navigation remains clear and unobstructed
+- Home featured artwork preserves source aspect ratio
+- Map remains usable on mobile and desktop
+- Event Detail has no visible control overlap and resilient image handling remains active
 
 ## Security / data verification
 
@@ -203,9 +223,10 @@ Completed launch reviews:
 
 ### Operational configuration still outstanding
 
-- Production Merchant submission currently succeeds even if notification email fails.
-- The authenticated E2E reported `RESEND_API_KEY not configured`; if Admin email notification is required at launch, configure Resend in the Vercel production environment and rerun the notification gate.
+- A durable `platform_notifications` queue and Admin/Merchant notification centers are now the primary operational fallback. Merchant submissions and review-state notifications are retained in-app even when email delivery is unavailable.
+- Resend `hkfamilyfun.com` is verified with sending enabled and a production notification key already exists in Resend. The Vercel runtime does not currently have `RESEND_API_KEY`; email is therefore an optional delivery enhancement, not a launch dependency.
 - Azure Translator is optional and is **not** a launch dependency. Without Azure keys, Merchant/Admin can still enter all TC / SC / EN fields manually and public pages fall back safely to TC.
+- The new Vercel team currently owns no custom domains, and the new project is assigned only `hkfamilyfun-v2.vercel.app`. This confirms no accidental domain cutover has occurred.
 
 ## Content backlog that does not block application launch
 
@@ -215,4 +236,12 @@ Completed launch reviews:
 
 ## Cutover rule
 
-Do **not** switch `hkfamilyfun.com` to the rebuilt site until the final latest-main automated gates are green and the remaining required external actions above are explicitly cleared.
+Do **not** switch `hkfamilyfun.com` to the rebuilt site until the Supabase password-security decision is recorded and the old Vercel domain assignment is confirmed.
+
+At the time of this update, the latest pre-document release-gate SHA `1c3c70a0b4b3d892cdaabf865f2f26c24dce0565` completed:
+- HK Family Fun CI — PASS
+- HK Family Fun Quality Gate — PASS
+- Merchant Auth E2E — PASS
+- Production Smoke Test — PASS
+
+This checklist commit must also finish the same four gates before it becomes the final cutover candidate.
