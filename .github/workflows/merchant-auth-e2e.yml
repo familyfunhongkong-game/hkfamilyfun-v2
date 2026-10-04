@@ -3,21 +3,14 @@ name: Merchant Auth E2E
 on:
   push:
     branches: ["main"]
-    paths:
-      - ".github/workflows/merchant-auth-e2e.yml"
-      - "scripts/merchant-auth-e2e.mjs"
-      - "app/merchant/**"
-      - "app/admin/events/**"
-      - "app/admin/merchants/**"
-      - "app/api/merchant-notifications/**"
-      - "app/api/import-event/**"
-      - "app/api/translate-event/**"
-      - "lib/supabase/**"
-      - "supabase/migrations/**"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: hkfamilyfun-merchant-auth-e2e
+  cancel-in-progress: true
 
 jobs:
   e2e:
