@@ -86,7 +86,7 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
         <Link href="/" className="flex shrink-0 items-center gap-3 overflow-visible">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-visible">
             <Image
-              src="/logo.png"
+              src="/api/brand/family-fun-logo"
               alt="HK Family Fun"
               width={56}
               height={56}
@@ -146,7 +146,7 @@ function SiteFooter({ m }: { m: ReturnType<typeof getMessages> }) {
           <Link href="/" className="flex items-center gap-3 overflow-visible">
             <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-visible">
               <Image
-                src="/logo.png"
+                src="/api/brand/family-fun-logo"
                 alt="HK Family Fun"
                 width={56}
                 height={56}
