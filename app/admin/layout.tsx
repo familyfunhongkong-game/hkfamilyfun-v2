@@ -116,10 +116,10 @@ export default function AdminLayout({
             </p>
             <div className="mt-6 flex gap-3">
               <Link
-                href="/merchant/login"
+                href="/admin/login"
                 className="rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white"
               >
-                前往登入
+                Admin 登入
               </Link>
               <Link
                 href="/events"
