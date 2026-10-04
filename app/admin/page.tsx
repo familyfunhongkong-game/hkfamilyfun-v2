@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { supabase } from "@/lib/supabase/client";
 
 const groups = [
   {
@@ -46,6 +48,42 @@ const toneClasses: Record<string, string> = {
 };
 
 export default function AdminHomePage() {
+  const [driveWorking, setDriveWorking] = useState(false);
+  const [driveError, setDriveError] = useState("");
+
+  async function connectGoogleDrive() {
+    if (!supabase) {
+      setDriveError("Supabase client 未初始化。");
+      return;
+    }
+
+    setDriveWorking(true);
+    setDriveError("");
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error("請先登入 Admin。");
+
+      const response = await fetch("/api/admin/google-drive/connect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        body: "{}",
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "未能連接 Google Drive。");
+      if (!body.url) throw new Error("Google OAuth URL 未能建立。");
+
+      window.location.href = body.url;
+    } catch (error) {
+      setDriveError(error instanceof Error ? error.message : "未能連接 Google Drive。");
+      setDriveWorking(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
@@ -65,6 +103,36 @@ export default function AdminHomePage() {
       </section>
 
       <section className="mx-auto max-w-[1500px] space-y-9 px-4 py-8">
+        <section className="rounded-[2rem] border border-purple-200 bg-gradient-to-r from-purple-50 via-white to-emerald-50 p-6 shadow-sm">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-purple-700">Google Drive Sync</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">連接 Family Fun Google Drive</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                連接 familyfun.hongkong@gmail.com 後，Google Sheets / Forms 資料可以由 Admin 同步入 Data Inbox，再做 Normalize、查重同審批。
+              </p>
+              {driveError ? (
+                <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{driveError}</p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void connectGoogleDrive()}
+                disabled={driveWorking}
+                className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-purple-800 disabled:opacity-50"
+              >
+                {driveWorking ? "開啟 Google 授權…" : "連接 Family Fun Google Drive"}
+              </button>
+              <Link
+                href="/admin/operations"
+                className="rounded-full border border-purple-200 bg-white px-5 py-3 text-sm font-black text-purple-700"
+              >
+                打開 Operations Hub
+              </Link>
+            </div>
+          </div>
+        </section>
         {groups.map((group) => (
           <section key={group.title}>
             <h2 className="text-xl font-black text-slate-950">{group.title}</h2>
