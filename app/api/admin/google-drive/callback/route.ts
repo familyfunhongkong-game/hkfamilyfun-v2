@@ -75,6 +75,18 @@ export async function GET(request: NextRequest) {
     accountEmail = "";
   }
 
+  const allowedEmail = String(
+    process.env.GOOGLE_ADMIN_DRIVE_ALLOWED_EMAIL || "",
+  ).trim().toLowerCase();
+
+  if (allowedEmail && accountEmail !== allowedEmail) {
+    console.error(
+      "Google Drive authorization rejected for unexpected account:",
+      accountEmail || "unknown",
+    );
+    return redirect(request, "wrong-account");
+  }
+
   const admin = serviceClient();
   if (!admin) {
     return redirect(request, "database-not-configured");
