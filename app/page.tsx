@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPublishedEvents } from "@/lib/supabase/events";
+import ResilientEventImage from "@/components/resilient-event-image";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 
@@ -102,14 +103,15 @@ export default async function HomePage() {
                 href={`/events/${events[0].id}`}
                 className="mt-5 block overflow-hidden rounded-3xl border border-slate-200 bg-slate-50"
               >
-                <img
-                  src={events[0].image}
-                  alt={events[0].title}
-                  loading="eager"
-                  fetchPriority="high"
-                  decoding="async"
-                  className="h-56 w-full object-cover"
-                />
+                <div className="h-56 bg-white">
+                  <ResilientEventImage
+                    src={events[0].image}
+                    alt={events[0].title}
+                    loading="eager"
+                    fetchPriority="high"
+                    className="h-full w-full object-contain p-3"
+                  />
+                </div>
                 <div className="p-5">
                   <p className="text-xs font-black text-purple-700">
                     {events[0].date} · {events[0].district}
