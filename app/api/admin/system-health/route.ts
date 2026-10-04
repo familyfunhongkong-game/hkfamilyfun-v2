@@ -67,10 +67,13 @@ export async function GET(request: NextRequest) {
         : "Intake / sync / reporting schema ready",
     },
     googleDrive: {
-      ready: googleBaseReady && driveProbe.data?.status === "connected",
+      ready:
+        googleBaseReady &&
+        configured(process.env.GOOGLE_ADMIN_DRIVE_REDIRECT_URI) &&
+        driveProbe.data?.status === "connected",
       label: "Google Drive / Sheets",
-      detail: !googleBaseReady
-        ? "網站 OAuth 未設定；目前只可由已連接工具做人工/受控同步"
+      detail: !googleBaseReady || !configured(process.env.GOOGLE_ADMIN_DRIVE_REDIRECT_URI)
+        ? "網站 OAuth 未設定完整；目前只可由已連接工具做人工/受控同步"
         : driveProbe.data?.status === "connected"
           ? "Connected" + (driveProbe.data.account_email ? " · " + driveProbe.data.account_email : "")
           : "OAuth 已設定，但 Admin 尚未完成 Drive 授權",
