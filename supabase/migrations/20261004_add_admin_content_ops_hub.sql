@@ -62,62 +62,54 @@ using (public.is_platform_admin())
 with check (public.is_platform_admin());
 
 
-create table if not exists public.promotion_banners (
-  id uuid primary key default gen_random_uuid(),
-  internal_name text not null,
-  placement text not null default 'home_top'
-    check (placement in ('home_top','home_middle','events_top','news_top','article_inline')),
-  status text not null default 'draft'
-    check (status in ('draft','active','paused','archived')),
-  headline_tc text not null default '',
-  headline_sc text,
-  headline_en text,
-  subheadline_tc text,
-  subheadline_sc text,
-  subheadline_en text,
-  image_url text,
-  mobile_image_url text,
-  target_url text,
-  cta_label_tc text,
-  cta_label_sc text,
-  cta_label_en text,
-  badge_text_tc text,
-  badge_text_sc text,
-  badge_text_en text,
-  sponsor_name text,
-  is_paid boolean not null default false,
-  priority integer not null default 100,
-  starts_at timestamptz,
-  ends_at timestamptz,
-  created_by uuid default auth.uid(),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
+-- Reuse the existing promo_banners table as the single source of truth.
+alter table public.promo_banners
+  add column if not exists internal_name text,
+  add column if not exists headline_tc text,
+  add column if not exists headline_sc text,
+  add column if not exists headline_en text,
+  add column if not exists subheadline_tc text,
+  add column if not exists subheadline_sc text,
+  add column if not exists subheadline_en text,
+  add column if not exists mobile_image_url text,
+  add column if not exists target_url text,
+  add column if not exists cta_label_tc text,
+  add column if not exists cta_label_sc text,
+  add column if not exists cta_label_en text,
+  add column if not exists badge_text_tc text,
+  add column if not exists badge_text_sc text,
+  add column if not exists badge_text_en text,
+  add column if not exists sponsor_name text,
+  add column if not exists is_paid boolean not null default false,
+  add column if not exists priority integer not null default 100;
 
-create index if not exists promotion_banners_live_idx
-  on public.promotion_banners(placement, status, priority, starts_at, ends_at);
+update public.promo_banners
+set
+  internal_name = coalesce(nullif(internal_name, ''), title),
+  headline_tc = coalesce(nullif(headline_tc, ''), title),
+  subheadline_tc = coalesce(subheadline_tc, subtitle),
+  target_url = coalesce(target_url, link_url),
+  priority = coalesce(priority, sort_order, 100)
+where
+  internal_name is null
+  or headline_tc is null
+  or target_url is null
+  or priority is null;
 
-alter table public.promotion_banners enable row level security;
+alter table public.promo_banners
+  drop constraint if exists promo_banners_placement_check;
 
-drop policy if exists "Public can read active promotion banners" on public.promotion_banners;
-create policy "Public can read active promotion banners"
-on public.promotion_banners
-for select
-to anon, authenticated
-using (
-  status = 'active'
-  and (starts_at is null or starts_at <= now())
-  and (ends_at is null or ends_at >= now())
-);
+alter table public.promo_banners
+  add constraint promo_banners_placement_check
+  check (placement in (
+    'home_top','home_mid','home_middle','events_top',
+    'event_detail','news_top','article_inline'
+  ));
 
-drop policy if exists "Admins can manage promotion banners" on public.promotion_banners;
-create policy "Admins can manage promotion banners"
-on public.promotion_banners
-for all
-to authenticated
-using (public.is_platform_admin())
-with check (public.is_platform_admin());
+create index if not exists promo_banners_ops_live_idx
+  on public.promo_banners(placement, status, priority, starts_at, ends_at);
 
+alter table public.promo_banners enable row level security;
 
 create table if not exists public.social_content_drafts (
   id uuid primary key default gen_random_uuid(),
