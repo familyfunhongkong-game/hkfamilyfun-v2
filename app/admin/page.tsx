@@ -8,6 +8,7 @@ const groups = [
     description: "一個人管理網站時，先由呢度處理真正需要你決定嘅工作。",
     cards: [
       { href: "/admin/operations", title: "Operations Hub", description: "Supabase、Google Drive、表單、同步狀態、待處理數據及營運指標集中管理。", tone: "purple" },
+      { href: "/admin/reports", title: "Reports / QA", description: "集中睇活動資料缺漏、過期公開、同步錯誤、Intake backlog 同內容營運狀態。", tone: "rose" },
       { href: "/admin/notifications", title: "通知中心", description: "新商戶、待審活動及系統狀態更新。", tone: "amber" },
       { href: "/admin/events", title: "活動審批", description: "草稿、待審、已批准、已發布、拒絕及封存活動。", tone: "emerald" },
       { href: "/admin/merchants", title: "商戶審批", description: "批准、拒絕、暫停商戶帳戶及檢查提交資料。", tone: "sky" },
@@ -27,7 +28,7 @@ const groups = [
     title: "系統",
     description: "少做 IT 維護，多做內容及商戶營運。",
     cards: [
-      { href: "/admin/system", title: "系統狀態", description: "檢查 Supabase、Resend、Google Calendar、環境變數及 launch readiness。", tone: "slate" },
+      { href: "/admin/system", title: "系統狀態", description: "檢查 Supabase、Data Hub、Google Drive、Calendar、AI、Email 同 launch readiness。", tone: "slate" },
       { href: "/news", title: "查看 News / Feature", description: "查看公開圖片主導 editorial 頁面。", tone: "rose" },
       { href: "/events", title: "查看公開活動網站", description: "檢查家長端 Event / Today / Calendar / Map 實際顯示。", tone: "emerald" },
     ],
