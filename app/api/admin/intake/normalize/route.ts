@@ -13,7 +13,7 @@ function clean(value: unknown) {
 function normalizeKey(value: string) {
   return value
     .toLowerCase()
-    .replace(/[\\s_*（）()\\[\\]【】:：/\\\\.\\-]+/g, "");
+    .replace(/[\s_*（）()\[\]【】:：/\\.\-]+/g, "");
 }
 
 function pick(payload: JsonMap, aliases: string[]) {
