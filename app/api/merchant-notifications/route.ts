@@ -68,6 +68,7 @@ type NotificationInsert = {
   message?: string | null;
   status_snapshot?: string | null;
   email_to?: string | null;
+  dedupe_key?: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -92,11 +93,29 @@ export async function POST(request: NextRequest) {
       .select("id")
       .single();
 
+    if (error?.code === "23505" && notification.dedupe_key) {
+      const { data: existing } = await client
+        .from("platform_notifications")
+        .select("id")
+        .eq("dedupe_key", notification.dedupe_key)
+        .maybeSingle();
+
+      if (existing?.id) {
+        return {
+          queued: true,
+          queue_id: String(existing.id),
+          queue_error: null as string | null,
+          duplicate: true,
+        };
+      }
+    }
+
     if (error || !data?.id) {
       return {
         queued: false,
         queue_id: null as string | null,
         queue_error: error?.message || "Notification queue insert failed",
+        duplicate: false,
       };
     }
 
@@ -104,6 +123,7 @@ export async function POST(request: NextRequest) {
       queued: true,
       queue_id: String(data.id),
       queue_error: null as string | null,
+      duplicate: false,
     };
   }
 
@@ -175,6 +195,7 @@ export async function POST(request: NextRequest) {
       message,
       status_snapshot: merchant.status,
       email_to: APPROVAL_EMAIL,
+      dedupe_key: `merchant-review-${merchant.id}-${merchant.updated_at || merchant.created_at || "unknown"}`,
     });
 
     if (!queued.queued) {
@@ -190,8 +211,14 @@ export async function POST(request: NextRequest) {
       message,
       `merchant-review-${merchant.id}-${merchant.updated_at || merchant.created_at || "unknown"}`,
     );
+    await markEmailResult(queued.queue_id, result);
 
-    return json({ ...result, queued: true, queue_id: queued.queue_id });
+    return json({
+      ...result,
+      queued: true,
+      queue_id: queued.queue_id,
+      duplicate: queued.duplicate,
+    });
   }
 
   if (action === "event_submitted") {
@@ -237,6 +264,7 @@ export async function POST(request: NextRequest) {
       message,
       status_snapshot: event.status,
       email_to: APPROVAL_EMAIL,
+      dedupe_key: `event-submitted-${event.id}-${event.updated_at || "unknown"}`,
     });
 
     if (!queued.queued) {
@@ -252,8 +280,14 @@ export async function POST(request: NextRequest) {
       message,
       `event-submitted-${event.id}-${event.updated_at || "unknown"}`,
     );
+    await markEmailResult(queued.queue_id, result);
 
-    return json({ ...result, queued: true, queue_id: queued.queue_id });
+    return json({
+      ...result,
+      queued: true,
+      queue_id: queued.queue_id,
+      duplicate: queued.duplicate,
+    });
   }
 
   const { data: isAdmin } = await client.rpc("is_platform_admin");
@@ -276,8 +310,8 @@ export async function POST(request: NextRequest) {
       .eq("id", event.merchant_id)
       .maybeSingle();
 
-    if (!merchant?.contact_email) {
-      return json({ sent: false, reason: "Merchant email unavailable" });
+    if (!merchant) {
+      return json({ error: "Merchant unavailable" }, 404);
     }
 
     const label =
@@ -311,7 +345,8 @@ export async function POST(request: NextRequest) {
       title: subject,
       message,
       status_snapshot: event.status,
-      email_to: merchant.contact_email,
+      email_to: merchant.contact_email || null,
+      dedupe_key: `event-status-${event.id}-${event.status}-${event.updated_at || "unknown"}`,
     });
 
     if (!queued.queued) {
@@ -321,15 +356,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await sendMail(
-      merchant.contact_email,
-      subject,
-      message,
-      `event-status-${event.id}-${event.status}-${event.updated_at || "unknown"}`,
-    );
+    const result = merchant.contact_email
+      ? await sendMail(
+          merchant.contact_email,
+          subject,
+          message,
+          `event-status-${event.id}-${event.status}-${event.updated_at || "unknown"}`,
+        )
+      : { sent: false, reason: "Merchant email unavailable" };
     await markEmailResult(queued.queue_id, result);
 
-    return json({ ...result, queued: true, queue_id: queued.queue_id });
+    return json({
+      ...result,
+      queued: true,
+      queue_id: queued.queue_id,
+      duplicate: queued.duplicate,
+    });
   }
 
   if (action === "merchant_status_changed") {
@@ -341,8 +383,8 @@ export async function POST(request: NextRequest) {
       .eq("id", body.merchant_id)
       .maybeSingle();
 
-    if (!merchant?.contact_email) {
-      return json({ sent: false, reason: "Merchant email unavailable" });
+    if (!merchant) {
+      return json({ error: "Merchant unavailable" }, 404);
     }
 
     const label =
@@ -375,7 +417,8 @@ export async function POST(request: NextRequest) {
       title: subject,
       message,
       status_snapshot: merchant.status,
-      email_to: merchant.contact_email,
+      email_to: merchant.contact_email || null,
+      dedupe_key: `merchant-status-${body.merchant_id}-${merchant.status}-${merchant.updated_at || "unknown"}`,
     });
 
     if (!queued.queued) {
@@ -385,15 +428,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await sendMail(
-      merchant.contact_email,
-      subject,
-      message,
-      `merchant-status-${body.merchant_id}-${merchant.status}-${merchant.updated_at || "unknown"}`,
-    );
+    const result = merchant.contact_email
+      ? await sendMail(
+          merchant.contact_email,
+          subject,
+          message,
+          `merchant-status-${body.merchant_id}-${merchant.status}-${merchant.updated_at || "unknown"}`,
+        )
+      : { sent: false, reason: "Merchant email unavailable" };
     await markEmailResult(queued.queue_id, result);
 
-    return json({ ...result, queued: true, queue_id: queued.queue_id });
+    return json({
+      ...result,
+      queued: true,
+      queue_id: queued.queue_id,
+      duplicate: queued.duplicate,
+    });
   }
 
   return json({ error: "Unsupported action" }, 400);
