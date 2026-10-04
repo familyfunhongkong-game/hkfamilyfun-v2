@@ -163,7 +163,7 @@ export async function getActivePromotionBanners(
   if (!supabase) return [];
 
   const { data, error } = await supabase
-    .from("promotion_banners")
+    .from("promo_banners")
     .select(
       "id,headline_tc,headline_sc,headline_en,subheadline_tc,subheadline_sc,subheadline_en,image_url,mobile_image_url,target_url,cta_label_tc,cta_label_sc,cta_label_en,badge_text_tc,badge_text_sc,badge_text_en,sponsor_name,is_paid",
     )
@@ -173,7 +173,7 @@ export async function getActivePromotionBanners(
     .limit(limit);
 
   if (error) {
-    if (!error.message.toLowerCase().includes("promotion_banners")) {
+    if (!error.message.toLowerCase().includes("promo_banners")) {
       console.error("讀取 Promotion Banner 失敗：", error.message);
     }
     return [];
