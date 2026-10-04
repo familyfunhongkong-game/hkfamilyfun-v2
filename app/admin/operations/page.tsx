@@ -102,7 +102,32 @@ export default function AdminOperationsPage() {
     setLoading(false);
   }
 
-  useEffect(()=>{ void loadSummary(); },[]);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const driveState = params.get("drive");
+
+    if (driveState === "connected") {
+      setMessage("Google Drive 已成功連接。可以使用 Sync All Data / Forms。");
+    } else if (driveState === "wrong-account") {
+      setErrorText("Google Drive 授權帳戶不正確。請使用 familyfun.hongkong@gmail.com。");
+    } else if (driveState === "token-error") {
+      setErrorText("Google OAuth token exchange 失敗，請重新連接。");
+    } else if (driveState === "refresh-token-missing") {
+      setErrorText("Google 未提供 refresh token，請重新連接並同意所需權限。");
+    } else if (driveState === "state-error") {
+      setErrorText("Google OAuth 安全驗證失敗，請重新連接。");
+    } else if (driveState === "database-error") {
+      setErrorText("Google Drive 已授權，但未能保存 integration，請重試。");
+    } else if (driveState === "not-configured") {
+      setErrorText("Google Drive OAuth 設定未完整。");
+    }
+
+    if (driveState) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    void loadSummary();
+  }, []);
 
   const metrics=summary?.metrics||{};
   const needsAttention=useMemo(()=>(
