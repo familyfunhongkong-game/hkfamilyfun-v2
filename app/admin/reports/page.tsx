@@ -17,7 +17,7 @@ type EventRow = {
   merchant_id: string | null;
 };
 
-type MerchantRow = { id: string; status: string | null; name_tc: string | null; name_en: string | null };
+type MerchantRow = { id: string; status: string | null; business_name: string | null };
 type IntakeRow = { id: string; status: string; source_type: string; received_at: string };
 type SyncRow = { id: string; status: string; rows_read: number; error_count: number; started_at: string; message: string | null };
 type SimpleStatus = { id: string; status: string | null };
@@ -80,7 +80,7 @@ export default function AdminReportsPage() {
 
     const results = await Promise.all([
       supabase.from("events").select("id,title_tc,status,start_date,end_date,cover_image_url,registration_url,official_url,source_url,merchant_id").limit(5000),
-      supabase.from("merchants").select("id,status,name_tc,name_en").limit(1000),
+      supabase.from("merchants").select("id,status,business_name").limit(1000),
       supabase.from("intake_submissions").select("id,status,source_type,received_at").order("received_at", { ascending: false }).limit(2000),
       supabase.from("data_sync_runs").select("id,status,rows_read,error_count,started_at,message").order("started_at", { ascending: false }).limit(200),
       supabase.from("content_articles").select("id,status").limit(1000),
