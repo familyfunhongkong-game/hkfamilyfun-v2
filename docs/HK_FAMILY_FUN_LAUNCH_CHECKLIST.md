@@ -68,7 +68,10 @@ The app currently uses `events.cover_image_url` + `gallery_image_urls` + Supabas
 - optional one-click SC + English translation when Azure Translator is configured
 
 ### Admin
+- dedicated email + password login at `/admin/login`; authorized accounts are rechecked with `is_platform_admin()` after sign-in
+- no QR Code / TOTP / web-app two-factor challenge
 - merchant review / approval
+- dedicated `/admin/login` using authorized Admin email + password only (no QR / TOTP / web-app 2FA)
 - event create / edit through the shared admin-capable editor
 - approve / reject / publish / archive / return-to-draft
 - permanent event deletion and event-image storage cleanup
@@ -178,7 +181,7 @@ Supabase Security Advisor still reports:
 
 - **Leaked Password Protection Disabled**
 
-This requires an Auth dashboard setting and should be enabled before final domain cutover if the Supabase plan supports it.
+Supabase documents leaked-password protection as a Pro-plan-and-above feature. If V2 remains on the Free plan, this warning cannot be cleared natively; the current compensating controls are 12-character passwords, email confirmation, Admin allowlist/RLS and authenticated E2E. Do not add web-app QR/TOTP to the Admin Portal unless product requirements change.
 
 Performance Advisor also reports multiple-permissive-policy and unused-index notices. These are optimization findings, not evidence of a current public-data leak. Do not drop indexes or rewrite policies blindly before measuring query plans and preserving RLS behavior.
 
@@ -220,7 +223,7 @@ The final human mobile + desktop screenshot review has also been completed and p
 
 The remaining pre-cutover actions are external configuration / ownership checks rather than unresolved application bugs:
 
-1. Enable Supabase leaked-password protection if the current Supabase plan exposes that setting, or explicitly record acceptance of the remaining warning.
+1. Record the Supabase password-security decision: leaked-password protection requires Pro plan or above. On Free, accept the advisor warning with the current strong-password / email-verification / RLS controls. Admin web login remains email + password only, per product decision.
 2. Connect/read the **old HK Family Fun Vercel account** and confirm where `hkfamilyfun.com` / `www.hkfamilyfun.com` are currently assigned before any move. Do not remove the old assignment until the new project is ready to receive the domain.
 3. If production Admin notification email is required at launch, configure `RESEND_API_KEY` in the Vercel production environment and rerun the notification gate. In-app notification queueing remains the operational fallback.
 4. Only after items 1–3 are resolved or explicitly accepted, assign `hkfamilyfun.com` to the rebuilt project and perform post-cutover smoke checks.
