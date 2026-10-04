@@ -117,7 +117,7 @@ export default function AdminPromotionsPage() {
 
     setLoading(true);
     const { data, error } = await supabase
-      .from("promotion_banners")
+      .from("promo_banners")
       .select("*")
       .order("priority", { ascending: true })
       .order("updated_at", { ascending: false });
@@ -125,7 +125,7 @@ export default function AdminPromotionsPage() {
     if (error) {
       setRows([]);
       setErrorText(
-        error.message.toLowerCase().includes("promotion_banners")
+        error.message.toLowerCase().includes("promo_banners")
           ? "Promotion Banner schema 尚未套用到 Supabase。"
           : error.message,
       );
@@ -189,8 +189,8 @@ export default function AdminPromotionsPage() {
     event.preventDefault();
     if (!supabase) return;
 
-    if (!draft.internal_name.trim() || !draft.headline_tc.trim()) {
-      setErrorText("請輸入內部名稱及繁中標題。");
+    if (!draft.internal_name.trim() || !draft.headline_tc.trim() || !draft.image_url?.trim()) {
+      setErrorText("請輸入內部名稱、繁中標題及 Banner 圖片 URL。");
       return;
     }
 
@@ -208,6 +208,10 @@ export default function AdminPromotionsPage() {
     const payload = {
       ...draft,
       internal_name: draft.internal_name.trim(),
+      title: draft.headline_tc.trim(),
+      subtitle: draft.subheadline_tc?.trim() || null,
+      link_url: draft.target_url?.trim() || null,
+      sort_order: Number(draft.priority || 100),
       headline_tc: draft.headline_tc.trim(),
       headline_sc: draft.headline_sc?.trim() || null,
       headline_en: draft.headline_en?.trim() || null,
@@ -232,13 +236,13 @@ export default function AdminPromotionsPage() {
 
     const response = editingId
       ? await supabase
-          .from("promotion_banners")
+          .from("promo_banners")
           .update(payload)
           .eq("id", editingId)
           .select("id")
           .single()
       : await supabase
-          .from("promotion_banners")
+          .from("promo_banners")
           .insert(payload)
           .select("id")
           .single();
@@ -258,7 +262,7 @@ export default function AdminPromotionsPage() {
   async function setStatus(id: string, status: Status) {
     if (!supabase) return;
     const { error } = await supabase
-      .from("promotion_banners")
+      .from("promo_banners")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", id);
 
