@@ -1,0 +1,455 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { supabase } from "@/lib/supabase/client";
+
+type Status = "draft" | "active" | "paused" | "archived";
+type Placement = "home_top" | "home_middle" | "events_top" | "news_top" | "article_inline";
+
+type Banner = {
+  id: string;
+  internal_name: string;
+  placement: Placement;
+  status: Status;
+  headline_tc: string;
+  headline_sc: string | null;
+  headline_en: string | null;
+  subheadline_tc: string | null;
+  subheadline_sc: string | null;
+  subheadline_en: string | null;
+  image_url: string | null;
+  mobile_image_url: string | null;
+  target_url: string | null;
+  cta_label_tc: string | null;
+  cta_label_sc: string | null;
+  cta_label_en: string | null;
+  badge_text_tc: string | null;
+  badge_text_sc: string | null;
+  badge_text_en: string | null;
+  sponsor_name: string | null;
+  is_paid: boolean;
+  priority: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  updated_at: string;
+};
+
+type Draft = Omit<Banner, "id" | "updated_at">;
+
+const emptyDraft: Draft = {
+  internal_name: "",
+  placement: "home_top",
+  status: "draft",
+  headline_tc: "",
+  headline_sc: "",
+  headline_en: "",
+  subheadline_tc: "",
+  subheadline_sc: "",
+  subheadline_en: "",
+  image_url: "",
+  mobile_image_url: "",
+  target_url: "",
+  cta_label_tc: "了解更多",
+  cta_label_sc: "了解更多",
+  cta_label_en: "Learn more",
+  badge_text_tc: "",
+  badge_text_sc: "",
+  badge_text_en: "",
+  sponsor_name: "",
+  is_paid: false,
+  priority: 100,
+  starts_at: "",
+  ends_at: "",
+};
+
+const placementLabels: Record<Placement, string> = {
+  home_top: "首頁 Hero 後",
+  home_middle: "首頁活動區中段",
+  events_top: "搜尋活動頁頂部",
+  news_top: "News / Feature 頂部",
+  article_inline: "News 文章底部／內文",
+};
+
+function fromLocalInput(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return shifted.toISOString().slice(0, 16);
+}
+
+function toIso(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function formatTime(value: string | null) {
+  if (!value) return "不限";
+  try {
+    return new Intl.DateTimeFormat("zh-HK", {
+      timeZone: "Asia/Hong_Kong",
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+export default function AdminPromotionsPage() {
+  const [rows, setRows] = useState<Banner[]>([]);
+  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [editingId, setEditingId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [errorText, setErrorText] = useState("");
+  const [placementFilter, setPlacementFilter] = useState<"all" | Placement>("all");
+
+  async function loadRows() {
+    if (!supabase) {
+      setErrorText("Supabase client 未初始化。");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("promotion_banners")
+      .select("*")
+      .order("priority", { ascending: true })
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      setRows([]);
+      setErrorText(
+        error.message.toLowerCase().includes("promotion_banners")
+          ? "Promotion Banner schema 尚未套用到 Supabase。"
+          : error.message,
+      );
+    } else {
+      setRows((data || []) as Banner[]);
+      setErrorText("");
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    void loadRows();
+  }, []);
+
+  const shown = useMemo(
+    () =>
+      placementFilter === "all"
+        ? rows
+        : rows.filter((row) => row.placement === placementFilter),
+    [rows, placementFilter],
+  );
+
+  function edit(row: Banner) {
+    setEditingId(row.id);
+    setDraft({
+      internal_name: row.internal_name,
+      placement: row.placement,
+      status: row.status,
+      headline_tc: row.headline_tc || "",
+      headline_sc: row.headline_sc || "",
+      headline_en: row.headline_en || "",
+      subheadline_tc: row.subheadline_tc || "",
+      subheadline_sc: row.subheadline_sc || "",
+      subheadline_en: row.subheadline_en || "",
+      image_url: row.image_url || "",
+      mobile_image_url: row.mobile_image_url || "",
+      target_url: row.target_url || "",
+      cta_label_tc: row.cta_label_tc || "",
+      cta_label_sc: row.cta_label_sc || "",
+      cta_label_en: row.cta_label_en || "",
+      badge_text_tc: row.badge_text_tc || "",
+      badge_text_sc: row.badge_text_sc || "",
+      badge_text_en: row.badge_text_en || "",
+      sponsor_name: row.sponsor_name || "",
+      is_paid: Boolean(row.is_paid),
+      priority: Number(row.priority || 100),
+      starts_at: fromLocalInput(row.starts_at),
+      ends_at: fromLocalInput(row.ends_at),
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function reset() {
+    setEditingId("");
+    setDraft(emptyDraft);
+    setMessage("");
+    setErrorText("");
+  }
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase) return;
+
+    if (!draft.internal_name.trim() || !draft.headline_tc.trim()) {
+      setErrorText("請輸入內部名稱及繁中標題。");
+      return;
+    }
+
+    const startsAt = toIso(draft.starts_at);
+    const endsAt = toIso(draft.ends_at);
+    if (startsAt && endsAt && new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
+      setErrorText("結束時間必須遲過開始時間。");
+      return;
+    }
+
+    setSaving(true);
+    setErrorText("");
+    setMessage("");
+
+    const payload = {
+      ...draft,
+      internal_name: draft.internal_name.trim(),
+      headline_tc: draft.headline_tc.trim(),
+      headline_sc: draft.headline_sc?.trim() || null,
+      headline_en: draft.headline_en?.trim() || null,
+      subheadline_tc: draft.subheadline_tc?.trim() || null,
+      subheadline_sc: draft.subheadline_sc?.trim() || null,
+      subheadline_en: draft.subheadline_en?.trim() || null,
+      image_url: draft.image_url?.trim() || null,
+      mobile_image_url: draft.mobile_image_url?.trim() || null,
+      target_url: draft.target_url?.trim() || null,
+      cta_label_tc: draft.cta_label_tc?.trim() || null,
+      cta_label_sc: draft.cta_label_sc?.trim() || null,
+      cta_label_en: draft.cta_label_en?.trim() || null,
+      badge_text_tc: draft.badge_text_tc?.trim() || null,
+      badge_text_sc: draft.badge_text_sc?.trim() || null,
+      badge_text_en: draft.badge_text_en?.trim() || null,
+      sponsor_name: draft.sponsor_name?.trim() || null,
+      starts_at: startsAt,
+      ends_at: endsAt,
+      priority: Number(draft.priority || 100),
+      updated_at: new Date().toISOString(),
+    };
+
+    const response = editingId
+      ? await supabase
+          .from("promotion_banners")
+          .update(payload)
+          .eq("id", editingId)
+          .select("id")
+          .single()
+      : await supabase
+          .from("promotion_banners")
+          .insert(payload)
+          .select("id")
+          .single();
+
+    setSaving(false);
+
+    if (response.error) {
+      setErrorText(response.error.message);
+      return;
+    }
+
+    setMessage(editingId ? "Banner 已更新。" : "Banner 草稿已建立。");
+    reset();
+    await loadRows();
+  }
+
+  async function setStatus(id: string, status: Status) {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from("promotion_banners")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) {
+      setErrorText(error.message);
+      return;
+    }
+    await loadRows();
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-50">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1500px] px-4 py-8">
+          <Link href="/admin" className="text-sm font-black text-purple-700">
+            ← 返回 Admin
+          </Link>
+          <p className="mt-4 text-sm font-black uppercase tracking-[0.16em] text-purple-700">
+            Promotion Manager
+          </p>
+          <h1 className="mt-2 text-3xl font-black text-slate-950">
+            Banner / 商戶廣告管理
+          </h1>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+            Banner 同活動 Listing 分開管理。付費合作必須標示 Sponsored；可預先設定上架及落架時間，唔需要你到期再手動刪除。
+          </p>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-[1500px] gap-6 px-4 py-8 xl:grid-cols-[500px_minmax(0,1fr)]">
+        <form onSubmit={save} className="self-start rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm xl:sticky xl:top-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-black text-slate-950">
+              {editingId ? "編輯 Banner" : "新增 Banner"}
+            </h2>
+            {editingId ? (
+              <button type="button" onClick={reset} className="text-xs font-black text-slate-500">
+                取消編輯
+              </button>
+            ) : null}
+          </div>
+
+          {message ? <div className="mt-4 rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{message}</div> : null}
+          {errorText ? <div className="mt-4 rounded-2xl bg-rose-50 p-3 text-sm font-bold text-rose-800">{errorText}</div> : null}
+
+          <div className="mt-5 grid gap-4">
+            <label className="text-xs font-black text-slate-600">
+              內部 Campaign 名稱 *
+              <input required value={draft.internal_name} onChange={(event) => setDraft({ ...draft, internal_name: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-xs font-black text-slate-600">
+                Placement
+                <select value={draft.placement} onChange={(event) => setDraft({ ...draft, placement: event.target.value as Placement })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+                  {Object.entries(placementLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              <label className="text-xs font-black text-slate-600">
+                Status
+                <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as Status })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </label>
+            </div>
+
+            <label className="text-xs font-black text-slate-600">
+              繁中標題 *
+              <input required value={draft.headline_tc} onChange={(event) => setDraft({ ...draft, headline_tc: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            </label>
+
+            <label className="text-xs font-black text-slate-600">
+              繁中副標題
+              <textarea value={draft.subheadline_tc || ""} onChange={(event) => setDraft({ ...draft, subheadline_tc: event.target.value })} className="mt-2 min-h-20 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            </label>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-black text-slate-600">
+                簡體標題
+                <input value={draft.headline_sc || ""} onChange={(event) => setDraft({ ...draft, headline_sc: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              </label>
+              <label className="text-xs font-black text-slate-600">
+                English headline
+                <input value={draft.headline_en || ""} onChange={(event) => setDraft({ ...draft, headline_en: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              </label>
+            </div>
+
+            <label className="text-xs font-black text-slate-600">
+              Desktop / default image URL
+              <input type="url" value={draft.image_url || ""} onChange={(event) => setDraft({ ...draft, image_url: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            </label>
+
+            <label className="text-xs font-black text-slate-600">
+              Mobile image URL（可選）
+              <input type="url" value={draft.mobile_image_url || ""} onChange={(event) => setDraft({ ...draft, mobile_image_url: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            </label>
+
+            <label className="text-xs font-black text-slate-600">
+              Click-through URL
+              <input type="url" value={draft.target_url || ""} onChange={(event) => setDraft({ ...draft, target_url: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            </label>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-black text-slate-600">
+                CTA
+                <input value={draft.cta_label_tc || ""} onChange={(event) => setDraft({ ...draft, cta_label_tc: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              </label>
+              <label className="text-xs font-black text-slate-600">
+                Badge
+                <input value={draft.badge_text_tc || ""} onChange={(event) => setDraft({ ...draft, badge_text_tc: event.target.value })} placeholder="例如：限時 / 精選" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              </label>
+            </div>
+
+            <label className="text-xs font-black text-slate-600">
+              Sponsor / Merchant
+              <input value={draft.sponsor_name || ""} onChange={(event) => setDraft({ ...draft, sponsor_name: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            </label>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-black text-slate-600">
+                開始時間
+                <input type="datetime-local" value={draft.starts_at || ""} onChange={(event) => setDraft({ ...draft, starts_at: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              </label>
+              <label className="text-xs font-black text-slate-600">
+                結束時間
+                <input type="datetime-local" value={draft.ends_at || ""} onChange={(event) => setDraft({ ...draft, ends_at: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-[1fr_120px] gap-3">
+              <label className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">
+                <input type="checkbox" checked={draft.is_paid} onChange={(event) => setDraft({ ...draft, is_paid: event.target.checked })} />
+                付費合作 / Sponsored
+              </label>
+              <label className="text-xs font-black text-slate-600">
+                Priority
+                <input type="number" value={draft.priority} onChange={(event) => setDraft({ ...draft, priority: Number(event.target.value) })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              </label>
+            </div>
+
+            <button disabled={saving} className="rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white disabled:opacity-50">
+              {saving ? "儲存中…" : editingId ? "更新 Banner" : "建立 Banner"}
+            </button>
+          </div>
+        </form>
+
+        <section>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setPlacementFilter("all")} className={placementFilter === "all" ? "rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white" : "rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600"}>全部</button>
+            {(Object.keys(placementLabels) as Placement[]).map((placement) => (
+              <button key={placement} type="button" onClick={() => setPlacementFilter(placement)} className={placementFilter === placement ? "rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white" : "rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600"}>{placementLabels[placement]}</button>
+            ))}
+          </div>
+
+          <div className="mt-5 space-y-4">
+            {loading ? (
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 text-sm font-bold text-slate-500">讀取中…</div>
+            ) : shown.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm font-bold text-slate-500">暫時沒有 Banner。</div>
+            ) : (
+              shown.map((row) => (
+                <article key={row.id} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+                  <div className="grid sm:grid-cols-[230px_minmax(0,1fr)]">
+                    <div className="min-h-44 bg-slate-100">
+                      <img src={row.image_url || "/logo.png"} alt={row.headline_tc} className="h-full w-full object-cover" />
+                    </div>
+                    <div className="p-5">
+                      <div className="flex flex-wrap gap-2">
+                        <span className="rounded-full bg-purple-50 px-2.5 py-1 text-[10px] font-black text-purple-700">{placementLabels[row.placement]}</span>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-600">{row.status}</span>
+                        {row.is_paid ? <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black text-amber-800">Sponsored</span> : null}
+                      </div>
+                      <h2 className="mt-3 text-xl font-black text-slate-950">{row.headline_tc}</h2>
+                      <p className="mt-1 text-xs font-semibold text-slate-400">{row.internal_name}</p>
+                      <p className="mt-3 text-xs leading-5 text-slate-500">上架：{formatTime(row.starts_at)} · 落架：{formatTime(row.ends_at)} · Priority {row.priority}</p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => edit(row)} className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white">編輯</button>
+                        {row.status !== "active" ? <button type="button" onClick={() => void setStatus(row.id, "active")} className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white">啟用</button> : <button type="button" onClick={() => void setStatus(row.id, "paused")} className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black text-amber-800">暫停</button>}
+                        {row.status !== "archived" ? <button type="button" onClick={() => void setStatus(row.id, "archived")} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-600">封存</button> : null}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      </section>
+    </main>
+  );
+}
