@@ -3,6 +3,8 @@ import { getPublishedEvents } from "@/lib/supabase/events";
 import ResilientEventImage from "@/components/resilient-event-image";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
+import PromotionSlot from "@/components/promotion-slot";
+import { getActivePromotionBanners } from "@/lib/content/public";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +13,11 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const locale = await getServerLocale();
   const p = getPublicMessages(locale);
-  const events = await getPublishedEvents(locale);
+  const [events, homeTopBanners, homeMiddleBanners] = await Promise.all([
+    getPublishedEvents(locale),
+    getActivePromotionBanners("home_top", locale, 2),
+    getActivePromotionBanners("home_middle", locale, 3),
+  ]);
 
   const quickActions = [
     { title: p.quickTodayTitle, subtitle: p.quickTodaySubtitle, href: "/today", tone: "bg-pink-50 border-pink-100 text-pink-700", icon: "⏰" },
@@ -136,6 +142,8 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <PromotionSlot banners={homeTopBanners} />
+
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -224,6 +232,8 @@ export default async function HomePage() {
           </div>
         )}
       </section>
+
+      <PromotionSlot banners={homeMiddleBanners} />
 
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-2">
