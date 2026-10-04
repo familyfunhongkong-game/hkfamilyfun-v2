@@ -17,6 +17,12 @@ export default function LoginPage() {
             商戶登入
           </Link>
           <Link
+            href="/admin/login"
+            className="rounded-full border border-purple-200 bg-purple-50 px-5 py-3 text-sm font-black text-purple-700"
+          >
+            Admin 登入
+          </Link>
+          <Link
             href="/events"
             className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700"
           >
