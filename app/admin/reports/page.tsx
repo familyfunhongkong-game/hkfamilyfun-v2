@@ -11,6 +11,7 @@ type EventRow = {
   start_date: string | null;
   end_date: string | null;
   cover_image_url: string | null;
+  gallery_image_urls: string[] | null;
   registration_url: string | null;
   official_url: string | null;
   source_url: string | null;
@@ -79,7 +80,7 @@ export default function AdminReportsPage() {
     setErrorText("");
 
     const results = await Promise.all([
-      supabase.from("events").select("id,title_tc,status,start_date,end_date,cover_image_url,registration_url,official_url,source_url,merchant_id").limit(5000),
+      supabase.from("events").select("id,title_tc,status,start_date,end_date,cover_image_url,gallery_image_urls,registration_url,official_url,source_url,merchant_id").limit(5000),
       supabase.from("merchants").select("id,status,business_name").limit(1000),
       supabase.from("intake_submissions").select("id,status,source_type,received_at").order("received_at", { ascending: false }).limit(2000),
       supabase.from("data_sync_runs").select("id,status,rows_read,error_count,started_at,message").order("started_at", { ascending: false }).limit(200),
@@ -108,9 +109,15 @@ export default function AdminReportsPage() {
   const report = useMemo(() => {
     const today = hkToday();
     const published = events.filter((event) => event.status === "published");
-    const expiredPublished = published.filter((event) => (event.end_date || event.start_date || "") < today);
+    const expiredPublished = published.filter(
+      (event) => Boolean(event.end_date && event.end_date < today),
+    );
     const missingDate = events.filter((event) => !event.start_date);
-    const missingImage = events.filter((event) => !event.cover_image_url);
+    const missingImage = events.filter(
+      (event) =>
+        !event.cover_image_url &&
+        (!Array.isArray(event.gallery_image_urls) || event.gallery_image_urls.length === 0),
+    );
     const missingLink = events.filter((event) => !event.registration_url && !event.official_url && !event.source_url);
     const pendingMerchants = merchants.filter((merchant) => merchant.status === "pending");
     const intakeAttention = intakes.filter((row) => ["new", "needs_review"].includes(row.status));
