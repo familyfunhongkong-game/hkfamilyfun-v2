@@ -2,6 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { headers } from "next/headers";
+import { AtSign, Facebook, Instagram } from "lucide-react";
 import LanguageSwitcher from "@/components/language-switcher";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import { getMessages } from "@/lib/i18n/messages";
@@ -83,15 +84,18 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-7 lg:py-4">
-        <Link href="/" className="flex shrink-0 items-center gap-2.5 sm:gap-3">
-          <Image
-            src="/logo.png"
-            alt="HK Family Fun"
-            width={44}
-            height={44}
-            priority
-            className="h-10 w-10 shrink-0 object-contain sm:h-11 sm:w-11"
-          />
+        <Link href="/" className="flex shrink-0 items-center gap-3 overflow-visible">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-visible">
+            <Image
+              src="/logo.png"
+              alt="HK Family Fun"
+              width={56}
+              height={56}
+              priority
+              sizes="56px"
+              className="h-14 w-14 shrink-0 object-contain object-center"
+            />
+          </span>
           <span className="shrink-0">
             <span className="block whitespace-nowrap text-base font-black leading-tight text-slate-950 sm:text-lg">
               HK Family Fun
@@ -140,14 +144,17 @@ function SiteFooter({ m }: { m: ReturnType<typeof getMessages> }) {
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
         <div>
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/logo.png"
-              alt="HK Family Fun"
-              width={40}
-              height={40}
-              className="h-10 w-10 object-contain"
-            />
+          <Link href="/" className="flex items-center gap-3 overflow-visible">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-visible">
+              <Image
+                src="/logo.png"
+                alt="HK Family Fun"
+                width={56}
+                height={56}
+                sizes="56px"
+                className="h-14 w-14 object-contain object-center"
+              />
+            </span>
             <span>
               <span className="block text-base font-black text-slate-950">
                 HK Family Fun
@@ -233,15 +240,36 @@ function SiteFooter({ m }: { m: ReturnType<typeof getMessages> }) {
             </p>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-3 text-sm font-bold">
-            <a href="https://www.instagram.com/hk.familyfun" target="_blank" rel="noreferrer" className="text-purple-700 hover:text-purple-900">
-              Instagram
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <a
+              href="https://www.instagram.com/hk.familyfun"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="HK Family Fun Instagram"
+              title="Instagram"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-600 via-pink-500 to-amber-400 text-white shadow-sm transition hover:scale-105"
+            >
+              <Instagram className="h-5 w-5" aria-hidden="true" />
             </a>
-            <a href="https://www.facebook.com/hk.familyfun1112" target="_blank" rel="noreferrer" className="text-purple-700 hover:text-purple-900">
-              Facebook
+            <a
+              href="https://www.facebook.com/hk.familyfun1112"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="HK Family Fun Facebook"
+              title="Facebook"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1877F2] text-white shadow-sm transition hover:scale-105"
+            >
+              <Facebook className="h-5 w-5 fill-current" aria-hidden="true" />
             </a>
-            <a href="https://www.threads.com/@hk.familyfun" target="_blank" rel="noreferrer" className="text-purple-700 hover:text-purple-900">
-              Threads
+            <a
+              href="https://www.threads.com/@hk.familyfun"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="HK Family Fun Threads"
+              title="Threads"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black text-white shadow-sm transition hover:scale-105"
+            >
+              <AtSign className="h-5 w-5" aria-hidden="true" />
             </a>
           </div>
 
