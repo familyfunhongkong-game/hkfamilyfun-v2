@@ -122,9 +122,30 @@ function timeText(event: EventRecord) {
 }
 
 function hasCoordinates(event: EventRecord) {
+  if (
+    event.latitude === null ||
+    event.latitude === undefined ||
+    event.longitude === null ||
+    event.longitude === undefined
+  ) {
+    return false;
+  }
+
+  const latitude = Number(event.latitude);
+  const longitude = Number(event.longitude);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return false;
+  }
+
+  // HK Family Fun is a Hong Kong activity platform. Reject null/default (0,0)
+  // and obviously invalid out-of-market coordinates so one bad row cannot
+  // zoom the public map out to the whole world.
   return (
-    Number.isFinite(Number(event.latitude)) &&
-    Number.isFinite(Number(event.longitude))
+    latitude >= 22.10 &&
+    latitude <= 22.60 &&
+    longitude >= 113.80 &&
+    longitude <= 114.50
   );
 }
 
