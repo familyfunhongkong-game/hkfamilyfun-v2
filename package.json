@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "HK Family Fun Platform - Complete Rebuild",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
