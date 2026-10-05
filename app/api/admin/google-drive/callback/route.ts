@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { encryptAdminGoogleToken } from "@/lib/admin-google-drive";
-import { serviceClient } from "@/lib/admin-auth";
+import { requireAdmin, serviceClient } from "@/lib/admin-auth";
 
 export const runtime = "nodejs";
 
@@ -10,6 +10,7 @@ function redirect(request: NextRequest, state: string) {
   );
   response.cookies.delete("hkff_admin_drive_state");
   response.cookies.delete("hkff_admin_drive_redirect");
+  response.cookies.delete("hkff_admin_drive_access_token");
   return response;
 }
 
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state");
   const savedState = request.cookies.get("hkff_admin_drive_state")?.value;
   const savedRedirect = request.cookies.get("hkff_admin_drive_redirect")?.value;
+  const adminAccessToken = request.cookies.get("hkff_admin_drive_access_token")?.value;
 
   if (!code || !state || !savedState || state !== savedState || !savedRedirect) {
     return redirect(request, "state-error");
@@ -87,13 +89,26 @@ export async function GET(request: NextRequest) {
     return redirect(request, "wrong-account");
   }
 
-  const admin = serviceClient();
-  if (!admin) {
+  let adminClient = null;
+
+  if (adminAccessToken) {
+    const authenticatedAdmin = await requireAdmin(adminAccessToken);
+    if (authenticatedAdmin.ok) {
+      adminClient = authenticatedAdmin.client;
+    }
+  }
+
+  if (!adminClient) {
+    adminClient = serviceClient();
+  }
+
+  if (!adminClient) {
+    console.error("Google Drive callback has no usable Supabase Admin client");
     return redirect(request, "database-not-configured");
   }
 
   const now = new Date().toISOString();
-  const { error } = await admin.from("admin_integrations").upsert(
+  const { error } = await adminClient.from("admin_integrations").upsert(
     {
       provider: "google_drive",
       status: "connected",
@@ -112,9 +127,20 @@ export async function GET(request: NextRequest) {
   );
 
   if (error) {
-    console.error("Google Drive integration save failed:", error);
+    console.error("Google Drive integration save failed:", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
     return redirect(request, "database-error");
   }
+
+  console.info("Google Drive integration connected", {
+    accountEmail: accountEmail || null,
+    scopes: String(token.scope || "").split(/\s+/).filter(Boolean),
+    usedAuthenticatedAdminSession: Boolean(adminAccessToken),
+  });
 
   return redirect(request, "connected");
 }
