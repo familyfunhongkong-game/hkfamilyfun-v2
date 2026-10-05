@@ -31,6 +31,7 @@ type DriveStatus = {
   configured: boolean;
   schemaReady: boolean;
   connected: boolean;
+  authMode?: "oauth" | "service_account";
   accountEmail?: string | null;
   lastConnectedAt?: string | null;
   lastUsedAt?: string | null;
@@ -233,28 +234,45 @@ export default function AdminOperationsPage() {
                   </span>
                 </div>
                 <div className="mt-4 space-y-2 text-sm font-semibold text-purple-950">
-                  <p>Website OAuth：{drive?.configured?"Ready":"未設定"}</p>
+                  <p>Auth mode：{drive?.authMode === "service_account" ? "Service Account（長期）" : "OAuth（測試 / 備用）"}</p>
+                  <p>Integration：{drive?.configured?"Ready":"未設定"}</p>
                   <p>Schema：{drive?.schemaReady?"Ready":"未套用"}</p>
                   <p>Account：{drive?.accountEmail||"—"}</p>
                   <p>Last used：{formatTime(drive?.lastUsedAt)}</p>
                 </div>
                 <div className="mt-5 grid gap-2">
                   {!drive?.connected ? (
-                    <button type="button" onClick={()=>void connectDrive()} disabled={!drive?.configured} className="rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
-                      連接 Family Fun Google Drive
-                    </button>
+                    <>
+                      <button type="button" onClick={()=>void connectDrive()} disabled={!drive?.configured} className="rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
+                        暫時用 OAuth 連接 Google Sheets
+                      </button>
+                      <a
+                        href="https://console.cloud.google.com/auth/audience"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-2xl border border-purple-300 bg-white px-5 py-3 text-center text-sm font-black text-purple-800"
+                      >
+                        Google Auth Platform：加入 Test User ↗
+                      </a>
+                    </>
                   ):<>
                     <button type="button" onClick={()=>void syncAll()} disabled={syncing} className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black text-white disabled:opacity-50">
                       {syncing?"同步中…":"Sync All Data / Forms"}
                     </button>
-                    <button type="button" onClick={()=>void disconnectDrive()} className="rounded-2xl border border-purple-300 bg-white px-5 py-3 text-sm font-black text-purple-800">中斷 Drive</button>
+                    {drive?.authMode !== "service_account" ? (
+                      <button type="button" onClick={()=>void disconnectDrive()} className="rounded-2xl border border-purple-300 bg-white px-5 py-3 text-sm font-black text-purple-800">中斷 OAuth</button>
+                    ) : null}
                   </>}
                 </div>
-                {!drive?.configured ? (
-                  <p className="mt-4 text-xs font-bold leading-6 text-amber-900">
-                    ChatGPT 可以讀到你已連接嘅 Family Fun Drive，但網站本身仍要 Google OAuth Client ID / Secret / encryption key，先可以由 Vercel 自動同步。
+                {drive?.authMode === "service_account" ? (
+                  <p className="mt-4 text-xs font-bold leading-6 text-emerald-900">
+                    正式模式：唔需要 Google OAuth consent；只要相關 Google Sheets 已分享俾以上 Service Account，就可以長期自動同步。
                   </p>
-                ):null}
+                ) : (
+                  <p className="mt-4 text-xs font-bold leading-6 text-amber-900">
+                    OAuth Testing 只適合驗證流程；Google Test User 授權會定期失效。正式營運會改用 Service Account。
+                  </p>
+                )}
               </section>
 
               <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
