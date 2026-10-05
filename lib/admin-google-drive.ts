@@ -76,3 +76,73 @@ export async function refreshGoogleAccessToken(refreshToken: string) {
 
   return data.access_token;
 }
+
+
+function serviceAccountPrivateKey() {
+  const raw = String(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "").trim();
+  return raw ? raw.replace(/\\n/g, "\n") : "";
+}
+
+export function isGoogleServiceAccountConfigured() {
+  return Boolean(
+    String(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "").trim() &&
+      serviceAccountPrivateKey(),
+  );
+}
+
+function base64Url(input: string) {
+  return Buffer.from(input, "utf8").toString("base64url");
+}
+
+export async function getGoogleServiceAccountAccessToken() {
+  const email = String(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "").trim();
+  const privateKey = serviceAccountPrivateKey();
+
+  if (!email || !privateKey) {
+    throw new Error("Google service account is not configured");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64Url(
+    JSON.stringify({
+      iss: email,
+      scope: "https://www.googleapis.com/auth/spreadsheets.readonly",
+      aud: "https://oauth2.googleapis.com/token",
+      iat: now,
+      exp: now + 3600,
+    }),
+  );
+  const unsigned = header + "." + payload;
+  const signer = crypto.createSign("RSA-SHA256");
+  signer.update(unsigned);
+  signer.end();
+  const signature = signer.sign(privateKey).toString("base64url");
+  const assertion = unsigned + "." + signature;
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion,
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    console.error("Google service account token exchange failed", {
+      status: response.status,
+      detail: detail.slice(0, 300),
+    });
+    throw new Error("Google service account token exchange failed");
+  }
+
+  const data = (await response.json()) as { access_token?: string };
+  if (!data.access_token) {
+    throw new Error("Google service account token exchange returned no access token");
+  }
+
+  return data.access_token;
+}
