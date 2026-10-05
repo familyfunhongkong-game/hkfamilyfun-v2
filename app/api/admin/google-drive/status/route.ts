@@ -1,3 +1,4 @@
+import { isGoogleServiceAccountConfigured } from "@/lib/admin-google-drive";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 
@@ -10,6 +11,22 @@ export async function GET(request: NextRequest) {
 
   if (!admin.ok) {
     return NextResponse.json({ error: admin.error }, { status: admin.status });
+  }
+
+  const serviceAccountMode = isGoogleServiceAccountConfigured();
+  if (serviceAccountMode) {
+    return NextResponse.json({
+      ok: true,
+      configured: true,
+      schemaReady: true,
+      connected: true,
+      authMode: "service_account",
+      accountEmail: String(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "").trim() || null,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+      lastConnectedAt: null,
+      lastUsedAt: null,
+      lastError: null,
+    });
   }
 
   const { data, error } = await admin.client
@@ -29,6 +46,7 @@ export async function GET(request: NextRequest) {
           process.env.GOOGLE_CLIENT_SECRET &&
           process.env.GOOGLE_TOKEN_ENCRYPTION_KEY,
       ),
+      authMode: "oauth",
       schemaReady: !missingTable,
       connected: false,
       accountEmail: null,
@@ -45,6 +63,7 @@ export async function GET(request: NextRequest) {
     ),
     schemaReady: true,
     connected: data?.status === "connected",
+    authMode: "oauth",
     accountEmail: data?.account_email || null,
     scopes: data?.granted_scopes || [],
     lastConnectedAt: data?.last_connected_at || null,
