@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   decryptAdminGoogleToken,
+  getGoogleServiceAccountAccessToken,
+  isGoogleServiceAccountConfigured,
   refreshGoogleAccessToken,
 } from "@/lib/admin-google-drive";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -35,30 +37,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: admin.error }, { status: admin.status });
   }
 
-  const { data: integration, error: integrationError } = await admin.client
-    .from("admin_integrations")
-    .select("encrypted_refresh_token,status")
-    .eq("provider", "google_drive")
-    .maybeSingle();
+  const serviceAccountMode = isGoogleServiceAccountConfigured();
+  const { data: integration, error: integrationError } = serviceAccountMode
+    ? { data: null, error: null }
+    : await admin.client
+        .from("admin_integrations")
+        .select("encrypted_refresh_token,status")
+        .eq("provider", "google_drive")
+        .maybeSingle();
 
-  if (integrationError || integration?.status !== "connected") {
+  if (!serviceAccountMode && (integrationError || integration?.status !== "connected")) {
     return NextResponse.json({ error: "Google Drive 尚未連接。" }, { status: 409 });
-  }
-
-  const refreshToken = decryptAdminGoogleToken(integration.encrypted_refresh_token);
-  if (!refreshToken) {
-    return NextResponse.json(
-      { error: "Google Drive refresh token 無效，請重新連接。" },
-      { status: 409 },
-    );
   }
 
   let accessToken = "";
   try {
-    accessToken = await refreshGoogleAccessToken(refreshToken);
+    if (serviceAccountMode) {
+      accessToken = await getGoogleServiceAccountAccessToken();
+    } else {
+      const refreshToken = decryptAdminGoogleToken(integration?.encrypted_refresh_token);
+      if (!refreshToken) {
+        return NextResponse.json(
+          { error: "Google Drive refresh token 無效，請重新連接。" },
+          { status: 409 },
+        );
+      }
+      accessToken = await refreshGoogleAccessToken(refreshToken);
+    }
   } catch {
     return NextResponse.json(
-      { error: "Google Drive token refresh 失敗，請重新連接。" },
+      {
+        error: serviceAccountMode
+          ? "Google Service Account 授權失敗，請檢查 service account 設定及 Sheet 分享權限。"
+          : "Google Drive token refresh 失敗，請重新連接。",
+      },
       { status: 502 },
     );
   }
@@ -218,14 +230,16 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  await admin.client
-    .from("admin_integrations")
-    .update({
-      last_used_at: new Date().toISOString(),
-      last_error: errors > 0 ? errors + " sync error(s)" : null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("provider", "google_drive");
+  if (!serviceAccountMode) {
+    await admin.client
+      .from("admin_integrations")
+      .update({
+        last_used_at: new Date().toISOString(),
+        last_error: errors > 0 ? errors + " sync error(s)" : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("provider", "google_drive");
+  }
 
   return NextResponse.json({
     ok: errors === 0,
@@ -233,5 +247,6 @@ export async function POST(request: NextRequest) {
     rows_read: rowsRead,
     rows_upserted: rowsUpserted,
     errors,
+    auth_mode: serviceAccountMode ? "service_account" : "oauth",
   });
 }
