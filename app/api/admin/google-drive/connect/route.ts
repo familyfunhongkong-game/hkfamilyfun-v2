@@ -62,6 +62,13 @@ export async function POST(request: NextRequest) {
     path: "/",
     maxAge: 600,
   });
+  response.cookies.set("hkff_admin_drive_access_token", token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600,
+  });
 
   return response;
 }
