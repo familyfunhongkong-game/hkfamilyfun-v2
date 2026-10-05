@@ -54,6 +54,17 @@ function looksLikeIsoDate(value: unknown) {
   return /^20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}$/.test(clean(value));
 }
 
+function hkToday() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  return get("year") + "-" + get("month") + "-" + get("day");
+}
+
 function detectSchemaDrift(payload: JsonMap) {
   const reasons: string[] = [];
 
@@ -160,6 +171,11 @@ export async function POST(request: NextRequest) {
   const result = await normalizeWithAi(payload, fallback(payload) as JsonMap);
   const title = clean(result.value.title_tc);
   const startDate = clean(result.value.start_date);
+  const endDate = clean(result.value.end_date);
+  const validationReasons = [...schemaDriftReasons];
+  if ((endDate || startDate) && (endDate || startDate) < hkToday()) {
+    validationReasons.push("活動日期已過，禁止自動升級為可發佈 Draft");
+  }
   let duplicates: unknown[] = [];
 
   if (title) {
@@ -179,8 +195,10 @@ export async function POST(request: NextRequest) {
       generated_by_ai: result.ai,
       normalized_at: new Date().toISOString(),
       duplicate_candidates: duplicates,
-      schema_drift_detected: schemaDriftReasons.length > 0,
+      schema_drift_detected: validationReasons.length > 0,
       schema_drift_reasons: schemaDriftReasons,
+    validation_reasons: validationReasons,
+      validation_reasons: validationReasons,
     },
   };
 
@@ -189,7 +207,7 @@ export async function POST(request: NextRequest) {
     .update({
       normalized_payload: normalized,
       status:
-        schemaDriftReasons.length || duplicates.length
+        validationReasons.length || duplicates.length
           ? "needs_review"
           : "normalized",
       updated_at: new Date().toISOString(),
