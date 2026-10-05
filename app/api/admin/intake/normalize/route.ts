@@ -195,9 +195,8 @@ export async function POST(request: NextRequest) {
       generated_by_ai: result.ai,
       normalized_at: new Date().toISOString(),
       duplicate_candidates: duplicates,
-      schema_drift_detected: validationReasons.length > 0,
+      schema_drift_detected: schemaDriftReasons.length > 0,
       schema_drift_reasons: schemaDriftReasons,
-    validation_reasons: validationReasons,
       validation_reasons: validationReasons,
     },
   };
@@ -221,6 +220,7 @@ export async function POST(request: NextRequest) {
     generated_by_ai: result.ai,
     duplicate_candidates: duplicates,
     schema_drift_reasons: schemaDriftReasons,
+    validation_reasons: validationReasons,
     normalized_payload: normalized,
   });
 }
