@@ -50,6 +50,28 @@ function timeOnly(value: string) {
   return match ? match[1].padStart(2, "0") + ":" + match[2] : null;
 }
 
+function looksLikeIsoDate(value: unknown) {
+  return /^20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}$/.test(clean(value));
+}
+
+function detectSchemaDrift(payload: JsonMap) {
+  const reasons: string[] = [];
+
+  const englishTitle = pick(payload, ["英文標題", "Event Title (English)", "title_en"]);
+  const simplifiedTitle = pick(payload, ["簡體中文標題", "title_sc"]);
+  const startDate = pick(payload, ["開始日期 *", "Event Start Date 活動開始日期", "start_date"]);
+
+  if (!startDate && looksLikeIsoDate(englishTitle)) {
+    reasons.push("英文標題欄出現日期，懷疑 row 使用另一套精簡欄位格式");
+  }
+
+  if (!startDate && looksLikeIsoDate(simplifiedTitle)) {
+    reasons.push("簡體標題欄出現日期，懷疑欄位已錯位");
+  }
+
+  return reasons;
+}
+
 function fallback(payload: JsonMap) {
   const priceText = pick(payload, ["票價 (HKD)", "價格 (HKD)", "價錢", "price", "price_label"]);
   const freeText = pick(payload, ["是否免費", "活動屬性(SEN/FREE)", "免費", "price_type"]);
@@ -134,6 +156,7 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = (intake.data.payload || {}) as JsonMap;
+  const schemaDriftReasons = detectSchemaDrift(payload);
   const result = await normalizeWithAi(payload, fallback(payload) as JsonMap);
   const title = clean(result.value.title_tc);
   const startDate = clean(result.value.start_date);
@@ -156,6 +179,8 @@ export async function POST(request: NextRequest) {
       generated_by_ai: result.ai,
       normalized_at: new Date().toISOString(),
       duplicate_candidates: duplicates,
+      schema_drift_detected: schemaDriftReasons.length > 0,
+      schema_drift_reasons: schemaDriftReasons,
     },
   };
 
@@ -163,7 +188,10 @@ export async function POST(request: NextRequest) {
     .from("intake_submissions")
     .update({
       normalized_payload: normalized,
-      status: duplicates.length ? "needs_review" : "normalized",
+      status:
+        schemaDriftReasons.length || duplicates.length
+          ? "needs_review"
+          : "normalized",
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
@@ -174,6 +202,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     generated_by_ai: result.ai,
     duplicate_candidates: duplicates,
+    schema_drift_reasons: schemaDriftReasons,
     normalized_payload: normalized,
   });
 }
