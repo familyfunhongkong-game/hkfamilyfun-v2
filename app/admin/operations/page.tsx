@@ -88,8 +88,9 @@ export default function AdminOperationsPage() {
     return body;
   }
 
-  async function loadSummary() {
-    setLoading(true); setErrorText("");
+  async function loadSummary(preserveMessage = false) {
+    setLoading(true);
+    if (!preserveMessage) setErrorText("");
     try {
       const [ops,driveState]=await Promise.all([
         request("/api/admin/operations-summary"),
@@ -127,7 +128,7 @@ export default function AdminOperationsPage() {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
-    void loadSummary();
+    void loadSummary(Boolean(driveState));
   }, []);
 
   const metrics=summary?.metrics||{};
@@ -183,7 +184,7 @@ export default function AdminOperationsPage() {
                 一次同步先入 Intake，AI / rule-based normalize 後由 Admin 批准先公開。
               </p>
             </div>
-            <button type="button" onClick={()=>void loadSummary()} className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-700">重新整理</button>
+            <button type="button" onClick={()=>void loadSummary(false)} className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-black text-slate-700">重新整理</button>
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
             <span className={"rounded-full px-3 py-1 text-xs font-black "+(needsAttention>0?"bg-amber-100 text-amber-800":"bg-emerald-100 text-emerald-800")}>
