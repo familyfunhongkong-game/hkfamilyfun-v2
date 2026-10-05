@@ -156,6 +156,21 @@ export async function POST(request: NextRequest) {
           .update(JSON.stringify(payload))
           .digest("hex");
 
+        const existing = await admin.client
+          .from("intake_submissions")
+          .select("id,normalized_payload")
+          .eq("source_id", source.id)
+          .eq("external_key", externalKey)
+          .maybeSingle();
+
+        const previousHash = String(
+          (existing.data?.normalized_payload as Record<string, unknown> | null)?.payload_hash || "",
+        );
+
+        if (!existing.error && existing.data && previousHash === payloadHash) {
+          continue;
+        }
+
         const { error } = await admin.client.from("intake_submissions").upsert(
           {
             source_id: source.id,
