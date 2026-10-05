@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
     [
       "openid",
       "email",
-      "https://www.googleapis.com/auth/drive.readonly",
       "https://www.googleapis.com/auth/spreadsheets.readonly",
     ].join(" "),
   );
