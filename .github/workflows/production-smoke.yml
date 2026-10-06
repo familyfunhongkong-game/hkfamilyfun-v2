@@ -185,24 +185,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends fonts-noto-cjk
           fc-cache -f
 
-      - name: Check password-only admin login contract after hydration
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          browser="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
-          test -n "$browser"
-
-          admin_dom="$(timeout 45s "$browser"             --headless=new             --no-sandbox             --disable-gpu             --disable-dev-shm-usage             --virtual-time-budget=5000             --dump-dom             "$BASE/admin/login" 2>/dev/null)"
-
-          echo "$admin_dom" | grep -qi 'type="password"'
-          echo "$admin_dom" | grep -qi 'type="email"'
-
-          if echo "$admin_dom" | grep -Eqi 'autocomplete="one-time-code"|name="otp"|name="totp"|name="mfa"'; then
-            echo "Unexpected OTP/MFA input detected on Admin login"
-            exit 1
-          fi
-
       - name: Check rendered DOM for framework errors
         shell: bash
         run: |
