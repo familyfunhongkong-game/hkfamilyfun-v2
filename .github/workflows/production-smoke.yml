@@ -206,6 +206,21 @@ jobs:
           test "$code" -ge 200
           test "$code" -lt 400
 
+      - name: Check missing event detail does not 500
+        if: steps.deployment_gate.outputs.should_test == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -L -sS -o /tmp/missing-event.html -w "%{http_code}" --max-time 30 "$BASE/events/00000000-0000-4000-8000-000000000000")"
+          if [[ "$code" -ge 500 ]]; then
+            echo "Missing event detail returned server error: HTTP $code"
+            exit 1
+          fi
+          if grep -qiE "Application error|Internal Server Error|Cannot coerce the result to a single JSON object" /tmp/missing-event.html; then
+            echo "Missing event detail rendered a framework/database error."
+            exit 1
+          fi
+
       - name: Check locale persistence endpoint
         if: steps.deployment_gate.outputs.should_test == 'true'
         shell: bash

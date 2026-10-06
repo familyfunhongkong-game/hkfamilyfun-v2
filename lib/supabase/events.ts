@@ -348,12 +348,14 @@ export async function getPublishedEventById(
     .select("*")
     .eq("id", id)
     .eq("status", "published")
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
-    console.error("讀取活動詳情失敗：", error?.message);
+  if (error) {
+    console.error("讀取活動詳情失敗：", error.message);
     return null;
   }
+
+  if (!data) return null;
 
   const event = data as DatabaseEvent;
   if (isInternalTestEvent(event) || isExpiredEvent(event)) return null;
