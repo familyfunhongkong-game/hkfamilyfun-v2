@@ -235,7 +235,7 @@ The rebuild application has repeatedly passed the four automated release gates o
 
 The remaining pre-cutover work is now external ownership / final data reconciliation:
 
-1. Record the Supabase leaked-password-protection decision. Admin web login remains **email + password only**; no QR/TOTP/web-app 2FA.
+1. **Accepted Free-plan limitation:** Supabase leaked-password protection is unavailable on the current Free plan. Current controls remain 12-character passwords, email verification, RLS/Admin allowlist and automated auth/E2E gates. Admin web login remains **email + password only**; no QR/TOTP/web-app 2FA.
 2. Connect/read the **old HK Family Fun Vercel account** and confirm where `hkfamilyfun.com` / `www.hkfamilyfun.com` are assigned before any move. The rebuild Vercel team still has **no custom-domain alias** for `hkfamilyfun.com`.
 3. Immediately before cutover, run the new **Legacy Delta Sync** workflow in **dry-run** mode using the old Supabase service credential. Review exact legacy IDs, drift, duplicates and planned safe inserts.
 4. Only after the dry-run report is accepted, run **safe-apply** with confirmation `SAFE_DELTA_ONLY`. This is insert-only for unseen legacy IDs and cannot auto-publish.
@@ -273,6 +273,6 @@ The remaining pre-cutover work is now external ownership / final data reconcilia
 
 ## Cutover rule
 
-Do **not** switch `hkfamilyfun.com` to the rebuilt site until the Supabase password-security decision is recorded and the old Vercel domain assignment is confirmed.
+Do **not** switch `hkfamilyfun.com` to the rebuilt site until the old Vercel domain assignment is confirmed and the final guarded Legacy Delta Sync dry-run is reviewed.
 
 Launch-candidate rule: the candidate is the **latest `main` commit only after CI, Quality Gate, Merchant Auth E2E and Production Smoke all pass on that commit**. Do not rely on a hard-coded SHA in this document.
