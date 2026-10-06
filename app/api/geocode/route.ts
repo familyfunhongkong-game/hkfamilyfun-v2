@@ -1,8 +1,70 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
+async function authorize(request: NextRequest) {
+  const authorization = request.headers.get("authorization") || "";
+  const token = authorization.replace(/^Bearer\s+/i, "").trim();
+
+  if (!token) {
+    return { ok: false as const, status: 401, error: "Unauthorized" };
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    "";
+
+  if (!url || !key) {
+    return {
+      ok: false as const,
+      status: 503,
+      error: "Authentication service unavailable",
+    };
+  }
+
+  const client = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: "Bearer " + token } },
+  });
+
+  const { data, error } = await client.auth.getUser(token);
+  const user = data.user;
+
+  if (error || !user) {
+    return { ok: false as const, status: 401, error: "Unauthorized" };
+  }
+
+  const { data: isAdmin } = await client.rpc("is_platform_admin");
+  if (isAdmin === true) {
+    return { ok: true as const };
+  }
+
+  const { data: merchant } = await client
+    .from("merchants")
+    .select("id,status")
+    .eq("owner_user_id", user.id)
+    .maybeSingle();
+
+  if (merchant?.status === "approved") {
+    return { ok: true as const };
+  }
+
+  return {
+    ok: false as const,
+    status: 403,
+    error: "Approved merchant or Admin access required",
+  };
+}
+
 export async function GET(request: NextRequest) {
+  const auth = await authorize(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   const query = (request.nextUrl.searchParams.get("q") || "").trim();
 
   if (!query || query.length > 240) {
@@ -47,7 +109,7 @@ export async function GET(request: NextRequest) {
       { found: false },
       {
         headers: {
-          "Cache-Control": "public, max-age=3600, s-maxage=86400",
+          "Cache-Control": "private, max-age=0, no-store",
         },
       },
     );
@@ -74,7 +136,7 @@ export async function GET(request: NextRequest) {
     },
     {
       headers: {
-        "Cache-Control": "public, max-age=3600, s-maxage=86400",
+        "Cache-Control": "private, max-age=0, no-store",
       },
     },
   );

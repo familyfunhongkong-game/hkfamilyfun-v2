@@ -272,6 +272,9 @@ jobs:
           system_health_code="$(curl -sS -o /tmp/system-health.json -w "%{http_code}" --max-time 30 "$BASE/api/admin/system-health")"
           test "$system_health_code" = "401"
 
+          geocode_code="$(curl -sS -o /tmp/geocode.json -w "%{http_code}" --max-time 30 "$BASE/api/geocode?q=Central")"
+          test "$geocode_code" = "401"
+
       - name: Check SEO index mode
         if: steps.deployment_gate.outputs.should_test == 'true'
         shell: bash
