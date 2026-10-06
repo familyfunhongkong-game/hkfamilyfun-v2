@@ -26,5 +26,5 @@ jobs:
       - name: Run authenticated merchant workflow E2E
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          REQUIRE_NOTIFICATION: "false"
+          REQUIRE_NOTIFICATION: "true"
         run: node scripts/merchant-auth-e2e.mjs
