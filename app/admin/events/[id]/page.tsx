@@ -947,6 +947,29 @@ export default function AdminEventReviewPage() {
       const { data: sessionData } = await client.auth.getSession();
       const accessToken = sessionData.session?.access_token;
 
+      if (accessToken && nextStatus === "published") {
+        try {
+          const socialResponse = await fetch("/api/admin/social-draft", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              source_type: "event",
+              source_id: updated.id,
+              channel: "all",
+            }),
+          });
+
+          if (socialResponse.ok) {
+            setMessage("活動已正式發布；Social Draft 已自動準備，請核對後再貼到 FB / IG / Threads。");
+          }
+        } catch {
+          // Social draft failure must never block event publishing.
+        }
+      }
+
       if (accessToken && updated.merchant_id) {
         void fetch("/api/merchant-notifications", {
           method: "POST",
