@@ -8,6 +8,10 @@ function configured(value: string | undefined) {
   return Boolean(value && value.trim());
 }
 
+function normalizeUrl(value: string | undefined) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
 export async function GET(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const anon =
@@ -55,6 +59,41 @@ export async function GET(request: NextRequest) {
     googleBaseReady &&
     configured(process.env.GOOGLE_ADMIN_DRIVE_REDIRECT_URI) &&
     driveProbe.data?.status === "connected";
+
+  const canonicalLiveUrl = "https://www.hkfamilyfun.com";
+  const canonicalApiUrl = canonicalLiveUrl + "/api";
+  const liveDriveCallback =
+    canonicalLiveUrl + "/api/admin/google-drive/callback";
+  const runtimeHost = request.nextUrl.hostname.toLowerCase();
+  const runtimeMode =
+    runtimeHost === "www.hkfamilyfun.com" || runtimeHost === "hkfamilyfun.com"
+      ? "live"
+      : "staging";
+
+  const cutover = {
+    runtimeMode,
+    runtimeHost,
+    canonicalLiveUrl,
+    buildSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+    siteUrlLive:
+      normalizeUrl(process.env.NEXT_PUBLIC_SITE_URL) === canonicalLiveUrl,
+    appUrlLive:
+      normalizeUrl(process.env.NEXT_PUBLIC_APP_URL) === canonicalLiveUrl,
+    apiUrlLive:
+      normalizeUrl(process.env.NEXT_PUBLIC_API_URL) === canonicalApiUrl,
+    adminDriveCallbackLive:
+      normalizeUrl(process.env.GOOGLE_ADMIN_DRIVE_REDIRECT_URI) ===
+      liveDriveCallback,
+    calendarCallbackMode: configured(process.env.GOOGLE_REDIRECT_URI)
+      ? "explicit"
+      : "request-origin",
+  };
+
+  const cutoverConfigReady =
+    cutover.siteUrlLive &&
+    cutover.appUrlLive &&
+    cutover.apiUrlLive &&
+    cutover.adminDriveCallbackLive;
 
   const checks = {
     supabase: {
@@ -139,6 +178,11 @@ export async function GET(request: NextRequest) {
     optionalReadyCount,
     optionalTotalChecks: optionalChecks.length,
     allReady: requiredReadyCount === requiredChecks.length,
+    cutover: {
+      ...cutover,
+      configReady: cutoverConfigReady,
+      liveServingRebuild: runtimeMode === "live",
+    },
     checks,
   });
 }

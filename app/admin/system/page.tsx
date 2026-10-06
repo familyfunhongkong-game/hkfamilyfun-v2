@@ -11,6 +11,20 @@ type Check = {
   detail: string;
 };
 
+type Cutover = {
+  runtimeMode: "staging" | "live";
+  runtimeHost: string;
+  canonicalLiveUrl: string;
+  buildSha: string | null;
+  siteUrlLive: boolean;
+  appUrlLive: boolean;
+  apiUrlLive: boolean;
+  adminDriveCallbackLive: boolean;
+  calendarCallbackMode: "explicit" | "request-origin";
+  configReady: boolean;
+  liveServingRebuild: boolean;
+};
+
 type Health = {
   ok: boolean;
   readyCount: number;
@@ -20,6 +34,7 @@ type Health = {
   optionalReadyCount: number;
   optionalTotalChecks: number;
   allReady: boolean;
+  cutover: Cutover;
   checks: Record<string, Check>;
 };
 
@@ -72,6 +87,18 @@ export default function AdminSystemHealthPage() {
   useEffect(() => {
     void loadHealth();
   }, []);
+
+  const cutoverItems = health
+    ? [
+        { label: "NEXT_PUBLIC_SITE_URL", ready: health.cutover.siteUrlLive },
+        { label: "NEXT_PUBLIC_APP_URL", ready: health.cutover.appUrlLive },
+        { label: "NEXT_PUBLIC_API_URL", ready: health.cutover.apiUrlLive },
+        {
+          label: "Google Drive live callback",
+          ready: health.cutover.adminDriveCallbackLive,
+        },
+      ]
+    : [];
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -153,6 +180,64 @@ export default function AdminSystemHealthPage() {
               </article>
             ))}
           </div>
+        ) : null}
+
+        {health ? (
+          <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-black text-purple-700">Domain Cutover Readiness</p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  {health.cutover.runtimeMode === "live"
+                    ? "LIVE DOMAIN"
+                    : "STAGING — 尚未切正式 Domain"}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Runtime host: {health.cutover.runtimeHost}
+                  {health.cutover.buildSha
+                    ? ` · Build ${health.cutover.buildSha.slice(0, 8)}`
+                    : ""}
+                </p>
+              </div>
+              <span
+                className={
+                  health.cutover.configReady
+                    ? "rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700"
+                    : "rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700"
+                }
+              >
+                {health.cutover.configReady
+                  ? "CUTOVER CONFIG READY"
+                  : "CUTOVER CONFIG PENDING"}
+              </span>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {cutoverItems.map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <span className="text-sm font-bold text-slate-700">{item.label}</span>
+                  <span
+                    className={
+                      item.ready
+                        ? "text-xs font-black text-emerald-700"
+                        : "text-xs font-black text-amber-700"
+                    }
+                  >
+                    {item.ready ? "LIVE READY" : "STAGING / PENDING"}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-4 text-xs leading-6 text-slate-500">
+              正式切站前保持 STAGING / PENDING 係正常。只有開始 cutover 時，先按
+              CUTOVER_RUNBOOK 將 Production URL / Google callback 轉去
+              https://www.hkfamilyfun.com；Preview 仍保留 staging URL。
+            </p>
+          </section>
         ) : null}
 
         {health?.allReady ? (
