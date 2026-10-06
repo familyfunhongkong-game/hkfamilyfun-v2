@@ -89,11 +89,11 @@ export async function GET(request: NextRequest) {
     },
     googleCalendar: {
       required: true,
-      ready:
-        googleBaseReady &&
-        configured(process.env.GOOGLE_REDIRECT_URI),
+      ready: googleBaseReady,
       label: "Google Calendar",
-      detail: "Planner Free/Busy OAuth integration",
+      detail: googleBaseReady
+        ? "Planner Free/Busy runtime ready · callback defaults to /api/google-calendar/callback"
+        : "Google Calendar OAuth client configuration incomplete",
     },
     aiAutomation: {
       required: false,
