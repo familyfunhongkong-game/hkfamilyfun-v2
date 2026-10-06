@@ -25,6 +25,20 @@ type Cutover = {
   liveServingRebuild: boolean;
 };
 
+type ContentQuality = {
+  queryReady: boolean;
+  publishedTotal: number;
+  missingImage: number;
+  currentFutureMissingImage: number;
+  missingPublishedAt: number;
+  currentFutureMissingImageItems: Array<{
+    id: string;
+    title: string;
+    startDate?: string | null;
+    endDate?: string | null;
+  }>;
+};
+
 type Health = {
   ok: boolean;
   readyCount: number;
@@ -35,6 +49,7 @@ type Health = {
   optionalTotalChecks: number;
   allReady: boolean;
   cutover: Cutover;
+  contentQuality: ContentQuality;
   checks: Record<string, Check>;
 };
 
@@ -180,6 +195,75 @@ export default function AdminSystemHealthPage() {
               </article>
             ))}
           </div>
+        ) : null}
+
+        {health ? (
+          <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-black text-purple-700">Published Content Quality</p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  {health.contentQuality.currentFutureMissingImage === 0
+                    ? "Current / Future 公開活動圖片完整"
+                    : `${health.contentQuality.currentFutureMissingImage} 個 Current / Future 活動仍用 fallback 圖`}
+                </h2>
+              </div>
+              <span
+                className={
+                  health.contentQuality.currentFutureMissingImage === 0
+                    ? "rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700"
+                    : "rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700"
+                }
+              >
+                {health.contentQuality.currentFutureMissingImage === 0
+                  ? "CONTENT READY"
+                  : "EDITORIAL FOLLOW-UP"}
+              </span>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-4">
+              {[
+                ["Published", health.contentQuality.publishedTotal],
+                ["缺實圖", health.contentQuality.missingImage],
+                ["Current/Future 缺實圖", health.contentQuality.currentFutureMissingImage],
+                ["缺 published_at", health.contentQuality.missingPublishedAt],
+              ].map(([label, value]) => (
+                <div
+                  key={String(label)}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <p className="text-xs font-bold text-slate-500">{label}</p>
+                  <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {health.contentQuality.currentFutureMissingImageItems.length ? (
+              <div className="mt-4 space-y-2">
+                {health.contentQuality.currentFutureMissingImageItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/admin/events/${item.id}`}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm hover:bg-amber-100"
+                  >
+                    <span className="font-bold text-amber-950">{item.title}</span>
+                    <span className="text-xs font-bold text-amber-700">
+                      {item.startDate || "日期待定"}
+                      {item.endDate && item.endDate !== item.startDate
+                        ? ` → ${item.endDate}`
+                        : ""}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+
+            <p className="mt-4 text-xs leading-6 text-slate-500">
+              缺實圖不會造成 broken image；網站會使用 branded fallback。呢個係內容品質 follow-up，
+              唔會自動生成或錯配活動圖片。歷史 Published 缺 published_at 只作資料治理提示，
+              系統唔會補寫假發佈時間。
+            </p>
+          </section>
         ) : null}
 
         {health ? (

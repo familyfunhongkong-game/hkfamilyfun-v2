@@ -12,6 +12,15 @@ function normalizeUrl(value: string | undefined) {
   return String(value || "").trim().replace(/\/+$/, "");
 }
 
+function hongKongToday() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 export async function GET(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const anon =
@@ -49,6 +58,46 @@ export async function GET(request: NextRequest) {
     .select("status,account_email,last_used_at,last_error")
     .eq("provider", "google_drive")
     .maybeSingle();
+
+  const publishedProbe = await client
+    .from("events")
+    .select(
+      "id,title_tc,title,start_date,end_date,cover_image_url,gallery_image_urls,published_at",
+    )
+    .eq("status", "published");
+
+  const today = hongKongToday();
+  const publishedRows = publishedProbe.data || [];
+  const missingImageRows = publishedRows.filter((event) => {
+    const cover = String(event.cover_image_url || "").trim();
+    const gallery = Array.isArray(event.gallery_image_urls)
+      ? event.gallery_image_urls.filter((value) => String(value || "").trim())
+      : [];
+    return !cover && gallery.length === 0;
+  });
+  const currentFutureMissingImageRows = missingImageRows.filter((event) => {
+    const lastDate = String(event.end_date || event.start_date || "").trim();
+    return Boolean(lastDate && lastDate >= today);
+  });
+  const missingPublishedAtRows = publishedRows.filter(
+    (event) => !event.published_at,
+  );
+
+  const contentQuality = {
+    queryReady: !publishedProbe.error,
+    publishedTotal: publishedRows.length,
+    missingImage: missingImageRows.length,
+    currentFutureMissingImage: currentFutureMissingImageRows.length,
+    missingPublishedAt: missingPublishedAtRows.length,
+    currentFutureMissingImageItems: currentFutureMissingImageRows
+      .slice(0, 8)
+      .map((event) => ({
+        id: event.id,
+        title: String(event.title_tc || event.title || "未命名活動"),
+        startDate: event.start_date,
+        endDate: event.end_date,
+      })),
+  };
 
   const googleBaseReady =
     configured(process.env.GOOGLE_CLIENT_ID) &&
@@ -183,6 +232,7 @@ export async function GET(request: NextRequest) {
       configReady: cutoverConfigReady,
       liveServingRebuild: runtimeMode === "live",
     },
+    contentQuality,
     checks,
   });
 }
