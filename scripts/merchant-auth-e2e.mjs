@@ -469,18 +469,58 @@ async function main() {
       .from("events")
       .update({
         status: "published",
-        published_at: new Date().toISOString(),
         reviewed_at: new Date().toISOString(),
         admin_review_note: "E2E published",
       })
       .eq("id", eventId)
-      .select("id,status")
+      .select("id,status,published_at")
       .single();
 
     if (published.error) {
       throw new Error("Admin publish failed: " + published.error.message);
     }
-    checks.push("admin_can_publish");
+
+    assert(
+      Boolean(published.data.published_at),
+      "Database did not stamp published_at on publish transition",
+    );
+    checks.push("admin_can_publish", "database_stamps_published_at");
+
+    const strippedImage = await admin
+      .from("events")
+      .update({
+        cover_image_url: null,
+        gallery_image_urls: [],
+      })
+      .eq("id", eventId)
+      .select("id,status")
+      .maybeSingle();
+
+    assert(
+      Boolean(strippedImage.error),
+      "Published current/future event unexpectedly allowed image removal",
+    );
+
+    const imageStillPresent = await admin
+      .from("events")
+      .select("cover_image_url,gallery_image_urls")
+      .eq("id", eventId)
+      .single();
+
+    if (imageStillPresent.error) {
+      throw new Error(
+        "Could not verify published image integrity: " +
+          imageStillPresent.error.message,
+      );
+    }
+
+    assert(
+      Boolean(imageStillPresent.data.cover_image_url) ||
+        (Array.isArray(imageStillPresent.data.gallery_image_urls) &&
+          imageStillPresent.data.gallery_image_urls.length > 0),
+      "Published event image disappeared after rejected update",
+    );
+    checks.push("published_event_cannot_lose_required_image");
 
     const publicEvent = await merchantClient
       .from("public_events_i18n")
