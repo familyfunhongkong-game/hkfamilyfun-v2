@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
 
   const checks = {
     supabase: {
+      required: true,
       ready:
         configured(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
         (configured(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) ||
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
       detail: "Database / Auth runtime configuration",
     },
     dataHub: {
+      required: true,
       ready: !dataHubProbe.error,
       label: "Admin Data Hub",
       detail: dataHubProbe.error
@@ -73,6 +75,7 @@ export async function GET(request: NextRequest) {
         : "Intake / sync / reporting schema ready",
     },
     googleDrive: {
+      required: true,
       ready: googleServiceAccountReady || googleOAuthDriveReady,
       label: "Google Sheets Sync",
       detail: googleServiceAccountReady
@@ -85,6 +88,7 @@ export async function GET(request: NextRequest) {
             : "OAuth 已設定，但 Admin 尚未完成授權",
     },
     googleCalendar: {
+      required: true,
       ready:
         googleBaseReady &&
         configured(process.env.GOOGLE_REDIRECT_URI),
@@ -92,6 +96,7 @@ export async function GET(request: NextRequest) {
       detail: "Planner Free/Busy OAuth integration",
     },
     aiAutomation: {
+      required: false,
       ready: configured(process.env.OPENAI_API_KEY),
       label: "Generative AI",
       detail: configured(process.env.OPENAI_API_KEY)
@@ -99,6 +104,7 @@ export async function GET(request: NextRequest) {
         : "未設定 AI provider；系統會安全使用 rule-based / template fallback，不會停工",
     },
     resend: {
+      required: true,
       ready:
         configured(process.env.RESEND_API_KEY) &&
         configured(process.env.APPROVAL_EMAIL),
@@ -106,6 +112,7 @@ export async function GET(request: NextRequest) {
       detail: "Merchant / Admin transactional notifications",
     },
     siteUrl: {
+      required: true,
       ready:
         configured(process.env.NEXT_PUBLIC_SITE_URL) ||
         configured(process.env.NEXT_PUBLIC_APP_URL) ||
@@ -116,13 +123,22 @@ export async function GET(request: NextRequest) {
     },
   };
 
-  const readyCount = Object.values(checks).filter((item) => item.ready).length;
+  const values = Object.values(checks);
+  const readyCount = values.filter((item) => item.ready).length;
+  const requiredChecks = values.filter((item) => item.required);
+  const requiredReadyCount = requiredChecks.filter((item) => item.ready).length;
+  const optionalChecks = values.filter((item) => !item.required);
+  const optionalReadyCount = optionalChecks.filter((item) => item.ready).length;
 
   return NextResponse.json({
     ok: true,
     readyCount,
-    totalChecks: Object.keys(checks).length,
-    allReady: readyCount === Object.keys(checks).length,
+    totalChecks: values.length,
+    requiredReadyCount,
+    requiredTotalChecks: requiredChecks.length,
+    optionalReadyCount,
+    optionalTotalChecks: optionalChecks.length,
+    allReady: requiredReadyCount === requiredChecks.length,
     checks,
   });
 }
