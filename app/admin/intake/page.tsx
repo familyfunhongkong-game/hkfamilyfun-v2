@@ -250,10 +250,22 @@ export default function AdminIntakePage() {
           {shown.map((row) => {
             const normalization = (row.normalized_payload?.normalization || {}) as {
               duplicate_candidates?: unknown[];
+              validation_reasons?: unknown[];
+              schema_drift_detected?: boolean;
             };
             const duplicateCount = Array.isArray(normalization.duplicate_candidates)
               ? normalization.duplicate_candidates.length
               : 0;
+            const validationReasons = Array.isArray(normalization.validation_reasons)
+              ? normalization.validation_reasons
+                  .map((item) => String(item || "").trim())
+                  .filter(Boolean)
+              : [];
+            const hasBlockingIssue =
+              row.status === "needs_review" ||
+              duplicateCount > 0 ||
+              validationReasons.length > 0 ||
+              normalization.schema_drift_detected === true;
 
             return (
               <article
@@ -272,6 +284,16 @@ export default function AdminIntakePage() {
                       {duplicateCount > 0 ? (
                         <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black text-amber-800">
                           可能重覆 {duplicateCount}
+                        </span>
+                      ) : null}
+                      {normalization.schema_drift_detected ? (
+                        <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[10px] font-black text-rose-800">
+                          欄位錯位
+                        </span>
+                      ) : null}
+                      {validationReasons.length > 0 ? (
+                        <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[10px] font-black text-orange-800">
+                          需人工檢查
                         </span>
                       ) : null}
                     </div>
@@ -295,7 +317,8 @@ export default function AdminIntakePage() {
                       </button>
                     ) : null}
 
-                    {["normalized", "needs_review"].includes(row.status) &&
+                    {row.status === "normalized" &&
+                    !hasBlockingIssue &&
                     !row.linked_event_id ? (
                       <button
                         type="button"
@@ -317,6 +340,24 @@ export default function AdminIntakePage() {
                     ) : null}
                   </div>
                 </div>
+
+                {hasBlockingIssue ? (
+                  <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-sm font-black text-amber-900">
+                      暫停建立 Event Draft
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
+                      請先修正重覆、欄位錯位、過期或其他資料驗證問題，再重新 Normalize。
+                    </p>
+                    {validationReasons.length > 0 ? (
+                      <ul className="mt-3 list-disc space-y-1 pl-5 text-xs font-semibold text-amber-900">
+                        {validationReasons.map((reason) => (
+                          <li key={reason}>{reason}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="mt-5 grid gap-4 xl:grid-cols-2">
                   <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
