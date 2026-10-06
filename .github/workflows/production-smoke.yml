@@ -105,6 +105,7 @@ jobs:
             "/merchant/events/import"
             "/admin"
             "/admin/login"
+            "/admin/forgot-password"
           )
 
           for route in "${routes[@]}"; do
