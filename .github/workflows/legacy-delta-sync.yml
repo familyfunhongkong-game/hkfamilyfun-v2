@@ -1,0 +1,79 @@
+name: Legacy Delta Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Choose dry-run unless this is the final approved cutover delta"
+        required: true
+        default: "dry-run"
+        type: choice
+        options:
+          - dry-run
+          - safe-apply
+      confirmation:
+        description: "For safe-apply only, type SAFE_DELTA_ONLY"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: hkff-legacy-delta-sync
+  cancel-in-progress: false
+
+jobs:
+  legacy-delta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Validate migration guardrails
+        shell: bash
+        env:
+          MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          OLD_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.OLD_SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$OLD_SUPABASE_SERVICE_ROLE_KEY" ]]; then
+            echo "OLD_SUPABASE_SERVICE_ROLE_KEY GitHub secret is missing."
+            exit 1
+          fi
+
+          if [[ -z "$SUPABASE_SERVICE_ROLE_KEY" ]]; then
+            echo "SUPABASE_SERVICE_ROLE_KEY GitHub secret is missing."
+            exit 1
+          fi
+
+          if [[ "$MODE" == "safe-apply" && "$CONFIRMATION" != "SAFE_DELTA_ONLY" ]]; then
+            echo "Safe apply refused: confirmation must exactly equal SAFE_DELTA_ONLY."
+            exit 1
+          fi
+
+      - name: Run safe legacy delta
+        env:
+          OLD_SUPABASE_URL: ${{ secrets.OLD_SUPABASE_URL }}
+          OLD_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.OLD_SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APPLY_MIGRATION: ${{ inputs.mode == 'safe-apply' && 'true' || 'false' }}
+          MIGRATION_CONFIRM: ${{ inputs.mode == 'safe-apply' && inputs.confirmation || '' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/migrate-legacy-familyfun.mjs
