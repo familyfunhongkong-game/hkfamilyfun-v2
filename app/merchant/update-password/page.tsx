@@ -12,6 +12,7 @@ export default function MerchantUpdatePasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [portalContext, setPortalContext] = useState<"merchant" | "admin">("merchant");
 
   useEffect(() => {
     const client = supabase;
@@ -23,6 +24,10 @@ export default function MerchantUpdatePasswordPage() {
     }
 
     let active = true;
+
+    const isAdminReturn =
+      new URLSearchParams(window.location.search).get("return") === "admin";
+    setPortalContext(isAdminReturn ? "admin" : "merchant");
 
     const recoveryMarker =
       new URLSearchParams(window.location.search).get("type") === "recovery" ||
@@ -124,8 +129,8 @@ export default function MerchantUpdatePasswordPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-12 sm:px-6">
       <div className="mx-auto max-w-md">
         <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-sm font-semibold text-primary-600">
-            HK Family Fun Merchant Portal
+          <p className={portalContext === "admin" ? "text-sm font-black text-purple-700" : "text-sm font-semibold text-primary-600"}>
+            {portalContext === "admin" ? "HK Family Fun Admin" : "HK Family Fun Merchant Portal"}
           </p>
 
           <h1 className="mt-2 text-3xl font-bold text-slate-900">設定新密碼</h1>
@@ -203,18 +208,18 @@ export default function MerchantUpdatePasswordPage() {
           <div className="mt-6 flex flex-col gap-3 text-center text-sm">
             {!hasRecoverySession && !successMessage ? (
               <Link
-                href="/merchant/forgot-password"
-                className="font-semibold text-primary-600 hover:text-primary-700"
+                href={portalContext === "admin" ? "/admin/forgot-password" : "/merchant/forgot-password"}
+                className={portalContext === "admin" ? "font-semibold text-purple-700 hover:text-purple-900" : "font-semibold text-primary-600 hover:text-primary-700"}
               >
                 重新申請重設密碼
               </Link>
             ) : null}
 
             <Link
-              href="/merchant/login"
+              href={portalContext === "admin" ? "/admin/login" : "/merchant/login"}
               className="font-semibold text-slate-600 hover:text-slate-900"
             >
-              返回商戶登入
+              {portalContext === "admin" ? "返回 Admin 登入" : "返回商戶登入"}
             </Link>
           </div>
         </div>
