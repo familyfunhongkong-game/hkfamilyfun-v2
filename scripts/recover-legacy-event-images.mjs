@@ -136,64 +136,11 @@ function extensionFor(contentType) {
   return "jpg";
 }
 
-async function publishIfReady(eventId) {
-  const { data: row, error } = await supabase
-    .from("events")
-    .select(
-      "id,title_tc,title,start_date,end_date,venue_name,address,district,cover_image_url,gallery_image_urls,cta_type,registration_required,registration_url,booking_url,official_url,official_website_url,source_url,event_url,ticket_url",
-    )
-    .eq("id", eventId)
-    .single();
-
-  if (error || !row) return false;
-
-  const hasTitle = Boolean((row.title_tc || row.title || "").trim());
-  const hasDate = Boolean(row.start_date);
-  const validEnd = !row.end_date || !row.start_date || row.end_date >= row.start_date;
-  const hasLocation = Boolean(
-    (row.venue_name || "").trim() ||
-      (row.address || "").trim() ||
-      (row.district || "").trim(),
-  );
-  const hasImage = Boolean(
-    (row.cover_image_url || "").trim() ||
-      (Array.isArray(row.gallery_image_urls) && row.gallery_image_urls.length),
-  );
-  const hasAction =
-    ["none", "contact"].includes(String(row.cta_type || "").toLowerCase()) ||
-    row.registration_required === false ||
-    [
-      row.registration_url,
-      row.booking_url,
-      row.official_url,
-      row.official_website_url,
-      row.source_url,
-      row.event_url,
-      row.ticket_url,
-    ].some((value) => Boolean(String(value || "").trim()));
-
-  if (!hasTitle || !hasDate || !validEnd || !hasLocation || !hasImage || !hasAction) {
-    return false;
-  }
-
-  const { error: updateError } = await supabase
-    .from("events")
-    .update({
-      status: "published",
-      published_at: new Date().toISOString(),
-      admin_review_note:
-        "Legacy event image recovered from official/source page and readiness checks passed.",
-    })
-    .eq("id", eventId);
-
-  return !updateError;
-}
-
 async function main() {
   const { data: events, error } = await supabase
     .from("events")
     .select(
-      "id,title_tc,official_url,source_url,event_url,registration_url,status,cover_image_url,ai_extracted_json",
+      "id,title_tc,official_url,source_url,event_url,registration_url,status,cover_image_url,gallery_image_urls,admin_review_note,ai_extracted_json",
     )
     .eq("status", "draft")
     .eq("ai_extracted_json->>legacy_migration", "true")
@@ -206,7 +153,7 @@ async function main() {
   const report = {
     candidates: events?.length || 0,
     recovered: 0,
-    published: 0,
+    keptDraft: 0,
     failed: 0,
     details: [],
   };
@@ -273,14 +220,26 @@ async function main() {
       continue;
     }
 
+    const existingGallery = Array.isArray(event.gallery_image_urls)
+      ? event.gallery_image_urls
+          .map((value) => String(value || "").trim())
+          .filter(Boolean)
+      : [];
+    const nextGallery = [...new Set([publicUrl, ...existingGallery])].slice(0, 6);
+    const recoveryNote =
+      "Legacy image recovered automatically from official/source page: " +
+      found.pageUrl +
+      ". Event remains draft and requires Admin review before approval/publication.";
+    const previousNote = String(event.admin_review_note || "").trim();
+
     const { error: eventUpdateError } = await supabase
       .from("events")
       .update({
         cover_image_url: publicUrl,
-        gallery_image_urls: [publicUrl],
-        admin_review_note:
-          "Legacy image recovered automatically from official/source page: " +
-          found.pageUrl,
+        gallery_image_urls: nextGallery,
+        admin_review_note: previousNote
+          ? previousNote + "\n\n" + recoveryNote
+          : recoveryNote,
         updated_at: new Date().toISOString(),
       })
       .eq("id", event.id);
@@ -295,13 +254,11 @@ async function main() {
     }
 
     report.recovered++;
-
-    const published = await publishIfReady(event.id);
-    if (published) report.published++;
+    report.keptDraft++;
 
     report.details.push({
       title: event.title_tc,
-      result: published ? "recovered + published" : "recovered, kept draft",
+      result: "image recovered; draft retained for Admin review",
     });
 
     await new Promise((resolve) => setTimeout(resolve, 800));
@@ -318,7 +275,7 @@ async function main() {
       "",
       "- Candidates: **" + report.candidates + "**",
       "- Images recovered: **" + report.recovered + "**",
-      "- Published after readiness: **" + report.published + "**",
+      "- Kept as draft for Admin review: **" + report.keptDraft + "**",
       "- Failed source recovery: **" + report.failed + "**",
       "",
       ...report.details.map(

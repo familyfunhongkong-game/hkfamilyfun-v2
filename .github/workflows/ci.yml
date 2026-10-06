@@ -32,7 +32,36 @@ jobs:
           node --check scripts/auto-discover-events.mjs
           node --check scripts/migrate-legacy-familyfun.mjs
           node --check scripts/compare-legacy-hashes.mjs
+          node --check scripts/recover-legacy-event-images.mjs
           node --check scripts/merchant-auth-e2e.mjs
+
+      - name: Enforce legacy automation review boundary
+        run: |
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const allowed = new Set(["merchant-auth-e2e.mjs"]);
+          const offenders = [];
+
+          for (const name of fs.readdirSync("scripts")) {
+            if (!name.endsWith(".mjs") || allowed.has(name)) continue;
+            const file = path.join("scripts", name);
+            const source = fs.readFileSync(file, "utf8");
+
+            if (/status\s*:\s*["']published["']/i.test(source)) {
+              offenders.push(file);
+            }
+          }
+
+          if (offenders.length) {
+            console.error(
+              "Automation may not directly publish events. Admin review is required:",
+              offenders,
+            );
+            process.exit(1);
+          }
+          NODE
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high

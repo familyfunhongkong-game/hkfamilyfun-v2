@@ -22,7 +22,7 @@ jobs:
 
       - run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Recover images and publish ready legacy events
+      - name: Recover legacy images without publishing
         env:
           SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
