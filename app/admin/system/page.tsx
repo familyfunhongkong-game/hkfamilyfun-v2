@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 
 type Check = {
+  required: boolean;
   ready: boolean;
   label: string;
   detail: string;
@@ -14,6 +15,10 @@ type Health = {
   ok: boolean;
   readyCount: number;
   totalChecks: number;
+  requiredReadyCount: number;
+  requiredTotalChecks: number;
+  optionalReadyCount: number;
+  optionalTotalChecks: number;
   allReady: boolean;
   checks: Record<string, Check>;
 };
@@ -89,7 +94,9 @@ export default function AdminSystemHealthPage() {
           <div>
             <p className="text-sm font-bold text-slate-500">Launch readiness</p>
             <p className="mt-1 text-2xl font-black text-slate-950">
-              {health ? `${health.readyCount} / ${health.totalChecks} services ready` : "Checking..."}
+              {health
+                ? `Core ${health.requiredReadyCount} / ${health.requiredTotalChecks} ready`
+                : "Checking..."}
             </p>
           </div>
           <button
@@ -126,10 +133,18 @@ export default function AdminSystemHealthPage() {
                     className={
                       item.ready
                         ? "rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700"
-                        : "rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-700"
+                        : item.required
+                          ? "rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-700"
+                          : "rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700"
                     }
                   >
-                    {item.ready ? "READY" : "ACTION REQUIRED"}
+                    {item.ready
+                      ? item.required
+                        ? "READY"
+                        : "OPTIONAL READY"
+                      : item.required
+                        ? "ACTION REQUIRED"
+                        : "OPTIONAL / FALLBACK"}
                   </span>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -140,9 +155,15 @@ export default function AdminSystemHealthPage() {
           </div>
         ) : null}
 
-        <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
-          Custom domain切換唔屬於自動health check。只有當功能、資料、Admin/Merchant流程同外部服務全部QA完成後，先切換 hkfamilyfun.com。
-        </div>
+        {health?.allReady ? (
+          <div className="mt-6 rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm font-bold leading-6 text-emerald-900">
+            Core launch services 已通過設定檢查。Optional 功能（例如 AI）未設定時會使用安全 fallback，不會阻塞核心營運。
+          </div>
+        ) : (
+          <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
+            仍有 Core service 需要處理。Custom domain 只應在功能、資料、Admin/Merchant流程同核心外部服務完成 QA 後切換。
+          </div>
+        )}
       </section>
     </main>
   );
