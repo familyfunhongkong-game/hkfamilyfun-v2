@@ -39,8 +39,9 @@ jobs:
           set -euo pipefail
           login_file="app/admin/login/page.tsx"
           grep -q 'signInWithPassword' "$login_file"
-          if grep -Eqi 'auth\.mfa|aal2|authenticator|one-time-code|name="otp"|name="totp"|twoFactor|two-factor' "$login_file"; then
-            echo "Unexpected MFA/2FA implementation detected in Admin login"
+
+          if grep -REqi             'auth\.mfa|aal2|authenticator|one-time-code|name="otp"|name="totp"|twoFactor|two-factor|signInWithOtp|signInWithOAuth'             app/admin; then
+            echo "Unexpected MFA/OTP/OAuth login implementation detected in Admin Portal"
             exit 1
           fi
 
