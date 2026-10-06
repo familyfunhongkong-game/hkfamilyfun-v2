@@ -35,12 +35,62 @@ export async function POST(request: NextRequest) {
   }
 
   const n = (intake.data.normalized_payload || {}) as Record<string, unknown>;
+  const normalization = (n.normalization || {}) as Record<string, unknown>;
+  const duplicateCandidates = Array.isArray(normalization.duplicate_candidates)
+    ? normalization.duplicate_candidates
+    : [];
+  const validationReasons = Array.isArray(normalization.validation_reasons)
+    ? normalization.validation_reasons.map((item) => clean(item)).filter(Boolean)
+    : [];
+
+  if (intake.data.status !== "normalized") {
+    return NextResponse.json(
+      { error: "此 Intake 尚未通過資料檢查，請先處理 needs_review 問題。" },
+      { status: 409 },
+    );
+  }
+
+  if (
+    duplicateCandidates.length > 0 ||
+    validationReasons.length > 0 ||
+    normalization.schema_drift_detected === true
+  ) {
+    return NextResponse.json(
+      {
+        error: "此 Intake 有重覆、欄位錯位或資料驗證問題，禁止建立 Event Draft。",
+        validation_reasons: validationReasons,
+        duplicate_count: duplicateCandidates.length,
+      },
+      { status: 409 },
+    );
+  }
+
   const title = clean(n.title_tc);
   if (!title) {
     return NextResponse.json(
       { error: "請先 Normalize，並確認繁中活動標題。" },
       { status: 409 },
     );
+  }
+
+  const effectiveDate = clean(n.end_date || n.start_date);
+  if (effectiveDate) {
+    const todayParts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Hong_Kong",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const get = (type: string) =>
+      todayParts.find((part) => part.type === type)?.value || "";
+    const hkToday = get("year") + "-" + get("month") + "-" + get("day");
+
+    if (effectiveDate < hkToday) {
+      return NextResponse.json(
+        { error: "活動日期已過，禁止建立 Event Draft。" },
+        { status: 409 },
+      );
+    }
   }
 
   const minPrice =
