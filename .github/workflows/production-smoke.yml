@@ -141,6 +141,22 @@ jobs:
           echo "$health"
           echo "$health" | grep -q '"ok":true'
 
+      - name: Check HK Family Fun brand assets and social links
+        if: steps.deployment_gate.outputs.should_test == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          curl -L -sS --fail --max-time 30 "$BASE/api/brand/family-fun-logo" -o /tmp/hkff-logo.png
+          actual_sha="$(sha256sum /tmp/hkff-logo.png | awk '{print $1}')"
+          test "$actual_sha" = "bf9f56f08f6a2cf522db388037e83c2d3363ebc5858400378efd6ead4ade9fa5"
+
+          home_html="$(curl -L -sS --fail --max-time 30 "$BASE/")"
+          echo "$home_html" | grep -q '/api/brand/family-fun-logo'
+          echo "$home_html" | grep -q 'https://www.instagram.com/hk.familyfun'
+          echo "$home_html" | grep -q 'https://www.facebook.com/hk.familyfun1112'
+          echo "$home_html" | grep -q 'https://www.threads.com/@hk.familyfun'
+
       - name: Check one live event detail
         if: steps.deployment_gate.outputs.should_test == 'true'
         shell: bash
