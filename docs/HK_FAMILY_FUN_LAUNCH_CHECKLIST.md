@@ -1,6 +1,6 @@
 # HK Family Fun V2 — Launch Checklist
 
-Updated: 2026-10-04
+Updated: 2026-10-06
 
 ## Quality target
 
@@ -30,17 +30,17 @@ Visual polish must never trade away accessibility, SEO, performance, data safety
 - Supabase V2 project: `hkfamilyfun-v2` / `uiyrbqqvgnfhfdhedmav`
 - Supabase region: `ap-southeast-1`
 - Vercel project: `hkfamilyfun-v2`
-- Events: **237**
+- Events: **239**
 - Published: **41**
-- Current/future published: **14**
-- Draft: **109**
+- Current/future published: **13**
+- Draft: **111**
 - Approved: **1**
 - Rejected: **1**
 - Archived: **85**
 - Profiles: **3**
 - Merchants: **2**
 - Legacy events migrated into V2: **174**
-- `event-images` Storage objects: **30**
+- `event-images` Storage objects: **35**
 
 The app currently uses `events.cover_image_url` + `gallery_image_urls` + Supabase Storage as the active image model. A zero-row legacy `event_images` table is therefore not, by itself, an application failure.
 
@@ -129,6 +129,10 @@ The production smoke gate now verifies:
 - `/merchant/register`
 - `/merchant/events/import`
 - `/admin`
+- `/admin/forgot-password`
+- original HK Family Fun logo integrity (exact SHA-256)
+- Instagram / Facebook / Threads production links
+- Google Calendar OAuth runtime configuration and redirect generation
 - one live published event detail
 - locale persistence cookie
 - anonymous import/translation writes rejected with 401
@@ -181,7 +185,7 @@ Supabase Security Advisor still reports:
 
 - **Leaked Password Protection Disabled**
 
-Supabase documents leaked-password protection as a Pro-plan-and-above feature. If V2 remains on the Free plan, this warning cannot be cleared natively; the current compensating controls are 12-character passwords, email confirmation, Admin allowlist/RLS and authenticated E2E. Do not add web-app QR/TOTP to the Admin Portal unless product requirements change.
+This remains a platform-level password hardening item. Current compensating controls are 12-character passwords, email confirmation, server-side Admin allowlist/RLS, authenticated E2E and a repository-wide CI contract that prevents QR/TOTP/MFA/OTP/OAuth login from being added to the Admin Portal. Do not add web-app QR/TOTP to the Admin Portal unless product requirements change.
 
 Performance Advisor also reports multiple-permissive-policy and unused-index notices. These are optimization findings, not evidence of a current public-data leak. Do not drop indexes or rewrite policies blindly before measuring query plans and preserving RLS behavior.
 
@@ -195,6 +199,16 @@ The historical dry-run recorded:
 - planned unique migration: **174**
 
 Current V2 production contains exactly **174** records marked `legacy_migration=true`.
+
+A new manual-only `Legacy Delta Sync` workflow now protects the final cutover delta:
+- default mode is **dry-run**
+- safe apply requires both `APPLY_MIGRATION=true` and exact confirmation `SAFE_DELTA_ONLY`
+- exact old IDs use the existing `legacy:<old-id>` fingerprint format
+- existing migrated records are report-only and are never overwritten
+- newly discovered current/future legacy records import as **draft**
+- expired legacy records import as **archived**
+- no legacy record can be auto-approved or auto-published
+- legacy merchant login accounts are never migrated
 
 Reconciliation checks:
 - migrated unique count: **174 / 174**
@@ -213,32 +227,43 @@ Current/future legacy review:
 
 ### Required before switching `hkfamilyfun.com`
 
-The rebuilt application itself has completed the four automated release gates on the current launch-candidate commit:
+The rebuild application has repeatedly passed the four automated release gates on current `main`:
 - HK Family Fun CI — PASS
 - HK Family Fun Quality Gate — PASS
 - Merchant Auth E2E — PASS
 - Production Smoke Test — PASS
 
-The final human mobile + desktop screenshot review has also been completed and passed.
+The remaining pre-cutover work is now external ownership / final data reconciliation:
 
-The remaining pre-cutover actions are external configuration / ownership checks rather than unresolved application bugs:
+1. Record the Supabase leaked-password-protection decision. Admin web login remains **email + password only**; no QR/TOTP/web-app 2FA.
+2. Connect/read the **old HK Family Fun Vercel account** and confirm where `hkfamilyfun.com` / `www.hkfamilyfun.com` are assigned before any move. The rebuild Vercel team still has **no custom-domain alias** for `hkfamilyfun.com`.
+3. Immediately before cutover, run the new **Legacy Delta Sync** workflow in **dry-run** mode using the old Supabase service credential. Review exact legacy IDs, drift, duplicates and planned safe inserts.
+4. Only after the dry-run report is accepted, run **safe-apply** with confirmation `SAFE_DELTA_ONLY`. This is insert-only for unseen legacy IDs and cannot auto-publish.
+5. Re-run the four automated gates on the post-delta `main` commit.
+6. Only then assign `hkfamilyfun.com` / `www.hkfamilyfun.com` to the rebuild and perform post-cutover smoke checks before removing the old assignment.
 
-1. Record the Supabase password-security decision: leaked-password protection requires Pro plan or above. On Free, accept the advisor warning with the current strong-password / email-verification / RLS controls. Admin web login remains email + password only, per product decision.
-2. Connect/read the **old HK Family Fun Vercel account** and confirm where `hkfamilyfun.com` / `www.hkfamilyfun.com` are currently assigned before any move. Do not remove the old assignment until the new project is ready to receive the domain.
-3. If production Admin notification email is required at launch, configure `RESEND_API_KEY` in the Vercel production environment and rerun the notification gate. In-app notification queueing remains the operational fallback.
-4. Only after items 1–3 are resolved or explicitly accepted, assign `hkfamilyfun.com` to the rebuilt project and perform post-cutover smoke checks.
+### Operational configuration status
 
-Completed launch reviews:
-- Authenticated URL import + direct PDF upload are covered by the production Merchant E2E and have passed.
-- Both existing Merchant records were reviewed; both remain `pending` because current Terms / Privacy acceptance timestamps are absent. They must not be auto-approved.
-- Five current/future legacy `approved` records were re-reviewed. Four genuine activities were corrected and published (Hong Kong Park Arts Corner, Hong Kong Park Morning Bird Watching, PMQ Picture Book Library START FROM HERE, and the 13th Jackfruit Cultural Festival). The long-running Bliss Infinite family-support programme was returned to `approved` and intentionally kept out of general event discovery.
+- **Resend email is configured in Vercel** with `RESEND_API_KEY` and `APPROVAL_EMAIL=info@hkfamilyfun.com`.
+- A one-time authenticated production E2E verified the full path: Merchant submission → production notification API → Vercel runtime → Resend → email delivery.
+- The normal Merchant E2E has been returned to non-spamming mode; durable in-app notification queueing remains continuously tested.
+- Google Calendar Free/Busy is an **optional Planner enhancement**, not a launch blocker. Runtime OAuth configuration and redirect generation are covered by Production Smoke.
+- Generative AI remains optional. Without an AI provider key, normalization/social drafting uses safe deterministic fallback instead of blocking Admin operations.
+- Google Sheets/Admin Data Hub core workflow remains available through the current connected integration. A Service Account is still recommended later for unattended long-term synchronization.
+- The rebuild Vercel project remains on its Vercel staging domain and has not taken over `hkfamilyfun.com`.
 
-### Operational configuration still outstanding
+### Current live data snapshot
 
-- A durable `platform_notifications` queue and Admin/Merchant notification centers are now the primary operational fallback. Merchant submissions and review-state notifications are retained in-app even when email delivery is unavailable.
-- Resend `hkfamilyfun.com` is verified with sending enabled and a production notification key already exists in Resend. The Vercel runtime does not currently have `RESEND_API_KEY`; email is therefore an optional delivery enhancement, not a launch dependency.
-- Azure Translator is optional and is **not** a launch dependency. Without Azure keys, Merchant/Admin can still enter all TC / SC / EN fields manually and public pages fall back safely to TC.
-- The new Vercel team currently owns no custom domains, and the new project is assigned only `hkfamilyfun-v2.vercel.app`. This confirms no accidental domain cutover has occurred.
+- Events: **239**
+- Published: **41**
+- Current/future published: **13**
+- Draft: **111**
+- Submitted: **0**
+- Approved: **1**
+- Rejected: **1**
+- Archived: **85**
+- Legacy-migrated records: **174**
+- `event-images` Storage objects: **35**
 
 ## Content backlog that does not block application launch
 
@@ -250,14 +275,4 @@ Completed launch reviews:
 
 Do **not** switch `hkfamilyfun.com` to the rebuilt site until the Supabase password-security decision is recorded and the old Vercel domain assignment is confirmed.
 
-Current verified launch-candidate SHA: `55e9591bcf7a165e1ce741ea2a8b50482ee26903`
-
-Verified on that commit:
-- HK Family Fun CI — PASS
-- HK Family Fun Quality Gate — PASS
-- Merchant Auth E2E — PASS
-- Production Smoke Test — PASS
-- Vercel production runtime errors in the latest 24-hour check — 0
-- new Vercel project custom domains — none; only `hkfamilyfun-v2.vercel.app`
-
-Any later commit must pass the same four automated gates before replacing this SHA as the cutover candidate.
+Launch-candidate rule: the candidate is the **latest `main` commit only after CI, Quality Gate, Merchant Auth E2E and Production Smoke all pass on that commit**. Do not rely on a hard-coded SHA in this document.
