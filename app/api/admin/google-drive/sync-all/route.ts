@@ -28,6 +28,14 @@ function rowObject(headers: unknown[], values: unknown[]) {
   return payload;
 }
 
+function canonicalPayload(payload: Record<string, unknown>) {
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(payload).sort(([left], [right]) => left.localeCompare(right)),
+    ),
+  );
+}
+
 export async function POST(request: NextRequest) {
   const authorization = request.headers.get("authorization") || "";
   const token = authorization.replace(/^Bearer\s+/i, "").trim();
@@ -153,12 +161,12 @@ export async function POST(request: NextRequest) {
         const externalKey = "row:" + String(index + 2);
         const payloadHash = crypto
           .createHash("sha256")
-          .update(JSON.stringify(payload))
+          .update(canonicalPayload(payload))
           .digest("hex");
 
         const existing = await admin.client
           .from("intake_submissions")
-          .select("id,normalized_payload")
+          .select("id,payload,normalized_payload")
           .eq("source_id", source.id)
           .eq("external_key", externalKey)
           .maybeSingle();
@@ -166,8 +174,18 @@ export async function POST(request: NextRequest) {
         const previousHash = String(
           (existing.data?.normalized_payload as Record<string, unknown> | null)?.payload_hash || "",
         );
+        const existingHash = existing.data?.payload
+          ? crypto
+              .createHash("sha256")
+              .update(canonicalPayload(existing.data.payload as Record<string, unknown>))
+              .digest("hex")
+          : "";
 
-        if (!existing.error && existing.data && previousHash === payloadHash) {
+        if (
+          !existing.error &&
+          existing.data &&
+          (previousHash === payloadHash || existingHash === payloadHash)
+        ) {
           continue;
         }
 
