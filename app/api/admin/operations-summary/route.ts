@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 type CountResult = { count: number | null; error: { message?: string } | null };
 
 async function safeCount(
-  client: SupabaseClient<any>,
+  client: SupabaseClient,
   table: string,
   filters: Array<[string, string]> = [],
 ): Promise<{ count: number; available: boolean; error?: string }> {
