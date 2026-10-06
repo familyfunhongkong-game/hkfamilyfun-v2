@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
     activeBanners,
     socialDrafts,
     intakeNew,
+    intakeNeedsReview,
     dataSources,
     syncRuns,
     integrations,
@@ -88,6 +89,7 @@ export async function GET(request: NextRequest) {
     safeCount(client, "promo_banners", [["status", "active"]]),
     safeCount(client, "social_content_drafts", [["status", "draft"]]),
     safeCount(client, "intake_submissions", [["status", "new"]]),
+    safeCount(client, "intake_submissions", [["status", "needs_review"]]),
     safeCount(client, "external_data_sources", [["active", "true"]]),
     safeCount(client, "data_sync_runs"),
     safeCount(client, "admin_integrations"),
@@ -133,11 +135,17 @@ export async function GET(request: NextRequest) {
     sources = (sourceResponse.data || []) as Record<string, unknown>[];
   }
 
+  const intakeAttention = {
+    count: intakeNew.count + intakeNeedsReview.count,
+    available: intakeNew.available && intakeNeedsReview.available,
+    error: intakeNew.error || intakeNeedsReview.error,
+  };
+
   const newOpsTablesAvailable =
     contentDrafts.available &&
     activeBanners.available &&
     socialDrafts.available &&
-    intakeNew.available &&
+    intakeAttention.available &&
     dataSources.available;
 
   return NextResponse.json({
@@ -157,6 +165,8 @@ export async function GET(request: NextRequest) {
       activeBanners,
       socialDrafts,
       intakeNew,
+      intakeNeedsReview,
+      intakeAttention,
       dataSources,
       syncRuns,
       integrations,
