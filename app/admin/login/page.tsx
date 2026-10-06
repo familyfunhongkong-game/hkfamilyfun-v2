@@ -163,7 +163,7 @@ export default function AdminLoginPage() {
 
               <div className="flex items-center justify-between gap-3">
                 <Link
-                  href="/merchant/forgot-password"
+                  href="/admin/forgot-password"
                   className="text-sm font-bold text-purple-700 hover:text-purple-900"
                 >
                   忘記密碼？
