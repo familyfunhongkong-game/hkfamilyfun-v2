@@ -139,6 +139,37 @@ export async function POST(request: NextRequest) {
     link = clean(data.source_url);
   }
 
+  const existingDraft = sourceEventId
+    ? await client
+        .from("social_content_drafts")
+        .select("id,copy_text,generated_by_ai,status")
+        .eq("source_event_id", sourceEventId)
+        .eq("channel", channel)
+        .in("status", ["draft", "ready"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : await client
+        .from("social_content_drafts")
+        .select("id,copy_text,generated_by_ai,status")
+        .eq("source_article_id", sourceArticleId)
+        .eq("channel", channel)
+        .in("status", ["draft", "ready"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+  if (!existingDraft.error && existingDraft.data) {
+    return NextResponse.json({
+      ok: true,
+      id: existingDraft.data.id,
+      copy_text: existingDraft.data.copy_text,
+      generated_by_ai: existingDraft.data.generated_by_ai,
+      provider: "existing_draft",
+      reused: true,
+    });
+  }
+
   const base = {
     title,
     description,
