@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { isGoogleServiceAccountConfigured } from "@/lib/admin-google-drive";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,11 @@ export async function GET(request: NextRequest) {
     configured(process.env.GOOGLE_CLIENT_ID) &&
     configured(process.env.GOOGLE_CLIENT_SECRET) &&
     configured(process.env.GOOGLE_TOKEN_ENCRYPTION_KEY);
+  const googleServiceAccountReady = isGoogleServiceAccountConfigured();
+  const googleOAuthDriveReady =
+    googleBaseReady &&
+    configured(process.env.GOOGLE_ADMIN_DRIVE_REDIRECT_URI) &&
+    driveProbe.data?.status === "connected";
 
   const checks = {
     supabase: {
@@ -67,16 +73,16 @@ export async function GET(request: NextRequest) {
         : "Intake / sync / reporting schema ready",
     },
     googleDrive: {
-      ready:
-        googleBaseReady &&
-        configured(process.env.GOOGLE_ADMIN_DRIVE_REDIRECT_URI) &&
-        driveProbe.data?.status === "connected",
-      label: "Google Drive / Sheets",
-      detail: !googleBaseReady || !configured(process.env.GOOGLE_ADMIN_DRIVE_REDIRECT_URI)
-        ? "網站 OAuth 未設定完整；目前只可由已連接工具做人工/受控同步"
-        : driveProbe.data?.status === "connected"
-          ? "Connected" + (driveProbe.data.account_email ? " · " + driveProbe.data.account_email : "")
-          : "OAuth 已設定，但 Admin 尚未完成 Drive 授權",
+      ready: googleServiceAccountReady || googleOAuthDriveReady,
+      label: "Google Sheets Sync",
+      detail: googleServiceAccountReady
+        ? "Service Account（長期自動同步）"
+        : googleOAuthDriveReady
+          ? "OAuth Connected（測試 / 備用）" +
+            (driveProbe.data?.account_email ? " · " + driveProbe.data.account_email : "")
+          : !googleBaseReady || !configured(process.env.GOOGLE_ADMIN_DRIVE_REDIRECT_URI)
+            ? "Google Sheets integration 尚未設定完整"
+            : "OAuth 已設定，但 Admin 尚未完成授權",
     },
     googleCalendar: {
       ready:
