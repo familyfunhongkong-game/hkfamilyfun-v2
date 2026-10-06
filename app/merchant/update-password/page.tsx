@@ -24,6 +24,20 @@ export default function MerchantUpdatePasswordPage() {
 
     let active = true;
 
+    const recoveryMarker =
+      new URLSearchParams(window.location.search).get("type") === "recovery" ||
+      new URLSearchParams(window.location.hash.replace(/^#/, "")).get("type") === "recovery";
+
+    if (recoveryMarker) {
+      void client.auth.getSession().then(({ data }) => {
+        if (!active) return;
+        if (data.session) {
+          setHasRecoverySession(true);
+          setIsChecking(false);
+        }
+      });
+    }
+
     const {
       data: { subscription },
     } = client.auth.onAuthStateChange((event, session) => {
@@ -42,9 +56,9 @@ export default function MerchantUpdatePasswordPage() {
     });
 
     // A normal authenticated session must never unlock the password-recovery form.
-    // Supabase emits PASSWORD_RECOVERY when the user arrives through a valid
-    // password-reset link. Waiting briefly also gives the client time to parse
-    // the recovery token from the redirect URL.
+    // PASSWORD_RECOVERY is the primary signal. The URL recovery marker + valid
+    // session fallback covers the race where Supabase parsed the recovery URL
+    // before this component subscribed to auth state changes.
     const verificationTimeout = window.setTimeout(() => {
       if (!active) return;
       setIsChecking(false);
