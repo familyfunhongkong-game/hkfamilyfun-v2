@@ -88,12 +88,12 @@ export async function GET(request: NextRequest) {
             : "OAuth 已設定，但 Admin 尚未完成授權",
     },
     googleCalendar: {
-      required: true,
+      required: false,
       ready: googleBaseReady,
       label: "Google Calendar",
       detail: googleBaseReady
-        ? "Planner Free/Busy runtime ready · callback defaults to /api/google-calendar/callback"
-        : "Google Calendar OAuth client configuration incomplete",
+        ? "Optional Planner Free/Busy integration ready · callback defaults to /api/google-calendar/callback"
+        : "Optional Free/Busy integration unavailable; Planner core still works",
     },
     aiAutomation: {
       required: false,
