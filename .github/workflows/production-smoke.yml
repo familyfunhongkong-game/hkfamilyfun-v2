@@ -181,6 +181,20 @@ jobs:
           sc_html="$(curl -L -sS --max-time 30 -b /tmp/hkff-sc.cookies "$BASE/")"
           echo "$sc_html" | grep -qi '<html lang="zh-Hans"'
 
+      - name: Check Google Calendar OAuth runtime
+        if: steps.deployment_gate.outputs.should_test == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          status_json="$(curl -L -sS --max-time 30 "$BASE/api/google-calendar/status")"
+          echo "$status_json"
+          echo "$status_json" | grep -q '"configured":true'
+
+          headers="$(curl -sS -D - -o /dev/null --max-time 30 "$BASE/api/google-calendar/connect")"
+          echo "$headers" | grep -Eqi '^location: https://accounts\.google\.com/'
+          echo "$headers" | grep -q 'api%2Fgoogle-calendar%2Fcallback'
+
       - name: Check protected APIs reject anonymous writes
         if: steps.deployment_gate.outputs.should_test == 'true'
         shell: bash
