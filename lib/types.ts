@@ -25,6 +25,8 @@ export interface Event {
   image: string;
   officialLink?: string;
   featured?: boolean;
+  updatedAt?: string;
+  publishedAt?: string;
   address?: string;
 }
 
