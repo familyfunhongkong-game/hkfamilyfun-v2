@@ -27,10 +27,11 @@ export default function EventImageFallback({
           ].join(" ")}
         >
           <Image
-            src="/logo.png"
+            src="/api/brand/family-fun-logo"
             alt=""
             width={160}
             height={160}
+            unoptimized
             className="h-full w-full object-contain"
           />
         </div>
