@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { PublicPromotionBanner } from "@/lib/content/public";
+import PromotionTracker from "@/components/promotion-tracker";
 
 export default function PromotionSlot({
   banners,
@@ -107,23 +108,27 @@ export default function PromotionSlot({
             </article>
           );
 
-          return banner.targetUrl ? (
-            <Link
+          return (
+            <PromotionTracker
               key={banner.id}
-              href={banner.targetUrl}
-              target={banner.targetUrl.startsWith("http") ? "_blank" : undefined}
-              rel={banner.targetUrl.startsWith("http") ? "noreferrer sponsored" : undefined}
+              bannerId={banner.id}
+              placement={banner.placement}
+              trackClick={Boolean(banner.targetUrl)}
               className={columnClass}
             >
-              {body}
-            </Link>
-          ) : (
-            <div
-              key={banner.id}
-              className={isLead && banners.length > 1 ? "lg:col-span-8" : "lg:col-span-4"}
-            >
-              {body}
-            </div>
+              {banner.targetUrl ? (
+                <Link
+                  href={banner.targetUrl}
+                  target={banner.targetUrl.startsWith("http") ? "_blank" : undefined}
+                  rel={banner.targetUrl.startsWith("http") ? "noreferrer sponsored" : undefined}
+                  className="block h-full"
+                >
+                  {body}
+                </Link>
+              ) : (
+                body
+              )}
+            </PromotionTracker>
           );
         })}
       </div>
