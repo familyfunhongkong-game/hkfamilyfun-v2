@@ -4,6 +4,7 @@ import {
   hasCurrentMerchantTerms,
   hasCurrentPrivacyAcceptance,
 } from "@/lib/merchant-legal";
+import { isFamilyFunSupabaseUrl } from "@/lib/supabase-project-identity";
 
 export const runtime = "nodejs";
 
@@ -115,6 +116,14 @@ function budgetLabel(value: string) {
 export async function POST(request: NextRequest) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     return json({ error: "Account service is not configured." }, 500);
+  }
+
+  if (!isFamilyFunSupabaseUrl(SUPABASE_URL)) {
+    console.error("merchant advertising enquiry blocked: Supabase project mismatch");
+    return json(
+      { error: "Supabase project identity mismatch. Merchant workflow blocked." },
+      503,
+    );
   }
 
   const authorization = request.headers.get("authorization") || "";

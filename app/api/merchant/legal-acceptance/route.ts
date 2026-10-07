@@ -4,6 +4,7 @@ import {
   CURRENT_MERCHANT_TERMS_VERSION,
   CURRENT_PRIVACY_VERSION,
 } from "@/lib/merchant-legal";
+import { isFamilyFunSupabaseUrl } from "@/lib/supabase-project-identity";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,14 @@ export async function POST(request: NextRequest) {
 
   if (!supabaseUrl || !publishableKey || !adminKey) {
     return response({ error: "Merchant legal acceptance service is unavailable." }, 500);
+  }
+
+  if (!isFamilyFunSupabaseUrl(supabaseUrl)) {
+    console.error("merchant legal acceptance blocked: Supabase project mismatch");
+    return response(
+      { error: "Supabase project identity mismatch. Privileged write blocked." },
+      503,
+    );
   }
 
   const authorization = request.headers.get("authorization") || "";

@@ -6,6 +6,11 @@ import {
   CURRENT_MERCHANT_TERMS_VERSION,
   CURRENT_PRIVACY_VERSION,
 } from "@/lib/merchant-legal";
+import {
+  HK_FAMILY_FUN_SUPABASE_PROJECT_REF,
+  isFamilyFunSupabaseUrl,
+  supabaseProjectRefFromUrl,
+} from "@/lib/supabase-project-identity";
 
 export const runtime = "nodejs";
 
@@ -178,6 +183,14 @@ export async function GET(request: NextRequest) {
           configured(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)),
       label: "Supabase",
       detail: "Database / Auth runtime configuration",
+    },
+    supabaseProjectIdentity: {
+      required: true,
+      ready: isFamilyFunSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL),
+      label: "Supabase Project Identity",
+      detail: isFamilyFunSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)
+        ? `Connected to expected HK Family Fun Supabase project: ${HK_FAMILY_FUN_SUPABASE_PROJECT_REF}`
+        : `ACTION REQUIRED：Runtime Supabase project ref is ${supabaseProjectRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL) || "unrecognized"}；expected ${HK_FAMILY_FUN_SUPABASE_PROJECT_REF}. Do not use privileged merchant/admin writes until corrected.`,
     },
     dataHub: {
       required: true,
