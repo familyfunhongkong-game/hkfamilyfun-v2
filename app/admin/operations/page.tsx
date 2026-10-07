@@ -277,9 +277,22 @@ export default function AdminOperationsPage() {
                     正式模式：唔需要 Google OAuth consent；只要相關 Google Sheets 已分享俾以上 Service Account，就可以長期自動同步。
                   </p>
                 ) : (
-                  <p className="mt-4 text-xs font-bold leading-6 text-amber-900">
-                    OAuth Testing 只適合驗證流程；Google Test User 授權會定期失效。正式營運會改用 Service Account。
-                  </p>
+                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-xs font-black text-amber-950">正式長期同步尚欠 3 步</p>
+                    <ol className="mt-2 space-y-1 text-xs font-bold leading-5 text-amber-900">
+                      <li>1. Google Cloud 建立 hk-family-fun-sheets-sync Service Account</li>
+                      <li>2. 只將 Event Intake / Merchant Form 兩張 Sheet 分享 Viewer 權限</li>
+                      <li>3. Vercel 加 GOOGLE_SERVICE_ACCOUNT_EMAIL + PRIVATE_KEY，再 Redeploy</li>
+                    </ol>
+                    <a
+                      href="https://console.cloud.google.com/iam-admin/serviceaccounts?project=peaceful-nature-510612-p6"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex text-xs font-black text-amber-950 underline"
+                    >
+                      開啟 Google Service Accounts ↗
+                    </a>
+                  </div>
                 )}
               </section>
 
