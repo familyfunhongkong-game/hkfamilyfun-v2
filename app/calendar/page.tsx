@@ -3,6 +3,7 @@ import { getPublishedEvents } from "@/lib/supabase/events";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import { eventOccursOn, eventOccursInRange } from "@/lib/events/recurrence";
+import PublicEventCard from "@/components/events/PublicEventCard";
 
 export const dynamic = "force-dynamic";
 
@@ -203,38 +204,14 @@ export default async function CalendarPage({
           </div>
 
           {monthEvents.length ? (
-            <div className="mt-5 space-y-4">
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
               {monthEvents.map((event) => (
-                <Link
+                <PublicEventCard
                   key={event.id}
-                  href={`/events/${event.id}`}
-                  className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm hover:border-purple-200 md:grid-cols-[120px_1fr_auto]"
-                >
-                  <div className="rounded-2xl bg-orange-50 px-3 py-3 text-center text-sm font-black text-orange-700">
-                    {event.recurrenceType === "weekly"
-                      ? event.recurrenceNote || p.weeklyRecurring
-                      : event.date}
-                    {event.recurrenceType !== "weekly" &&
-                    event.endDate &&
-                    event.endDate !== event.date
-                      ? ` → ${event.endDate}`
-                      : ""}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-950">
-                      {event.title}
-                    </h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {event.organizer} · {event.district}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {event.time}
-                    </p>
-                  </div>
-                  <span className="self-center rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
-                    {event.price || p.officialDetails}
-                  </span>
-                </Link>
+                  event={event}
+                  locale={locale}
+                  compact
+                />
               ))}
             </div>
           ) : (
