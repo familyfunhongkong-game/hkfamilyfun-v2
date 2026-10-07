@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
-
-const MERCHANT_TERMS_VERSION = "2026-10-07";
-const PRIVACY_VERSION = "2026-09-28";
+import {
+  CURRENT_CURRENT_MERCHANT_TERMS_VERSION,
+  CURRENT_CURRENT_PRIVACY_VERSION,
+} from "@/lib/merchant-legal";
 
 export default function MerchantRegisterPage() {
   const [businessName, setBusinessName] = useState("");
@@ -63,10 +64,10 @@ export default function MerchantRegisterPage() {
           website_url: websiteUrl,
           terms_accepted: true,
           terms_accepted_at: acceptedAt,
-          terms_version: MERCHANT_TERMS_VERSION,
+          terms_version: CURRENT_MERCHANT_TERMS_VERSION,
           privacy_accepted: true,
           privacy_accepted_at: acceptedAt,
-          privacy_version: PRIVACY_VERSION,
+          privacy_version: CURRENT_PRIVACY_VERSION,
         },
       },
     });
