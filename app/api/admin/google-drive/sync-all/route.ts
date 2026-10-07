@@ -1,12 +1,13 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   decryptAdminGoogleToken,
   getGoogleServiceAccountAccessToken,
   isGoogleServiceAccountConfigured,
   refreshGoogleAccessToken,
 } from "@/lib/admin-google-drive";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireAdmin, serviceClient } from "@/lib/admin-auth";
 
 export const runtime = "nodejs";
 
@@ -36,19 +37,11 @@ function canonicalPayload(payload: Record<string, unknown>) {
   );
 }
 
-export async function POST(request: NextRequest) {
-  const authorization = request.headers.get("authorization") || "";
-  const token = authorization.replace(/^Bearer\s+/i, "").trim();
-  const admin = await requireAdmin(token);
-
-  if (!admin.ok) {
-    return NextResponse.json({ error: admin.error }, { status: admin.status });
-  }
-
+async function runSync(client: SupabaseClient) {
   const serviceAccountMode = isGoogleServiceAccountConfigured();
   const { data: integration, error: integrationError } = serviceAccountMode
     ? { data: null, error: null }
-    : await admin.client
+    : await client
         .from("admin_integrations")
         .select("encrypted_refresh_token,status")
         .eq("provider", "google_drive")
@@ -83,7 +76,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data: sourceData, error: sourceError } = await admin.client
+  const { data: sourceData, error: sourceError } = await client
     .from("external_data_sources")
     .select("id,source_key,source_type,display_name,sheet_id,sheet_name")
     .eq("active", true)
@@ -114,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     const startedAt = new Date().toISOString();
-    const { data: run } = await admin.client
+    const { data: run } = await client
       .from("data_sync_runs")
       .insert({ source_id: source.id, status: "running", started_at: startedAt })
       .select("id")
@@ -164,7 +157,7 @@ export async function POST(request: NextRequest) {
           .update(canonicalPayload(payload))
           .digest("hex");
 
-        const existing = await admin.client
+        const existing = await client
           .from("intake_submissions")
           .select("id,payload,normalized_payload")
           .eq("source_id", source.id)
@@ -189,7 +182,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const { error } = await admin.client.from("intake_submissions").upsert(
+        const { error } = await client.from("intake_submissions").upsert(
           {
             source_id: source.id,
             source_type: "google_sheet",
@@ -231,7 +224,7 @@ export async function POST(request: NextRequest) {
     const finishedAt = new Date().toISOString();
 
     if (run?.id) {
-      await admin.client
+      await client
         .from("data_sync_runs")
         .update({
           status,
@@ -244,7 +237,7 @@ export async function POST(request: NextRequest) {
         .eq("id", run.id);
     }
 
-    await admin.client
+    await client
       .from("external_data_sources")
       .update({
         last_sync_at: finishedAt,
@@ -264,7 +257,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!serviceAccountMode) {
-    await admin.client
+    await client
       .from("admin_integrations")
       .update({
         last_used_at: new Date().toISOString(),
@@ -282,4 +275,40 @@ export async function POST(request: NextRequest) {
     errors,
     auth_mode: serviceAccountMode ? "service_account" : "oauth",
   });
+}
+
+export async function POST(request: NextRequest) {
+  const authorization = request.headers.get("authorization") || "";
+  const token = authorization.replace(/^Bearer\s+/i, "").trim();
+  const admin = await requireAdmin(token);
+
+  if (!admin.ok) {
+    return NextResponse.json({ error: admin.error }, { status: admin.status });
+  }
+
+  return runSync(admin.client);
+}
+
+export async function GET(request: NextRequest) {
+  const cronSecret = String(process.env.CRON_SECRET || "").trim();
+  const authorization = request.headers.get("authorization") || "";
+
+  if (!cronSecret || authorization !== "Bearer " + cronSecret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const client = serviceClient();
+  if (!client) {
+    console.error("scheduled-google-sync: Supabase service client unavailable");
+    return NextResponse.json(
+      { error: "Supabase service client unavailable" },
+      { status: 503 },
+    );
+  }
+
+  const response = await runSync(client);
+  console.info("scheduled-google-sync completed", {
+    status: response.status,
+  });
+  return response;
 }
