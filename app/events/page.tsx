@@ -956,6 +956,15 @@ function EventCard({
   const registrationUrl = getRegistrationUrl(event);
   const mapUrl = getGoogleMapUrl(event);
   const imageCount = images.filter((image) => image.url !== FALLBACK_IMAGE).length;
+  const organizer = safeText(
+    event.organizer_name || event.merchant_name,
+    uiText(locale, "主辦方待定", "主办方待定", "Organizer TBC"),
+  );
+  const ageGroup = safeText(
+    event.age_group,
+    uiText(locale, "適合年齡待定", "适合年龄待定", "Age TBC"),
+  );
+  const recurrenceNote = safeText(event.recurrence_note);
 
   function stopClick(eventObject: MouseEvent<HTMLElement>) {
     eventObject.preventDefault();
@@ -1049,6 +1058,16 @@ function EventCard({
           >
             {price}
           </span>
+          {event.is_sen_friendly ? (
+            <span className="rounded-full bg-fuchsia-100/95 px-3 py-1 text-xs font-black text-fuchsia-800 shadow-sm backdrop-blur">
+              SEN 友善
+            </span>
+          ) : null}
+          {event.is_indoor ? (
+            <span className="rounded-full bg-sky-100/95 px-3 py-1 text-xs font-black text-sky-800 shadow-sm backdrop-blur">
+              {uiText(locale, "室內", "室内", "Indoor")}
+            </span>
+          ) : null}
         </div>
 
         <button
@@ -1121,7 +1140,9 @@ function EventCard({
         <div className="flex flex-wrap gap-2">
           <Badge tone="purple">{category}</Badge>
           <Badge tone={isFreeEvent(event) ? "green" : "orange"}>{price}</Badge>
-          {mtr ? <Badge tone="slate">{mtr}</Badge> : null}
+          {mtr ? <Badge tone="slate">{uiText(locale, "港鐵", "港铁", "MTR")} {mtr}</Badge> : null}
+          {event.is_sen_friendly ? <Badge tone="purple">SEN 友善</Badge> : null}
+          {event.is_indoor ? <Badge tone="slate">{uiText(locale, "室內", "室内", "Indoor")}</Badge> : null}
         </div>
 
         <Link href={`/events/${event.id}`} className="mt-4 block">
@@ -1164,6 +1185,36 @@ function EventCard({
               {venue}
             </p>
           </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-2xl bg-purple-50/70 px-4 py-3 ring-1 ring-purple-100">
+              <p className="text-xs font-black text-purple-400">
+                {uiText(locale, "適合年齡", "适合年龄", "Age")}
+              </p>
+              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+                {ageGroup}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-purple-50/70 px-4 py-3 ring-1 ring-purple-100">
+              <p className="text-xs font-black text-purple-400">
+                {uiText(locale, "主辦方", "主办方", "Organizer")}
+              </p>
+              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+                {organizer}
+              </p>
+            </div>
+          </div>
+
+          {recurrenceNote ? (
+            <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
+              <p className="text-xs font-black text-amber-500">
+                {uiText(locale, "活動日子提示", "活动日期提示", "Schedule note")}
+              </p>
+              <p className="mt-1 line-clamp-2 text-xs font-extrabold leading-5 text-amber-900">
+                {recurrenceNote}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         {tags.length > 0 ? (
