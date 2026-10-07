@@ -92,6 +92,22 @@ function promotionLabel(value: string) {
   return "其他合作";
 }
 
+function durationLabel(value: string) {
+  if (value === "1_week") return "1 星期";
+  if (value === "2_weeks") return "2 星期";
+  if (value === "1_month") return "1 個月";
+  if (value === "discuss") return "想先傾";
+  return value;
+}
+
+function budgetLabel(value: string) {
+  if (value === "under_1000") return "HK$1,000 以下";
+  if (value === "1000_3000") return "HK$1,000–3,000";
+  if (value === "3000_5000") return "HK$3,000–5,000";
+  if (value === "5000_plus") return "HK$5,000+";
+  return value;
+}
+
 export async function POST(request: NextRequest) {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     return json({ error: "Account service is not configured." }, 500);
@@ -131,7 +147,14 @@ export async function POST(request: NextRequest) {
     return json({ error: "Approved merchant account required." }, 403);
   }
 
-  const body = (await request.json()) as Record<string, unknown>;
+  let body: Record<string, unknown>;
+
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: "Invalid request body." }, 400);
+  }
+
   const requestId = safeText(body.request_id, 64);
   const promotionType = safeText(body.promotion_type, 40);
   const campaignName = safeText(body.campaign_name, 120);
@@ -178,8 +201,8 @@ export async function POST(request: NextRequest) {
     `Campaign / 活動：${campaignName}`,
     officialUrl ? `官方 / 活動連結：${officialUrl}` : "",
     preferredStart ? `希望開始日期：${preferredStart}` : "",
-    duration ? `預計投放期：${duration}` : "",
-    budgetRange ? `預算範圍：${budgetRange}` : "",
+    duration ? `預計投放期：${durationLabel(duration)}` : "",
+    budgetRange ? `預算範圍：${budgetLabel(budgetRange)}` : "",
     notes ? `備註：${notes}` : "",
     "",
     "注意：此查詢並不代表廣告位已預留或付款已確認。",
