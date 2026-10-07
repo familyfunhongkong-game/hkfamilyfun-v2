@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { canActivatePromotion } from "@/lib/business-model";
 
 type Status = "draft" | "active" | "paused" | "archived";
 type Placement = "home_top" | "home_middle" | "events_top" | "news_top" | "article_inline";
@@ -329,6 +330,19 @@ export default function AdminPromotionsPage() {
       return;
     }
 
+    if (
+      draft.status === "active" &&
+      !canActivatePromotion({
+        is_paid: draft.is_paid,
+        sponsor_name: draft.sponsor_name,
+      })
+    ) {
+      setErrorText(
+        "商戶廣告未確認收費，不可以直接 Active。請先確認付款並勾選「已確認收到廣告費」。HK Family Fun 自家宣傳除外。",
+      );
+      return;
+    }
+
     setSaving(true);
     setErrorText("");
     setMessage("");
@@ -392,6 +406,17 @@ export default function AdminPromotionsPage() {
 
   async function setStatus(id: string, status: Status) {
     if (!supabase) return;
+
+    if (status === "active") {
+      const row = rows.find((item) => item.id === id);
+      if (row && !canActivatePromotion(row)) {
+        setErrorText(
+          "未確認付款的商戶廣告不能啟用。先確認收款，再勾選「已確認收到廣告費」。",
+        );
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("promo_banners")
       .update({ status, updated_at: new Date().toISOString() })
@@ -418,7 +443,7 @@ export default function AdminPromotionsPage() {
             Banner / 商戶廣告管理
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            Banner 同活動 Listing 分開管理。付費合作必須標示 Sponsored；可預先設定上架及落架時間，唔需要你到期再手動刪除。
+            一般活動 Listing 永久同廣告收費分開：活動資料上載不收費；Banner / Featured / Sponsored 屬付費曝光。商戶廣告要先確認付款先可以 Active；可預先設定上架及落架時間。
           </p>
         </div>
       </section>
@@ -585,7 +610,7 @@ export default function AdminPromotionsPage() {
             <div className="grid grid-cols-[1fr_120px] gap-3">
               <label className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">
                 <input type="checkbox" checked={draft.is_paid} onChange={(event) => setDraft({ ...draft, is_paid: event.target.checked })} />
-                付費合作 / Sponsored
+                已確認收到廣告費 / Sponsored
               </label>
               <label className="text-xs font-black text-slate-600">
                 Priority
