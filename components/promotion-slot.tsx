@@ -3,13 +3,22 @@ import type { PublicPromotionBanner } from "@/lib/content/public";
 
 export default function PromotionSlot({
   banners,
+  variant = "default",
 }: {
   banners: PublicPromotionBanner[];
+  variant?: "default" | "horizontal";
 }) {
   if (!banners.length) return null;
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8" aria-label="Promotions">
+    <section
+      className={
+        variant === "horizontal"
+          ? "mx-auto max-w-[1500px] px-4 py-4 sm:px-6 lg:px-8"
+          : "mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"
+      }
+      aria-label="Promotions"
+    >
       <div className="grid gap-4 lg:grid-cols-12">
         {banners.map((banner, index) => {
           const isLead = index === 0;
@@ -40,7 +49,9 @@ export default function PromotionSlot({
                     loading={isLead ? "eager" : "lazy"}
                     decoding="async"
                     className={[
-                      "h-48 w-full sm:h-60 lg:h-72",
+                      variant === "horizontal"
+                        ? "h-44 w-full sm:h-52 lg:h-64"
+                        : "h-48 w-full sm:h-60 lg:h-72",
                       isHouseBanner
                         ? "bg-gradient-to-br from-purple-100 via-white to-amber-100 object-contain p-8 sm:p-10"
                         : "object-cover",
@@ -48,7 +59,14 @@ export default function PromotionSlot({
                   />
                 </picture>
               ) : (
-                <div className="h-64 bg-gradient-to-br from-purple-700 via-fuchsia-600 to-amber-400 sm:h-72" />
+                <div
+                  className={[
+                    "bg-gradient-to-br from-purple-700 via-fuchsia-600 to-amber-400",
+                    variant === "horizontal"
+                      ? "h-44 sm:h-52 lg:h-64"
+                      : "h-64 sm:h-72",
+                  ].join(" ")}
+                />
               )}
 
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent" />
