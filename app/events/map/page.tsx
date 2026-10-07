@@ -111,9 +111,9 @@ function priceText(event: EventRecord, locale: AppLocale) {
 
   if (Number.isFinite(min) && min >= 0) {
     if (Number.isFinite(max) && max >= 0 && max !== min) {
-      return `HK${min}–${max}`;
+      return `HK$${min}–${max}`;
     }
-    if (min > 0) return `HK${min}`;
+    if (min > 0) return `HK$${min}`;
   }
 
   return uiText(locale, "價錢見活動詳情", "价格见活动详情", "See event price");
