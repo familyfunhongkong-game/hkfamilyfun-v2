@@ -172,6 +172,15 @@ export default function PublicEventCard({
               {event.district}
               {!mtrMissing ? ` · ${text(locale, "港鐵", "港铁", "MTR")} ${event.mtrStation}` : ""}
             </p>
+            <p className="mt-1 line-clamp-1 text-[11px] font-semibold text-slate-500">
+              {ageMissing
+                ? text(locale, "年齡待定", "年龄待定", "Age TBC")
+                : event.ageRange}
+              {" · "}
+              {organizerMissing
+                ? text(locale, "主辦方待定", "主办方待定", "Organizer TBC")
+                : event.organizer}
+            </p>
 
             <Link
               href={`/events/${event.id}`}
