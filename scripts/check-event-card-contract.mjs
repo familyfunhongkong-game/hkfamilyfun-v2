@@ -71,6 +71,24 @@ for (const signal of ["first.price", "first.age", "first.organizer"]) {
   }
 }
 
+const publicEvents = await readFile("lib/supabase/events.ts", "utf8");
+if (
+  publicEvents.includes('return `HK${') ||
+  publicEvents.includes('From HK${')
+) {
+  console.error("[event-card] public event price formatting must use HK$");
+  failed = true;
+}
+
+const mapPriceSource = await readFile("app/events/map/page.tsx", "utf8");
+if (
+  mapPriceSource.includes('return `HK${') ||
+  mapPriceSource.includes('From HK${')
+) {
+  console.error("[event-card] map event price formatting must use HK$");
+  failed = true;
+}
+
 const planner = await readFile("app/planner/page.tsx", "utf8");
 for (const signal of [
   "cover_image_url",
