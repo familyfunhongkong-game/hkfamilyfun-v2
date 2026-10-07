@@ -16,6 +16,7 @@ type EventRow = {
   official_url: string | null;
   source_url: string | null;
   merchant_id: string | null;
+  is_featured: boolean | null;
 };
 
 type MerchantRow = { id: string; status: string | null; business_name: string | null };
@@ -80,7 +81,7 @@ export default function AdminReportsPage() {
     setErrorText("");
 
     const results = await Promise.all([
-      supabase.from("events").select("id,title_tc,status,start_date,end_date,cover_image_url,gallery_image_urls,registration_url,official_url,source_url,merchant_id").limit(5000),
+      supabase.from("events").select("id,title_tc,status,start_date,end_date,cover_image_url,gallery_image_urls,registration_url,official_url,source_url,merchant_id,is_featured").limit(5000),
       supabase.from("merchants").select("id,status,business_name").limit(1000),
       supabase.from("intake_submissions").select("id,status,source_type,received_at").order("received_at", { ascending: false }).limit(2000),
       supabase.from("data_sync_runs").select("id,status,rows_read,error_count,started_at,message").order("started_at", { ascending: false }).limit(200),
@@ -112,6 +113,11 @@ export default function AdminReportsPage() {
     const expiredPublished = published.filter(
       (event) => Boolean(event.end_date && event.end_date < today),
     );
+    const expiredFeatured = events.filter(
+      (event) =>
+        event.is_featured === true &&
+        Boolean((event.end_date || event.start_date) && (event.end_date || event.start_date)! < today),
+    );
     const missingDate = events.filter((event) => !event.start_date);
     const missingImage = events.filter(
       (event) =>
@@ -134,6 +140,7 @@ export default function AdminReportsPage() {
       bannerStatus: countBy(banners),
       published: published.length,
       expiredPublished,
+      expiredFeatured,
       missingDate,
       missingImage,
       missingLink,
@@ -156,6 +163,7 @@ export default function AdminReportsPage() {
       promo_banners: report.bannerStatus,
       qa: {
         expired_published: report.expiredPublished.length,
+        expired_featured: report.expiredFeatured.length,
         missing_date: report.missingDate.length,
         missing_image: report.missingImage.length,
         missing_external_link: report.missingLink.length,
@@ -203,6 +211,7 @@ export default function AdminReportsPage() {
               <Metric label="Events" value={events.length} note={"Published " + report.published + " · Draft " + (report.eventStatus.draft || 0)} tone="purple" />
               <Metric label="Intake Attention" value={report.intakeAttention.length} note="New / needs review" tone={report.intakeAttention.length ? "amber" : "emerald"} />
               <Metric label="Expired but Published" value={report.expiredPublished.length} note="應優先封存或檢查 recurring 設定" tone={report.expiredPublished.length ? "rose" : "emerald"} />
+              <Metric label="Expired Featured" value={report.expiredFeatured.length} note="已過期但仍標記首頁精選" tone={report.expiredFeatured.length ? "amber" : "emerald"} />
               <Metric label="Failed Sync" value={report.failedSyncs.length} note="最近 200 次 sync" tone={report.failedSyncs.length ? "rose" : "emerald"} />
               <Metric label="Missing Date" value={report.missingDate.length} note="無開始日期嘅 Event" tone={report.missingDate.length ? "amber" : "emerald"} />
               <Metric label="Missing Image" value={report.missingImage.length} note="無 cover image" tone={report.missingImage.length ? "amber" : "emerald"} />
@@ -262,6 +271,13 @@ export default function AdminReportsPage() {
                     <p className="mt-1 text-xs font-semibold text-slate-500">{event.start_date || "No date"} → {event.end_date || event.start_date || "No date"}</p>
                   </Link>
                 ))}
+                {report.expiredFeatured.slice(0, 8).map((event) => (
+                  <Link key={"featured-" + event.id} href={"/admin/events/" + event.id} className="rounded-2xl border border-purple-100 bg-purple-50 p-4">
+                    <p className="text-[10px] font-black uppercase text-purple-700">Expired Featured</p>
+                    <p className="mt-2 font-black text-slate-950">{event.title_tc || event.id}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">請取消「首頁精選」或更新活動日期。</p>
+                  </Link>
+                ))}
                 {report.missingImage.slice(0, 6).map((event) => (
                   <Link key={"img-" + event.id} href={"/admin/events/" + event.id} className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
                     <p className="text-[10px] font-black uppercase text-amber-700">Missing Image</p>
@@ -269,7 +285,7 @@ export default function AdminReportsPage() {
                   </Link>
                 ))}
               </div>
-              {!report.expiredPublished.length && !report.missingImage.length ? (
+              {!report.expiredPublished.length && !report.expiredFeatured.length && !report.missingImage.length ? (
                 <p className="mt-5 text-sm font-bold text-emerald-700">目前冇高優先 Event QA exception。</p>
               ) : null}
             </section>
