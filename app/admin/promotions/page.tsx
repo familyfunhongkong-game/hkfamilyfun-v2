@@ -37,6 +37,11 @@ type Banner = {
 
 type Draft = Omit<Banner, "id" | "updated_at">;
 
+type BannerAnalytics = {
+  impressions: number;
+  clicks: number;
+};
+
 const emptyDraft: Draft = {
   internal_name: "",
   placement: "home_top",
@@ -108,6 +113,7 @@ export default function AdminPromotionsPage() {
   const [message, setMessage] = useState("");
   const [errorText, setErrorText] = useState("");
   const [placementFilter, setPlacementFilter] = useState<"all" | Placement>("all");
+  const [analytics, setAnalytics] = useState<Record<string, BannerAnalytics>>({});
 
   async function loadRows() {
     if (!supabase) {
@@ -117,23 +123,46 @@ export default function AdminPromotionsPage() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from("promo_banners")
-      .select("*")
-      .order("priority", { ascending: true })
-      .order("updated_at", { ascending: false });
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    if (error) {
+    const [bannerResult, analyticsResult] = await Promise.all([
+      supabase
+        .from("promo_banners")
+        .select("*")
+        .order("priority", { ascending: true })
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("promotion_events")
+        .select("banner_id,event_type")
+        .gte("occurred_at", since)
+        .limit(50000),
+    ]);
+
+    if (bannerResult.error) {
       setRows([]);
       setErrorText(
-        error.message.toLowerCase().includes("promo_banners")
+        bannerResult.error.message.toLowerCase().includes("promo_banners")
           ? "Promotion Banner schema 尚未套用到 Supabase。"
-          : error.message,
+          : bannerResult.error.message,
       );
     } else {
-      setRows((data || []) as Banner[]);
+      setRows((bannerResult.data || []) as Banner[]);
       setErrorText("");
     }
+
+    if (!analyticsResult.error) {
+      const next: Record<string, BannerAnalytics> = {};
+      for (const event of analyticsResult.data || []) {
+        const bannerId = String(event.banner_id || "");
+        if (!bannerId) continue;
+        const current = next[bannerId] || { impressions: 0, clicks: 0 };
+        if (event.event_type === "impression") current.impressions += 1;
+        if (event.event_type === "click") current.clicks += 1;
+        next[bannerId] = current;
+      }
+      setAnalytics(next);
+    }
+
     setLoading(false);
   }
 
@@ -588,7 +617,7 @@ export default function AdminPromotionsPage() {
                 <article key={row.id} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
                   <div className="grid sm:grid-cols-[230px_minmax(0,1fr)]">
                     <div className="min-h-44 bg-slate-100">
-                      <img src={row.image_url || "/logo.png"} alt={row.headline_tc} className="h-full w-full object-cover" />
+                      <img src={row.image_url || "/api/brand/family-fun-logo"} alt={row.headline_tc} className="h-full w-full object-cover" />
                     </div>
                     <div className="p-5">
                       <div className="flex flex-wrap gap-2">
@@ -599,6 +628,24 @@ export default function AdminPromotionsPage() {
                       <h2 className="mt-3 text-xl font-black text-slate-950">{row.headline_tc}</h2>
                       <p className="mt-1 text-xs font-semibold text-slate-400">{row.internal_name}</p>
                       <p className="mt-3 text-xs leading-5 text-slate-500">上架：{formatTime(row.starts_at)} · 落架：{formatTime(row.ends_at)} · Priority {row.priority}</p>
+                      <div className="mt-4 grid grid-cols-3 gap-2">
+                        <div className="rounded-2xl bg-slate-50 p-3">
+                          <p className="text-[10px] font-black uppercase text-slate-400">30日曝光</p>
+                          <p className="mt-1 text-lg font-black text-slate-950">{analytics[row.id]?.impressions || 0}</p>
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 p-3">
+                          <p className="text-[10px] font-black uppercase text-slate-400">30日點擊</p>
+                          <p className="mt-1 text-lg font-black text-slate-950">{analytics[row.id]?.clicks || 0}</p>
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 p-3">
+                          <p className="text-[10px] font-black uppercase text-slate-400">CTR</p>
+                          <p className="mt-1 text-lg font-black text-slate-950">
+                            {analytics[row.id]?.impressions
+                              ? ((analytics[row.id]!.clicks / analytics[row.id]!.impressions) * 100).toFixed(1) + "%"
+                              : "—"}
+                          </p>
+                        </div>
+                      </div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         <button type="button" onClick={() => edit(row)} className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white">編輯</button>
                         {row.status !== "active" ? <button type="button" onClick={() => void setStatus(row.id, "active")} className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white">啟用</button> : <button type="button" onClick={() => void setStatus(row.id, "paused")} className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black text-amber-800">暫停</button>}
