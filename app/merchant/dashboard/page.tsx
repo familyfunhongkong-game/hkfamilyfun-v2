@@ -840,8 +840,7 @@ export default function MerchantDashboardPage() {
                 商戶 Dashboard
               </h1>
               <p className="mt-3 max-w-5xl text-sm leading-6 text-slate-600">
-                以兩欄式管理活動草稿、審批狀態、公開頁資料及報名 CTA。圖片更大、
-                操作更集中，減少上下捲動。
+                一般活動資料上載、提交審批及正常公開 Listing 不收費。你亦可在同一 Portal 管理草稿、審批狀態、圖片、地點及報名 CTA；只有額外 Banner / Featured / Sponsored 曝光服務才收費。
               </p>
             </div>
 
@@ -866,6 +865,12 @@ export default function MerchantDashboardPage() {
                 className="rounded-full border border-purple-200 bg-purple-50 px-5 py-2 text-sm font-bold text-purple-800 hover:bg-purple-100"
               >
                 🔔 商戶通知
+              </Link>
+              <Link
+                href="/merchant/advertising"
+                className="rounded-full border border-amber-200 bg-amber-50 px-5 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100"
+              >
+                付費廣告 / Featured
               </Link>
               <Link
                 href="/merchant/events/import"
@@ -1038,6 +1043,12 @@ export default function MerchantDashboardPage() {
               >
                 智能網址匯入
               </Link>
+              <Link
+                href="/merchant/advertising"
+                className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-black text-amber-900 hover:bg-amber-100"
+              >
+                付費廣告 / Featured
+              </Link>
               <button
                 type="button"
                 onClick={loadDashboard}
@@ -1046,6 +1057,19 @@ export default function MerchantDashboardPage() {
                 重新整理列表
               </button>
             </div>
+          </div>
+
+          <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+            <p className="text-sm font-black text-emerald-800">收費規則</p>
+            <p className="mt-3 text-sm font-bold leading-6 text-slate-800">
+              一般活動 Listing：免費
+            </p>
+            <p className="mt-1 text-sm leading-6 text-slate-700">
+              Banner / Featured / Sponsored：付費
+            </p>
+            <p className="mt-2 text-xs leading-5 text-slate-600">
+              Sell with Family Fun 票務會在平台有足夠流量及商戶後才啟用；現階段報名付款仍由主辦方處理。
+            </p>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">

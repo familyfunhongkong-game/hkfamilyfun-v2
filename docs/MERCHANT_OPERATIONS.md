@@ -57,4 +57,15 @@ Notification delivery must not block the business transaction. A successful DB s
 
 ## Operating principle
 
-HK Family Fun is a discovery/sharing platform. Registration and payment remain with the organizer. The platform does not process event tickets or customer payments.
+HK Family Fun keeps normal event listing and paid promotion as separate products.
+
+- Normal merchant event listing is free.
+- Uploading event information and images is free.
+- Submission, approval and normal publication are free.
+- Banner, Featured and Sponsored exposure are paid advertising products.
+- A merchant advertisement must not be activated publicly until HK Family Fun confirms payment.
+- HK Family Fun house promotions are not merchant advertisements and do not require an advertising payment.
+
+HK Family Fun is currently a discovery/sharing platform. Registration and payment remain with the organizer. The platform does not process event tickets or customer payments yet.
+
+`Sell with Family Fun` is reserved for a later growth stage and stays disabled until checkout, orders, refunds, merchant onboarding/KYC, commission, payout and reconciliation are fully production-ready.
