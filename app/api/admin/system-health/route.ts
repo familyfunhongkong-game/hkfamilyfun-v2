@@ -53,6 +53,10 @@ export async function GET(request: NextRequest) {
     .from("external_data_sources")
     .select("id", { count: "exact", head: true });
 
+  const promotionAnalyticsProbe = await client
+    .from("promotion_events")
+    .select("id", { count: "exact", head: true });
+
   const driveProbe = await client
     .from("admin_integrations")
     .select("status,account_email,last_used_at,last_error")
@@ -174,6 +178,30 @@ export async function GET(request: NextRequest) {
           : !googleBaseReady || !configured(process.env.GOOGLE_ADMIN_DRIVE_REDIRECT_URI)
             ? "Google Sheets integration 尚未設定完整"
             : "OAuth 已設定，但 Admin 尚未完成授權",
+    },
+    scheduledAutomation: {
+      required: true,
+      ready: configured(process.env.CRON_SECRET),
+      label: "Scheduled Automation",
+      detail: configured(process.env.CRON_SECRET)
+        ? "每日香港時間 00:30 Google Sheets sync · 01:30 自動封存明確過期非 recurring 活動"
+        : "CRON_SECRET 未設定；每日自動同步 / 資料清理未受保護",
+    },
+    promotionAnalytics: {
+      required: false,
+      ready: !promotionAnalyticsProbe.error,
+      label: "Promotion Analytics",
+      detail: promotionAnalyticsProbe.error
+        ? "Banner analytics schema 未就緒"
+        : "Admin 可睇近30日 impressions / clicks / CTR；不儲存 user id、email 或 IP",
+    },
+    googleServiceAccount: {
+      required: false,
+      ready: googleServiceAccountReady,
+      label: "Google Service Account",
+      detail: googleServiceAccountReady
+        ? "長期 Google Sheets 自動同步已使用 Service Account"
+        : "未設定；目前使用 OAuth 測試 / 備用模式，正式長期營運仍建議完成 Service Account",
     },
     googleCalendar: {
       required: false,
