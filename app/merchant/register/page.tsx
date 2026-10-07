@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 
-const MERCHANT_TERMS_VERSION = "2026-09-28";
+const MERCHANT_TERMS_VERSION = "2026-10-07";
 const PRIVACY_VERSION = "2026-09-28";
 
 export default function MerchantRegisterPage() {
@@ -96,7 +96,7 @@ export default function MerchantRegisterPage() {
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            登記後可建立活動草稿、上載活動圖片、預覽 Event Post，並提交平台審批。
+            登記後可免費建立活動草稿、上載活動圖片、預覽 Event Post，並提交平台審批；一般活動正常刊登不收費。
           </p>
 
           {message ? (
