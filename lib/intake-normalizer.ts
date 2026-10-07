@@ -47,6 +47,89 @@ function timeOnly(value: string) {
   return match ? match[1].padStart(2, "0") + ":" + match[2] : null;
 }
 
+function sanitizeAiNormalized(
+  candidate: JsonMap,
+  baseline: JsonMap,
+): JsonMap {
+  const stringKeys = [
+    "title_tc",
+    "title_sc",
+    "title_en",
+    "short_description_tc",
+    "venue_name",
+    "address",
+    "district",
+    "mtr_station",
+    "activity_category",
+    "price_display_mode",
+    "price_label",
+    "registration_url",
+    "official_url",
+    "google_map_url",
+    "cover_image_url",
+    "organizer_name",
+    "contact_email",
+    "contact_phone",
+    "whatsapp",
+  ] as const;
+
+  const next: JsonMap = { ...baseline };
+
+  for (const key of stringKeys) {
+    if (!(key in candidate)) continue;
+    const value = candidate[key];
+    if (value === null) {
+      next[key] = null;
+      continue;
+    }
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    next[key] = trimmed || null;
+  }
+
+  for (const key of ["start_date", "end_date"] as const) {
+    if (!(key in candidate)) continue;
+    const value = candidate[key];
+    if (value === null) {
+      next[key] = null;
+      continue;
+    }
+    if (typeof value !== "string") continue;
+    const normalized = dateOnly(value);
+    if (normalized) next[key] = normalized;
+  }
+
+  for (const key of ["start_time", "end_time"] as const) {
+    if (!(key in candidate)) continue;
+    const value = candidate[key];
+    if (value === null) {
+      next[key] = null;
+      continue;
+    }
+    if (typeof value !== "string") continue;
+    const normalized = timeOnly(value);
+    if (normalized) next[key] = normalized;
+  }
+
+  if ("min_price" in candidate) {
+    const value = candidate.min_price;
+    if (value === null) next.min_price = null;
+    else {
+      const number = Number(value);
+      if (Number.isFinite(number) && number >= 0) next.min_price = number;
+    }
+  }
+
+  if (Array.isArray(candidate.tags)) {
+    next.tags = candidate.tags
+      .map((item) => clean(item))
+      .filter(Boolean)
+      .slice(0, 30);
+  }
+
+  return next;
+}
+
 function looksLikeIsoDate(value: unknown) {
   return /^20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}$/.test(clean(value));
 }
@@ -138,7 +221,11 @@ async function normalizeWithAi(payload: JsonMap, baseline: JsonMap) {
     const raw = clean(response.output_text)
       .replace(/^\x60\x60\x60json\s*/i, "")
       .replace(/\x60\x60\x60$/i, "");
-    return { value: { ...baseline, ...(JSON.parse(raw) as JsonMap) }, ai: true };
+    const parsed = JSON.parse(raw) as JsonMap;
+    return {
+      value: sanitizeAiNormalized(parsed, baseline),
+      ai: true,
+    };
   } catch {
     return { value: baseline, ai: false };
   }
