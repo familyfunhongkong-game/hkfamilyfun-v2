@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { canActivatePromotion } from "@/lib/business-model";
+import {
+  getPromotionCommercialStage,
+  promotionCommercialStageDetail,
+  promotionCommercialStageLabels,
+  type PromotionCommercialStage,
+} from "@/lib/promotion-operations";
 
 type Status = "draft" | "active" | "paused" | "archived";
 type Placement = "home_top" | "home_middle" | "events_top" | "news_top" | "article_inline";
@@ -77,6 +83,22 @@ const placementLabels: Record<Placement, string> = {
   article_inline: "News 文章底部／內文",
 };
 
+const commercialStageOrder: PromotionCommercialStage[] = [
+  "awaiting_payment",
+  "paid_pending_schedule",
+  "live",
+  "completed",
+  "house",
+];
+
+const commercialStageClasses: Record<PromotionCommercialStage, string> = {
+  house: "border-slate-200 bg-slate-100 text-slate-700",
+  awaiting_payment: "border-rose-200 bg-rose-50 text-rose-800",
+  paid_pending_schedule: "border-amber-200 bg-amber-50 text-amber-900",
+  live: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  completed: "border-slate-200 bg-white text-slate-600",
+};
+
 function fromLocalInput(value: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -114,6 +136,9 @@ export default function AdminPromotionsPage() {
   const [message, setMessage] = useState("");
   const [errorText, setErrorText] = useState("");
   const [placementFilter, setPlacementFilter] = useState<"all" | Placement>("all");
+  const [commercialFilter, setCommercialFilter] = useState<
+    "all" | PromotionCommercialStage
+  >("all");
   const [analytics, setAnalytics] = useState<Record<string, BannerAnalytics>>({});
 
   async function loadRows() {
@@ -171,12 +196,33 @@ export default function AdminPromotionsPage() {
     void loadRows();
   }, []);
 
+  const commercialSummary = useMemo(() => {
+    const counts: Record<PromotionCommercialStage, number> = {
+      house: 0,
+      awaiting_payment: 0,
+      paid_pending_schedule: 0,
+      live: 0,
+      completed: 0,
+    };
+
+    for (const row of rows) {
+      counts[getPromotionCommercialStage(row)] += 1;
+    }
+
+    return counts;
+  }, [rows]);
+
   const shown = useMemo(
     () =>
-      placementFilter === "all"
-        ? rows
-        : rows.filter((row) => row.placement === placementFilter),
-    [rows, placementFilter],
+      rows.filter((row) => {
+        const placementMatches =
+          placementFilter === "all" || row.placement === placementFilter;
+        const commercialMatches =
+          commercialFilter === "all" ||
+          getPromotionCommercialStage(row) === commercialFilter;
+        return placementMatches && commercialMatches;
+      }),
+    [rows, placementFilter, commercialFilter],
   );
 
   function edit(row: Banner) {
@@ -445,6 +491,9 @@ export default function AdminPromotionsPage() {
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
             一般活動 Listing 永久同廣告收費分開：活動資料上載不收費；Banner / Featured / Sponsored 屬付費曝光。商戶廣告要先確認付款先可以 Active；可預先設定上架及落架時間。
           </p>
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">
+            下方「待收款／已付款待排期／Live／已完成」係由現有 Banner status、付款確認及投放日期推算的 Operational View，方便日常營運；並非正式會計或 payment ledger。
+          </p>
         </div>
       </section>
 
@@ -625,20 +674,109 @@ export default function AdminPromotionsPage() {
         </form>
 
         <section>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setPlacementFilter("all")} className={placementFilter === "all" ? "rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white" : "rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600"}>全部</button>
-            {(Object.keys(placementLabels) as Placement[]).map((placement) => (
-              <button key={placement} type="button" onClick={() => setPlacementFilter(placement)} className={placementFilter === placement ? "rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white" : "rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600"}>{placementLabels[placement]}</button>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {commercialStageOrder.map((stage) => (
+              <button
+                key={stage}
+                type="button"
+                onClick={() =>
+                  setCommercialFilter((current) =>
+                    current === stage ? "all" : stage,
+                  )
+                }
+                className={
+                  "rounded-3xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 " +
+                  commercialStageClasses[stage] +
+                  (commercialFilter === stage ? " ring-2 ring-slate-900/10" : "")
+                }
+              >
+                <p className="text-xs font-black">
+                  {promotionCommercialStageLabels[stage]}
+                </p>
+                <p className="mt-2 text-3xl font-black">
+                  {commercialSummary[stage]}
+                </p>
+                <p className="mt-2 text-[11px] font-semibold leading-5 opacity-80">
+                  {promotionCommercialStageDetail(stage)}
+                </p>
+              </button>
             ))}
           </div>
 
+          <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-black text-slate-950">營運篩選</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  {commercialFilter === "all"
+                    ? "顯示全部商業狀態"
+                    : `只顯示：${promotionCommercialStageLabels[commercialFilter]}`}
+                  {" · "}
+                  {placementFilter === "all"
+                    ? "全部版位"
+                    : placementLabels[placementFilter]}
+                  {" · "}
+                  共 {shown.length} 個 Banner
+                </p>
+              </div>
+              {(commercialFilter !== "all" || placementFilter !== "all") ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCommercialFilter("all");
+                    setPlacementFilter("all");
+                  }}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700"
+                >
+                  清除篩選
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setCommercialFilter("all")}
+                className={
+                  commercialFilter === "all"
+                    ? "rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white"
+                    : "rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600"
+                }
+              >
+                全部商業狀態
+              </button>
+              {commercialStageOrder.map((stage) => (
+                <button
+                  key={stage}
+                  type="button"
+                  onClick={() => setCommercialFilter(stage)}
+                  className={
+                    commercialFilter === stage
+                      ? "rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white"
+                      : "rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600"
+                  }
+                >
+                  {promotionCommercialStageLabels[stage]}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setPlacementFilter("all")} className={placementFilter === "all" ? "rounded-full bg-purple-700 px-4 py-2 text-xs font-black text-white" : "rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600"}>全部版位</button>
+              {(Object.keys(placementLabels) as Placement[]).map((placement) => (
+                <button key={placement} type="button" onClick={() => setPlacementFilter(placement)} className={placementFilter === placement ? "rounded-full bg-purple-700 px-4 py-2 text-xs font-black text-white" : "rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600"}>{placementLabels[placement]}</button>
+              ))}
+            </div>
+          </div>
           <div className="mt-5 space-y-4">
             {loading ? (
               <div className="rounded-3xl border border-slate-200 bg-white p-8 text-sm font-bold text-slate-500">讀取中…</div>
             ) : shown.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm font-bold text-slate-500">暫時沒有 Banner。</div>
             ) : (
-              shown.map((row) => (
+              shown.map((row) => {
+                const commercialStage = getPromotionCommercialStage(row);
+                return (
                 <article key={row.id} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
                   <div className="grid sm:grid-cols-[230px_minmax(0,1fr)]">
                     <div className="min-h-44 bg-slate-100">
@@ -648,6 +786,9 @@ export default function AdminPromotionsPage() {
                       <div className="flex flex-wrap gap-2">
                         <span className="rounded-full bg-purple-50 px-2.5 py-1 text-[10px] font-black text-purple-700">{placementLabels[row.placement]}</span>
                         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-600">{row.status}</span>
+                        <span className={"rounded-full border px-2.5 py-1 text-[10px] font-black " + commercialStageClasses[commercialStage]}>
+                          {promotionCommercialStageLabels[commercialStage]}
+                        </span>
                         {row.is_paid ? <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black text-amber-800">Sponsored</span> : null}
                       </div>
                       <h2 className="mt-3 text-xl font-black text-slate-950">{row.headline_tc}</h2>
@@ -687,7 +828,8 @@ export default function AdminPromotionsPage() {
                     </div>
                   </div>
                 </article>
-              ))
+                );
+              })
             )}
           </div>
         </section>
