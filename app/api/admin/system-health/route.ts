@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isGoogleServiceAccountConfigured } from "@/lib/admin-google-drive";
+import { HK_FAMILY_FUN_BUSINESS_MODEL } from "@/lib/business-model";
 
 export const runtime = "nodejs";
 
@@ -218,6 +219,31 @@ export async function GET(request: NextRequest) {
       detail: configured(process.env.OPENAI_API_KEY)
         ? "AI normalization / social drafting available"
         : "未設定 AI provider；系統會安全使用 rule-based / template fallback，不會停工",
+    },
+    merchantAdvertising: {
+      required: true,
+      ready:
+        configured(process.env.RESEND_API_KEY) &&
+        configured(process.env.APPROVAL_EMAIL),
+      label: "Merchant Advertising",
+      detail:
+        configured(process.env.RESEND_API_KEY) &&
+        configured(process.env.APPROVAL_EMAIL)
+          ? "一般活動 Listing 免費；付費 Banner / Featured / Sponsored 查詢可由 Merchant Portal 提交，付款仍由 Admin 確認後才可啟用"
+          : "廣告查詢通知未完整設定；一般免費活動 Listing 不受影響",
+    },
+    sellWithFamilyFunSafety: {
+      required: true,
+      ready:
+        !HK_FAMILY_FUN_BUSINESS_MODEL.sellWithFamilyFunRequested ||
+        (HK_FAMILY_FUN_BUSINESS_MODEL.sellWithFamilyFunImplemented &&
+          HK_FAMILY_FUN_BUSINESS_MODEL.sellWithFamilyFunEnabled),
+      label: "Sell with Family Fun Safety Gate",
+      detail: HK_FAMILY_FUN_BUSINESS_MODEL.sellWithFamilyFunEnabled
+        ? "Code gate + environment gate 已同時開啟"
+        : HK_FAMILY_FUN_BUSINESS_MODEL.sellWithFamilyFunRequested
+          ? "環境變數要求開啟，但 checkout / refund / payout backend 尚未完成；系統已阻止啟用"
+          : "Safely OFF：現階段由主辦方自行處理報名付款；待完整 ticketing backend QA 後先可開啟",
     },
     resend: {
       required: true,

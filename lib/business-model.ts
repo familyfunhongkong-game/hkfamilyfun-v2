@@ -1,8 +1,14 @@
+const SELL_WITH_FAMILY_FUN_IMPLEMENTED = false;
+const sellWithFamilyFunRequested =
+  process.env.NEXT_PUBLIC_ENABLE_SELL_WITH_FAMILY_FUN === "true";
+
 export const HK_FAMILY_FUN_BUSINESS_MODEL = {
   freeEventListing: true,
   paidAdvertising: true,
+  sellWithFamilyFunImplemented: SELL_WITH_FAMILY_FUN_IMPLEMENTED,
+  sellWithFamilyFunRequested,
   sellWithFamilyFunEnabled:
-    process.env.NEXT_PUBLIC_ENABLE_SELL_WITH_FAMILY_FUN === "true",
+    SELL_WITH_FAMILY_FUN_IMPLEMENTED && sellWithFamilyFunRequested,
 } as const;
 
 export const HK_FAMILY_FUN_HOUSE_SPONSOR = "HK Family Fun";

@@ -56,8 +56,11 @@ Planned payment architecture:
 
 Customer -> HK Family Fun Checkout -> Payment Processor -> Order -> Ticket -> Platform Fee -> Merchant Payout
 
-The production feature flag is:
+Sell with Family Fun uses a two-part safety gate:
 
-`NEXT_PUBLIC_ENABLE_SELL_WITH_FAMILY_FUN=true`
+1. The code implementation gate must explicitly confirm that checkout, orders, refunds, disputes, merchant onboarding/KYC, platform fee, payout and reconciliation are implemented.
+2. Only then may `NEXT_PUBLIC_ENABLE_SELL_WITH_FAMILY_FUN=true` request production activation.
 
-Do not enable this flag merely because the UI exists. It should only be enabled after the full payment and settlement workflow is production-ready.
+At the current stage the code implementation gate is intentionally `false`. Changing the environment variable alone cannot enable ticketing. Admin System Health will flag an attempted environment activation while the implementation gate remains closed.
+
+Do not open the implementation gate until the full payment and settlement workflow is production-ready and has passed end-to-end QA.
