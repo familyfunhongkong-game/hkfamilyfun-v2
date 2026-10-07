@@ -51,6 +51,17 @@ async function runSync(client: SupabaseClient) {
     return NextResponse.json({ error: "Google Drive 尚未連接。" }, { status: 409 });
   }
 
+  async function recordOAuthError(message: string) {
+    if (serviceAccountMode) return;
+    await client
+      .from("admin_integrations")
+      .update({
+        last_error: message,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("provider", "google_drive");
+  }
+
   let accessToken = "";
   try {
     if (serviceAccountMode) {
@@ -58,22 +69,24 @@ async function runSync(client: SupabaseClient) {
     } else {
       const refreshToken = decryptAdminGoogleToken(integration?.encrypted_refresh_token);
       if (!refreshToken) {
-        return NextResponse.json(
-          { error: "Google Drive refresh token 無效，請重新連接。" },
-          { status: 409 },
-        );
+        const message = "Google Drive refresh token 無效，請重新連接。";
+        await recordOAuthError(message);
+        return NextResponse.json({ error: message }, { status: 409 });
       }
       accessToken = await refreshGoogleAccessToken(refreshToken);
     }
-  } catch {
-    return NextResponse.json(
-      {
-        error: serviceAccountMode
-          ? "Google Service Account 授權失敗，請檢查 service account 設定及 Sheet 分享權限。"
-          : "Google Drive token refresh 失敗，請重新連接。",
-      },
-      { status: 502 },
-    );
+  } catch (error) {
+    const message = serviceAccountMode
+      ? "Google Service Account 授權失敗，請檢查 service account 設定及 Sheet 分享權限。"
+      : "Google Drive token refresh 失敗，請重新連接。";
+
+    await recordOAuthError(message);
+    console.error("google-sheet-sync authorization failed", {
+      auth_mode: serviceAccountMode ? "service_account" : "oauth",
+      error: error instanceof Error ? error.message : "unknown",
+    });
+
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 
   const { data: sourceData, error: sourceError } = await client
