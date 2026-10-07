@@ -160,41 +160,14 @@ export default function AdminOperationsPage() {
 
   async function syncAll() {
     setSyncing(true); setMessage(""); setErrorText("");
-    const syncStartedAt = new Date().toISOString();
     try {
       const body=await request("/api/admin/google-drive/sync-all",{method:"POST",body:"{}"});
-      let normalized = 0;
-      let normalizeFailed = 0;
-
-      if (supabase) {
-        const fresh = await supabase
-          .from("intake_submissions")
-          .select("id")
-          .eq("status", "new")
-          .gte("updated_at", syncStartedAt)
-          .order("updated_at", { ascending: true })
-          .limit(100);
-
-        if (!fresh.error) {
-          for (const row of fresh.data || []) {
-            try {
-              await request("/api/admin/intake/normalize", {
-                method: "POST",
-                body: JSON.stringify({ id: row.id }),
-              });
-              normalized += 1;
-            } catch {
-              normalizeFailed += 1;
-            }
-          }
-        }
-      }
-
       setMessage(
         "同步完成：讀取 "+(body.rows_read||0)+
         " 行，更新 Intake "+(body.rows_upserted||0)+
-        " 行；自動 Normalize "+normalized+
-        " 行，Normalize 失敗 "+normalizeFailed+
+        " 行；自動 Normalized "+(body.normalized||0)+
+        "，Needs Review "+(body.needs_review||0)+
+        "，Normalize 失敗 "+(body.normalize_errors||0)+
         "，同步錯誤 "+(body.errors||0)+"。"
       );
       await loadSummary();
