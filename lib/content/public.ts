@@ -10,6 +10,7 @@ export type PromotionPlacement =
 
 export type PublicPromotionBanner = {
   id: string;
+  placement: PromotionPlacement;
   headline: string;
   subheadline: string;
   imageUrl: string;
@@ -39,6 +40,7 @@ export type PublicArticle = {
 
 type PromotionRow = {
   id: string;
+  placement: PromotionPlacement;
   headline_tc: string | null;
   headline_sc: string | null;
   headline_en: string | null;
@@ -94,6 +96,7 @@ function mapPromotion(
 ): PublicPromotionBanner {
   return {
     id: row.id,
+    placement: row.placement,
     headline: localizedText(locale, {
       tc: row.headline_tc,
       sc: row.headline_sc,
@@ -165,7 +168,7 @@ export async function getActivePromotionBanners(
   const { data, error } = await supabase
     .from("promo_banners")
     .select(
-      "id,headline_tc,headline_sc,headline_en,subheadline_tc,subheadline_sc,subheadline_en,image_url,mobile_image_url,target_url,cta_label_tc,cta_label_sc,cta_label_en,badge_text_tc,badge_text_sc,badge_text_en,sponsor_name,is_paid",
+      "id,placement,headline_tc,headline_sc,headline_en,subheadline_tc,subheadline_sc,subheadline_en,image_url,mobile_image_url,target_url,cta_label_tc,cta_label_sc,cta_label_en,badge_text_tc,badge_text_sc,badge_text_en,sponsor_name,is_paid",
     )
     .eq("placement", placement)
     .eq("status", "active")
