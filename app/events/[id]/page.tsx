@@ -547,6 +547,7 @@ function getPrimaryActionUrl(event: EventRecord): string | null {
 
 function getPrimaryActionLabel(event: EventRecord, locale: AppLocale): string {
   const custom = safeText(event.cta_label || event.cta_text);
+  const registrationUrl = getRegistrationUrl(event);
   const officialUrl = getOfficialWebsiteUrl(event);
   const ctaType = safeText(event.cta_type).toLowerCase();
 
@@ -1096,7 +1097,6 @@ export default function PublicEventDetailPage() {
     uiText(locale, "主辦方待定", "主办方待定", "Organizer TBC"),
   );
 
-  const registrationUrl = getRegistrationUrl(event);
   const officialUrl = getOfficialWebsiteUrl(event);
   const actionUrl = getPrimaryActionUrl(event);
   const actionLabel = getPrimaryActionLabel(event, locale);
