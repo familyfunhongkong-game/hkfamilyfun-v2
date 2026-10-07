@@ -185,6 +185,7 @@ export default async function HomePage() {
     locale === "en"
       ? {
           id: "home-house-fallback",
+          placement: "home_top",
           headline: "Put your family event in front of Hong Kong parents",
           subheadline:
             "Merchant event submission, featured placement and campaign promotion are managed from one place.",
