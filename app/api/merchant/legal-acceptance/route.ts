@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       error: updateError?.message || "No updated row",
     });
     return response(
-      { error: "暫時未能儲存新版 Merchant Terms 接受記錄。" },
+      { error: "暫時未能儲存新版 Merchant Terms 及 Privacy Policy 接受記錄。" },
       500,
     );
   }
