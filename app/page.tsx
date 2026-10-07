@@ -134,6 +134,15 @@ export default async function HomePage() {
     .filter((event) => event.featured)
     .slice(0, 4);
 
+  const featuredGridClass =
+    featuredEvents.length <= 1
+      ? "grid gap-5 md:max-w-3xl"
+      : featuredEvents.length === 2
+        ? "grid gap-5 md:grid-cols-2"
+        : featuredEvents.length === 3
+          ? "grid gap-5 md:grid-cols-2 xl:grid-cols-3"
+          : "grid gap-5 md:grid-cols-2 xl:grid-cols-4";
+
   const featuredIds = new Set(featuredEvents.map((event) => event.id));
   const latestUpdated = latestSorted
     .filter((event) => !featuredIds.has(event.id))
@@ -276,7 +285,7 @@ export default async function HomePage() {
         </div>
 
         {featuredEvents.length ? (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className={featuredGridClass}>
             {featuredEvents.map((event) => (
               <EventCard
                 key={event.id}
