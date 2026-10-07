@@ -132,12 +132,12 @@ export default async function HomePage() {
 
   const featuredEvents = latestSorted
     .filter((event) => event.featured)
-    .slice(0, 6);
+    .slice(0, 4);
 
   const featuredIds = new Set(featuredEvents.map((event) => event.id));
   const latestUpdated = latestSorted
     .filter((event) => !featuredIds.has(event.id))
-    .slice(0, 18);
+    .slice(0, 16);
 
   const quickActions = [
     {
@@ -276,7 +276,7 @@ export default async function HomePage() {
         </div>
 
         {featuredEvents.length ? (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             {featuredEvents.map((event) => (
               <EventCard
                 key={event.id}
@@ -317,7 +317,7 @@ export default async function HomePage() {
           </div>
 
           {latestUpdated.length ? (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
               {latestUpdated.map((event) => (
                 <EventCard key={event.id} event={event} locale={locale} />
               ))}
