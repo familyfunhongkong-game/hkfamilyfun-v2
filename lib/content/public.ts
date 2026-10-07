@@ -169,6 +169,8 @@ export async function getActivePromotionBanners(
     )
     .eq("placement", placement)
     .eq("status", "active")
+    .or(`starts_at.is.null,starts_at.lte.${new Date().toISOString()}`)
+    .or(`ends_at.is.null,ends_at.gte.${new Date().toISOString()}`)
     .order("priority", { ascending: true })
     .limit(limit);
 
