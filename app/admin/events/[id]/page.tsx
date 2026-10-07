@@ -36,6 +36,7 @@ type EventRecord = {
   admin_review_note?: string | null;
   rejection_reason?: string | null;
   reviewed_at?: string | null;
+  is_featured?: boolean | null;
 
   merchant_id?: string | null;
   merchant_name?: string | null;
@@ -822,6 +823,42 @@ export default function AdminEventReviewPage() {
     return getTagArray(event.tags);
   }, [event]);
 
+  async function toggleFeatured() {
+    const client = supabase;
+
+    if (!client || !event) {
+      setErrorText("Supabase 尚未初始化或活動資料不存在。");
+      return;
+    }
+
+    setSaving(true);
+    setErrorText("");
+    setMessage("");
+
+    const nextFeatured = !Boolean(event.is_featured);
+
+    const { data, error } = await client
+      .from("events")
+      .update({ is_featured: nextFeatured })
+      .eq("id", event.id)
+      .select("*")
+      .maybeSingle();
+
+    if (error || !data) {
+      setErrorText(error?.message || "未能更新首頁精選設定。");
+      setSaving(false);
+      return;
+    }
+
+    setEvent(data as EventRecord);
+    setSaving(false);
+    setMessage(
+      nextFeatured
+        ? "已設為首頁精選；活動發布後會出現在首頁「精選推介活動」。"
+        : "已取消首頁精選。",
+    );
+  }
+
   async function deleteEventPermanently() {
     const client = supabase;
 
@@ -1393,6 +1430,52 @@ export default function AdminEventReviewPage() {
                 關鍵欄位已完成，可以批准發布。
               </div>
             )}
+          </section>
+
+          <section className="rounded-3xl border border-purple-200 bg-purple-50 p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black text-purple-700">Homepage merchandising</p>
+                <h2 className="mt-1 text-lg font-black text-slate-950">首頁精選推介</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  設為精選後，已發布活動會優先顯示在首頁 Banner 下方的「精選推介活動」。
+                </p>
+              </div>
+              <span
+                className={[
+                  "shrink-0 rounded-full px-3 py-1 text-xs font-black",
+                  event.is_featured
+                    ? "bg-purple-700 text-white"
+                    : "bg-white text-slate-500 ring-1 ring-slate-200",
+                ].join(" ")}
+              >
+                {event.is_featured ? "精選中" : "一般活動"}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleFeatured}
+              disabled={saving}
+              className={[
+                "mt-4 w-full rounded-2xl px-5 py-3 text-sm font-black transition disabled:opacity-50",
+                event.is_featured
+                  ? "border border-purple-300 bg-white text-purple-700 hover:bg-purple-100"
+                  : "bg-purple-700 text-white hover:bg-purple-800",
+              ].join(" ")}
+            >
+              {saving
+                ? "處理中..."
+                : event.is_featured
+                  ? "取消首頁精選"
+                  : "設為首頁精選"}
+            </button>
+
+            {safeText(event.status).toLowerCase() !== "published" ? (
+              <p className="mt-3 text-xs font-bold leading-5 text-amber-700">
+                此活動尚未正式發布；可先設定精選，但只有 published 狀態才會公開顯示。
+              </p>
+            ) : null}
           </section>
 
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
