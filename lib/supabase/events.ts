@@ -55,6 +55,8 @@ type DatabaseEvent = {
   is_featured: boolean | null;
   status: string;
   cover_image_url: string | null;
+  updated_at?: string | null;
+  published_at?: string | null;
 };
 
 function formatDate(date: string | null, locale: AppLocale) {
@@ -303,6 +305,8 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
       event.source_url ||
       undefined,
     featured: Boolean(event.is_featured),
+    updatedAt: event.updated_at || undefined,
+    publishedAt: event.published_at || undefined,
     address:
       localizedText(locale, {
         tc: event.address,
