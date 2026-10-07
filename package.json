@@ -12,6 +12,7 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
+    "check:commerce-copy": "node scripts/check-commerce-copy.mjs",
     "format": "prettier --write \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"scripts/**/*.{mjs,ts}\" \"docs/**/*.md\" \"README.md\"",
     "db:push": "supabase db push",
     "db:pull": "supabase db pull",

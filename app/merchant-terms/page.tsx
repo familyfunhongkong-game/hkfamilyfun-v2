@@ -5,7 +5,7 @@ export default function MerchantTermsPage() {
     <SimpleInfoPage
       eyebrow="Merchant Terms & Activity Submission Policy"
       title="商戶條款及活動提交政策"
-      subtitle="平台名稱：HK Family Fun · 營運方：Peyto Dev Hub Limited · 生效日期：2026年3月"
+      subtitle="平台名稱：HK Family Fun · 營運方：Peyto Dev Hub Limited · 更新日期：2026年10月7日"
     >
       <InfoSection title="1. 適用範圍">
         <p>本政策適用於所有申請商戶帳戶、登入商戶後台、提交或管理活動內容，以及以主辦方、活動供應商或合作夥伴身份使用 HK Family Fun 的人士或機構。</p>
@@ -69,7 +69,7 @@ export default function MerchantTermsPage() {
       </InfoSection>
 
       <InfoSection title="16. 費用與商戶方案">
-        <p>免費方案、付費 listing、推廣服務、訂閱方案或其他 B2B 功能，以當時平台公布的商戶方案頁、報價或書面合作條款為準。現階段部分功能可免費或以測試形式提供。</p>
+        <p>一般活動資料上載、提交審批及正常活動 Listing 不收取刊登費。Banner、Featured、Sponsored Content、品牌專題或其他額外曝光服務屬付費推廣，按平台公布的方案、報價或書面合作安排為準。提交廣告查詢不代表已付款、已預留版位或保證上架；平台確認付款後才會安排付費推廣。日後如啟用 Sell with Family Fun 原生票務，相關交易、服務費、退款及結算條款會在啟用前另行公布及同意。</p>
       </InfoSection>
 
       <InfoSection title="17. 暫停與終止帳戶">
