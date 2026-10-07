@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
+      "path": "/api/admin/google-drive/sync-all",
+      "schedule": "30 16 * * *"
+    },
+    {
       "path": "/api/cron/archive-expired-events",
       "schedule": "30 17 * * *"
     }
