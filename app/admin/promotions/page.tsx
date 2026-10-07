@@ -465,6 +465,11 @@ export default function AdminPromotionsPage() {
                   className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
                 />
               </label>
+              <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-500">
+                {draft.placement === "home_top"
+                  ? "首頁最頂橫額建議使用約 5:1 橫向圖片，例如 1500×300；重要文字及 Logo 請放中央安全範圍。"
+                  : "建議使用清晰橫向圖片，避免把重要文字貼近四邊。"}
+              </p>
               <label className="mt-3 block text-xs font-black text-purple-700">
                 或直接 Upload Banner 圖
                 <input
@@ -494,6 +499,9 @@ export default function AdminPromotionsPage() {
                   className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
                 />
               </label>
+              <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-500">
+                Mobile 可另外上載較高比例版本；如留空，系統會沿用 Desktop 圖並自動裁切。
+              </p>
               <label className="mt-3 block text-xs font-black text-purple-700">
                 或 Upload Mobile Banner
                 <input
