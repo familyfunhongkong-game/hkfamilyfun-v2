@@ -3,6 +3,23 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  Baby,
+  Building2,
+  CalendarDays,
+  Clock3,
+  ExternalLink,
+  Heart,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Navigation,
+  Phone,
+  Share2,
+  Sparkles,
+  Ticket,
+  TrainFront,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import ResilientEventImage from "@/components/resilient-event-image";
@@ -101,9 +118,13 @@ type EventRecord = {
   quota_label?: string | null;
 
   age_group?: string | null;
+  age_min?: number | string | null;
+  age_max?: number | string | null;
   activity_type?: string | null;
   activity_category?: string | null;
   category?: string | JsonValue | null;
+  is_indoor?: boolean | null;
+  is_sen_friendly?: boolean | null;
 
   registration_required?: boolean | null;
   registration_url?: string | null;
@@ -401,6 +422,53 @@ function formatPrice(event: EventRecord, locale: AppLocale): string {
   return uiText(locale, "收費待確認", "收费待确认", "Price TBC");
 }
 
+function formatAgeRange(event: EventRecord, locale: AppLocale): string {
+  const custom = safeText(event.age_group);
+  if (custom) return custom;
+
+  const min = Number(event.age_min);
+  const max = Number(event.age_max);
+  const hasMin =
+    event.age_min !== null &&
+    event.age_min !== undefined &&
+    Number.isFinite(min);
+  const hasMax =
+    event.age_max !== null &&
+    event.age_max !== undefined &&
+    Number.isFinite(max);
+
+  if (hasMin && hasMax) {
+    return locale === "en" ? `Ages ${min}–${max}` : `${min}–${max}歲`;
+  }
+  if (hasMin) {
+    return locale === "en" ? `Ages ${min}+` : `${min}歲以上`;
+  }
+  if (hasMax) {
+    return locale === "en" ? `Up to age ${max}` : `${max}歲或以下`;
+  }
+
+  return uiText(locale, "適合年齡待定", "适合年龄待定", "Age TBC");
+}
+
+function getPhoneUrl(value: unknown): string | null {
+  const phone = safeText(value);
+  if (!phone) return null;
+  const normalized = phone.replace(/[^+\d]/g, "");
+  return normalized ? `tel:${normalized}` : null;
+}
+
+function getEmailUrl(value: unknown): string | null {
+  const email = safeText(value);
+  return email && email.includes("@") ? `mailto:${email}` : null;
+}
+
+function getWhatsAppUrl(value: unknown): string | null {
+  const phone = safeText(value).replace(/\D/g, "");
+  if (!phone) return null;
+  const withCountryCode = phone.length === 8 ? `852${phone}` : phone;
+  return `https://wa.me/${withCountryCode}`;
+}
+
 function getCategoryLabel(event: EventRecord, locale: AppLocale): string {
   const raw = safeText(
     event.activity_category ||
@@ -651,11 +719,40 @@ function Badge({
   );
 }
 
-function InfoPill({ label, value }: { label: string; value: string }) {
+function InfoPill({
+  label,
+  value,
+  icon,
+  muted = false,
+}: {
+  label: string;
+  value: string;
+  icon?: ReactNode;
+  muted?: boolean;
+}) {
   return (
-    <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-      <p className="text-xs font-bold text-slate-400">{label}</p>
-      <p className="mt-1 text-sm font-extrabold text-slate-800">{value}</p>
+    <div className="flex min-w-0 items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+      {icon ? (
+        <span
+          className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
+            muted ? "bg-slate-100 text-slate-400" : "bg-purple-50 text-purple-700"
+          }`}
+        >
+          {icon}
+        </span>
+      ) : null}
+      <div className="min-w-0">
+        <p className="text-[11px] font-black uppercase tracking-[0.06em] text-slate-400">
+          {label}
+        </p>
+        <p
+          className={`mt-1 line-clamp-2 text-sm font-extrabold ${
+            muted ? "text-slate-400" : "text-slate-800"
+          }`}
+        >
+          {value}
+        </p>
+      </div>
     </div>
   );
 }
@@ -987,16 +1084,26 @@ export default function PublicEventDetailPage() {
   });
   const district = safeText(event.district, "");
   const mtr = safeText(event.mtr_station, "");
+  const categoryLabel = getCategoryLabel(event, locale);
+  const priceDisplay = formatPrice(event, locale);
+  const ageDisplay = formatAgeRange(event, locale);
+  const dateDisplay = formatDateRange(event, locale);
+  const timeDisplay = formatTimeRange(event, locale);
+  const isSenFriendly = Boolean(event.is_sen_friendly);
+  const isIndoor = Boolean(event.is_indoor);
 
   const merchantName = safeText(
-    event.merchant_name || event.organizer_name,
-    "HK Family Fun 商戶",
+    event.organizer_name || event.merchant_name,
+    uiText(locale, "主辦方待定", "主办方待定", "Organizer TBC"),
   );
 
-  const registrationUrl = getRegistrationUrl(event);
   const officialUrl = getOfficialWebsiteUrl(event);
   const actionUrl = getPrimaryActionUrl(event);
   const actionLabel = getPrimaryActionLabel(event, locale);
+  const phoneUrl = getPhoneUrl(event.organizer_phone || event.contact_phone);
+  const emailUrl = getEmailUrl(event.organizer_email || event.contact_email);
+  const whatsappUrl = getWhatsAppUrl(event.whatsapp);
+  const hasOrganizerContact = Boolean(phoneUrl || emailUrl || whatsappUrl);
 
   const isFallbackCover = images[0]?.url === FALLBACK_IMAGE;
 
@@ -1019,273 +1126,303 @@ export default function PublicEventDetailPage() {
     locationText || [venue, address, district, mtr].filter(Boolean).join("｜");
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-slate-50 pb-28 lg:pb-0">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-6">
-          <Link
-            href="/events"
-            className="text-sm font-extrabold text-purple-700 hover:text-purple-900"
-          >
-            ← {m.back}
-          </Link>
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link
+              href="/events"
+              className="inline-flex items-center gap-2 rounded-full bg-purple-50 px-4 py-2 text-sm font-black text-purple-700 transition hover:bg-purple-100 hover:text-purple-900"
+            >
+              ← {m.back}
+            </Link>
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+              <Sparkles size={14} />
+              <span>{uiText(locale, "HK Family Fun 活動資料", "HK Family Fun 活动资料", "HK Family Fun event guide")}</span>
+            </div>
+          </div>
 
-          <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="mt-5 grid items-start gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(360px,.75fr)]">
             <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-              <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
+              <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50 sm:aspect-[16/9]">
                 <ResilientEventImage
-                  src={isFallbackCover ? null : images[0]?.url}
-                  alt={title}
+                  src={
+                    selectedImage?.url === FALLBACK_IMAGE
+                      ? null
+                      : selectedImage?.url
+                  }
+                  alt={selectedImage?.label || title}
                   loading="eager"
                   fetchPriority="high"
+                  compactFallback
                   className="h-full w-full object-cover"
-                  style={coverStyle}
+                  style={selectedImageStyle}
                 />
 
-                <button
-                  type="button"
-                  onClick={toggleFavorite}
-                  className={[
-                    "absolute right-4 top-4 rounded-full px-4 py-2 text-sm font-black shadow-sm backdrop-blur transition",
-                    isFavorite
-                      ? "bg-rose-500 text-white"
-                      : "bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-600",
-                  ].join(" ")}
-                >
-                  {isFavorite ? `❤️ ${m.saved}` : `♡ ${m.save}`}
-                </button>
-              </div>
+                <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-950/55 to-transparent" />
 
-              <div className="p-6 lg:p-8">
-                <div className="mb-4 flex flex-wrap gap-2">
-                  <Badge tone="purple">{getCategoryLabel(event, locale)}</Badge>
-                  <Badge tone="amber">{formatPrice(event, locale)}</Badge>
-                  {mtr ? <Badge tone="slate">{mtr}</Badge> : null}
-                </div>
-
-                <h1 className="text-3xl font-black leading-tight tracking-tight text-slate-950 lg:text-4xl">
-                  {title}
-                </h1>
-
-                <p className="mt-4 max-w-3xl text-sm font-medium leading-7 text-slate-600">
-                  {shortDescription}
-                </p>
-
-                <div className="mt-6 grid gap-3 md:grid-cols-2">
-                  <InfoPill label={m.date} value={formatDateRange(event, locale)} />
-                  <InfoPill label={m.time} value={formatTimeRange(event, locale)} />
-                  <InfoPill label={m.location} value={venue} />
-                  <InfoPill label={m.price} value={formatPrice(event, locale)} />
-                </div>
-
-                {tags.length > 0 ? (
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-sm font-black text-slate-950">{m.registration}</p>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  {m.registrationNote}
-                </p>
-
-                {actionUrl ? (
-                  <a
-                    href={actionUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={[
-                      "mt-5 inline-flex w-full items-center justify-center rounded-2xl px-5 py-4 text-sm font-black text-white",
-                      registrationUrl
-                        ? "bg-purple-700 hover:bg-purple-800"
-                        : "bg-slate-950 hover:bg-slate-800",
-                    ].join(" ")}
-                  >
-                    {actionLabel}
-                  </a>
-                ) : (
-                  <div className="mt-5 rounded-2xl bg-slate-100 px-5 py-4 text-center text-sm font-black text-slate-500">
-                    {actionLabel}
-                  </div>
-                )}
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {mapUrl ? (
-                    <a
-                      href={mapUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
-                    >
-                      📍 Google Map
-                    </a>
-                  ) : (
-                    <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
-                      {m.mapTbc}
+                <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                  <Badge tone="purple">{categoryLabel}</Badge>
+                  {isSenFriendly ? (
+                    <span className="rounded-full bg-fuchsia-100/95 px-3 py-1 text-xs font-black text-fuchsia-800 shadow-sm backdrop-blur">
+                      SEN 友善
                     </span>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => shareEvent(title, shortDescription)}
-                    className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
-                  >
-                    {copiedShare ? m.linkCopied : `🔗 ${m.share}`}
-                  </button>
+                  ) : null}
+                  {isIndoor ? (
+                    <span className="rounded-full bg-sky-100/95 px-3 py-1 text-xs font-black text-sky-800 shadow-sm backdrop-blur">
+                      {uiText(locale, "室內", "室内", "Indoor")}
+                    </span>
+                  ) : null}
                 </div>
 
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="absolute right-4 top-4 flex gap-2">
                   <button
                     type="button"
                     onClick={toggleFavorite}
+                    aria-pressed={isFavorite}
+                    aria-label={isFavorite ? m.saved : m.save}
                     className={[
-                      "inline-flex items-center justify-center rounded-2xl px-4 py-3 text-xs font-black ring-1",
+                      "grid h-11 w-11 place-items-center rounded-full shadow-md backdrop-blur transition",
                       isFavorite
-                        ? "bg-rose-50 text-rose-700 ring-rose-100"
-                        : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50",
+                        ? "bg-rose-500 text-white"
+                        : "bg-white/95 text-slate-700 hover:bg-rose-50 hover:text-rose-600",
                     ].join(" ")}
                   >
-                    {isFavorite ? `❤️ ${m.saved}` : `♡ ${m.save}`}
+                    <Heart size={18} fill={isFavorite ? "currentColor" : "none"} />
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => shareEvent(title, shortDescription)}
+                    aria-label={m.share}
+                    className="grid h-11 w-11 place-items-center rounded-full bg-white/95 text-slate-700 shadow-md backdrop-blur transition hover:bg-purple-50 hover:text-purple-700"
+                  >
+                    <Share2 size={18} />
+                  </button>
+                </div>
 
-                  {officialUrl ? (
-                    <a
-                      href={officialUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                <div className="absolute bottom-4 left-4 rounded-full bg-amber-100/95 px-4 py-2 text-sm font-black text-amber-950 shadow-sm backdrop-blur">
+                  {priceDisplay}
+                </div>
+                <div className="absolute bottom-4 right-4 rounded-full bg-slate-950/75 px-3 py-1.5 text-xs font-black text-white backdrop-blur">
+                  {safeSelectedImageIndex + 1}/{images.length}
+                </div>
+              </div>
+
+              {images.length > 1 ? (
+                <div className="flex gap-2 overflow-x-auto border-t border-slate-100 bg-white p-3">
+                  {images.map((image, index) => (
+                    <button
+                      key={`${image.url}-hero-${index}`}
+                      type="button"
+                      onClick={() => setSelectedImageIndex(index)}
+                      aria-label={`${m.image} ${index + 1}`}
+                      className={[
+                        "relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border-2 bg-slate-50 transition",
+                        safeSelectedImageIndex === index
+                          ? "border-purple-600 ring-2 ring-purple-100"
+                          : "border-white hover:border-purple-200",
+                      ].join(" ")}
                     >
-                      {m.official}
-                    </a>
-                  ) : (
-                    <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
-                      {m.officialTbc}
-                    </span>
-                  )}
+                      <ResilientEventImage
+                        src={image.url === FALLBACK_IMAGE ? null : image.url}
+                        alt={image.label}
+                        loading="lazy"
+                        compactFallback
+                        className="h-full w-full object-cover"
+                        style={image.isCover ? coverStyle : undefined}
+                      />
+                      {image.isCover ? (
+                        <span className="absolute bottom-1 left-1 rounded-full bg-slate-950/75 px-2 py-0.5 text-[9px] font-black text-white">
+                          {uiText(locale, "封面", "封面", "Cover")}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
                 </div>
+              ) : null}
+            </div>
 
-                <div className="mt-5 space-y-2">
-                  <InfoPill label={m.organizer} value={merchantName} />
-                  <InfoPill
-                    label={m.eventImages}
-                    value={`${images.length} ${locale === "en" && images.length === 1 ? "image" : m.imageUnit}`}
-                  />
+            <aside className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-5">
+              <div className="flex flex-wrap gap-2">
+                <Badge tone="purple">{categoryLabel}</Badge>
+                {isSenFriendly ? <Badge tone="rose">SEN 友善</Badge> : null}
+                {isIndoor ? (
+                  <Badge tone="slate">{uiText(locale, "室內", "室内", "Indoor")}</Badge>
+                ) : null}
+              </div>
+
+              <h1 className="mt-4 text-3xl font-black leading-tight tracking-tight text-slate-950 lg:text-[2.15rem]">
+                {title}
+              </h1>
+
+              <p className="mt-3 text-sm font-medium leading-7 text-slate-600">
+                {shortDescription}
+              </p>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                <InfoPill
+                  label={m.date}
+                  value={dateDisplay}
+                  icon={<CalendarDays size={17} />}
+                />
+                <InfoPill
+                  label={m.time}
+                  value={timeDisplay}
+                  icon={<Clock3 size={17} />}
+                />
+                <InfoPill
+                  label={uiText(locale, "適合年齡", "适合年龄", "Age")}
+                  value={ageDisplay}
+                  icon={<Baby size={17} />}
+                />
+                <InfoPill
+                  label={m.location}
+                  value={venue}
+                  icon={<MapPin size={17} />}
+                />
+                <InfoPill
+                  label={uiText(locale, "港鐵", "港铁", "MTR")}
+                  value={mtr || m.mtrTbc}
+                  icon={<TrainFront size={17} />}
+                  muted={!mtr}
+                />
+                <InfoPill
+                  label={m.organizer}
+                  value={merchantName}
+                  icon={<Building2 size={17} />}
+                />
+              </div>
+
+              <div className="mt-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 p-4 ring-1 ring-amber-100">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-amber-700 shadow-sm">
+                    <Ticket size={18} />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.08em] text-amber-600">
+                      {m.price}
+                    </p>
+                    <p className="mt-1 text-xl font-black text-amber-950">{priceDisplay}</p>
+                    {safeText(event.price_note) ? (
+                      <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
+                        {safeText(event.price_note)}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-purple-100 bg-purple-50 p-5">
-                <p className="text-sm font-black text-purple-950">{m.nextSteps}</p>
-                <ol className="mt-3 space-y-2 text-xs font-bold leading-6 text-purple-800">
-                  <li>{m.step1}</li>
-                  <li>{m.step2}</li>
-                  <li>{m.step3}</li>
-                  <li>{m.step4}</li>
-                </ol>
+              {actionUrl ? (
+                <a
+                  href={actionUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-purple-700 px-5 py-4 text-sm font-black text-white shadow-sm transition hover:bg-purple-800"
+                >
+                  {actionLabel}
+                  <ExternalLink size={16} />
+                </a>
+              ) : (
+                <div className="mt-4 rounded-2xl bg-slate-100 px-5 py-4 text-center text-sm font-black text-slate-500">
+                  {actionLabel}
+                </div>
+              )}
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {mapUrl ? (
+                  <a
+                    href={mapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 transition hover:border-purple-300 hover:text-purple-700"
+                  >
+                    <Navigation size={15} />
+                    Google Map
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center justify-center rounded-2xl bg-slate-100 px-4 py-3 text-xs font-black text-slate-400">
+                    {m.mapTbc}
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => shareEvent(title, shortDescription)}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 transition hover:border-purple-300 hover:text-purple-700"
+                >
+                  <Share2 size={15} />
+                  {copiedShare ? m.linkCopied : m.share}
+                </button>
               </div>
 
-              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
-                <p className="text-sm font-black text-amber-900">{m.parentNote}</p>
-                <p className="mt-2 text-sm font-medium leading-7 text-amber-800">
-                  {m.disclaimer}
-                </p>
-              </div>
+              {hasOrganizerContact ? (
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <p className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
+                    {uiText(locale, "聯絡主辦方", "联络主办方", "Contact organizer")}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {whatsappUrl ? (
+                      <a
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 ring-1 ring-emerald-100"
+                      >
+                        <MessageCircle size={14} /> WhatsApp
+                      </a>
+                    ) : null}
+                    {phoneUrl ? (
+                      <a
+                        href={phoneUrl}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100"
+                      >
+                        <Phone size={14} />
+                        {uiText(locale, "電話", "电话", "Call")}
+                      </a>
+                    ) : null}
+                    {emailUrl ? (
+                      <a
+                        href={emailUrl}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-slate-200"
+                      >
+                        <Mail size={14} /> Email
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {officialUrl && officialUrl !== actionUrl ? (
+                <a
+                  href={officialUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex items-center gap-1.5 text-xs font-black text-slate-500 transition hover:text-purple-700"
+                >
+                  {m.official}
+                  <ExternalLink size={13} />
+                </a>
+              ) : null}
             </aside>
           </div>
+
+          {tags.length > 0 ? (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700 ring-1 ring-purple-100"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section className="space-y-6">
-          <SectionCard title={m.gallery} icon="🖼️">
-            <div className="mb-4 rounded-2xl border border-purple-100 bg-purple-50 p-4">
-              <p className="text-sm font-black text-purple-900">
-                {m.galleryHint}
-              </p>
-              <p className="mt-1 text-xs font-bold leading-5 text-purple-700">
-                {m.galleryDesc}
-              </p>
-            </div>
-
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-purple-50 via-white to-amber-50">
-                <div className="relative aspect-[16/9] overflow-hidden">
-                  <ResilientEventImage
-                    src={
-                      selectedImage?.url === FALLBACK_IMAGE
-                        ? null
-                        : selectedImage?.url
-                    }
-                    alt={selectedImage?.label || title}
-                    loading="lazy"
-                    compactFallback
-                    className="h-full w-full object-cover"
-                    style={selectedImageStyle}
-                  />
-
-                  <div className="absolute left-4 top-4 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
-                    {selectedImage?.label || m.image}
-                  </div>
-
-                  <div className="absolute bottom-4 right-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow-sm backdrop-blur">
-                    {safeSelectedImageIndex + 1}/{images.length}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
-                {images.map((image, index) => (
-                  <div
-                    key={`${image.url}-${index}`}
-                    className={[
-                      "rounded-2xl border bg-white p-2 shadow-sm transition",
-                      safeSelectedImageIndex === index
-                        ? "border-purple-500 ring-2 ring-purple-200"
-                        : "border-slate-200",
-                    ].join(" ")}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedImageIndex(index)}
-                      className="group w-full overflow-hidden rounded-xl bg-white text-left"
-                    >
-                      <div className="aspect-[16/10] overflow-hidden rounded-xl bg-gradient-to-br from-purple-50 via-white to-amber-50">
-                        <ResilientEventImage
-                          src={image.url === FALLBACK_IMAGE ? null : image.url}
-                          alt={image.label}
-                          loading="lazy"
-                          compactFallback
-                          className="h-full w-full object-cover transition group-hover:scale-[1.03]"
-                          style={image.isCover ? coverStyle : undefined}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between px-1 py-2">
-                        <span className="text-xs font-extrabold text-slate-700">
-                          {image.label}
-                        </span>
-                        {image.isCover ? (
-                          <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-black text-purple-700">
-                            DB Cover
-                          </span>
-                        ) : null}
-                      </div>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </SectionCard>
-
           <SectionCard title={m.details} icon="✨">
             <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
               {description}
@@ -1330,7 +1467,7 @@ export default function PublicEventDetailPage() {
                   <a
                     href={mapUrl}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800"
                   >
                     📍 {m.openMap}
@@ -1420,15 +1557,71 @@ export default function PublicEventDetailPage() {
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-black text-slate-950">{m.quickFacts}</h3>
+            <div className="flex items-center gap-2">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-purple-50 text-purple-700">
+                <Sparkles size={17} />
+              </span>
+              <h3 className="text-sm font-black text-slate-950">{m.quickFacts}</h3>
+            </div>
 
             <div className="mt-4 space-y-2">
-              <InfoPill label={m.category} value={getCategoryLabel(event, locale)} />
-              <InfoPill label={m.date} value={formatDateRange(event, locale)} />
-              <InfoPill label={m.time} value={formatTimeRange(event, locale)} />
-              <InfoPill label={m.price} value={formatPrice(event, locale)} />
-              <InfoPill label={m.organizer} value={merchantName} />
+              <InfoPill
+                label={m.category}
+                value={categoryLabel}
+                icon={<Sparkles size={16} />}
+              />
+              <InfoPill
+                label={m.date}
+                value={dateDisplay}
+                icon={<CalendarDays size={16} />}
+              />
+              <InfoPill
+                label={m.time}
+                value={timeDisplay}
+                icon={<Clock3 size={16} />}
+              />
+              <InfoPill
+                label={m.price}
+                value={priceDisplay}
+                icon={<Ticket size={16} />}
+              />
+              <InfoPill
+                label={uiText(locale, "適合年齡", "适合年龄", "Age")}
+                value={ageDisplay}
+                icon={<Baby size={16} />}
+              />
+              <InfoPill
+                label={m.mtr}
+                value={mtr || m.mtrTbc}
+                icon={<TrainFront size={16} />}
+                muted={!mtr}
+              />
+              <InfoPill
+                label={m.organizer}
+                value={merchantName}
+                icon={<Building2 size={16} />}
+              />
             </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {isSenFriendly ? <Badge tone="rose">SEN 友善</Badge> : null}
+              {isIndoor ? (
+                <Badge tone="slate">{uiText(locale, "室內", "室内", "Indoor")}</Badge>
+              ) : null}
+              <Badge tone="amber">{priceDisplay}</Badge>
+            </div>
+
+            {actionUrl ? (
+              <a
+                href={actionUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-purple-700 px-5 py-4 text-sm font-black text-white transition hover:bg-purple-800"
+              >
+                {actionLabel}
+                <ExternalLink size={15} />
+              </a>
+            ) : null}
           </div>
 
           <div className="rounded-3xl border border-purple-100 bg-purple-50 p-5">
@@ -1436,15 +1629,91 @@ export default function PublicEventDetailPage() {
             <p className="mt-3 text-xs font-bold leading-6 text-purple-800">
               {m.shareReminderDesc}
             </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => shareEvent(title, shortDescription)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-black text-purple-700 ring-1 ring-purple-100"
+              >
+                <Share2 size={14} />
+                {copiedShare ? m.linkCopied : m.share}
+              </button>
+              <button
+                type="button"
+                onClick={toggleFavorite}
+                aria-pressed={isFavorite}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-black text-rose-700 ring-1 ring-purple-100"
+              >
+                <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
+                {isFavorite ? m.saved : m.save}
+              </button>
+            </div>
           </div>
 
           <Link
             href="/events"
-            className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+            className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-slate-700 transition hover:border-purple-300 hover:text-purple-700"
           >
             {m.exploreMore}
           </Link>
         </aside>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 p-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+        <div className="mx-auto flex max-w-2xl items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleFavorite}
+            aria-pressed={isFavorite}
+            aria-label={isFavorite ? m.saved : m.save}
+            className={[
+              "grid h-12 w-12 shrink-0 place-items-center rounded-2xl ring-1 transition",
+              isFavorite
+                ? "bg-rose-50 text-rose-700 ring-rose-100"
+                : "bg-white text-slate-700 ring-slate-300",
+            ].join(" ")}
+          >
+            <Heart size={18} fill={isFavorite ? "currentColor" : "none"} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => shareEvent(title, shortDescription)}
+            aria-label={m.share}
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white text-slate-700 ring-1 ring-slate-300"
+          >
+            <Share2 size={18} />
+          </button>
+
+          {actionUrl ? (
+            <a
+              href={actionUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl bg-purple-700 px-4 py-3.5 text-sm font-black text-white shadow-sm"
+            >
+              <span className="truncate">{actionLabel}</span>
+              <ExternalLink size={15} className="shrink-0" />
+            </a>
+          ) : mapUrl ? (
+            <a
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3.5 text-sm font-black text-white"
+            >
+              <Navigation size={15} />
+              <span className="truncate">Google Map</span>
+            </a>
+          ) : (
+            <Link
+              href="/events"
+              className="inline-flex min-w-0 flex-1 items-center justify-center rounded-2xl bg-purple-700 px-4 py-3.5 text-sm font-black text-white"
+            >
+              {m.exploreMore}
+            </Link>
+          )}
+        </div>
       </div>
     </main>
   );

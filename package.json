@@ -14,6 +14,7 @@
     "type-check": "tsc --noEmit",
     "check:commerce-copy": "node scripts/check-commerce-copy.mjs",
     "check:event-cards": "node scripts/check-event-card-contract.mjs",
+    "check:event-detail": "node scripts/check-event-detail-contract.mjs",
     "format": "prettier --write \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"scripts/**/*.{mjs,ts}\" \"docs/**/*.md\" \"README.md\"",
     "db:push": "supabase db push",
     "db:pull": "supabase db pull",
