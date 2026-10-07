@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 import {
-  CURRENT_CURRENT_MERCHANT_TERMS_VERSION,
-  CURRENT_CURRENT_PRIVACY_VERSION,
+  CURRENT_MERCHANT_TERMS_VERSION,
+  CURRENT_PRIVACY_VERSION,
 } from "@/lib/merchant-legal";
 
 export default function MerchantRegisterPage() {
