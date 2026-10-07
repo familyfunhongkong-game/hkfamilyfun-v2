@@ -8,6 +8,7 @@ import {
   refreshGoogleAccessToken,
 } from "@/lib/admin-google-drive";
 import { requireAdmin, serviceClient } from "@/lib/admin-auth";
+import { normalizeIntakeSubmission } from "@/lib/intake-normalizer";
 
 export const runtime = "nodejs";
 
@@ -104,6 +105,7 @@ async function runSync(client: SupabaseClient) {
   let rowsRead = 0;
   let rowsUpserted = 0;
   let errors = 0;
+  const changedIntakeIds: string[] = [];
   const sourceResults: Array<Record<string, unknown>> = [];
 
   for (const source of sources) {
@@ -195,31 +197,36 @@ async function runSync(client: SupabaseClient) {
           continue;
         }
 
-        const { error } = await client.from("intake_submissions").upsert(
-          {
-            source_id: source.id,
-            source_type: "google_sheet",
-            external_key: externalKey,
-            submission_type: "event",
-            status: "new",
-            payload,
-            normalized_payload: {
-              source_key: source.source_key,
-              source_name: source.display_name,
-              payload_hash: payloadHash,
-              sheet_row: index + 2,
+        const write = await client
+          .from("intake_submissions")
+          .upsert(
+            {
+              source_id: source.id,
+              source_type: "google_sheet",
+              external_key: externalKey,
+              submission_type: "event",
+              status: "new",
+              payload,
+              normalized_payload: {
+                source_key: source.source_key,
+                source_name: source.display_name,
+                payload_hash: payloadHash,
+                sheet_row: index + 2,
+              },
+              updated_at: new Date().toISOString(),
             },
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "source_id,external_key" },
-        );
+            { onConflict: "source_id,external_key" },
+          )
+          .select("id")
+          .maybeSingle();
 
-        if (error) {
+        if (write.error) {
           sourceErrors += 1;
           errors += 1;
         } else {
           sourceUpserted += 1;
           rowsUpserted += 1;
+          if (write.data?.id) changedIntakeIds.push(String(write.data.id));
         }
       }
 
@@ -269,22 +276,51 @@ async function runSync(client: SupabaseClient) {
     });
   }
 
+  let normalizedCount = 0;
+  let needsReviewCount = 0;
+  let normalizeErrors = 0;
+
+  for (const intakeId of changedIntakeIds) {
+    const result = await normalizeIntakeSubmission(client, intakeId);
+
+    if (!result.ok) {
+      normalizeErrors += 1;
+      console.error("scheduled intake normalization failed", {
+        intake_id: intakeId,
+        error: result.error,
+      });
+      continue;
+    }
+
+    if (result.intake_status === "needs_review") {
+      needsReviewCount += 1;
+    } else {
+      normalizedCount += 1;
+    }
+  }
+
   if (!serviceAccountMode) {
     await client
       .from("admin_integrations")
       .update({
         last_used_at: new Date().toISOString(),
-        last_error: errors > 0 ? errors + " sync error(s)" : null,
+        last_error:
+          errors > 0 || normalizeErrors > 0
+            ? errors + " sync error(s), " + normalizeErrors + " normalize error(s)"
+            : null,
         updated_at: new Date().toISOString(),
       })
       .eq("provider", "google_drive");
   }
 
   return NextResponse.json({
-    ok: errors === 0,
+    ok: errors === 0 && normalizeErrors === 0,
     sources: sourceResults,
     rows_read: rowsRead,
     rows_upserted: rowsUpserted,
+    normalized: normalizedCount,
+    needs_review: needsReviewCount,
+    normalize_errors: normalizeErrors,
     errors,
     auth_mode: serviceAccountMode ? "service_account" : "oauth",
   });
