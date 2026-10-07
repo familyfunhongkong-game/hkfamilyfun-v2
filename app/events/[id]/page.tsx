@@ -1084,16 +1084,27 @@ export default function PublicEventDetailPage() {
   });
   const district = safeText(event.district, "");
   const mtr = safeText(event.mtr_station, "");
+  const categoryLabel = getCategoryLabel(event, locale);
+  const priceDisplay = formatPrice(event, locale);
+  const ageDisplay = formatAgeRange(event, locale);
+  const dateDisplay = formatDateRange(event, locale);
+  const timeDisplay = formatTimeRange(event, locale);
+  const isSenFriendly = Boolean(event.is_sen_friendly);
+  const isIndoor = Boolean(event.is_indoor);
 
   const merchantName = safeText(
-    event.merchant_name || event.organizer_name,
-    "HK Family Fun 商戶",
+    event.organizer_name || event.merchant_name,
+    uiText(locale, "主辦方待定", "主办方待定", "Organizer TBC"),
   );
 
   const registrationUrl = getRegistrationUrl(event);
   const officialUrl = getOfficialWebsiteUrl(event);
   const actionUrl = getPrimaryActionUrl(event);
   const actionLabel = getPrimaryActionLabel(event, locale);
+  const phoneUrl = getPhoneUrl(event.organizer_phone || event.contact_phone);
+  const emailUrl = getEmailUrl(event.organizer_email || event.contact_email);
+  const whatsappUrl = getWhatsAppUrl(event.whatsapp);
+  const hasOrganizerContact = Boolean(phoneUrl || emailUrl || whatsappUrl);
 
   const isFallbackCover = images[0]?.url === FALLBACK_IMAGE;
 
