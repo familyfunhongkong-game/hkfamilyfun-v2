@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
+import { canShowPromotion } from "@/lib/business-model";
 
 export type PromotionPlacement =
   | "home_top"
@@ -175,7 +176,7 @@ export async function getActivePromotionBanners(
     .or(`starts_at.is.null,starts_at.lte.${new Date().toISOString()}`)
     .or(`ends_at.is.null,ends_at.gte.${new Date().toISOString()}`)
     .order("priority", { ascending: true })
-    .limit(limit);
+    .limit(Math.max(limit * 4, 12));
 
   if (error) {
     if (!error.message.toLowerCase().includes("promo_banners")) {
@@ -184,9 +185,15 @@ export async function getActivePromotionBanners(
     return [];
   }
 
-  return ((data || []) as PromotionRow[]).map((row) =>
-    mapPromotion(row, locale),
-  );
+  return ((data || []) as PromotionRow[])
+    .filter((row) =>
+      canShowPromotion({
+        isPaid: row.is_paid,
+        sponsorName: row.sponsor_name,
+      }),
+    )
+    .slice(0, limit)
+    .map((row) => mapPromotion(row, locale));
 }
 
 export async function getPublishedArticles(
