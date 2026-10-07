@@ -65,36 +65,6 @@ function readFavoriteIds(): string[] {
   }
 }
 
-function formatEventDate(
-  event: FavoriteEvent,
-  locale: AppLocale,
-  fallback: string,
-) {
-  if (!event.start_date) return fallback;
-
-  const format = (value: string) => {
-    const date = new Date(`${value}T00:00:00+08:00`);
-    if (Number.isNaN(date.getTime())) return value;
-
-    return new Intl.DateTimeFormat(
-      locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK",
-      {
-        timeZone: "Asia/Hong_Kong",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      },
-    ).format(date);
-  };
-
-  const start = format(event.start_date);
-  if (!event.end_date || event.end_date === event.start_date) return start;
-
-  const end = format(event.end_date);
-  return locale === "en" ? `${start} – ${end}` : `${start} 至 ${end}`;
-}
-
-
 function normalizeTags(value: unknown) {
   if (Array.isArray(value)) {
     return value.map((item) => String(item).trim()).filter(Boolean).slice(0, 8);
