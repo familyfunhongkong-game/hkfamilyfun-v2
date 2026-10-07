@@ -39,12 +39,14 @@ export async function POST(request: NextRequest) {
   let body: {
     accepted?: boolean;
     terms_version?: string;
+    privacy_version?: string;
   };
 
   try {
     body = (await request.json()) as {
       accepted?: boolean;
       terms_version?: string;
+      privacy_version?: string;
     };
   } catch {
     return response({ error: "Invalid request body." }, 400);
@@ -52,10 +54,11 @@ export async function POST(request: NextRequest) {
 
   if (
     body.accepted !== true ||
-    body.terms_version !== CURRENT_MERCHANT_TERMS_VERSION
+    body.terms_version !== CURRENT_MERCHANT_TERMS_VERSION ||
+    body.privacy_version !== CURRENT_PRIVACY_VERSION
   ) {
     return response(
-      { error: "請先閱讀並同意目前版本的 Merchant Terms。" },
+      { error: "請先閱讀並同意目前版本的 Merchant Terms 及 Privacy Policy。" },
       400,
     );
   }
@@ -90,27 +93,18 @@ export async function POST(request: NextRequest) {
   }
 
   if (
-    !merchant.privacy_accepted_at ||
-    merchant.privacy_version !== CURRENT_PRIVACY_VERSION
-  ) {
-    return response(
-      {
-        error:
-          "目前商戶 Privacy acceptance 記錄不完整，請聯絡 HK Family Fun 處理。",
-      },
-      409,
-    );
-  }
-
-  if (
     merchant.terms_version === CURRENT_MERCHANT_TERMS_VERSION &&
-    merchant.terms_accepted_at
+    merchant.terms_accepted_at &&
+    merchant.privacy_version === CURRENT_PRIVACY_VERSION &&
+    merchant.privacy_accepted_at
   ) {
     return response({
       accepted: true,
       already_current: true,
       terms_version: CURRENT_MERCHANT_TERMS_VERSION,
       terms_accepted_at: merchant.terms_accepted_at,
+      privacy_version: CURRENT_PRIVACY_VERSION,
+      privacy_accepted_at: merchant.privacy_accepted_at,
     });
   }
 
@@ -125,11 +119,15 @@ export async function POST(request: NextRequest) {
     .update({
       terms_version: CURRENT_MERCHANT_TERMS_VERSION,
       terms_accepted_at: acceptedAt,
+      privacy_version: CURRENT_PRIVACY_VERSION,
+      privacy_accepted_at: acceptedAt,
       updated_at: acceptedAt,
     })
     .eq("id", merchant.id)
     .eq("owner_user_id", user.id)
-    .select("id,terms_version,terms_accepted_at")
+    .select(
+      "id,terms_version,terms_accepted_at,privacy_version,privacy_accepted_at",
+    )
     .single();
 
   if (updateError || !updated) {
@@ -149,5 +147,7 @@ export async function POST(request: NextRequest) {
     already_current: false,
     terms_version: updated.terms_version,
     terms_accepted_at: updated.terms_accepted_at,
+    privacy_version: updated.privacy_version,
+    privacy_accepted_at: updated.privacy_accepted_at,
   });
 }
