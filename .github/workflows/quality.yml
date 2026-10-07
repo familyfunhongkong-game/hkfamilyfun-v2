@@ -80,6 +80,9 @@ jobs:
       - name: Event card completeness check
         run: npm run check:event-cards
 
+      - name: Event detail UX check
+        run: npm run check:event-detail
+
       - name: TypeScript check
         run: npm run type-check
 
