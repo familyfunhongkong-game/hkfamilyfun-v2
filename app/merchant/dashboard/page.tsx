@@ -524,7 +524,7 @@ export default function MerchantDashboardPage() {
     const client = supabase;
 
     if (!client || !merchant || !acceptedUpdatedTerms) {
-      setMessage("請先閱讀並勾選同意最新 Merchant Terms。");
+      setMessage("請先閱讀並勾選同意最新 Merchant Terms 及 Privacy Policy。");
       return;
     }
 
@@ -559,7 +559,7 @@ export default function MerchantDashboardPage() {
       };
 
       if (!response.ok || !result.accepted) {
-        throw new Error(result.error || "未能儲存新版 Merchant Terms 接受記錄。");
+        throw new Error(result.error || "未能儲存新版 Merchant Terms 及 Privacy Policy 接受記錄。");
       }
 
       setAcceptedUpdatedTerms(false);
@@ -569,7 +569,7 @@ export default function MerchantDashboardPage() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "未能儲存新版 Merchant Terms 接受記錄。",
+          : "未能儲存新版 Merchant Terms 及 Privacy Policy 接受記錄。",
       );
     } finally {
       setAcceptingTerms(false);
