@@ -131,7 +131,7 @@ export default function MerchantJoinPage() {
                   href="/merchant-pricing"
                   className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:border-purple-300 hover:text-purple-700"
                 >
-                  查看商戶方案
+                  免費刊登／付費推廣
                 </Link>
                 <Link
                   href="/merchant/login"
@@ -242,7 +242,7 @@ export default function MerchantJoinPage() {
                   href="/merchant-pricing"
                   className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
                 >
-                  查看收費方案
+                  免費刊登／付費推廣
                 </Link>
                 <a
                   href="https://wa.me/85257018297"
@@ -387,7 +387,7 @@ export default function MerchantJoinPage() {
               href="/merchant-pricing"
               className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:border-purple-300 hover:text-purple-700"
             >
-              查看商戶方案
+              免費刊登／付費推廣
             </Link>
           </div>
         </div>
@@ -436,11 +436,11 @@ export default function MerchantJoinPage() {
         <div className="rounded-[2rem] border border-emerald-100 bg-emerald-50 p-6">
           <p className="text-sm font-black text-emerald-700">下一步</p>
           <h2 className="mt-2 text-2xl font-black text-slate-950">
-            先免費上架首個活動
+            免費刊登一般活動
           </h2>
           <p className="mt-4 text-sm leading-7 text-slate-600">
-            你可以先用免費啟動優惠測試 HK Family Fun 的活動搜尋、附近活動地圖、
-            活動頁展示及官方報名導流效果，再按需要選擇單次刊登或月費方案。
+            一般活動資料上載、提交審批及正常 Listing 不收費。你可以持續使用 HK Family Fun 的活動搜尋、附近活動地圖、
+            活動頁展示及官方報名導流；如果需要額外曝光，再選擇 Featured、Banner 或 Sponsored 推廣。
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -471,7 +471,7 @@ export default function MerchantJoinPage() {
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-white/85">
                 趁早成為家長搜尋習慣入面的第一批活動商戶。
-                先免費上架首個活動，再逐步選擇合適方案。
+                免費刊登一般活動，再逐步選擇合適方案。
               </p>
             </div>
 
@@ -486,7 +486,7 @@ export default function MerchantJoinPage() {
                 href="/merchant-pricing"
                 className="rounded-full border border-white/40 px-5 py-3 text-sm font-black text-white hover:bg-white/10"
               >
-                查看收費方案
+                免費刊登／付費推廣
               </Link>
               <Link
                 href="/merchant/events/import"
