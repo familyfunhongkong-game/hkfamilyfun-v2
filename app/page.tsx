@@ -192,7 +192,7 @@ export default async function HomePage() {
         {featuredEvents.length ? (
           <div className={featuredGridClass}>
             {featuredEvents.map((event) => (
-              <EventCard
+              <PublicEventCard
                 key={event.id}
                 event={event}
                 locale={locale}
