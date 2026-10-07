@@ -3,6 +3,23 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  Baby,
+  Building2,
+  CalendarDays,
+  Clock3,
+  ExternalLink,
+  Heart,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Navigation,
+  Phone,
+  Share2,
+  Sparkles,
+  Ticket,
+  TrainFront,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import ResilientEventImage from "@/components/resilient-event-image";
@@ -101,9 +118,13 @@ type EventRecord = {
   quota_label?: string | null;
 
   age_group?: string | null;
+  age_min?: number | string | null;
+  age_max?: number | string | null;
   activity_type?: string | null;
   activity_category?: string | null;
   category?: string | JsonValue | null;
+  is_indoor?: boolean | null;
+  is_sen_friendly?: boolean | null;
 
   registration_required?: boolean | null;
   registration_url?: string | null;
@@ -401,6 +422,53 @@ function formatPrice(event: EventRecord, locale: AppLocale): string {
   return uiText(locale, "收費待確認", "收费待确认", "Price TBC");
 }
 
+function formatAgeRange(event: EventRecord, locale: AppLocale): string {
+  const custom = safeText(event.age_group);
+  if (custom) return custom;
+
+  const min = Number(event.age_min);
+  const max = Number(event.age_max);
+  const hasMin =
+    event.age_min !== null &&
+    event.age_min !== undefined &&
+    Number.isFinite(min);
+  const hasMax =
+    event.age_max !== null &&
+    event.age_max !== undefined &&
+    Number.isFinite(max);
+
+  if (hasMin && hasMax) {
+    return locale === "en" ? `Ages ${min}–${max}` : `${min}–${max}歲`;
+  }
+  if (hasMin) {
+    return locale === "en" ? `Ages ${min}+` : `${min}歲以上`;
+  }
+  if (hasMax) {
+    return locale === "en" ? `Up to age ${max}` : `${max}歲或以下`;
+  }
+
+  return uiText(locale, "適合年齡待定", "适合年龄待定", "Age TBC");
+}
+
+function getPhoneUrl(value: unknown): string | null {
+  const phone = safeText(value);
+  if (!phone) return null;
+  const normalized = phone.replace(/[^+\d]/g, "");
+  return normalized ? `tel:${normalized}` : null;
+}
+
+function getEmailUrl(value: unknown): string | null {
+  const email = safeText(value);
+  return email && email.includes("@") ? `mailto:${email}` : null;
+}
+
+function getWhatsAppUrl(value: unknown): string | null {
+  const phone = safeText(value).replace(/\D/g, "");
+  if (!phone) return null;
+  const withCountryCode = phone.length === 8 ? `852${phone}` : phone;
+  return `https://wa.me/${withCountryCode}`;
+}
+
 function getCategoryLabel(event: EventRecord, locale: AppLocale): string {
   const raw = safeText(
     event.activity_category ||
@@ -651,11 +719,40 @@ function Badge({
   );
 }
 
-function InfoPill({ label, value }: { label: string; value: string }) {
+function InfoPill({
+  label,
+  value,
+  icon,
+  muted = false,
+}: {
+  label: string;
+  value: string;
+  icon?: ReactNode;
+  muted?: boolean;
+}) {
   return (
-    <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-      <p className="text-xs font-bold text-slate-400">{label}</p>
-      <p className="mt-1 text-sm font-extrabold text-slate-800">{value}</p>
+    <div className="flex min-w-0 items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+      {icon ? (
+        <span
+          className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
+            muted ? "bg-slate-100 text-slate-400" : "bg-purple-50 text-purple-700"
+          }`}
+        >
+          {icon}
+        </span>
+      ) : null}
+      <div className="min-w-0">
+        <p className="text-[11px] font-black uppercase tracking-[0.06em] text-slate-400">
+          {label}
+        </p>
+        <p
+          className={`mt-1 line-clamp-2 text-sm font-extrabold ${
+            muted ? "text-slate-400" : "text-slate-800"
+          }`}
+        >
+          {value}
+        </p>
+      </div>
     </div>
   );
 }
