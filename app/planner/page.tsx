@@ -617,7 +617,7 @@ export default function PlannerPage() {
               : safeText(
                   event.price_label,
                   Number(event.min_price) > 0
-                    ? `HK${Number(event.min_price)}`
+                    ? `HK$${Number(event.min_price)}`
                     : locale === "en"
                       ? "See price"
                       : locale === "zh-Hans"
