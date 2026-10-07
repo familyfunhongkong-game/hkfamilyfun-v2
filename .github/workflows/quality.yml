@@ -45,6 +45,35 @@ jobs:
             exit 1
           fi
 
+      - name: Enforce homepage merchandising order
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("fs");
+          const source = fs.readFileSync("app/page.tsx", "utf8");
+
+          const banner = source.indexOf('PromotionSlot banners={topBanners} variant="horizontal"');
+          const featured = source.indexOf('{labels.featuredTitle}');
+          const latest = source.indexOf('{labels.latestTitle}');
+
+          if (banner < 0 || featured < 0 || latest < 0) {
+            throw new Error("Homepage Banner / Featured / Latest sections are missing");
+          }
+
+          if (!(banner < featured && featured < latest)) {
+            throw new Error("Homepage order must remain Banner → Featured → Latest");
+          }
+
+          if (!source.includes("event.updatedAt || event.publishedAt || event.date")) {
+            throw new Error("Homepage latest events must keep update-time ordering");
+          }
+
+          if (!source.includes(".filter((event) => event.featured)")) {
+            throw new Error("Homepage featured section must remain Admin-controlled");
+          }
+          NODE
+
       - name: Commerce model copy check
         run: npm run check:commerce-copy
 
