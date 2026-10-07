@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HK_FAMILY_FUN_BUSINESS_MODEL } from "@/lib/business-model";
+import MerchantAdvertisingEnquiryForm from "@/components/merchant-advertising-enquiry-form";
 
 const packages = [
   {
@@ -76,10 +77,10 @@ export default function MerchantAdvertisingPage() {
               才會由 Admin 安排上架時間及 Sponsored 標示。
             </p>
             <a
-              href="mailto:info@hkfamilyfun.com?subject=HK%20Family%20Fun%20Advertising%20Enquiry"
+              href="#advertising-enquiry"
               className="mt-6 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white"
             >
-              查詢付費廣告方案
+              直接提交廣告查詢
             </a>
           </article>
         </div>
@@ -94,6 +95,10 @@ export default function MerchantAdvertisingPage() {
               <p className="mt-3 text-sm leading-6 text-slate-600">{item.description}</p>
             </article>
           ))}
+        </div>
+
+        <div id="advertising-enquiry" className="mt-8 scroll-mt-8">
+          <MerchantAdvertisingEnquiryForm />
         </div>
 
         <article className="mt-8 rounded-[2rem] border border-blue-200 bg-blue-50 p-6">
