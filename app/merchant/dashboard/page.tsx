@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import {
   CURRENT_MERCHANT_TERMS_VERSION,
+  CURRENT_PRIVACY_VERSION,
   hasCurrentMerchantTerms,
+  hasCurrentPrivacyAcceptance,
 } from "@/lib/merchant-legal";
 
 type EventRecord = {
@@ -513,7 +515,10 @@ export default function MerchantDashboardPage() {
     return Math.round(total / events.length);
   }, [events]);
 
-  const needsCurrentTerms = merchant ? !hasCurrentMerchantTerms(merchant) : false;
+  const needsCurrentTerms = merchant
+    ? !hasCurrentMerchantTerms(merchant) ||
+      !hasCurrentPrivacyAcceptance(merchant)
+    : false;
 
   async function acceptCurrentTerms() {
     const client = supabase;
@@ -544,6 +549,7 @@ export default function MerchantDashboardPage() {
         body: JSON.stringify({
           accepted: true,
           terms_version: CURRENT_MERCHANT_TERMS_VERSION,
+          privacy_version: CURRENT_PRIVACY_VERSION,
         }),
       });
 
@@ -557,7 +563,7 @@ export default function MerchantDashboardPage() {
       }
 
       setAcceptedUpdatedTerms(false);
-      setMessage("新版 Merchant Terms 已接受並保存。付費廣告查詢功能已可使用。");
+      setMessage("新版 Merchant Terms 及 Privacy Policy 已接受並保存。付費廣告查詢功能已可使用。");
       await loadDashboard();
     } catch (error) {
       setMessage(
@@ -1004,12 +1010,13 @@ export default function MerchantDashboardPage() {
                   Merchant Terms Update
                 </p>
                 <h2 className="mt-2 text-xl font-black text-slate-950">
-                  付費推廣前，請接受最新 Merchant Terms
+                  付費推廣前，請接受最新 Merchant Terms 及 Privacy Policy
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-700">
                   一般活動 Listing 仍然免費，你可以繼續管理及提交活動。由於 HK Family Fun
                   已將正常活動刊登同 Banner / Featured / Sponsored 付費推廣正式分開，
-                  使用任何付費推廣前需要確認目前版本條款（{CURRENT_MERCHANT_TERMS_VERSION}）。
+                  使用任何付費推廣前需要確認目前 Merchant Terms（{CURRENT_MERCHANT_TERMS_VERSION}）
+                  及 Privacy Policy（{CURRENT_PRIVACY_VERSION}）。
                 </p>
                 <label className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-sm font-semibold leading-6 text-slate-800">
                   <input
@@ -1027,7 +1034,15 @@ export default function MerchantDashboardPage() {
                     >
                       HK Family Fun Merchant Terms
                     </Link>
-                    最新版本。
+                    及
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="mx-1 font-black text-purple-700 underline underline-offset-2"
+                    >
+                      Privacy Policy
+                    </Link>
+                    目前版本。
                   </span>
                 </label>
               </div>
@@ -1038,7 +1053,7 @@ export default function MerchantDashboardPage() {
                 onClick={() => void acceptCurrentTerms()}
                 className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {acceptingTerms ? "保存中…" : "接受新版 Merchant Terms"}
+                {acceptingTerms ? "保存中…" : "接受最新條款及私隱政策"}
               </button>
             </div>
           </div>
