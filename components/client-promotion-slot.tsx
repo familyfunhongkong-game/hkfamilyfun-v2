@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import PromotionTracker from "@/components/promotion-tracker";
+import { canShowPromotion } from "@/lib/business-model";
 
 type Placement =
   | "home_top"
@@ -68,9 +69,19 @@ export default function ClientPromotionSlot({
         .or(`starts_at.is.null,starts_at.lte.${new Date().toISOString()}`)
         .or(`ends_at.is.null,ends_at.gte.${new Date().toISOString()}`)
         .order("priority", { ascending: true })
-        .limit(limit);
+        .limit(Math.max(limit * 4, 12));
 
-      if (mounted && !result.error) setRows((result.data || []) as Row[]);
+      if (mounted && !result.error) {
+        const visibleRows = ((result.data || []) as Row[])
+          .filter((row) =>
+            canShowPromotion({
+              isPaid: row.is_paid,
+              sponsorName: row.sponsor_name,
+            }),
+          )
+          .slice(0, limit);
+        setRows(visibleRows);
+      }
     }
 
     void load();
