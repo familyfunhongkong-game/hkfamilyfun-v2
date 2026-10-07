@@ -693,6 +693,13 @@ export default function PlannerPage() {
                     <p className="mt-1 text-xs font-semibold text-slate-500">
                       {event.mtr_station ? `🚇 ${event.mtr_station} · ` : ""}{age}
                     </p>
+                    <p className="mt-1 line-clamp-1 text-xs font-semibold text-slate-500">
+                      {locale === "en" ? "Organizer" : locale === "zh-Hans" ? "主办" : "主辦"}：
+                      {safeText(
+                        event.organizer_name,
+                        locale === "en" ? "TBC" : locale === "zh-Hans" ? "待定" : "待定",
+                      )}
+                    </p>
                     <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">{description}</p>
                   </div>
 
