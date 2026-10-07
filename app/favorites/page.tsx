@@ -342,7 +342,7 @@ export default function FavoritesPage() {
               </div>
             ))}
           </div>
-        ) : null}}
+        ) : null}
       </section>
     </main>
   );
