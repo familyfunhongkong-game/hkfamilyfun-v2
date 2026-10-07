@@ -1424,86 +1424,6 @@ export default function PublicEventDetailPage() {
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section className="space-y-6">
-          <SectionCard title={m.gallery} icon="🖼️">
-            <div className="mb-4 rounded-2xl border border-purple-100 bg-purple-50 p-4">
-              <p className="text-sm font-black text-purple-900">
-                {m.galleryHint}
-              </p>
-              <p className="mt-1 text-xs font-bold leading-5 text-purple-700">
-                {m.galleryDesc}
-              </p>
-            </div>
-
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-purple-50 via-white to-amber-50">
-                <div className="relative aspect-[16/9] overflow-hidden">
-                  <ResilientEventImage
-                    src={
-                      selectedImage?.url === FALLBACK_IMAGE
-                        ? null
-                        : selectedImage?.url
-                    }
-                    alt={selectedImage?.label || title}
-                    loading="lazy"
-                    compactFallback
-                    className="h-full w-full object-cover"
-                    style={selectedImageStyle}
-                  />
-
-                  <div className="absolute left-4 top-4 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
-                    {selectedImage?.label || m.image}
-                  </div>
-
-                  <div className="absolute bottom-4 right-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-700 shadow-sm backdrop-blur">
-                    {safeSelectedImageIndex + 1}/{images.length}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
-                {images.map((image, index) => (
-                  <div
-                    key={`${image.url}-${index}`}
-                    className={[
-                      "rounded-2xl border bg-white p-2 shadow-sm transition",
-                      safeSelectedImageIndex === index
-                        ? "border-purple-500 ring-2 ring-purple-200"
-                        : "border-slate-200",
-                    ].join(" ")}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedImageIndex(index)}
-                      className="group w-full overflow-hidden rounded-xl bg-white text-left"
-                    >
-                      <div className="aspect-[16/10] overflow-hidden rounded-xl bg-gradient-to-br from-purple-50 via-white to-amber-50">
-                        <ResilientEventImage
-                          src={image.url === FALLBACK_IMAGE ? null : image.url}
-                          alt={image.label}
-                          loading="lazy"
-                          compactFallback
-                          className="h-full w-full object-cover transition group-hover:scale-[1.03]"
-                          style={image.isCover ? coverStyle : undefined}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between px-1 py-2">
-                        <span className="text-xs font-extrabold text-slate-700">
-                          {image.label}
-                        </span>
-                        {image.isCover ? (
-                          <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-black text-purple-700">
-                            DB Cover
-                          </span>
-                        ) : null}
-                      </div>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </SectionCard>
-
           <SectionCard title={m.details} icon="✨">
             <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
               {description}
@@ -1548,7 +1468,7 @@ export default function PublicEventDetailPage() {
                   <a
                     href={mapUrl}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800"
                   >
                     📍 {m.openMap}
@@ -1638,15 +1558,71 @@ export default function PublicEventDetailPage() {
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-black text-slate-950">{m.quickFacts}</h3>
+            <div className="flex items-center gap-2">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-purple-50 text-purple-700">
+                <Sparkles size={17} />
+              </span>
+              <h3 className="text-sm font-black text-slate-950">{m.quickFacts}</h3>
+            </div>
 
             <div className="mt-4 space-y-2">
-              <InfoPill label={m.category} value={getCategoryLabel(event, locale)} />
-              <InfoPill label={m.date} value={formatDateRange(event, locale)} />
-              <InfoPill label={m.time} value={formatTimeRange(event, locale)} />
-              <InfoPill label={m.price} value={formatPrice(event, locale)} />
-              <InfoPill label={m.organizer} value={merchantName} />
+              <InfoPill
+                label={m.category}
+                value={categoryLabel}
+                icon={<Sparkles size={16} />}
+              />
+              <InfoPill
+                label={m.date}
+                value={dateDisplay}
+                icon={<CalendarDays size={16} />}
+              />
+              <InfoPill
+                label={m.time}
+                value={timeDisplay}
+                icon={<Clock3 size={16} />}
+              />
+              <InfoPill
+                label={m.price}
+                value={priceDisplay}
+                icon={<Ticket size={16} />}
+              />
+              <InfoPill
+                label={uiText(locale, "適合年齡", "适合年龄", "Age")}
+                value={ageDisplay}
+                icon={<Baby size={16} />}
+              />
+              <InfoPill
+                label={m.mtr}
+                value={mtr || m.mtrTbc}
+                icon={<TrainFront size={16} />}
+                muted={!mtr}
+              />
+              <InfoPill
+                label={m.organizer}
+                value={merchantName}
+                icon={<Building2 size={16} />}
+              />
             </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {isSenFriendly ? <Badge tone="rose">SEN 友善</Badge> : null}
+              {isIndoor ? (
+                <Badge tone="slate">{uiText(locale, "室內", "室内", "Indoor")}</Badge>
+              ) : null}
+              <Badge tone="amber">{priceDisplay}</Badge>
+            </div>
+
+            {actionUrl ? (
+              <a
+                href={actionUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-purple-700 px-5 py-4 text-sm font-black text-white transition hover:bg-purple-800"
+              >
+                {actionLabel}
+                <ExternalLink size={15} />
+              </a>
+            ) : null}
           </div>
 
           <div className="rounded-3xl border border-purple-100 bg-purple-50 p-5">
@@ -1654,15 +1630,91 @@ export default function PublicEventDetailPage() {
             <p className="mt-3 text-xs font-bold leading-6 text-purple-800">
               {m.shareReminderDesc}
             </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => shareEvent(title, shortDescription)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-black text-purple-700 ring-1 ring-purple-100"
+              >
+                <Share2 size={14} />
+                {copiedShare ? m.linkCopied : m.share}
+              </button>
+              <button
+                type="button"
+                onClick={toggleFavorite}
+                aria-pressed={isFavorite}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-black text-rose-700 ring-1 ring-purple-100"
+              >
+                <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
+                {isFavorite ? m.saved : m.save}
+              </button>
+            </div>
           </div>
 
           <Link
             href="/events"
-            className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+            className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-slate-700 transition hover:border-purple-300 hover:text-purple-700"
           >
             {m.exploreMore}
           </Link>
         </aside>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 p-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+        <div className="mx-auto flex max-w-2xl items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleFavorite}
+            aria-pressed={isFavorite}
+            aria-label={isFavorite ? m.saved : m.save}
+            className={[
+              "grid h-12 w-12 shrink-0 place-items-center rounded-2xl ring-1 transition",
+              isFavorite
+                ? "bg-rose-50 text-rose-700 ring-rose-100"
+                : "bg-white text-slate-700 ring-slate-300",
+            ].join(" ")}
+          >
+            <Heart size={18} fill={isFavorite ? "currentColor" : "none"} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => shareEvent(title, shortDescription)}
+            aria-label={m.share}
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white text-slate-700 ring-1 ring-slate-300"
+          >
+            <Share2 size={18} />
+          </button>
+
+          {actionUrl ? (
+            <a
+              href={actionUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl bg-purple-700 px-4 py-3.5 text-sm font-black text-white shadow-sm"
+            >
+              <span className="truncate">{actionLabel}</span>
+              <ExternalLink size={15} className="shrink-0" />
+            </a>
+          ) : mapUrl ? (
+            <a
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3.5 text-sm font-black text-white"
+            >
+              <Navigation size={15} />
+              <span className="truncate">Google Map</span>
+            </a>
+          ) : (
+            <Link
+              href="/events"
+              className="inline-flex min-w-0 flex-1 items-center justify-center rounded-2xl bg-purple-700 px-4 py-3.5 text-sm font-black text-white"
+            >
+              {m.exploreMore}
+            </Link>
+          )}
+        </div>
       </div>
     </main>
   );
