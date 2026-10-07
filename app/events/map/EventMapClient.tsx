@@ -27,6 +27,10 @@ export type MapEvent = {
   mapUrl?: string | null;
   isFree?: boolean;
   isSenFriendly?: boolean;
+  price?: string;
+  age?: string;
+  organizer?: string;
+  category?: string;
 };
 
 export type MapBounds = {
@@ -313,6 +317,12 @@ export default function EventMapClient({
                           <span className="mt-1 block text-[11px] font-semibold text-slate-600">
                             {event.date} · {event.time}
                           </span>
+                          <span className="mt-1 block text-[11px] font-bold text-amber-800">
+                            {event.price || "價錢見活動詳情"}
+                          </span>
+                          <span className="mt-1 block line-clamp-1 text-[11px] text-slate-500">
+                            {event.age || "年齡待定"} · {event.organizer || "主辦方待定"}
+                          </span>
                           {typeof event.distanceKm === "number" ? (
                             <span className="mt-1 block text-[11px] font-bold text-blue-700">
                               約 {event.distanceKm.toFixed(1)} km
@@ -368,6 +378,21 @@ export default function EventMapClient({
                   <div className="mt-1 text-xs font-semibold text-slate-700">
                     {first.date} · {first.time}
                   </div>
+
+                  <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px]">
+                    <span className="rounded-lg bg-amber-50 px-2 py-1.5 font-bold text-amber-900">
+                      {first.price || "價錢見活動詳情"}
+                    </span>
+                    <span className="rounded-lg bg-purple-50 px-2 py-1.5 font-bold text-purple-800">
+                      {first.age || "年齡待定"}
+                    </span>
+                  </div>
+
+                  {first.organizer ? (
+                    <div className="mt-2 line-clamp-1 text-[11px] font-semibold text-slate-500">
+                      主辦：{first.organizer}
+                    </div>
+                  ) : null}
 
                   <div className="mt-2 flex flex-wrap gap-1">
                     {first.isFree ? (
