@@ -40,10 +40,17 @@ type EventRecord = {
   end_time?: string | null;
   price_display_mode?: string | null;
   price_label?: string | null;
+  min_price?: number | string | null;
+  max_price?: number | string | null;
   is_free?: boolean | null;
   is_sen_friendly?: boolean | null;
   category?: string | null;
   activity_category?: string | null;
+  age_group?: string | null;
+  age_min?: number | null;
+  age_max?: number | null;
+  organizer_name?: string | null;
+  merchant_name?: string | null;
   tags?: unknown;
   cover_image_url?: string | null;
   google_map_url?: string | null;
@@ -91,6 +98,41 @@ function isFreeEvent(event: EventRecord) {
     safeText(event.price_display_mode).toLowerCase() === "free" ||
     safeText(event.price_label).includes("免費")
   );
+}
+
+function priceText(event: EventRecord, locale: AppLocale) {
+  if (isFreeEvent(event)) return uiText(locale, "免費", "免费", "Free");
+
+  const label = safeText(event.price_label);
+  if (label) return label;
+
+  const min = Number(event.min_price);
+  const max = Number(event.max_price);
+
+  if (Number.isFinite(min) && min >= 0) {
+    if (Number.isFinite(max) && max >= 0 && max !== min) {
+      return `HK${min}–${max}`;
+    }
+    if (min > 0) return `HK${min}`;
+  }
+
+  return uiText(locale, "價錢見活動詳情", "价格见活动详情", "See event price");
+}
+
+function ageText(event: EventRecord, locale: AppLocale) {
+  const group = safeText(event.age_group);
+  if (group) return group;
+
+  const min = typeof event.age_min === "number" ? event.age_min : null;
+  const max = typeof event.age_max === "number" ? event.age_max : null;
+
+  if (min !== null && max !== null) {
+    return locale === "en" ? `Ages ${min}–${max}` : `${min}–${max}歲`;
+  }
+  if (min !== null) return locale === "en" ? `Ages ${min}+` : `${min}歲以上`;
+  if (max !== null) return locale === "en" ? `Up to age ${max}` : `${max}歲或以下`;
+
+  return uiText(locale, "年齡待定", "年龄待定", "Age TBC");
 }
 
 function mapUrl(event: EventRecord) {
@@ -449,6 +491,16 @@ export default function NearbyEventsMapPage() {
           mapUrl: mapUrl(event),
           isFree: isFreeEvent(event),
           isSenFriendly: Boolean(event.is_sen_friendly),
+          price: priceText(event, locale),
+          age: ageText(event, locale),
+          organizer: safeText(
+            event.organizer_name || event.merchant_name,
+            uiText(locale, "主辦方待定", "主办方待定", "Organizer TBC"),
+          ),
+          category: safeText(
+            event.activity_category || event.category,
+            uiText(locale, "親子活動", "亲子活动", "Family Activity"),
+          ),
         })),
     [filtered, locale],
   );
@@ -859,11 +911,13 @@ export default function NearbyEventsMapPage() {
                                 未定位
                               </span>
                             )}
-                            {isFreeEvent(event) ? (
-                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">
-                                免費
-                              </span>
-                            ) : null}
+                            <span className={`rounded-full px-2 py-1 text-[10px] font-black ${
+                              isFreeEvent(event)
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-amber-50 text-amber-800"
+                            }`}>
+                              {priceText(event, locale)}
+                            </span>
                             {event.is_sen_friendly ? (
                               <span className="rounded-full bg-purple-50 px-2 py-1 text-[10px] font-black text-purple-700">
                                 SEN
@@ -896,6 +950,12 @@ export default function NearbyEventsMapPage() {
 
                           <p className="mt-1 text-[11px] font-bold text-slate-500">
                             {dateText(event)} · {timeText(event)}
+                          </p>
+                          <p className="mt-1 line-clamp-1 text-[11px] font-semibold text-slate-500">
+                            {ageText(event, locale)} · {safeText(
+                              event.organizer_name || event.merchant_name,
+                              uiText(locale, "主辦方待定", "主办方待定", "Organizer TBC"),
+                            )}
                           </p>
 
                           {event.mtr_station ? (
