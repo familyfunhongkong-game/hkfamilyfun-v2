@@ -14,11 +14,16 @@ export default function PromotionSlot({
         {banners.map((banner, index) => {
           const isLead = index === 0;
           const image = banner.imageUrl || banner.mobileImageUrl;
+          const columnClass =
+            banners.length === 1
+              ? "lg:col-span-12"
+              : isLead
+                ? "lg:col-span-8"
+                : "lg:col-span-4";
           const body = (
             <article
               className={[
                 "group relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 shadow-sm",
-                isLead && banners.length > 1 ? "lg:col-span-8" : "lg:col-span-4",
               ].join(" ")}
             >
               {image ? (
@@ -31,7 +36,7 @@ export default function PromotionSlot({
                     alt={banner.headline}
                     loading={isLead ? "eager" : "lazy"}
                     decoding="async"
-                    className="h-64 w-full object-cover sm:h-72"
+                    className="h-48 w-full object-cover sm:h-60 lg:h-72"
                   />
                 </picture>
               ) : (
@@ -82,7 +87,7 @@ export default function PromotionSlot({
               href={banner.targetUrl}
               target={banner.targetUrl.startsWith("http") ? "_blank" : undefined}
               rel={banner.targetUrl.startsWith("http") ? "noreferrer sponsored" : undefined}
-              className={isLead && banners.length > 1 ? "lg:col-span-8" : "lg:col-span-4"}
+              className={columnClass}
             >
               {body}
             </Link>
