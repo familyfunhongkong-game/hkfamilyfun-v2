@@ -5,7 +5,10 @@ import ResilientEventImage from "@/components/resilient-event-image";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import PromotionSlot from "@/components/promotion-slot";
-import { getActivePromotionBanners } from "@/lib/content/public";
+import {
+  getActivePromotionBanners,
+  type PublicPromotionBanner,
+} from "@/lib/content/public";
 
 export const dynamic = "force-dynamic";
 
@@ -127,15 +130,14 @@ export default async function HomePage() {
     (a, b) => eventTimestamp(b) - eventTimestamp(a),
   );
 
-  const manuallyFeatured = latestSorted.filter((event) => event.featured);
-  const featuredEvents = (
-    manuallyFeatured.length ? manuallyFeatured : latestSorted
-  ).slice(0, 6);
+  const featuredEvents = latestSorted
+    .filter((event) => event.featured)
+    .slice(0, 6);
 
   const featuredIds = new Set(featuredEvents.map((event) => event.id));
   const latestUpdated = latestSorted
     .filter((event) => !featuredIds.has(event.id))
-    .slice(0, 12);
+    .slice(0, 18);
 
   const quickActions = [
     {
@@ -169,6 +171,51 @@ export default async function HomePage() {
     { label: p.indoorEvents, href: "/events?indoor=true", icon: "🏠" },
     { label: p.weekend, href: "/events?date=weekend", icon: "🌈" },
   ];
+
+  const fallbackBanner: PublicPromotionBanner =
+    locale === "en"
+      ? {
+          id: "home-house-fallback",
+          headline: "Put your family event in front of Hong Kong parents",
+          subheadline:
+            "Merchant event submission, featured placement and campaign promotion are managed from one place.",
+          imageUrl: "",
+          mobileImageUrl: "",
+          targetUrl: "/merchant/register",
+          ctaLabel: "Merchant sign-up",
+          badgeText: "HK Family Fun",
+          sponsorName: "HK Family Fun",
+          isPaid: false,
+        }
+      : locale === "zh-Hans"
+        ? {
+            id: "home-house-fallback",
+            headline: "让更多香港家长看到你的亲子活动",
+            subheadline: "商户投稿、精选曝光及推广活动都可以由 HK Family Fun 统一管理。",
+            imageUrl: "",
+            mobileImageUrl: "",
+            targetUrl: "/merchant/register",
+            ctaLabel: "商户免费登记",
+            badgeText: "HK Family Fun",
+            sponsorName: "HK Family Fun",
+            isPaid: false,
+          }
+        : {
+            id: "home-house-fallback",
+            headline: "讓更多香港家長看到你的親子活動",
+            subheadline: "商戶投稿、精選曝光及推廣活動都可以由 HK Family Fun 統一管理。",
+            imageUrl: "",
+            mobileImageUrl: "",
+            targetUrl: "/merchant/register",
+            ctaLabel: "商戶免費登記",
+            badgeText: "HK Family Fun",
+            sponsorName: "HK Family Fun",
+            isPaid: false,
+          };
+
+  const topBanners = homeTopBanners.length
+    ? homeTopBanners
+    : [fallbackBanner];
 
   const labels =
     locale === "en"
@@ -206,7 +253,7 @@ export default async function HomePage() {
     <main className="min-h-screen bg-slate-50 text-slate-950">
       {/* Highest-priority homepage inventory: Admin-managed horizontal ad banner. */}
       <div className="border-b border-slate-100 bg-white">
-        <PromotionSlot banners={homeTopBanners} />
+        <PromotionSlot banners={topBanners} variant="horizontal" />
       </div>
 
       <section className="mx-auto max-w-7xl px-4 pb-8 pt-6 sm:px-6 lg:px-8">
