@@ -189,22 +189,22 @@ function formatPrice(event: DatabaseEvent, locale: AppLocale) {
       modernMax >= 0 &&
       modernMax !== modernMin
     ) {
-      return `HK${modernMin} - HK${modernMax}`;
+      return `HK$${modernMin} - HK$${modernMax}`;
     }
-    if (modernMin > 0) return `HK${modernMin}`;
+    if (modernMin > 0) return `HK$${modernMin}`;
   }
 
   if (event.price_min !== null && event.price_max !== null) {
     if (event.price_min === event.price_max) {
-      return `HK${event.price_min}`;
+      return `HK$${event.price_min}`;
     }
-    return `HK${event.price_min} - HK${event.price_max}`;
+    return `HK$${event.price_min} - HK$${event.price_max}`;
   }
 
   if (event.price_min !== null) {
     return locale === "en"
-      ? `From HK${event.price_min}`
-      : `HK${event.price_min}${locale === "zh-Hans" ? "起" : "起"}`;
+      ? `From HK$${event.price_min}`
+      : `HK$${event.price_min}${locale === "zh-Hans" ? "起" : "起"}`;
   }
 
   if (event.price_label?.trim()) return event.price_label.trim();
