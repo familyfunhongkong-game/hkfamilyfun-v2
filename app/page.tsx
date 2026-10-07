@@ -191,7 +191,7 @@ export default async function HomePage() {
             "Merchant event submission, featured placement and campaign promotion are managed from one place.",
           imageUrl: "",
           mobileImageUrl: "",
-          targetUrl: "/merchant/register",
+          targetUrl: "/merchant-join",
           ctaLabel: "Merchant sign-up",
           badgeText: "HK Family Fun",
           sponsorName: "HK Family Fun",
@@ -200,11 +200,12 @@ export default async function HomePage() {
       : locale === "zh-Hans"
         ? {
             id: "home-house-fallback",
+            placement: "home_top",
             headline: "让更多香港家长看到你的亲子活动",
             subheadline: "商户投稿、精选曝光及推广活动都可以由 HK Family Fun 统一管理。",
             imageUrl: "",
             mobileImageUrl: "",
-            targetUrl: "/merchant/register",
+            targetUrl: "/merchant-join",
             ctaLabel: "商户免费登记",
             badgeText: "HK Family Fun",
             sponsorName: "HK Family Fun",
@@ -212,11 +213,12 @@ export default async function HomePage() {
           }
         : {
             id: "home-house-fallback",
+            placement: "home_top",
             headline: "讓更多香港家長看到你的親子活動",
             subheadline: "商戶投稿、精選曝光及推廣活動都可以由 HK Family Fun 統一管理。",
             imageUrl: "",
             mobileImageUrl: "",
-            targetUrl: "/merchant/register",
+            targetUrl: "/merchant-join",
             ctaLabel: "商戶免費登記",
             badgeText: "HK Family Fun",
             sponsorName: "HK Family Fun",
