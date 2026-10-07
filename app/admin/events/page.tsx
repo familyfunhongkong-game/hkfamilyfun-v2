@@ -108,6 +108,7 @@ type EventRecord = {
   created_at?: string | null;
   updated_at?: string | null;
   published_at?: string | null;
+  is_featured?: boolean | null;
 };
 
 type GalleryImage = {
@@ -637,6 +638,7 @@ export default function AdminEventsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [searchText, setSearchText] = useState("");
+  const [featuredOnly, setFeaturedOnly] = useState(false);
 
   async function loadEvents() {
     const client = supabase;
@@ -834,6 +836,10 @@ export default function AdminEventsPage() {
       next = next.filter((event) => normalizedStatus(event) === statusFilter);
     }
 
+    if (featuredOnly) {
+      next = next.filter((event) => Boolean(event.is_featured));
+    }
+
     if (keyword) {
       next = next.filter((event) => {
         const haystack = [
@@ -888,7 +894,7 @@ export default function AdminEventsPage() {
     }
 
     return next;
-  }, [events, statusFilter, searchText, sortMode]);
+  }, [events, statusFilter, featuredOnly, searchText, sortMode]);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -1006,6 +1012,18 @@ export default function AdminEventsPage() {
                   {filter.label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setFeaturedOnly((current) => !current)}
+                className={[
+                  "rounded-full px-4 py-2 text-sm font-black transition",
+                  featuredOnly
+                    ? "bg-fuchsia-700 text-white"
+                    : "bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100",
+                ].join(" ")}
+              >
+                首頁精選
+              </button>
             </div>
 
             <select
@@ -1134,6 +1152,11 @@ export default function AdminEventsPage() {
                     <div className="p-5">
                       <div className="flex flex-wrap gap-2">
                         <Badge tone="purple">{getCategoryLabel(event)}</Badge>
+                        {event.is_featured ? (
+                          <span className="inline-flex items-center rounded-full bg-fuchsia-50 px-3 py-1 text-xs font-black text-fuchsia-700 ring-1 ring-fuchsia-100">
+                            首頁精選
+                          </span>
+                        ) : null}
                         <Badge tone="amber">{formatPrice(event)}</Badge>
                         {ready ? (
                           <Badge tone="green">可發布</Badge>
