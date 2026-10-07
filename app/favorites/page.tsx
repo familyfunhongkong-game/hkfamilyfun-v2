@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import { getExtraPublicMessages } from "@/lib/i18n/public-extra-messages";
 import { supabase } from "@/lib/supabase/client";
+import PublicEventCard from "@/components/events/PublicEventCard";
+import type { Event } from "@/lib/types";
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
 
@@ -15,14 +16,34 @@ type FavoriteEvent = {
   title_tc?: string | null;
   title_sc?: string | null;
   title_en?: string | null;
+  short_description_tc?: string | null;
+  short_description_sc?: string | null;
+  short_description_en?: string | null;
   organizer_name?: string | null;
   merchant_name?: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   district?: string | null;
+  mtr_station?: string | null;
   cover_image_url?: string | null;
+  price_type?: "free" | "paid" | "mixed" | null;
+  price_display_mode?: string | null;
   price_label?: string | null;
+  min_price?: number | string | null;
+  max_price?: number | string | null;
+  age_min?: number | null;
+  age_max?: number | null;
+  tags?: unknown;
+  activity_category?: string | null;
+  category?: string | null;
   is_free?: boolean | null;
+  is_sen_friendly?: boolean | null;
+  registration_url?: string | null;
+  booking_url?: string | null;
+  official_url?: string | null;
+  source_url?: string | null;
 };
 
 function readFavoriteIds(): string[] {
@@ -44,33 +65,119 @@ function readFavoriteIds(): string[] {
   }
 }
 
-function formatEventDate(
-  event: FavoriteEvent,
-  locale: AppLocale,
-  fallback: string,
-) {
-  if (!event.start_date) return fallback;
+function normalizeTags(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean).slice(0, 8);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/[,\n，、]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+  }
+  return [];
+}
 
-  const format = (value: string) => {
-    const date = new Date(`${value}T00:00:00+08:00`);
-    if (Number.isNaN(date.getTime())) return value;
+function priceText(event: FavoriteEvent, locale: AppLocale) {
+  const free =
+    Boolean(event.is_free) ||
+    event.price_type === "free" ||
+    String(event.price_display_mode || "").toLowerCase() === "free";
 
-    return new Intl.DateTimeFormat(
-      locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK",
-      {
-        timeZone: "Asia/Hong_Kong",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      },
-    ).format(date);
+  if (free) return locale === "en" ? "Free" : locale === "zh-Hans" ? "免费" : "免費";
+  if (event.price_label?.trim()) return event.price_label.trim();
+
+  const min = Number(event.min_price);
+  const max = Number(event.max_price);
+  if (Number.isFinite(min) && min >= 0) {
+    if (Number.isFinite(max) && max >= 0 && max !== min) return `HK$${min}–${max}`;
+    if (min > 0) return `HK$${min}`;
+  }
+
+  return locale === "en"
+    ? "See official details"
+    : locale === "zh-Hans"
+      ? "详情请见官方资料"
+      : "詳情請見官方資料";
+}
+
+function ageText(event: FavoriteEvent, locale: AppLocale) {
+  const min = event.age_min;
+  const max = event.age_max;
+
+  if (min !== null && min !== undefined && max !== null && max !== undefined) {
+    return locale === "en" ? `Ages ${min}–${max}` : `${min}–${max}歲`;
+  }
+  if (min !== null && min !== undefined) {
+    return locale === "en" ? `Ages ${min}+` : `${min}歲以上`;
+  }
+  if (max !== null && max !== undefined) {
+    return locale === "en" ? `Up to age ${max}` : `${max}歲或以下`;
+  }
+
+  return locale === "en" ? "All ages" : locale === "zh-Hans" ? "适合所有年龄" : "適合所有年齡";
+}
+
+function timeText(event: FavoriteEvent, locale: AppLocale) {
+  const start = String(event.start_time || "").slice(0, 5);
+  const end = String(event.end_time || "").slice(0, 5);
+  if (!start) return locale === "en" ? "Time TBC" : locale === "zh-Hans" ? "时间待定" : "時間待定";
+  return end ? `${start} - ${end}` : start;
+}
+
+function toPublicEvent(event: FavoriteEvent, locale: AppLocale): Event {
+  const title = localizedText(locale, {
+    tc: event.title_tc,
+    sc: event.title_sc,
+    en: event.title_en,
+    fallback: locale === "en" ? "Untitled event" : "未命名活動",
+  });
+  const shortDescription = localizedText(locale, {
+    tc: event.short_description_tc,
+    sc: event.short_description_sc,
+    en: event.short_description_en,
+  });
+  const free =
+    Boolean(event.is_free) ||
+    event.price_type === "free" ||
+    String(event.price_display_mode || "").toLowerCase() === "free";
+
+  return {
+    id: event.id,
+    title,
+    shortDescription,
+    description: shortDescription,
+    date: event.start_date || "",
+    endDate: event.end_date || undefined,
+    time: timeText(event, locale),
+    district: event.district || (locale === "en" ? "Hong Kong" : "香港"),
+    mtrStation:
+      event.mtr_station ||
+      (locale === "en" ? "MTR TBC" : locale === "zh-Hans" ? "港铁站待定" : "港鐵站待定"),
+    ageRange: ageText(event, locale),
+    organizer:
+      event.organizer_name ||
+      event.merchant_name ||
+      (locale === "en" ? "Organizer TBC" : locale === "zh-Hans" ? "主办方待定" : "主辦方待定"),
+    tags: normalizeTags(event.tags),
+    category:
+      event.activity_category ||
+      event.category ||
+      (locale === "en" ? "Family Activity" : locale === "zh-Hans" ? "亲子活动" : "親子活動"),
+    priceType: free ? "free" : event.price_type || "paid",
+    price: priceText(event, locale),
+    senFriendly: Boolean(event.is_sen_friendly),
+    image:
+      event.cover_image_url ||
+      "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun",
+    officialLink:
+      event.registration_url ||
+      event.booking_url ||
+      event.official_url ||
+      event.source_url ||
+      undefined,
   };
-
-  const start = format(event.start_date);
-  if (!event.end_date || event.end_date === event.start_date) return start;
-
-  const end = format(event.end_date);
-  return locale === "en" ? `${start} – ${end}` : `${start} 至 ${end}`;
 }
 
 export default function FavoritesPage() {
@@ -105,7 +212,7 @@ export default function FavoritesPage() {
       const { data, error } = await supabase
         .from("public_events_i18n")
         .select(
-          "id,title_tc,title_sc,title_en,organizer_name,merchant_name,start_date,end_date,district,cover_image_url,price_label,is_free",
+          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,merchant_name,start_date,end_date,start_time,end_time,district,mtr_station,cover_image_url,price_type,price_display_mode,price_label,min_price,max_price,age_min,age_max,tags,activity_category,category,is_free,is_sen_friendly,registration_url,booking_url,official_url,source_url",
         )
         .in("id", ids);
 
@@ -191,64 +298,19 @@ export default function FavoritesPage() {
         ) : null}
 
         {!loading && events.length ? (
-          <div className="grid gap-5 md:grid-cols-2">
-            {events.map((event) => {
-              const title = localizedText(locale, {
-                tc: event.title_tc,
-                sc: event.title_sc,
-                en: event.title_en,
-                fallback: m.untitled,
-              });
-
-              return (
-                <article
-                  key={event.id}
-                  className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm"
+          <div className="grid items-stretch gap-6 md:grid-cols-2">
+            {events.map((event) => (
+              <div key={event.id} className="relative">
+                <PublicEventCard event={toPublicEvent(event, locale)} locale={locale} />
+                <button
+                  type="button"
+                  onClick={() => removeFavorite(event.id)}
+                  className="absolute right-3 top-3 z-30 rounded-full bg-white/95 px-3 py-2 text-xs font-black text-rose-700 shadow-md backdrop-blur transition hover:bg-rose-50"
                 >
-                  <div className="h-52 overflow-hidden">
-                    <ResilientEventImage
-                      src={event.cover_image_url}
-                      alt={title}
-                      loading="lazy"
-                      compactFallback
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-
-                  <div className="p-5">
-                    <p className="text-xs font-black text-purple-700">
-                      {formatEventDate(event, locale, m.dateTbc)}
-                    </p>
-                    <h2 className="mt-2 text-xl font-black text-slate-950">
-                      {title}
-                    </h2>
-                    <p className="mt-2 text-sm text-slate-500">
-                      {event.organizer_name ||
-                        event.merchant_name ||
-                        m.organizerTbc}
-                      {" · "}
-                      {event.district || m.districtTbc}
-                    </p>
-
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      <Link
-                        href={`/events/${event.id}`}
-                        className="rounded-full bg-purple-700 px-4 py-2 text-sm font-black text-white"
-                      >
-                        {m.view}
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => removeFavorite(event.id)}
-                        className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-700"
-                      >
-                        {m.remove}
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+                  ♥ {m.remove}
+                </button>
+              </div>
+            ))}
           </div>
         ) : null}
       </section>

@@ -3,6 +3,7 @@ import { getPublishedEvents } from "@/lib/supabase/events";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import { eventOccursOn } from "@/lib/events/recurrence";
+import PublicEventCard from "@/components/events/PublicEventCard";
 
 export const dynamic = "force-dynamic";
 
@@ -68,50 +69,13 @@ export default async function TodayPage() {
 
       <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         {todayEvents.length ? (
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="grid items-stretch gap-6 md:grid-cols-2">
             {todayEvents.map((event) => (
-              <article
+              <PublicEventCard
                 key={event.id}
-                className="grid gap-4 border-b border-slate-100 p-5 last:border-b-0 md:grid-cols-[110px_1fr_auto]"
-              >
-                <div className="text-sm font-black text-slate-500">
-                  {event.time}
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-black text-slate-950">
-                    {event.title}
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {event.organizer} · {event.district}
-                  </p>
-
-                  {event.tags.length ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {event.tags.slice(0, 4).map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">
-                    {event.price || p.officialDetails}
-                  </span>
-                  <Link
-                    href={`/events/${event.id}`}
-                    className="rounded-full bg-purple-700 px-4 py-2 text-sm font-black text-white hover:bg-purple-800"
-                  >
-                    {p.view}
-                  </Link>
-                </div>
-              </article>
+                event={event}
+                locale={locale}
+              />
             ))}
           </div>
         ) : (

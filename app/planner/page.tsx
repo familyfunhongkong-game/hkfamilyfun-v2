@@ -6,6 +6,7 @@ import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import { getExtraPublicMessages } from "@/lib/i18n/public-extra-messages";
 import { supabase } from "@/lib/supabase/client";
+import ResilientEventImage from "@/components/resilient-event-image";
 
 type EventRecord = {
   id: string;
@@ -32,6 +33,14 @@ type EventRecord = {
   mtr_station?: string | null;
   price_label?: string | null;
   price_display_mode?: string | null;
+  min_price?: number | string | null;
+  max_price?: number | string | null;
+  age_group?: string | null;
+  age_min?: number | null;
+  age_max?: number | null;
+  activity_category?: string | null;
+  category?: string | null;
+  cover_image_url?: string | null;
   is_free?: boolean | null;
   is_sen_friendly?: boolean | null;
   tags?: unknown;
@@ -327,7 +336,7 @@ export default function PlannerPage() {
       const { data, error } = await supabase
         .from("public_events_i18n")
         .select(
-          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,start_date,end_date,start_time,end_time,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates,recurrence_note,venue_name,venue_name_sc,venue_name_en,district,mtr_station,price_label,price_display_mode,is_free,is_sen_friendly,tags",
+          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,start_date,end_date,start_time,end_time,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates,recurrence_note,venue_name,venue_name_sc,venue_name_en,district,mtr_station,price_label,price_display_mode,min_price,max_price,age_group,age_min,age_max,activity_category,category,cover_image_url,is_free,is_sen_friendly,tags",
         )
         .eq("status", "published")
         .order("start_time", { ascending: true });
@@ -602,30 +611,99 @@ export default function PlannerPage() {
               en: event.short_description_en,
               fallback: m.detailTbc,
             });
+            const eventPrice = event.is_free ||
+              safeText(event.price_display_mode).toLowerCase() === "free"
+              ? locale === "en" ? "Free" : locale === "zh-Hans" ? "免费" : "免費"
+              : safeText(
+                  event.price_label,
+                  Number(event.min_price) > 0
+                    ? `HK$${Number(event.min_price)}`
+                    : locale === "en"
+                      ? "See price"
+                      : locale === "zh-Hans"
+                        ? "价格见详情"
+                        : "價錢見詳情",
+                );
+            const age = safeText(
+              event.age_group,
+              event.age_min !== null && event.age_min !== undefined
+                ? event.age_max !== null && event.age_max !== undefined
+                  ? locale === "en"
+                    ? `Ages ${event.age_min}–${event.age_max}`
+                    : `${event.age_min}–${event.age_max}歲`
+                  : locale === "en"
+                    ? `Ages ${event.age_min}+`
+                    : `${event.age_min}歲以上`
+                : locale === "en"
+                  ? "Age TBC"
+                  : locale === "zh-Hans"
+                    ? "年龄待定"
+                    : "年齡待定",
+            );
+            const category = safeText(
+              event.activity_category || event.category,
+              locale === "en" ? "Family Activity" : locale === "zh-Hans" ? "亲子活动" : "親子活動",
+            );
 
             return (
               <article
                 key={event.id}
-                className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[90px_1fr_auto]"
+                className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:border-purple-200 hover:shadow-md"
               >
-                <div className="rounded-2xl bg-purple-50 px-3 py-4 text-center">
-                  <p className="text-xs font-black text-purple-600">
-                    {m.stop(index + 1)}
-                  </p>
-                  <p className="mt-2 text-lg font-black text-purple-950">
-                    {safeText(event.start_time, m.timeTbc).slice(0, 5)}
-                  </p>
-                </div>
+                <div className="grid gap-4 p-4 md:grid-cols-[128px_minmax(0,1fr)_auto]">
+                  <div className="relative aspect-square overflow-hidden rounded-2xl bg-purple-50">
+                    <ResilientEventImage
+                      src={event.cover_image_url}
+                      alt={title}
+                      loading="lazy"
+                      compactFallback
+                      className="h-full w-full object-cover"
+                    />
+                    <span className="absolute left-2 top-2 rounded-full bg-purple-700 px-2.5 py-1 text-[10px] font-black text-white shadow-sm">
+                      {m.stop(index + 1)}
+                    </span>
+                    <span className="absolute bottom-2 left-2 rounded-full bg-slate-950/80 px-2.5 py-1 text-[11px] font-black text-white backdrop-blur">
+                      {safeText(event.start_time, m.timeTbc).slice(0, 5)}
+                    </span>
+                  </div>
 
-                <div>
-                  <h3 className="text-xl font-black">{title}</h3>
-                  <p className="mt-2 text-sm text-slate-600">
-                    {venue} · {event.district || m.districtTbc}
-                  </p>
-                  <p className="mt-2 text-xs text-slate-500">{description}</p>
-                </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full bg-purple-50 px-2.5 py-1 text-[10px] font-black text-purple-700">
+                        {category}
+                      </span>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
+                        event.is_free || safeText(event.price_display_mode).toLowerCase() === "free"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-800"
+                      }`}>
+                        {eventPrice}
+                      </span>
+                      {event.is_sen_friendly ? (
+                        <span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-[10px] font-black text-fuchsia-700">
+                          SEN 友善
+                        </span>
+                      ) : null}
+                    </div>
 
-                <div className="flex flex-col gap-2 md:min-w-[170px]">
+                    <h3 className="mt-2 line-clamp-2 text-xl font-black text-slate-950">{title}</h3>
+                    <p className="mt-2 line-clamp-1 text-sm font-semibold text-slate-600">
+                      📍 {venue} · {event.district || m.districtTbc}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {event.mtr_station ? `🚇 ${event.mtr_station} · ` : ""}{age}
+                    </p>
+                    <p className="mt-1 line-clamp-1 text-xs font-semibold text-slate-500">
+                      {locale === "en" ? "Organizer" : locale === "zh-Hans" ? "主办" : "主辦"}：
+                      {safeText(
+                        event.organizer_name,
+                        locale === "en" ? "TBC" : locale === "zh-Hans" ? "待定" : "待定",
+                      )}
+                    </p>
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">{description}</p>
+                  </div>
+
+                  <div className="flex flex-col gap-2 md:min-w-[170px]">
                   <Link
                     href={"/events/" + event.id}
                     className="rounded-xl bg-purple-700 px-4 py-2 text-center text-sm font-black text-white"
@@ -645,6 +723,7 @@ export default function PlannerPage() {
                   >
                     {m.addCalendar}
                   </a>
+                  </div>
                 </div>
               </article>
             );

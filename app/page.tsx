@@ -1,10 +1,10 @@
 import Link from "next/link";
 import type { Event } from "@/lib/types";
 import { getPublishedEvents } from "@/lib/supabase/events";
-import ResilientEventImage from "@/components/resilient-event-image";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import PromotionSlot from "@/components/promotion-slot";
+import PublicEventCard from "@/components/events/PublicEventCard";
 import {
   getActivePromotionBanners,
   type PublicPromotionBanner,
@@ -16,104 +16,6 @@ function eventTimestamp(event: Event) {
   const value = event.updatedAt || event.publishedAt || event.date;
   const time = new Date(value || 0).getTime();
   return Number.isFinite(time) ? time : 0;
-}
-
-function updatedLabel(event: Event, locale: "zh-Hant" | "zh-Hans" | "en") {
-  const value = event.updatedAt || event.publishedAt;
-  if (!value) return "";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-
-  return new Intl.DateTimeFormat(
-    locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK",
-    { month: "short", day: "numeric" },
-  ).format(date);
-}
-
-function EventCard({
-  event,
-  locale,
-  featured = false,
-}: {
-  event: Event;
-  locale: "zh-Hant" | "zh-Hans" | "en";
-  featured?: boolean;
-}) {
-  const updated = updatedLabel(event, locale);
-
-  return (
-    <Link
-      href={`/events/${event.id}`}
-      className={[
-        "group overflow-hidden border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg",
-        featured ? "rounded-[2rem]" : "rounded-3xl",
-      ].join(" ")}
-    >
-      <div
-        className={[
-          "relative overflow-hidden bg-slate-100",
-          featured ? "h-56 sm:h-64" : "h-48",
-        ].join(" ")}
-      >
-        <ResilientEventImage
-          src={event.image}
-          alt={event.title}
-          loading="lazy"
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
-        />
-
-        {featured ? (
-          <span className="absolute left-3 top-3 rounded-full bg-purple-700 px-3 py-1 text-[11px] font-black text-white shadow-sm">
-            {locale === "en"
-              ? "Featured"
-              : locale === "zh-Hans"
-                ? "精选推介"
-                : "精選推介"}
-          </span>
-        ) : null}
-      </div>
-
-      <div className={featured ? "p-5 sm:p-6" : "p-5"}>
-        <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
-            {event.date}
-          </span>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
-            {event.price}
-          </span>
-          {!featured && updated ? (
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-              {locale === "en"
-                ? `Updated ${updated}`
-                : locale === "zh-Hans"
-                  ? `${updated} 更新`
-                  : `${updated} 更新`}
-            </span>
-          ) : null}
-        </div>
-
-        <h3
-          className={[
-            "mt-3 line-clamp-2 font-black leading-snug text-slate-950",
-            featured ? "text-xl sm:text-2xl" : "text-lg",
-          ].join(" ")}
-        >
-          {event.title}
-        </h3>
-
-        <p className="mt-2 line-clamp-1 text-sm font-semibold text-slate-500">
-          {event.organizer} · {event.district}
-        </p>
-
-        {featured && event.shortDescription ? (
-          <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
-            {event.shortDescription}
-          </p>
-        ) : null}
-      </div>
-    </Link>
-  );
 }
 
 export default async function HomePage() {
@@ -290,7 +192,7 @@ export default async function HomePage() {
         {featuredEvents.length ? (
           <div className={featuredGridClass}>
             {featuredEvents.map((event) => (
-              <EventCard
+              <PublicEventCard
                 key={event.id}
                 event={event}
                 locale={locale}
@@ -331,7 +233,7 @@ export default async function HomePage() {
           {latestUpdated.length ? (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
               {latestUpdated.map((event) => (
-                <EventCard key={event.id} event={event} locale={locale} />
+                <PublicEventCard key={event.id} event={event} locale={locale} />
               ))}
             </div>
           ) : (
