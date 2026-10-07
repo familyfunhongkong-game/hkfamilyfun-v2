@@ -64,7 +64,7 @@ const emptyDraft: Draft = {
 };
 
 const placementLabels: Record<Placement, string> = {
-  home_top: "首頁 Hero 後",
+  home_top: "首頁最頂橫額 Banner",
   home_middle: "首頁活動區中段",
   events_top: "搜尋活動頁頂部",
   news_top: "News / Feature 頂部",
@@ -104,6 +104,7 @@ export default function AdminPromotionsPage() {
   const [editingId, setEditingId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingField, setUploadingField] = useState<"image_url" | "mobile_image_url" | "">("");
   const [message, setMessage] = useState("");
   const [errorText, setErrorText] = useState("");
   const [placementFilter, setPlacementFilter] = useState<"all" | Placement>("all");
@@ -185,6 +186,104 @@ export default function AdminPromotionsPage() {
     setErrorText("");
   }
 
+  async function uploadBannerImage(
+    file: File,
+    field: "image_url" | "mobile_image_url",
+  ) {
+    if (!supabase) return;
+
+    if (!file.type.startsWith("image/")) {
+      setErrorText("只接受圖片檔案。");
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      setErrorText("Banner 圖片不可超過 8MB。");
+      return;
+    }
+
+    setUploadingField(field);
+    setErrorText("");
+
+    const safeName = file.name
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const path = `admin/${Date.now()}-${safeName || "banner"}`;
+
+    const { error } = await supabase.storage
+      .from("promo-banners")
+      .upload(path, file, {
+        contentType: file.type || undefined,
+        upsert: false,
+      });
+
+    if (error) {
+      setErrorText(error.message || "Banner 圖片上傳失敗。");
+      setUploadingField("");
+      return;
+    }
+
+    const publicUrl = supabase.storage
+      .from("promo-banners")
+      .getPublicUrl(path).data.publicUrl;
+
+    setDraft((current) => ({ ...current, [field]: publicUrl }));
+    setUploadingField("");
+    setMessage(field === "image_url" ? "Desktop Banner 圖片已上傳。" : "Mobile Banner 圖片已上傳。");
+  }
+
+  function promoStoragePath(url: string | null) {
+    const value = String(url || "");
+    const marker = "/storage/v1/object/public/promo-banners/";
+    const index = value.indexOf(marker);
+    if (index < 0) return "";
+    return decodeURIComponent(value.slice(index + marker.length));
+  }
+
+  async function deleteBanner(row: Banner) {
+    if (!supabase) return;
+
+    const confirmed = window.confirm(
+      `確定永久刪除 Banner「${row.headline_tc || row.internal_name}」？此操作不能復原。`,
+    );
+    if (!confirmed) return;
+
+    setSaving(true);
+    setErrorText("");
+    setMessage("");
+
+    const { error } = await supabase
+      .from("promo_banners")
+      .delete()
+      .eq("id", row.id);
+
+    if (error) {
+      setErrorText(error.message || "Banner 刪除失敗。");
+      setSaving(false);
+      return;
+    }
+
+    const storagePaths = [row.image_url, row.mobile_image_url]
+      .map(promoStoragePath)
+      .filter(Boolean);
+
+    if (storagePaths.length) {
+      const unique = [...new Set(storagePaths)];
+      const { error: storageError } = await supabase.storage
+        .from("promo-banners")
+        .remove(unique);
+      if (storageError) {
+        console.warn("Banner row deleted but image cleanup failed:", storageError);
+      }
+    }
+
+    if (editingId === row.id) reset();
+    setSaving(false);
+    setMessage("Banner 已永久刪除。");
+    await loadRows();
+  }
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) return;
@@ -210,7 +309,10 @@ export default function AdminPromotionsPage() {
       internal_name: draft.internal_name.trim(),
       title: draft.headline_tc.trim(),
       subtitle: draft.subheadline_tc?.trim() || null,
-      link_url: draft.target_url?.trim() || null,
+      link_url:
+        draft.target_url?.trim() && /^https?:\/\//i.test(draft.target_url.trim())
+          ? draft.target_url.trim()
+          : null,
       sort_order: Number(draft.priority || 100),
       headline_tc: draft.headline_tc.trim(),
       headline_sc: draft.headline_sc?.trim() || null,
@@ -353,19 +455,67 @@ export default function AdminPromotionsPage() {
               </label>
             </div>
 
-            <label className="text-xs font-black text-slate-600">
-              Desktop / default image URL
-              <input type="url" value={draft.image_url || ""} onChange={(event) => setDraft({ ...draft, image_url: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-            </label>
+            <div className="rounded-2xl border border-slate-200 p-4">
+              <label className="text-xs font-black text-slate-600">
+                Desktop / default image URL *
+                <input
+                  value={draft.image_url || ""}
+                  onChange={(event) => setDraft({ ...draft, image_url: event.target.value })}
+                  placeholder="https://... 或 /logo.png"
+                  className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                />
+              </label>
+              <label className="mt-3 block text-xs font-black text-purple-700">
+                或直接 Upload Banner 圖
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  disabled={Boolean(uploadingField)}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadBannerImage(file, "image_url");
+                    event.currentTarget.value = "";
+                  }}
+                  className="mt-2 block w-full text-xs font-semibold text-slate-600"
+                />
+              </label>
+              {uploadingField === "image_url" ? (
+                <p className="mt-2 text-xs font-bold text-purple-700">上傳中…</p>
+              ) : null}
+            </div>
 
-            <label className="text-xs font-black text-slate-600">
-              Mobile image URL（可選）
-              <input type="url" value={draft.mobile_image_url || ""} onChange={(event) => setDraft({ ...draft, mobile_image_url: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-            </label>
+            <div className="rounded-2xl border border-slate-200 p-4">
+              <label className="text-xs font-black text-slate-600">
+                Mobile image URL（可選）
+                <input
+                  value={draft.mobile_image_url || ""}
+                  onChange={(event) => setDraft({ ...draft, mobile_image_url: event.target.value })}
+                  placeholder="https://... 或站內圖片路徑"
+                  className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                />
+              </label>
+              <label className="mt-3 block text-xs font-black text-purple-700">
+                或 Upload Mobile Banner
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  disabled={Boolean(uploadingField)}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadBannerImage(file, "mobile_image_url");
+                    event.currentTarget.value = "";
+                  }}
+                  className="mt-2 block w-full text-xs font-semibold text-slate-600"
+                />
+              </label>
+              {uploadingField === "mobile_image_url" ? (
+                <p className="mt-2 text-xs font-bold text-purple-700">上傳中…</p>
+              ) : null}
+            </div>
 
             <label className="text-xs font-black text-slate-600">
               Click-through URL
-              <input type="url" value={draft.target_url || ""} onChange={(event) => setDraft({ ...draft, target_url: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+              <input value={draft.target_url || ""} onChange={(event) => setDraft({ ...draft, target_url: event.target.value })} placeholder="https://... 或 /merchant-join" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
             </label>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -445,6 +595,14 @@ export default function AdminPromotionsPage() {
                         <button type="button" onClick={() => edit(row)} className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white">編輯</button>
                         {row.status !== "active" ? <button type="button" onClick={() => void setStatus(row.id, "active")} className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white">啟用</button> : <button type="button" onClick={() => void setStatus(row.id, "paused")} className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black text-amber-800">暫停</button>}
                         {row.status !== "archived" ? <button type="button" onClick={() => void setStatus(row.id, "archived")} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-600">封存</button> : null}
+                        <button
+                          type="button"
+                          onClick={() => void deleteBanner(row)}
+                          disabled={saving}
+                          className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-black text-rose-700 disabled:opacity-50"
+                        >
+                          永久刪除
+                        </button>
                       </div>
                     </div>
                   </div>
