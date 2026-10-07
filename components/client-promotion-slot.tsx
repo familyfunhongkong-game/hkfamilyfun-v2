@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
+import PromotionTracker from "@/components/promotion-tracker";
 
 type Placement =
   | "home_top"
@@ -64,6 +65,8 @@ export default function ClientPromotionSlot({
         )
         .eq("placement", placement)
         .eq("status", "active")
+        .or(`starts_at.is.null,starts_at.lte.${new Date().toISOString()}`)
+        .or(`ends_at.is.null,ends_at.gte.${new Date().toISOString()}`)
         .order("priority", { ascending: true })
         .limit(limit);
 
@@ -150,20 +153,27 @@ export default function ClientPromotionSlot({
             </article>
           );
 
-          return row.target_url ? (
-            <Link
+          return (
+            <PromotionTracker
               key={row.id}
-              href={row.target_url}
-              target={row.target_url.startsWith("http") ? "_blank" : undefined}
-              rel={row.target_url.startsWith("http") ? "noreferrer sponsored" : undefined}
+              bannerId={row.id}
+              placement={placement}
+              trackClick={Boolean(row.target_url)}
               className={leadClass}
             >
-              {card}
-            </Link>
-          ) : (
-            <div key={row.id} className={leadClass}>
-              {card}
-            </div>
+              {row.target_url ? (
+                <Link
+                  href={row.target_url}
+                  target={row.target_url.startsWith("http") ? "_blank" : undefined}
+                  rel={row.target_url.startsWith("http") ? "noreferrer sponsored" : undefined}
+                  className="block h-full"
+                >
+                  {card}
+                </Link>
+              ) : (
+                card
+              )}
+            </PromotionTracker>
           );
         })}
       </div>
