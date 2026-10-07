@@ -23,6 +23,13 @@ type MerchantRow = { id: string; status: string | null; business_name: string | 
 type IntakeRow = { id: string; status: string; source_type: string; received_at: string };
 type SyncRow = { id: string; status: string; rows_read: number; error_count: number; started_at: string; message: string | null };
 type SimpleStatus = { id: string; status: string | null };
+type BannerRow = {
+  id: string;
+  status: string | null;
+  placement: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+};
 
 function hkToday() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -67,7 +74,7 @@ export default function AdminReportsPage() {
   const [syncs, setSyncs] = useState<SyncRow[]>([]);
   const [articles, setArticles] = useState<SimpleStatus[]>([]);
   const [social, setSocial] = useState<SimpleStatus[]>([]);
-  const [banners, setBanners] = useState<SimpleStatus[]>([]);
+  const [banners, setBanners] = useState<BannerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
 
@@ -87,7 +94,7 @@ export default function AdminReportsPage() {
       supabase.from("data_sync_runs").select("id,status,rows_read,error_count,started_at,message").order("started_at", { ascending: false }).limit(200),
       supabase.from("content_articles").select("id,status").limit(1000),
       supabase.from("social_content_drafts").select("id,status").limit(2000),
-      supabase.from("promo_banners").select("id,status").limit(1000),
+      supabase.from("promo_banners").select("id,status,placement,starts_at,ends_at").limit(1000),
     ]);
 
     const firstError = results.find((result) => result.error)?.error;
@@ -99,7 +106,7 @@ export default function AdminReportsPage() {
     setSyncs((results[3].data || []) as SyncRow[]);
     setArticles((results[4].data || []) as SimpleStatus[]);
     setSocial((results[5].data || []) as SimpleStatus[]);
-    setBanners((results[6].data || []) as SimpleStatus[]);
+    setBanners((results[6].data || []) as BannerRow[]);
     setLoading(false);
   }
 
@@ -129,6 +136,15 @@ export default function AdminReportsPage() {
     const intakeAttention = intakes.filter((row) => ["new", "needs_review"].includes(row.status));
     const failedSyncs = syncs.filter((row) => row.status === "failed" || row.error_count > 0);
     const socialBacklog = social.filter((row) => ["draft", "ready"].includes(row.status || ""));
+    const publishedFeatured = published.filter((event) => event.is_featured === true);
+    const nowIso = new Date().toISOString();
+    const activeHomeTopBanners = banners.filter(
+      (banner) =>
+        banner.placement === "home_top" &&
+        banner.status === "active" &&
+        (!banner.starts_at || banner.starts_at <= nowIso) &&
+        (!banner.ends_at || banner.ends_at >= nowIso),
+    );
     const latestSync = syncs[0] || null;
 
     return {
@@ -148,6 +164,8 @@ export default function AdminReportsPage() {
       intakeAttention,
       failedSyncs,
       socialBacklog,
+      publishedFeatured,
+      activeHomeTopBanners,
       latestSync,
     };
   }, [events, merchants, intakes, syncs, articles, social, banners]);
@@ -169,6 +187,8 @@ export default function AdminReportsPage() {
         missing_external_link: report.missingLink.length,
         intake_attention: report.intakeAttention.length,
         failed_syncs: report.failedSyncs.length,
+        homepage_featured: report.publishedFeatured.length,
+        active_home_top_banners: report.activeHomeTopBanners.length,
       },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -216,6 +236,18 @@ export default function AdminReportsPage() {
               <Metric label="Missing Date" value={report.missingDate.length} note="無開始日期嘅 Event" tone={report.missingDate.length ? "amber" : "emerald"} />
               <Metric label="Missing Image" value={report.missingImage.length} note="無 cover image" tone={report.missingImage.length ? "amber" : "emerald"} />
               <Metric label="Missing Link" value={report.missingLink.length} note="無報名 / 官網 / source URL" tone={report.missingLink.length ? "amber" : "emerald"} />
+              <Metric
+                label="Homepage Banner"
+                value={report.activeHomeTopBanners.length}
+                note="首頁最高橫額 active inventory"
+                tone={report.activeHomeTopBanners.length ? "emerald" : "rose"}
+              />
+              <Metric
+                label="Featured Slots"
+                value={report.publishedFeatured.length}
+                note="建議維持 3–4 個精選活動，桌面版保持一排"
+                tone={report.publishedFeatured.length >= 3 ? "emerald" : "amber"}
+              />
               <Metric label="Social Backlog" value={report.socialBacklog.length} note="Draft / Ready 未完成" tone="slate" />
             </div>
 
