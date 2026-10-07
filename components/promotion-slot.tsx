@@ -14,6 +14,9 @@ export default function PromotionSlot({
         {banners.map((banner, index) => {
           const isLead = index === 0;
           const image = banner.imageUrl || banner.mobileImageUrl;
+          const isHouseBanner =
+            banner.sponsorName === "HK Family Fun" &&
+            banner.targetUrl === "/merchant-join";
           const columnClass =
             banners.length === 1
               ? "lg:col-span-12"
@@ -36,7 +39,12 @@ export default function PromotionSlot({
                     alt={banner.headline}
                     loading={isLead ? "eager" : "lazy"}
                     decoding="async"
-                    className="h-48 w-full object-cover sm:h-60 lg:h-72"
+                    className={[
+                      "h-48 w-full sm:h-60 lg:h-72",
+                      isHouseBanner
+                        ? "bg-gradient-to-br from-purple-100 via-white to-amber-100 object-contain p-8 sm:p-10"
+                        : "object-cover",
+                    ].join(" ")}
                   />
                 </picture>
               ) : (
