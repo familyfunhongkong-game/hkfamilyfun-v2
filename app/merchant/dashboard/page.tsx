@@ -4,6 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import {
+  CURRENT_MERCHANT_TERMS_VERSION,
+  CURRENT_PRIVACY_VERSION,
+  hasCurrentMerchantTerms,
+  hasCurrentPrivacyAcceptance,
+} from "@/lib/merchant-legal";
 
 type EventRecord = {
   id: string;
@@ -59,6 +65,10 @@ type MerchantRecord = {
   status?: string | null;
   rejection_reason?: string | null;
   created_at?: string | null;
+  terms_version?: string | null;
+  terms_accepted_at?: string | null;
+  privacy_version?: string | null;
+  privacy_accepted_at?: string | null;
 };
 
 type FilterKey =
@@ -353,6 +363,8 @@ export default function MerchantDashboardPage() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
+  const [acceptedUpdatedTerms, setAcceptedUpdatedTerms] = useState(false);
+  const [acceptingTerms, setAcceptingTerms] = useState(false);
 
   async function loadDashboard() {
     setLoading(true);
@@ -502,6 +514,67 @@ export default function MerchantDashboardPage() {
     const total = events.reduce((sum, event) => sum + readyScore(event), 0);
     return Math.round(total / events.length);
   }, [events]);
+
+  const needsCurrentTerms = merchant
+    ? !hasCurrentMerchantTerms(merchant) ||
+      !hasCurrentPrivacyAcceptance(merchant)
+    : false;
+
+  async function acceptCurrentTerms() {
+    const client = supabase;
+
+    if (!client || !merchant || !acceptedUpdatedTerms) {
+      setMessage("請先閱讀並勾選同意最新 Merchant Terms 及 Privacy Policy。");
+      return;
+    }
+
+    setAcceptingTerms(true);
+    setMessage("");
+
+    try {
+      const { data: sessionData, error: sessionError } =
+        await client.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      if (sessionError || !token) {
+        throw new Error("登入狀態已失效，請重新登入 Merchant Portal。");
+      }
+
+      const response = await fetch("/api/merchant/legal-acceptance", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          accepted: true,
+          terms_version: CURRENT_MERCHANT_TERMS_VERSION,
+          privacy_version: CURRENT_PRIVACY_VERSION,
+        }),
+      });
+
+      const result = (await response.json()) as {
+        accepted?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !result.accepted) {
+        throw new Error(result.error || "未能儲存新版 Merchant Terms 及 Privacy Policy 接受記錄。");
+      }
+
+      setAcceptedUpdatedTerms(false);
+      setMessage("新版 Merchant Terms 及 Privacy Policy 已接受並保存。付費廣告查詢功能已可使用。");
+      await loadDashboard();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "未能儲存新版 Merchant Terms 及 Privacy Policy 接受記錄。",
+      );
+    } finally {
+      setAcceptingTerms(false);
+    }
+  }
 
   async function createBlankEvent() {
     const client = supabase;
@@ -866,12 +939,21 @@ export default function MerchantDashboardPage() {
               >
                 🔔 商戶通知
               </Link>
-              <Link
-                href="/merchant/advertising"
-                className="rounded-full border border-amber-200 bg-amber-50 px-5 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100"
-              >
-                付費廣告 / Featured
-              </Link>
+              {needsCurrentTerms ? (
+                <a
+                  href="#merchant-terms-update"
+                  className="rounded-full border border-amber-200 bg-amber-50 px-5 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100"
+                >
+                  先接受新版條款再用付費推廣
+                </a>
+              ) : (
+                <Link
+                  href="/merchant/advertising"
+                  className="rounded-full border border-amber-200 bg-amber-50 px-5 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100"
+                >
+                  付費廣告 / Featured
+                </Link>
+              )}
               <Link
                 href="/merchant/events/import"
                 className="rounded-full bg-purple-700 px-5 py-2 text-sm font-bold text-white hover:bg-purple-800"
@@ -915,6 +997,68 @@ export default function MerchantDashboardPage() {
           </div>
         </div>
       </section>
+
+      {needsCurrentTerms ? (
+        <section
+          id="merchant-terms-update"
+          className="mx-auto max-w-[1500px] px-4 pt-6"
+        >
+          <div className="rounded-3xl border border-amber-300 bg-amber-50 p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-4xl">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">
+                  Merchant Terms Update
+                </p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">
+                  付費推廣前，請接受最新 Merchant Terms 及 Privacy Policy
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  一般活動 Listing 仍然免費，你可以繼續管理及提交活動。由於 HK Family Fun
+                  已將正常活動刊登同 Banner / Featured / Sponsored 付費推廣正式分開，
+                  使用任何付費推廣前需要確認目前 Merchant Terms（{CURRENT_MERCHANT_TERMS_VERSION}）
+                  及 Privacy Policy（{CURRENT_PRIVACY_VERSION}）。
+                </p>
+                <label className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-white p-4 text-sm font-semibold leading-6 text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={acceptedUpdatedTerms}
+                    onChange={(event) => setAcceptedUpdatedTerms(event.target.checked)}
+                    className="mt-1"
+                  />
+                  <span>
+                    我已閱讀並同意
+                    <Link
+                      href="/merchant-terms"
+                      target="_blank"
+                      className="mx-1 font-black text-purple-700 underline underline-offset-2"
+                    >
+                      HK Family Fun Merchant Terms
+                    </Link>
+                    及
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="mx-1 font-black text-purple-700 underline underline-offset-2"
+                    >
+                      Privacy Policy
+                    </Link>
+                    目前版本。
+                  </span>
+                </label>
+              </div>
+
+              <button
+                type="button"
+                disabled={!acceptedUpdatedTerms || acceptingTerms}
+                onClick={() => void acceptCurrentTerms()}
+                className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {acceptingTerms ? "保存中…" : "接受最新條款及私隱政策"}
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section className="mx-auto grid max-w-[1500px] gap-6 px-4 py-6 xl:grid-cols-[1fr_320px]">
         <div className="space-y-4">

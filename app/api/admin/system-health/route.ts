@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isGoogleServiceAccountConfigured } from "@/lib/admin-google-drive";
 import { HK_FAMILY_FUN_BUSINESS_MODEL } from "@/lib/business-model";
+import {
+  CURRENT_MERCHANT_TERMS_VERSION,
+  CURRENT_PRIVACY_VERSION,
+} from "@/lib/merchant-legal";
 
 export const runtime = "nodejs";
 
@@ -57,6 +61,13 @@ export async function GET(request: NextRequest) {
   const promotionAnalyticsProbe = await client
     .from("promotion_events")
     .select("id", { count: "exact", head: true });
+
+  const merchantLegalProbe = await client
+    .from("merchants")
+    .select(
+      "id,terms_version,terms_accepted_at,privacy_version,privacy_accepted_at",
+    )
+    .eq("status", "approved");
 
   const driveProbe = await client
     .from("admin_integrations")
@@ -149,6 +160,15 @@ export async function GET(request: NextRequest) {
     cutover.apiUrlLive &&
     cutover.adminDriveCallbackLive;
 
+  const merchantLegalRows = merchantLegalProbe.data || [];
+  const merchantsNeedingLegalRefresh = merchantLegalRows.filter(
+    (merchant) =>
+      merchant.terms_version !== CURRENT_MERCHANT_TERMS_VERSION ||
+      !merchant.terms_accepted_at ||
+      merchant.privacy_version !== CURRENT_PRIVACY_VERSION ||
+      !merchant.privacy_accepted_at,
+  ).length;
+
   const checks = {
     supabase: {
       required: true,
@@ -219,6 +239,29 @@ export async function GET(request: NextRequest) {
       detail: configured(process.env.OPENAI_API_KEY)
         ? "AI normalization / social drafting available"
         : "未設定 AI provider；系統會安全使用 rule-based / template fallback，不會停工",
+    },
+    merchantLegalAcceptance: {
+      required: true,
+      ready:
+        configured(process.env.SUPABASE_SECRET_KEY) ||
+        configured(process.env.SUPABASE_SERVICE_KEY),
+      label: "Merchant Legal Acceptance",
+      detail:
+        configured(process.env.SUPABASE_SECRET_KEY) ||
+        configured(process.env.SUPABASE_SERVICE_KEY)
+          ? "Server-only legal acceptance endpoint ready；Service/Secret key 不會送到 browser"
+          : "缺少 server-only Supabase admin credential；舊商戶無法保存新版 Terms / Privacy 接受記錄",
+    },
+    merchantTermsCompliance: {
+      required: false,
+      ready:
+        !merchantLegalProbe.error && merchantsNeedingLegalRefresh === 0,
+      label: "Merchant Terms Compliance",
+      detail: merchantLegalProbe.error
+        ? "未能檢查已批准商戶的 Terms / Privacy version"
+        : merchantsNeedingLegalRefresh === 0
+          ? "全部已批准商戶已使用目前 Terms / Privacy version"
+          : `${merchantsNeedingLegalRefresh} 個已批准商戶需要在使用付費推廣前重新接受目前 Terms / Privacy；免費活動 Listing 不受影響`,
     },
     merchantAdvertising: {
       required: true,

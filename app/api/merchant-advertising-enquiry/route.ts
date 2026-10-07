@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  hasCurrentMerchantTerms,
+  hasCurrentPrivacyAcceptance,
+} from "@/lib/merchant-legal";
 
 export const runtime = "nodejs";
 
@@ -133,7 +137,7 @@ export async function POST(request: NextRequest) {
   const { data: merchant, error: merchantError } = await client
     .from("merchants")
     .select(
-      "id,business_name,contact_name,contact_email,status,owner_user_id",
+      "id,business_name,contact_name,contact_email,status,owner_user_id,terms_version,terms_accepted_at,privacy_version,privacy_accepted_at",
     )
     .eq("owner_user_id", user.id)
     .maybeSingle();
@@ -145,6 +149,20 @@ export async function POST(request: NextRequest) {
     merchant.status !== "approved"
   ) {
     return json({ error: "Approved merchant account required." }, 403);
+  }
+
+  if (
+    !hasCurrentMerchantTerms(merchant) ||
+    !hasCurrentPrivacyAcceptance(merchant)
+  ) {
+    return json(
+      {
+        error:
+          "請先在 Merchant Dashboard 閱讀並接受最新 Merchant Terms 及 Privacy Policy，再提交付費廣告查詢。",
+        code: "CURRENT_MERCHANT_TERMS_REQUIRED",
+      },
+      409,
+    );
   }
 
   let body: Record<string, unknown>;
