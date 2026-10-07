@@ -113,6 +113,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
+    if (data.status !== "published") {
+      return NextResponse.json(
+        { error: "Social Draft 只可由已發布活動建立。" },
+        { status: 409 },
+      );
+    }
+
     sourceEventId = data.id;
     title = clean(data.title_tc);
     description = clean(data.short_description_tc || data.description_tc).slice(0, 700);
@@ -131,6 +138,13 @@ export async function POST(request: NextRequest) {
 
     if (error || !data) {
       return NextResponse.json({ error: "Article not found" }, { status: 404 });
+    }
+
+    if (data.status !== "published") {
+      return NextResponse.json(
+        { error: "Social Draft 只可由已發布 News / Feature 建立。" },
+        { status: 409 },
+      );
     }
 
     sourceArticleId = data.id;
@@ -213,6 +227,9 @@ export async function POST(request: NextRequest) {
   if (!copyText) {
     copyText = fallbackCopy(base);
   }
+
+  const maxLength = channel === "threads" ? 1800 : 2200;
+  copyText = copyText.slice(0, maxLength).trim();
 
   const { data: saved, error: saveError } = await client
     .from("social_content_drafts")
