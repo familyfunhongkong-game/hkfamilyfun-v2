@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
   const { data: merchant, error: merchantError } = await client
     .from("merchants")
     .select(
-      "id,business_name,contact_name,contact_email,status,owner_user_id,terms_version,terms_accepted_at,privacy_version,privacy_accepted_at",
+      "id,business_name,contact_name,contact_email,contact_phone,status,owner_user_id,terms_version,terms_accepted_at,privacy_version,privacy_accepted_at",
     )
     .eq("owner_user_id", user.id)
     .maybeSingle();
@@ -216,6 +216,78 @@ export async function POST(request: NextRequest) {
     return json({ error: "Merchant contact email is unavailable." }, 400);
   }
 
+  if (preferredStart && !/^\d{4}-\d{2}-\d{2}$/.test(preferredStart)) {
+    return json({ error: "Preferred start date is invalid." }, 400);
+  }
+
+  const orderPayload = {
+    request_id: requestId,
+    merchant_id: merchant.id,
+    submitted_by: user.id,
+    promotion_type: promotionType,
+    campaign_name: campaignName,
+    official_url: officialUrl || null,
+    preferred_start: preferredStart || null,
+    duration_key: duration || null,
+    budget_range: budgetRange || null,
+    notes: notes || null,
+    contact_name: safeText(merchant.contact_name, 160) || null,
+    contact_email: merchantEmail,
+    contact_phone: safeText(merchant.contact_phone, 80) || null,
+    status: "enquiry",
+    payment_status: "not_requested",
+  };
+
+  let advertisingOrder: {
+    id: string;
+    request_id: string;
+    status: string;
+    payment_status: string;
+    created_at: string;
+  } | null = null;
+
+  const insertResult = await client
+    .from("merchant_advertising_orders")
+    .insert(orderPayload)
+    .select("id,request_id,status,payment_status,created_at")
+    .maybeSingle();
+
+  if (insertResult.error) {
+    if (insertResult.error.code === "23505") {
+      const existingResult = await client
+        .from("merchant_advertising_orders")
+        .select("id,request_id,status,payment_status,created_at")
+        .eq("request_id", requestId)
+        .eq("merchant_id", merchant.id)
+        .maybeSingle();
+
+      if (existingResult.error || !existingResult.data) {
+        console.error("advertising-enquiry idempotency lookup failed", {
+          merchantId: merchant.id,
+          requestId,
+          reason: existingResult.error?.message,
+        });
+        return json({ error: "Unable to confirm saved advertising enquiry." }, 500);
+      }
+
+      advertisingOrder = existingResult.data;
+    } else {
+      console.error("advertising-enquiry persistence failed", {
+        merchantId: merchant.id,
+        requestId,
+        code: insertResult.error.code,
+        reason: insertResult.error.message,
+      });
+      return json({ error: "Unable to save advertising enquiry." }, 500);
+    }
+  } else {
+    advertisingOrder = insertResult.data;
+  }
+
+  if (!advertisingOrder) {
+    return json({ error: "Unable to confirm saved advertising enquiry." }, 500);
+  }
+
   const adminSubject = `HK Family Fun｜廣告查詢：${merchant.business_name || "商戶"}｜${campaignName}`;
   const adminMessage = [
     "有已批准商戶從 Merchant Portal 提交付費廣告查詢。",
@@ -247,18 +319,12 @@ export async function POST(request: NextRequest) {
   });
 
   if (!adminResult.sent) {
-    console.error("advertising-enquiry admin email failed", {
+    console.error("advertising-enquiry admin email failed after durable save", {
       merchantId: merchant.id,
+      orderId: advertisingOrder.id,
       requestId,
       reason: adminResult.reason,
     });
-    return json(
-      {
-        error: "Unable to submit advertising enquiry.",
-        reason: adminResult.reason,
-      },
-      502,
-    );
   }
 
   const merchantSubject = "HK Family Fun｜已收到你的付費廣告查詢";
@@ -279,13 +345,15 @@ export async function POST(request: NextRequest) {
     "HK Family Fun Team",
   ].join("\n");
 
-  const merchantResult = await sendMail({
-    to: merchantEmail,
-    replyTo: APPROVAL_EMAIL,
-    subject: merchantSubject,
-    text: merchantMessage,
-    idempotencyKey: `advertising-enquiry-merchant-${requestId}`,
-  });
+  const merchantResult = adminResult.sent
+    ? await sendMail({
+        to: merchantEmail,
+        replyTo: APPROVAL_EMAIL,
+        subject: merchantSubject,
+        text: merchantMessage,
+        idempotencyKey: `advertising-enquiry-merchant-${requestId}`,
+      })
+    : { sent: false, reason: "Admin notification email failed; enquiry remains saved." };
 
   if (!merchantResult.sent) {
     console.error("advertising-enquiry merchant confirmation failed", {
@@ -297,7 +365,15 @@ export async function POST(request: NextRequest) {
 
   return json({
     submitted: true,
+    saved: true,
+    order_id: advertisingOrder.id,
     request_id: requestId,
+    status: advertisingOrder.status,
+    payment_status: advertisingOrder.payment_status,
+    admin_notification_sent: adminResult.sent,
     merchant_confirmation_sent: merchantResult.sent,
+    notification_warning: adminResult.sent
+      ? null
+      : "查詢已安全儲存，但通知 Email 暫時未能送出。Admin Portal 仍可見此查詢。",
   });
 }
