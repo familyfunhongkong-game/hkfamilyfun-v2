@@ -21,6 +21,7 @@ const groups = [
     description: "活動資料只輸入一次，再重用做網站內容、專題及社交媒體。",
     cards: [
       { href: "/admin/content", title: "News / Feature CMS", description: "圖片主導嘅完整專題頁，可做活動介紹、親子攻略、合作內容及 Sponsored Feature。", tone: "rose" },
+      { href: "/admin/advertising", title: "Advertising CRM", description: "商戶廣告查詢、報價、付款確認、排期、Banner 關聯及完成紀錄。", tone: "amber" },
       { href: "/admin/promotions", title: "Promotion Banner", description: "管理商戶廣告、特別活動宣傳 Banner、上落架日期、位置及 Sponsored 標示。", tone: "amber" },
       { href: "/admin/social", title: "AI Social Content", description: "由已核實 Event / News 資料生成 FB、IG、Threads 草稿，避免重打資料。", tone: "violet" },
       { href: "/merchant/events/import", title: "智能匯入活動", description: "由活動 URL / PDF 建立可編輯草稿，再由 Admin 審批。", tone: "slate" },
