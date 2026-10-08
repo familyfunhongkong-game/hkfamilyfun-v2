@@ -54,6 +54,7 @@ type DatabaseEvent = {
   tags: unknown;
   is_free: boolean | null;
   is_sen_friendly: boolean | null;
+  is_indoor?: boolean | null;
   is_featured: boolean | null;
   status: string;
   cover_image_url: string | null;
@@ -274,6 +275,7 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
     ) as PriceType,
     price: formatPrice(event, locale),
     senFriendly: Boolean(event.is_sen_friendly),
+    indoor: Boolean(event.is_indoor),
     image:
       event.cover_image_url ||
       "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun",
