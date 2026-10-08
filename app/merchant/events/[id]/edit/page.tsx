@@ -77,6 +77,7 @@ type EventRecord = {
   offer_price?: string | number | null;
   quota_label?: string | null;
 
+  age_group?: string | null;
   age_min?: string | number | null;
   age_max?: string | number | null;
   age_groups?: unknown;
@@ -681,7 +682,10 @@ function formFromEvent(event: EventRecord): FormState {
     activity_category: readActivityCategory(event),
     age_min: toInputValue(event.age_min),
     age_max: toInputValue(event.age_max),
-    age_groups: getGalleryArray(event.age_groups),
+    age_groups:
+      getGalleryArray(event.age_groups).length > 0
+        ? getGalleryArray(event.age_groups)
+        : getGalleryArray(event.age_group),
     is_sen_friendly: Boolean(event.is_sen_friendly),
     is_indoor: Boolean(event.is_indoor),
     highlights: safeText(event.highlights),
