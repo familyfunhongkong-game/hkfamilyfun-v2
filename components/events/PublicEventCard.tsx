@@ -157,6 +157,11 @@ export default function PublicEventCard({
                   SEN 友善
                 </span>
               ) : null}
+              {event.indoor ? (
+                <span className="rounded-full bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700">
+                  {text(locale, "室內", "室内", "Indoor")}
+                </span>
+              ) : null}
             </div>
 
             <Link href={`/events/${event.id}`}>
@@ -229,6 +234,11 @@ export default function PublicEventCard({
           {event.senFriendly ? (
             <span className="rounded-full bg-fuchsia-100/95 px-3 py-1 text-[11px] font-black text-fuchsia-800 shadow-sm backdrop-blur">
               SEN 友善
+            </span>
+          ) : null}
+          {event.indoor ? (
+            <span className="rounded-full bg-sky-100/95 px-3 py-1 text-[11px] font-black text-sky-800 shadow-sm backdrop-blur">
+              {text(locale, "室內", "室内", "Indoor")}
             </span>
           ) : null}
         </div>

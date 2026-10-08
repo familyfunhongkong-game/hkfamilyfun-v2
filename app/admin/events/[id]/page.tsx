@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { evaluateEventReadiness } from "@/lib/events/readiness";
+import { formatEventAge } from "@/lib/events/age-display";
 
 type JsonValue =
   | string
@@ -96,6 +98,11 @@ type EventRecord = {
   quota_label?: string | null;
 
   age_group?: string | null;
+  age_groups?: string[] | JsonValue | null;
+  age_min?: number | string | null;
+  age_max?: number | string | null;
+  is_sen_friendly?: boolean | null;
+  is_indoor?: boolean | null;
   activity_type?: string | null;
   activity_category?: string | null;
   category?: string | JsonValue | null;
@@ -553,10 +560,32 @@ function buildChecklist(event: EventRecord, images: GalleryImage[]): ChecklistIt
     safeText(event.title_en) &&
       safeText(event.short_description_en || event.description_en),
   );
-  const description = safeText(event.description_tc || event.short_description_tc);
-  const price = formatPrice(event);
   const hasMap = isValidUrl(event.google_map_url) || isValidUrl(event.google_map_embed_url);
   const hasRealImage = images.length > 0 && images[0]?.url !== FALLBACK_IMAGE;
+
+  const base = evaluateEventReadiness({
+    title: event.title_tc || event.title,
+    startDate: event.start_date,
+    endDate: event.end_date,
+    recurrenceType: event.recurrence_type,
+    recurrenceWeekdays: event.recurrence_weekdays,
+    venueName: event.venue_name_tc || event.venue_name,
+    address: event.address_tc || event.address,
+    district: event.district,
+    imageCount: hasRealImage ? images.length : 0,
+    priceReady: formatPrice(event) !== "收費待確認",
+    ctaReady:
+      Boolean(actionUrl) ||
+      safeText(event.cta_type).toLowerCase() === "none" ||
+      safeText(event.cta_type).toLowerCase() === "contact" ||
+      event.registration_required === false,
+    ageGroups: event.age_groups || event.age_group,
+    ageMin: event.age_min,
+    ageMax: event.age_max,
+    organizerName: event.organizer_name || event.merchant_name,
+    mapReady: hasMap,
+    description: event.description_tc || event.short_description_tc,
+  });
 
   return [
     {
@@ -580,83 +609,7 @@ function buildChecklist(event: EventRecord, images: GalleryImage[]): ChecklistIt
       level: "warning",
       note: "English title and short/detailed description.",
     },
-    {
-      key: "title",
-      label: "活動名稱",
-      done: Boolean(safeText(event.title_tc || event.title)),
-      level: "critical",
-      note: "公開頁最重要欄位，不能空白。",
-    },
-    {
-      key: "date",
-      label: "日期",
-      done: Boolean(event.start_date),
-      level: "critical",
-      note: "沒有日期不應發布。",
-    },
-    {
-      key: "recurrence",
-      label: "重複日期設定",
-      done:
-        safeText(event.recurrence_type, "none").toLowerCase() !== "weekly" ||
-        (Boolean(event.end_date) &&
-          Array.isArray(event.recurrence_weekdays) &&
-          event.recurrence_weekdays.length > 0),
-      level: "critical",
-      note: "每週重複活動必須有結束日期及至少一個星期日。",
-    },
-    {
-      key: "venue",
-      label: "地點",
-      done: Boolean(
-        event.venue_name_tc ||
-          event.venue_name ||
-          event.address_tc ||
-          event.address ||
-          event.district,
-      ),
-      level: "critical",
-      note: "至少要有場地、地址或地區。",
-    },
-    {
-      key: "image",
-      label: "圖片",
-      done: hasRealImage,
-      level: "critical",
-      note: "至少需要一張真實活動圖或海報。",
-    },
-    {
-      key: "cta",
-      label: "CTA / 報名方式",
-      done:
-        Boolean(actionUrl) ||
-        safeText(event.cta_type).toLowerCase() === "none" ||
-        safeText(event.cta_type).toLowerCase() === "contact" ||
-        event.registration_required === false,
-      level: "critical",
-      note: "要清楚知道家長是否需要報名及去哪裡報名。",
-    },
-    {
-      key: "price",
-      label: "收費",
-      done: price !== "收費待確認",
-      level: "warning",
-      note: "可以發布，但最好避免顯示收費待確認。",
-    },
-    {
-      key: "description",
-      label: "活動內容",
-      done: description.length >= 20,
-      level: "warning",
-      note: "內容太短會影響家長理解及 SEO。",
-    },
-    {
-      key: "map",
-      label: "Google Map",
-      done: hasMap,
-      level: "warning",
-      note: "沒有地圖仍可發布，但用戶體驗較差。",
-    },
+    ...base.checks,
     {
       key: "parentNote",
       label: "家長提示",
@@ -919,7 +872,7 @@ export default function AdminEventReviewPage() {
     }
 
     if ((nextStatus === "approved" || nextStatus === "published") && blocked) {
-      setMessage("仍有關鍵資料未完成，請先補齊活動名稱、日期、地點、圖片及 CTA。");
+      setMessage("仍有發布必需資料未完成，請先補齊活動名稱、日期、完整地址、圖片、收費、報名方式、年齡及主辦方。");
       return;
     }
 
@@ -1419,6 +1372,35 @@ export default function AdminEventReviewPage() {
                   </p>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <div className="rounded-2xl bg-slate-50 p-3 text-xs font-bold text-slate-600 ring-1 ring-slate-100">
+                <span className="block text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                  年齡
+                </span>
+                <span className="mt-1 block text-sm font-black text-slate-800">
+                  {formatEventAge(
+                    {
+                      ageGroups: event.age_groups || event.age_group,
+                      ageMin: event.age_min,
+                      ageMax: event.age_max,
+                    },
+                    "zh-Hant",
+                  )}
+                </span>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-3 text-xs font-bold text-slate-600 ring-1 ring-slate-100">
+                <span className="block text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                  活動環境
+                </span>
+                <span className="mt-1 block text-sm font-black text-slate-800">
+                  {[
+                    event.is_sen_friendly ? "SEN 友善" : "",
+                    event.is_indoor ? "室內" : "",
+                  ].filter(Boolean).join("・") || "一般"}
+                </span>
+              </div>
             </div>
 
             {blocked ? (

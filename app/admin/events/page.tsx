@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { evaluateEventReadiness } from "@/lib/events/readiness";
 
 type JsonValue =
   | string
@@ -61,6 +62,8 @@ type EventRecord = {
   end_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  recurrence_type?: string | null;
+  recurrence_weekdays?: number[] | null;
 
   venue_name?: string | null;
   venue_name_tc?: string | null;
@@ -85,6 +88,11 @@ type EventRecord = {
   quota_label?: string | null;
 
   age_group?: string | null;
+  age_groups?: string[] | JsonValue | null;
+  age_min?: number | string | null;
+  age_max?: number | string | null;
+  is_sen_friendly?: boolean | null;
+  is_indoor?: boolean | null;
   activity_type?: string | null;
   activity_category?: string | null;
   category?: string | JsonValue | null;
@@ -515,52 +523,37 @@ function getStatusTone(status: StatusFilter): Tone {
 }
 
 
-function hasCriticalReady(event: EventRecord): boolean {
+function getEventReadiness(event: EventRecord) {
   const images = getGalleryImages(event);
   const hasRealImage = images.length > 0 && images[0]?.url !== FALLBACK_IMAGE;
 
-  const hasTitle = Boolean(safeText(event.title_tc || event.title));
-  const hasDate = Boolean(event.start_date);
-  const hasVenue = Boolean(
-    event.venue_name_tc ||
-      event.venue_name ||
-      event.address_tc ||
-      event.address ||
-      event.district,
-  );
-  const hasCta =
-    Boolean(getPrimaryActionUrl(event)) ||
-    safeText(event.cta_type).toLowerCase() === "none" ||
-    safeText(event.cta_type).toLowerCase() === "contact" ||
-    event.registration_required === false;
-
-  return hasTitle && hasDate && hasVenue && hasRealImage && hasCta;
-}
-
-function getCompleteness(event: EventRecord): number {
-  const images = getGalleryImages(event);
-
-  const checks = [
-    Boolean(safeText(event.title_tc || event.title)),
-    Boolean(event.start_date),
-    Boolean(
-      event.venue_name_tc ||
-        event.venue_name ||
-        event.address_tc ||
-        event.address ||
-        event.district,
-    ),
-    images.length > 0 && images[0]?.url !== FALLBACK_IMAGE,
-    Boolean(getPrimaryActionUrl(event)) ||
+  return evaluateEventReadiness({
+    title: event.title_tc || event.title,
+    startDate: event.start_date,
+    endDate: event.end_date,
+    recurrenceType: event.recurrence_type,
+    recurrenceWeekdays: event.recurrence_weekdays,
+    venueName: event.venue_name_tc || event.venue_name,
+    address: event.address_tc || event.address,
+    district: event.district,
+    imageCount: hasRealImage ? images.length : 0,
+    priceReady: formatPrice(event) !== "收費待確認",
+    ctaReady:
+      Boolean(getPrimaryActionUrl(event)) ||
       safeText(event.cta_type).toLowerCase() === "none" ||
       safeText(event.cta_type).toLowerCase() === "contact" ||
       event.registration_required === false,
-    formatPrice(event) !== "收費待確認",
-    Boolean(safeText(event.description_tc || event.short_description_tc)),
-    Boolean(event.google_map_url || event.google_map_embed_url),
-  ];
+    ageGroups: event.age_groups || event.age_group,
+    ageMin: event.age_min,
+    ageMax: event.age_max,
+    organizerName: event.organizer_name || event.merchant_name,
+    mapReady: Boolean(event.google_map_url || event.google_map_embed_url),
+    description: event.description_tc || event.short_description_tc,
+  });
+}
 
-  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+function hasCriticalReady(event: EventRecord): boolean {
+  return getEventReadiness(event).publishReady;
 }
 
 function Badge({
@@ -716,7 +709,7 @@ export default function AdminEventsPage() {
     }
 
     if ((nextStatus === "approved" || nextStatus === "published") && !hasCriticalReady(event)) {
-      setMessage("此活動仍有關鍵資料未完成。請入 審批詳情 頁檢查後再發布。");
+      setMessage("此活動仍未符合發布資料要求。請入審批詳情補齊完整地址、年齡、主辦方、圖片、收費及 CTA。");
       return;
     }
 
@@ -1094,8 +1087,9 @@ export default function AdminEventsPage() {
                 ),
               );
               const ctaUrl = getPrimaryActionUrl(event);
-              const ready = hasCriticalReady(event);
-              const completeness = getCompleteness(event);
+              const eventReadiness = getEventReadiness(event);
+              const ready = eventReadiness.publishReady;
+              const completeness = eventReadiness.score;
               const isSaving = savingId === event.id;
               const isFallback = images[0]?.url === FALLBACK_IMAGE;
 
@@ -1158,6 +1152,11 @@ export default function AdminEventsPage() {
                           </span>
                         ) : null}
                         <Badge tone="amber">{formatPrice(event)}</Badge>
+                        {event.is_sen_friendly ? <Badge tone="purple">SEN 友善</Badge> : null}
+                        {event.is_indoor ? <Badge tone="slate">室內</Badge> : null}
+                        {eventReadiness.googleEventReady ? (
+                          <Badge tone="green">Google Event Ready</Badge>
+                        ) : null}
                         {ready ? (
                           <Badge tone="green">可發布</Badge>
                         ) : (
@@ -1189,6 +1188,12 @@ export default function AdminEventsPage() {
                           {ctaUrl || "沒有 URL"}
                         </p>
                       </div>
+
+                      {!ready ? (
+                        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold leading-5 text-rose-800">
+                          發布前缺少：{eventReadiness.criticalMissing.join("、")}
+                        </div>
+                      ) : null}
 
                       <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                         <Link

@@ -8,6 +8,7 @@ import { getExtraPublicMessages } from "@/lib/i18n/public-extra-messages";
 import { supabase } from "@/lib/supabase/client";
 import PublicEventCard from "@/components/events/PublicEventCard";
 import type { Event } from "@/lib/types";
+import { formatEventAge } from "@/lib/events/age-display";
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
 
@@ -35,11 +36,13 @@ type FavoriteEvent = {
   max_price?: number | string | null;
   age_min?: number | null;
   age_max?: number | null;
+  age_groups?: unknown;
   tags?: unknown;
   activity_category?: string | null;
   category?: string | null;
   is_free?: boolean | null;
   is_sen_friendly?: boolean | null;
+  is_indoor?: boolean | null;
   registration_url?: string | null;
   booking_url?: string | null;
   official_url?: string | null;
@@ -103,20 +106,14 @@ function priceText(event: FavoriteEvent, locale: AppLocale) {
 }
 
 function ageText(event: FavoriteEvent, locale: AppLocale) {
-  const min = event.age_min;
-  const max = event.age_max;
-
-  if (min !== null && min !== undefined && max !== null && max !== undefined) {
-    return locale === "en" ? `Ages ${min}–${max}` : `${min}–${max}歲`;
-  }
-  if (min !== null && min !== undefined) {
-    return locale === "en" ? `Ages ${min}+` : `${min}歲以上`;
-  }
-  if (max !== null && max !== undefined) {
-    return locale === "en" ? `Up to age ${max}` : `${max}歲或以下`;
-  }
-
-  return locale === "en" ? "All ages" : locale === "zh-Hans" ? "适合所有年龄" : "適合所有年齡";
+  return formatEventAge(
+    {
+      ageGroups: event.age_groups,
+      ageMin: event.age_min,
+      ageMax: event.age_max,
+    },
+    locale,
+  );
 }
 
 function timeText(event: FavoriteEvent, locale: AppLocale) {
@@ -168,6 +165,7 @@ function toPublicEvent(event: FavoriteEvent, locale: AppLocale): Event {
     priceType: free ? "free" : event.price_type || "paid",
     price: priceText(event, locale),
     senFriendly: Boolean(event.is_sen_friendly),
+    indoor: Boolean(event.is_indoor),
     image:
       event.cover_image_url ||
       "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun",
@@ -212,7 +210,7 @@ export default function FavoritesPage() {
       const { data, error } = await supabase
         .from("public_events_i18n")
         .select(
-          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,merchant_name,start_date,end_date,start_time,end_time,district,mtr_station,cover_image_url,price_type,price_display_mode,price_label,min_price,max_price,age_min,age_max,tags,activity_category,category,is_free,is_sen_friendly,registration_url,booking_url,official_url,source_url",
+          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,merchant_name,start_date,end_date,start_time,end_time,district,mtr_station,cover_image_url,price_type,price_display_mode,price_label,min_price,max_price,age_min,age_max,age_groups,tags,activity_category,category,is_free,is_sen_friendly,is_indoor,registration_url,booking_url,official_url,source_url",
         )
         .in("id", ids);
 

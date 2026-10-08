@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { evaluateEventReadiness } from "@/lib/events/readiness";
 
 type EventRecord = {
   id: string;
@@ -76,6 +77,12 @@ type EventRecord = {
   offer_price?: string | number | null;
   quota_label?: string | null;
 
+  age_min?: string | number | null;
+  age_max?: string | number | null;
+  age_groups?: unknown;
+  is_sen_friendly?: boolean | null;
+  is_indoor?: boolean | null;
+
   cta_type?: string | null;
   cta_label?: string | null;
   registration_url?: string | null;
@@ -117,6 +124,11 @@ type FormState = {
   description_sc: string;
   description_en: string;
   activity_category: string;
+  age_min: string;
+  age_max: string;
+  age_groups: string[];
+  is_sen_friendly: boolean;
+  is_indoor: boolean;
   highlights: string;
   highlights_sc: string;
   highlights_en: string;
@@ -208,6 +220,11 @@ const emptyForm: FormState = {
   description_sc: "",
   description_en: "",
   activity_category: "親子活動",
+  age_min: "",
+  age_max: "",
+  age_groups: [],
+  is_sen_friendly: false,
+  is_indoor: false,
   highlights: "",
   highlights_sc: "",
   highlights_en: "",
@@ -294,6 +311,15 @@ const WEEKDAY_OPTIONS = [
   { value: 5, label: "五" },
   { value: 6, label: "六" },
 ];
+
+const AGE_GROUP_OPTIONS = [
+  "嬰幼兒",
+  "幼兒",
+  "小學生",
+  "中學生",
+  "親子家庭",
+  "所有年齡",
+] as const;
 
 const priceModes = [
   { key: "unknown", title: "收費待確認", desc: "未確認收費，需商戶補充。" },
@@ -513,61 +539,66 @@ function toggleWeekday(days: number[], value: number) {
     : [...days, value].sort((a, b) => a - b);
 }
 
-function readiness(form: FormState) {
-  const checks = [
-    { key: "活動名稱", done: !!safeText(form.title_tc) },
-    { key: "日期", done: !!safeText(form.start_date) },
-    { key: "地點", done: !!safeText(form.venue_name) || !!safeText(form.address) },
-    { key: "收費", done: formatPricePreview(form) !== "收費待確認" },
-    {
-      key: "CTA",
-      done:
-        form.cta_type === "none" ||
-        form.cta_type === "contact" ||
-        !!safeText(activeCtaUrl(form)),
-    },
-    {
-      key: "圖片",
-      done: getAllImagesFromForm(form).length > 0,
-    },
-    {
-      key: "Google Map",
-      done: !!safeText(form.google_map_url) || !!safeText(form.google_map_embed_url),
-    },
-  ];
+function toggleAgeGroup(values: string[], value: string) {
+  if (value === "所有年齡") {
+    return values.includes(value) ? [] : ["所有年齡"];
+  }
 
-  const score = Math.round((checks.filter((item) => item.done).length / checks.length) * 100);
-  const missing = checks.filter((item) => !item.done).map((item) => item.key);
-
-  return { score, missing, checks };
+  const withoutAllAges = values.filter((item) => item !== "所有年齡");
+  return withoutAllAges.includes(value)
+    ? withoutAllAges.filter((item) => item !== value)
+    : [...withoutAllAges, value];
 }
 
-function submissionMissing(form: FormState) {
-  const missing: string[] = [];
+function readiness(form: FormState, organizerFallback = "") {
+  return evaluateEventReadiness({
+    title: form.title_tc,
+    startDate: form.start_date,
+    endDate: form.end_date,
+    recurrenceType: form.recurrence_type,
+    recurrenceWeekdays: form.recurrence_weekdays,
+    venueName: form.venue_name,
+    address: form.address,
+    district: form.district,
+    imageCount: getAllImagesFromForm(form).length,
+    priceReady: formatPricePreview(form) !== "收費待確認",
+    ctaReady:
+      form.cta_type === "none" ||
+      form.cta_type === "contact" ||
+      Boolean(safeText(activeCtaUrl(form))),
+    ageGroups: form.age_groups,
+    ageMin: form.age_min,
+    ageMax: form.age_max,
+    organizerName: form.organizer_name || organizerFallback,
+    mapReady:
+      Boolean(safeText(form.google_map_url)) ||
+      Boolean(safeText(form.google_map_embed_url)),
+    description: form.description_tc || form.short_description_tc,
+  });
+}
 
-  if (!safeText(form.title_tc)) missing.push("活動名稱");
-  if (!safeText(form.start_date)) missing.push("活動日期");
+function submissionMissing(form: FormState, organizerFallback = "") {
+  const missing = [...readiness(form, organizerFallback).criticalMissing];
+
   if (form.end_date && form.start_date && form.end_date < form.start_date) {
     missing.push("結束日期不可早於開始日期");
   }
-  if (form.recurrence_type === "weekly") {
-    if (!safeText(form.end_date)) missing.push("每週重複活動的結束日期");
-    if (form.recurrence_weekdays.length === 0) missing.push("每週重複的星期");
+
+  if (form.age_min !== "" && Number(form.age_min) < 0) {
+    missing.push("最小年齡不可小於 0");
   }
-  if (!safeText(form.venue_name) && !safeText(form.address) && !safeText(form.district)) {
-    missing.push("地點");
+  if (form.age_max !== "" && Number(form.age_max) < 0) {
+    missing.push("最大年齡不可小於 0");
   }
-  if (getAllImagesFromForm(form).length === 0) missing.push("圖片");
-  if (formatPricePreview(form) === "收費待確認") missing.push("收費資料");
+  if (
+    form.age_min !== "" &&
+    form.age_max !== "" &&
+    Number(form.age_max) < Number(form.age_min)
+  ) {
+    missing.push("最大年齡不可少於最小年齡");
+  }
 
-  const ctaReady =
-    form.cta_type === "none" ||
-    form.cta_type === "contact" ||
-    !!safeText(activeCtaUrl(form));
-
-  if (!ctaReady) missing.push("報名 / CTA");
-
-  return missing;
+  return Array.from(new Set(missing));
 }
 
 function merchantCanEdit(status?: string | null) {
@@ -648,6 +679,11 @@ function formFromEvent(event: EventRecord): FormState {
     description_sc: safeText(event.description_sc),
     description_en: safeText(event.description_en),
     activity_category: readActivityCategory(event),
+    age_min: toInputValue(event.age_min),
+    age_max: toInputValue(event.age_max),
+    age_groups: getGalleryArray(event.age_groups),
+    is_sen_friendly: Boolean(event.is_sen_friendly),
+    is_indoor: Boolean(event.is_indoor),
     highlights: safeText(event.highlights),
     highlights_sc: safeText(event.highlights_sc),
     highlights_en: safeText(event.highlights_en),
@@ -807,8 +843,14 @@ export default function MerchantEventEditPage() {
     pointerId: null,
   });
 
-  const ready = useMemo(() => readiness(form), [form]);
-  const submitMissing = useMemo(() => submissionMissing(form), [form]);
+  const ready = useMemo(
+    () => readiness(form, merchant?.business_name || eventRecord?.merchant_name || ""),
+    [form, merchant?.business_name, eventRecord?.merchant_name],
+  );
+  const submitMissing = useMemo(
+    () => submissionMissing(form, merchant?.business_name || eventRecord?.merchant_name || ""),
+    [form, merchant?.business_name, eventRecord?.merchant_name],
+  );
   const editable = isAdmin || merchantCanEdit(eventRecord?.status);
   const orderedImages = useMemo(() => getAllImagesFromForm(form), [form]);
   const remainingSlots = Math.max(0, MAX_IMAGES - orderedImages.length);
@@ -818,6 +860,29 @@ export default function MerchantEventEditPage() {
       ...previous,
       [key]: value,
     }));
+  }
+
+  function updateAgeNumber(key: "age_min" | "age_max", value: string) {
+    setForm((previous) => ({
+      ...previous,
+      [key]: value,
+      age_groups: value
+        ? previous.age_groups.filter((item) => item !== "所有年齡")
+        : previous.age_groups,
+    }));
+  }
+
+  function updateAgeGroup(value: string) {
+    setForm((previous) => {
+      const nextGroups = toggleAgeGroup(previous.age_groups, value);
+      return {
+        ...previous,
+        age_groups: nextGroups,
+        ...(value === "所有年齡" && nextGroups.includes("所有年齡")
+          ? { age_min: "", age_max: "" }
+          : {}),
+      };
+    });
   }
 
   async function autoFillTranslations() {
@@ -1384,6 +1449,12 @@ export default function MerchantEventEditPage() {
       recurrence_note:
         form.recurrence_type === "weekly" ? form.recurrence_note.trim() || null : null,
 
+      age_min: form.age_min === "" ? null : Number(form.age_min),
+      age_max: form.age_max === "" ? null : Number(form.age_max),
+      age_groups: form.age_groups,
+      is_sen_friendly: form.is_sen_friendly,
+      is_indoor: form.is_indoor,
+
       venue_name: form.venue_name,
       venue_name_sc: form.venue_name_sc || null,
       venue_name_en: form.venue_name_en || null,
@@ -1779,6 +1850,92 @@ export default function MerchantEventEditPage() {
                 value={form.activity_category}
                 onChange={(value) => updateField("activity_category", value)}
               />
+              <Input
+                label="主辦方"
+                value={form.organizer_name}
+                onChange={(value) => updateField("organizer_name", value)}
+                placeholder={merchant?.business_name || "例如：主辦機構名稱"}
+              />
+
+              <div className="md:col-span-2 rounded-3xl border border-purple-200 bg-purple-50 p-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-black text-purple-950">適合年齡及活動環境</h3>
+                    <p className="mt-1 text-xs leading-5 text-purple-800">
+                      年齡會顯示在 Event Card / Detail Page。可揀年齡層，亦可填最小／最大年齡。
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-purple-700 ring-1 ring-purple-100">
+                    發布必填
+                  </span>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {AGE_GROUP_OPTIONS.map((option) => {
+                    const selected = form.age_groups.includes(option);
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() =>
+                          updateAgeGroup(option)
+                        }
+                        className={[
+                          "rounded-full px-3 py-2 text-xs font-black transition",
+                          selected
+                            ? "bg-purple-700 text-white"
+                            : "bg-white text-purple-700 ring-1 ring-purple-200 hover:bg-purple-100",
+                        ].join(" ")}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <Input
+                    label="最小年齡（歲，可選）"
+                    type="number"
+                    value={form.age_min}
+                    onChange={(value) => updateAgeNumber("age_min", value)}
+                    placeholder="例如 3"
+                  />
+                  <Input
+                    label="最大年齡（歲，可選）"
+                    type="number"
+                    value={form.age_max}
+                    onChange={(value) => updateAgeNumber("age_max", value)}
+                    placeholder="例如 8"
+                  />
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-white px-4 py-3 text-xs font-black text-slate-700 ring-1 ring-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={form.is_sen_friendly}
+                      onChange={(event) => updateField("is_sen_friendly", event.target.checked)}
+                      className="h-4 w-4 accent-purple-700"
+                    />
+                    SEN 友善
+                  </label>
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-white px-4 py-3 text-xs font-black text-slate-700 ring-1 ring-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={form.is_indoor}
+                      onChange={(event) => updateField("is_indoor", event.target.checked)}
+                      className="h-4 w-4 accent-purple-700"
+                    />
+                    室內活動
+                  </label>
+                </div>
+
+                <p className="mt-4 text-xs font-bold leading-5 text-purple-800">
+                  Google Event rich result 主要依賴活動名稱、日期及真實地址；年齡屬 HK Family Fun
+                  平台完整度欄位，方便家長篩選。
+                </p>
+              </div>
               <Textarea
                 label="短簡介（繁中）"
                 value={form.short_description_tc}
@@ -1804,7 +1961,7 @@ export default function MerchantEventEditPage() {
           ) : null}
 
           {step === 1 ? (
-            <Section title="Step 2：時間及地點" desc="日期、時間、地點和 Google Map 會直接影響家長搜尋。">
+            <Section title="Step 2：時間及地點" desc="日期、時間、完整地址和 Google Map 會直接影響家長搜尋及 Google Event 資料品質。">
               <Input
                 label="開始日期"
                 type="date"
@@ -1923,7 +2080,7 @@ export default function MerchantEventEditPage() {
                 onChange={(value) => updateField("venue_name_en", value)}
               />
               <Input
-                label="詳細地址（繁中）"
+                label="詳細地址（繁中）＊發布必填"
                 value={form.address}
                 onChange={(value) => updateField("address", value)}
               />
@@ -2497,11 +2654,6 @@ export default function MerchantEventEditPage() {
                 value={form.remarks}
                 onChange={(value) => updateField("remarks", value)}
               />
-              <Input
-                label="主辦方"
-                value={form.organizer_name}
-                onChange={(value) => updateField("organizer_name", value)}
-              />
             </Section>
           ) : null}
 
@@ -2606,7 +2758,7 @@ export default function MerchantEventEditPage() {
                   key={item.key}
                   className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm"
                 >
-                  <span className="font-black text-slate-500">{item.key}</span>
+                  <span className="font-black text-slate-500">{item.label}</span>
                   <span
                     className={[
                       "font-black",
@@ -2619,16 +2771,23 @@ export default function MerchantEventEditPage() {
               ))}
             </div>
 
-            {ready.missing.length ? (
-              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                <p className="font-black">提交前要補齊：</p>
-                <p>{ready.missing.join("、")}</p>
+            {ready.criticalMissing.length ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
+                <p className="font-black">提交前必須補齊：</p>
+                <p>{ready.criticalMissing.join("、")}</p>
               </div>
             ) : (
               <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">
-                主要資料已齊，可以提交審批。
+                發布必需資料已齊，可以提交審批。
               </div>
             )}
+
+            <div className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-xs font-bold leading-5 text-blue-800">
+              <p>Google Event / 分享準備：{ready.googleEventReady ? "已完成" : "仍要補資料"}</p>
+              {ready.warningMissing.length ? (
+                <p className="mt-1">建議改善：{ready.warningMissing.join("、")}</p>
+              ) : null}
+            </div>
           </div>
 
           <div className="rounded-3xl border border-purple-200 bg-purple-50 p-5 text-sm leading-6 text-purple-900">
@@ -2700,6 +2859,22 @@ function PreviewCard({
             value={`${form.start_date || "未填"}${form.end_date ? ` 至 ${form.end_date}` : ""}`}
           />
           <PreviewRow label="地點" value={form.venue_name || form.address || "未填"} />
+          <PreviewRow
+            label="年齡"
+            value={
+              form.age_groups.join("、") ||
+              (form.age_min || form.age_max
+                ? `${form.age_min || "0"}–${form.age_max || "+"}歲`
+                : "未填")
+            }
+          />
+          <PreviewRow
+            label="友善"
+            value={[
+              form.is_sen_friendly ? "SEN 友善" : "",
+              form.is_indoor ? "室內" : "",
+            ].filter(Boolean).join("・") || "一般"}
+          />
           <PreviewRow label="收費" value={formatPricePreview(form)} />
           <PreviewRow label="報名方式" value={getCtaPreview(form)} />
         </div>

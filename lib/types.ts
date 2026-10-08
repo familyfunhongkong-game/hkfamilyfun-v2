@@ -22,6 +22,7 @@ export interface Event {
   priceType: PriceType;
   price?: string;
   senFriendly: boolean;
+  indoor?: boolean;
   image: string;
   officialLink?: string;
   featured?: boolean;

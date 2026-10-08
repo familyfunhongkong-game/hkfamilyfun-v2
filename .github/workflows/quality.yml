@@ -86,6 +86,9 @@ jobs:
       - name: Event SEO contract check
         run: npm run check:event-seo
 
+      - name: Event data completeness check
+        run: npm run check:event-data
+
       - name: TypeScript check
         run: npm run type-check
 
