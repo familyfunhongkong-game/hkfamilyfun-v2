@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { isGoogleServiceAccountConfigured } from "@/lib/admin-google-drive";
 import { HK_FAMILY_FUN_BUSINESS_MODEL } from "@/lib/business-model";
 import { evaluateEventReadiness } from "@/lib/events/readiness";
+import { normalizeAgeGroups } from "@/lib/events/age-display";
 import {
   CURRENT_MERCHANT_TERMS_VERSION,
   CURRENT_PRIVACY_VERSION,
@@ -168,7 +169,10 @@ export async function GET(request: NextRequest) {
       imageCount: publishedEventImageCount(event),
       priceReady: publishedEventPriceReady(event as Record<string, unknown>),
       ctaReady: publishedEventCtaReady(event as Record<string, unknown>),
-      ageGroups: event.age_groups || event.age_group,
+      ageGroups:
+        normalizeAgeGroups(event.age_groups).length > 0
+          ? event.age_groups
+          : event.age_group,
       ageMin: event.age_min,
       ageMax: event.age_max,
       organizerName: event.organizer_name || event.merchant_name,
