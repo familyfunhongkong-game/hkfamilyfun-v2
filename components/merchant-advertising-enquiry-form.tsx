@@ -105,6 +105,13 @@ export default function MerchantAdvertisingEnquiryForm() {
       return;
     }
 
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setHistory([]);
+      setHistoryLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("merchant_advertising_orders")
       .select(
