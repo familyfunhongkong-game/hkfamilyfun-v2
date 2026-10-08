@@ -28,14 +28,24 @@ type Cutover = {
 type ContentQuality = {
   queryReady: boolean;
   publishedTotal: number;
+  currentFutureTotal: number;
   missingImage: number;
   currentFutureMissingImage: number;
   missingPublishedAt: number;
+  currentFutureCoreIncomplete: number;
+  currentFutureGoogleEventReady: number;
   currentFutureMissingImageItems: Array<{
     id: string;
     title: string;
     startDate?: string | null;
     endDate?: string | null;
+  }>;
+  currentFutureCoreIncompleteItems: Array<{
+    id: string;
+    title: string;
+    startDate?: string | null;
+    endDate?: string | null;
+    missing: string[];
   }>;
 };
 
@@ -215,16 +225,18 @@ export default function AdminSystemHealthPage() {
                     : "rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700"
                 }
               >
-                {health.contentQuality.currentFutureMissingImage === 0
+                {health.contentQuality.currentFutureCoreIncomplete === 0
                   ? "CONTENT READY"
-                  : "EDITORIAL FOLLOW-UP"}
+                  : "CORE DATA FOLLOW-UP"}
               </span>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-4">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
               {[
                 ["Published", health.contentQuality.publishedTotal],
-                ["缺實圖", health.contentQuality.missingImage],
+                ["Current/Future", health.contentQuality.currentFutureTotal],
+                ["Core incomplete", health.contentQuality.currentFutureCoreIncomplete],
+                ["Google Event Ready", health.contentQuality.currentFutureGoogleEventReady],
                 ["Current/Future 缺實圖", health.contentQuality.currentFutureMissingImage],
                 ["缺 published_at", health.contentQuality.missingPublishedAt],
               ].map(([label, value]) => (
@@ -237,6 +249,36 @@ export default function AdminSystemHealthPage() {
                 </div>
               ))}
             </div>
+
+            {health.contentQuality.currentFutureCoreIncompleteItems.length ? (
+              <div className="mt-4 rounded-3xl border border-rose-200 bg-rose-50 p-4">
+                <p className="text-sm font-black text-rose-900">
+                  Current/Future 已發布活動仍缺核心資料
+                </p>
+                <div className="mt-3 space-y-2">
+                  {health.contentQuality.currentFutureCoreIncompleteItems.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={`/admin/events/${item.id}`}
+                      className="block rounded-2xl border border-rose-200 bg-white px-4 py-3 hover:bg-rose-50"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-bold text-rose-950">{item.title}</span>
+                        <span className="text-xs font-bold text-rose-700">
+                          {item.startDate || "日期待定"}
+                          {item.endDate && item.endDate !== item.startDate
+                            ? ` → ${item.endDate}`
+                            : ""}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs font-bold leading-5 text-rose-700">
+                        缺少：{item.missing.join("、")}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {health.contentQuality.currentFutureMissingImageItems.length ? (
               <div className="mt-4 space-y-2">
@@ -259,9 +301,10 @@ export default function AdminSystemHealthPage() {
             ) : null}
 
             <p className="mt-4 text-xs leading-6 text-slate-500">
-              缺實圖不會造成 broken image；網站會使用 branded fallback。呢個係內容品質 follow-up，
-              唔會自動生成或錯配活動圖片。歷史 Published 缺 published_at 只作資料治理提示，
-              系統唔會補寫假發佈時間。
+              Core completeness 會檢查活動名稱、日期、地址、圖片、收費、CTA、年齡及主辦方。
+              缺實圖不會造成 broken image；網站會使用 branded fallback，但 Current/Future Published
+              event 如果缺核心資料會令 launch health 變成 ACTION REQUIRED。歷史 Published 缺 published_at
+              只作資料治理提示，系統唔會補寫假發佈時間。
             </p>
           </section>
         ) : null}
