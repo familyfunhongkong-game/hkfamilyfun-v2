@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { evaluateEventReadiness } from "@/lib/events/readiness";
+import { normalizeAgeGroups } from "@/lib/events/age-display";
 
 type JsonValue =
   | string
@@ -543,7 +544,10 @@ function getEventReadiness(event: EventRecord) {
       safeText(event.cta_type).toLowerCase() === "none" ||
       safeText(event.cta_type).toLowerCase() === "contact" ||
       event.registration_required === false,
-    ageGroups: event.age_groups || event.age_group,
+    ageGroups:
+      normalizeAgeGroups(event.age_groups).length > 0
+        ? event.age_groups
+        : event.age_group,
     ageMin: event.age_min,
     ageMax: event.age_max,
     organizerName: event.organizer_name || event.merchant_name,

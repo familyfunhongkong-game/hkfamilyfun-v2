@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { evaluateEventReadiness } from "@/lib/events/readiness";
-import { formatEventAge } from "@/lib/events/age-display";
+import { formatEventAge, normalizeAgeGroups } from "@/lib/events/age-display";
 
 type JsonValue =
   | string
@@ -579,7 +579,10 @@ function buildChecklist(event: EventRecord, images: GalleryImage[]): ChecklistIt
       safeText(event.cta_type).toLowerCase() === "none" ||
       safeText(event.cta_type).toLowerCase() === "contact" ||
       event.registration_required === false,
-    ageGroups: event.age_groups || event.age_group,
+    ageGroups:
+      normalizeAgeGroups(event.age_groups).length > 0
+        ? event.age_groups
+        : event.age_group,
     ageMin: event.age_min,
     ageMax: event.age_max,
     organizerName: event.organizer_name || event.merchant_name,
@@ -1382,7 +1385,10 @@ export default function AdminEventReviewPage() {
                 <span className="mt-1 block text-sm font-black text-slate-800">
                   {formatEventAge(
                     {
-                      ageGroups: event.age_groups || event.age_group,
+                      ageGroups:
+                        normalizeAgeGroups(event.age_groups).length > 0
+                          ? event.age_groups
+                          : event.age_group,
                       ageMin: event.age_min,
                       ageMax: event.age_max,
                     },

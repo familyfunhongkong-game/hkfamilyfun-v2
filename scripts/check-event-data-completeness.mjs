@@ -13,6 +13,8 @@ const files = {
   planner: await readFile("app/planner/page.tsx", "utf8"),
   publicCard: await readFile("components/events/PublicEventCard.tsx", "utf8"),
   publicType: await readFile("lib/types.ts", "utf8"),
+  systemHealth: await readFile("app/api/admin/system-health/route.ts", "utf8"),
+  systemHealthPage: await readFile("app/admin/system/page.tsx", "utf8"),
   publicView: await readFile(
     "supabase/migrations/20260921114034_add_sanitized_public_events_view.sql",
     "utf8",
@@ -42,6 +44,7 @@ requireSignals("merchant editor", files.merchant, [
   'function toggleAgeGroup',
   'function updateAgeNumber',
   'value === "所有年齡"',
+  'getGalleryArray(event.age_group)',
 ]);
 
 requireSignals("shared readiness", files.readiness, [
@@ -57,7 +60,7 @@ requireSignals("shared readiness", files.readiness, [
 
 requireSignals("admin detail", files.adminDetail, [
   'evaluateEventReadiness',
-  'event.age_groups || event.age_group',
+  'normalizeAgeGroups(event.age_groups).length > 0',
   'event.is_sen_friendly',
   'event.is_indoor',
   'disabled={saving || blocked}',
@@ -70,6 +73,7 @@ requireSignals("admin list", files.adminList, [
   'recurrenceType: event.recurrence_type',
   'recurrenceWeekdays: event.recurrence_weekdays',
   'disabled={isSaving || !ready}',
+  'normalizeAgeGroups(event.age_groups).length > 0',
 ]);
 
 requireSignals("age display", files.age, [
@@ -89,6 +93,22 @@ requireSignals("shared public accessibility", files.publicCard, [
 requireSignals("public Event type", files.publicType, [
   "senFriendly: boolean",
   "indoor?: boolean",
+]);
+
+requireSignals("launch content integrity API", files.systemHealth, [
+  "publishedContentIntegrity",
+  "currentFutureCoreIncomplete",
+  "currentFutureCoreIncompleteItems",
+  "evaluateEventReadiness",
+  "Published Event Data Integrity",
+  "normalizeAgeGroups(event.age_groups).length > 0",
+]);
+
+requireSignals("launch content integrity UI", files.systemHealthPage, [
+  "Core incomplete",
+  "Google Event Ready",
+  "Current/Future 已發布活動仍缺核心資料",
+  "currentFutureCoreIncompleteItems",
 ]);
 
 
