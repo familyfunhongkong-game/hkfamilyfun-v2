@@ -146,14 +146,14 @@ export async function GET(request: NextRequest) {
   });
   const currentFutureMissingImageRows = missingImageRows.filter((event) => {
     const lastDate = String(event.end_date || event.start_date || "").trim();
-    return Boolean(lastDate && lastDate >= today);
+    return !lastDate || lastDate >= today;
   });
   const missingPublishedAtRows = publishedRows.filter(
     (event) => !event.published_at,
   );
   const currentFutureRows = publishedRows.filter((event) => {
     const lastDate = textValue(event.end_date || event.start_date);
-    return Boolean(lastDate && lastDate >= today);
+    return !lastDate || lastDate >= today;
   });
   const currentFutureReadiness = currentFutureRows.map((event) => ({
     event,
