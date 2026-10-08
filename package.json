@@ -17,6 +17,7 @@
     "check:event-detail": "node scripts/check-event-detail-contract.mjs",
     "check:event-seo": "node scripts/check-event-seo-contract.mjs",
     "check:event-data": "node scripts/check-event-data-completeness.mjs",
+    "check:event-calendar": "node scripts/check-event-calendar-timezone.mjs",
     "check:advertising-orders": "node scripts/check-advertising-order-contract.mjs",
     "format": "prettier --write \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"scripts/**/*.{mjs,ts}\" \"docs/**/*.md\" \"README.md\"",
     "db:push": "supabase db push",
