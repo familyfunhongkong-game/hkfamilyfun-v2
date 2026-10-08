@@ -62,6 +62,8 @@ type EventRecord = {
   end_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  recurrence_type?: string | null;
+  recurrence_weekdays?: number[] | null;
 
   venue_name?: string | null;
   venue_name_tc?: string | null;
@@ -529,6 +531,8 @@ function getEventReadiness(event: EventRecord) {
     title: event.title_tc || event.title,
     startDate: event.start_date,
     endDate: event.end_date,
+    recurrenceType: event.recurrence_type,
+    recurrenceWeekdays: event.recurrence_weekdays,
     venueName: event.venue_name_tc || event.venue_name,
     address: event.address_tc || event.address,
     district: event.district,
