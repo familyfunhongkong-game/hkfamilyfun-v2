@@ -1,6 +1,7 @@
 import type { Event, PriceType } from "@/lib/types";
 import { supabase } from "@/lib/supabase/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
+import { formatEventAge } from "@/lib/events/age-display";
 
 type DatabaseEvent = {
   id: string;
@@ -47,6 +48,7 @@ type DatabaseEvent = {
   max_price?: string | null;
   age_min: number | null;
   age_max: number | null;
+  age_groups?: unknown;
   category: string | null;
   activity_category?: string | null;
   tags: unknown;
@@ -117,27 +119,6 @@ function formatTime(
   const end = endTime ? endTime.slice(0, 5) : "";
 
   return end ? `${start} - ${end}` : start;
-}
-
-function formatAgeRange(
-  min: number | null,
-  max: number | null,
-  locale: AppLocale,
-) {
-  if (locale === "en") {
-    if (min === null && max === null) return "All ages";
-    if (min !== null && max !== null) return `Ages ${min}–${max}`;
-    if (min !== null) return `Ages ${min}+`;
-    return `Up to age ${max}`;
-  }
-
-  const suffix = locale === "zh-Hans" ? "岁" : "歲";
-  if (min === null && max === null) {
-    return locale === "zh-Hans" ? "适合所有年龄" : "適合所有年齡";
-  }
-  if (min !== null && max !== null) return `${min}-${max}${suffix}`;
-  if (min !== null) return `${min}${suffix}${locale === "zh-Hans" ? "以上" : "以上"}`;
-  return `${max}${suffix}${locale === "zh-Hans" ? "或以下" : "或以下"}`;
 }
 
 function normalizeTags(value: unknown): string[] {
@@ -282,7 +263,7 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
     time: formatTime(event.start_time, event.end_time, locale),
     district: localizeDistrict(event.district, locale),
     mtrStation: event.mtr_station || (locale === "en" ? "MTR TBC" : locale === "zh-Hans" ? "港铁站待定" : "港鐵站待定"),
-    ageRange: formatAgeRange(event.age_min, event.age_max, locale),
+    ageRange: formatEventAge({ ageGroups: event.age_groups, ageMin: event.age_min, ageMax: event.age_max }, locale),
     organizer: event.organizer_name || event.merchant_name || (locale === "en" ? "Organizer TBC" : "主辦單位待定"),
     tags: normalizeTags(event.tags),
     category: event.activity_category || event.category || "親子活動",
