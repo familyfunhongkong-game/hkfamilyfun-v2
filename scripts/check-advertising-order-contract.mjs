@@ -7,6 +7,7 @@ const files = {
   adminHome: await readFile("app/admin/page.tsx", "utf8"),
   promotions: await readFile("app/admin/promotions/page.tsx", "utf8"),
   health: await readFile("app/api/admin/system-health/route.ts", "utf8"),
+  hkTime: await readFile("lib/hong-kong-datetime.ts", "utf8"),
   commerce: await readFile("docs/COMMERCE_RULES.md", "utf8"),
   migration: await readFile(
     "supabase/migrations/20261008175448_add_merchant_advertising_orders.sql",
@@ -67,6 +68,8 @@ requireSignals("Admin CRM", files.admin, [
   "bannerPayload.is_paid = true",
   'bannerPayload.status = "active"',
   'bannerPayload.status = "paused"',
+  "hongKongDatetimeLocalToIso",
+  "isoToHongKongDatetimeLocal",
 ]);
 
 requireSignals("Admin navigation", files.adminHome, [
@@ -77,6 +80,19 @@ requireSignals("Admin navigation", files.adminHome, [
 requireSignals("Promotion navigation", files.promotions, [
   'href="/admin/advertising"',
   "廣告查詢 / 報價 / 付款 CRM",
+]);
+
+requireSignals("Hong Kong scheduling", files.hkTime, [
+  'HONG_KONG_UTC_OFFSET = "+08:00"',
+  "Asia/Hong_Kong",
+  "hongKongDatetimeLocalToIso",
+  "isoToHongKongDatetimeLocal",
+]);
+
+requireSignals("Promotion timezone", files.promotions, [
+  "hongKongDatetimeLocalToIso",
+  "isoToHongKongDatetimeLocal",
+  "formatHongKongDateTime",
 ]);
 
 requireSignals("System Health", files.health, [
