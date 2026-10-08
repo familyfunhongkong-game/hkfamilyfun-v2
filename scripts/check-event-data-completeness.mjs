@@ -134,6 +134,16 @@ requireSignals("launch content integrity UI", files.systemHealthPage, [
   "currentFutureCoreIncompleteItems",
 ]);
 
+requireSignals("launch image quality UI", files.systemHealthPage, [
+  "缺官方圖（warning）",
+  "HK Family Fun branded placeholder",
+]);
+
+if (files.systemHealthPage.includes("Core completeness 會檢查活動名稱、日期、地址、圖片")) {
+  console.error("[event-data] System Health must not describe image as core-required data");
+  failed = true;
+}
+
 
 for (const [label, source] of [
   ["event detail", files.detail],
