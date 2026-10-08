@@ -221,11 +221,13 @@ export function evaluateEventReadiness(
     warningMissing,
     publishReady: criticalMissing.length === 0,
     // Google Event rich-result eligibility depends on a real title, date and
-    // physical location. Image/organizer are also kept as quality gates here
-    // so social previews and attribution remain trustworthy.
+    // physical location. Weekly series are deliberately excluded until each
+    // occurrence has its own canonical URL. Image/organizer stay as quality
+    // gates so social previews and attribution remain trustworthy.
     googleEventReady:
       titleReady &&
       dateReady &&
+      recurrenceType !== "weekly" &&
       addressReady &&
       imageReady &&
       organizerReady,
