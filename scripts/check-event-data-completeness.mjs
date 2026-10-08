@@ -39,6 +39,9 @@ requireSignals("merchant editor", files.merchant, [
   'submissionMissing(form',
   'saveEvent("submitted")',
   'Google Event rich result',
+  'function toggleAgeGroup',
+  'function updateAgeNumber',
+  'value === "所有年齡"',
 ]);
 
 requireSignals("shared readiness", files.readiness, [
@@ -49,6 +52,7 @@ requireSignals("shared readiness", files.readiness, [
   'googleEventReady',
   'recurrenceType !== "weekly"',
   'Number(input.ageMax) >= Number(input.ageMin)',
+  'ageNumbersValid',
 ]);
 
 requireSignals("admin detail", files.adminDetail, [
