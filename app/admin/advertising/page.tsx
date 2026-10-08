@@ -187,13 +187,8 @@ export default function AdminAdvertisingPage() {
     setMerchants(merchantMap);
     setBanners((bannersResult.data || []) as Banner[]);
 
-    if (selectedId) {
-      const selected = nextOrders.find((item) => item.id === selectedId);
-      if (selected) setEditor(editorFromOrder(selected));
-    }
-
     setLoading(false);
-  }, [selectedId]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -293,8 +288,9 @@ export default function AdminAdvertisingPage() {
     setSaving(false);
   }
 
-  async function moveTo(order: AdvertisingOrder, nextStatus: string) {
-    selectOrder(order);
+  function moveTo(order: AdvertisingOrder, nextStatus: string) {
+    setSelectedId(order.id);
+    setErrorText("");
 
     const next = editorFromOrder(order);
     next.status = nextStatus;
@@ -464,7 +460,7 @@ export default function AdminAdvertisingPage() {
                           <button
                             key={stage}
                             type="button"
-                            onClick={() => void moveTo(order, stage)}
+                            onClick={() => moveTo(order, stage)}
                             className="rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-black text-slate-600"
                           >
                             → {statusLabels[stage]}
