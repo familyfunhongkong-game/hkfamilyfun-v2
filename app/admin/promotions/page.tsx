@@ -479,9 +479,17 @@ export default function AdminPromotionsPage() {
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-[1500px] px-4 py-8">
-          <Link href="/admin" className="text-sm font-black text-purple-700">
-            ← 返回 Admin
-          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link href="/admin" className="text-sm font-black text-purple-700">
+              ← 返回 Admin
+            </Link>
+            <Link
+              href="/admin/advertising"
+              className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black text-amber-900"
+            >
+              廣告查詢 / 報價 / 付款 CRM →
+            </Link>
+          </div>
           <p className="mt-4 text-sm font-black uppercase tracking-[0.16em] text-purple-700">
             Promotion Manager
           </p>
