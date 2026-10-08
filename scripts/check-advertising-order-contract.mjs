@@ -6,6 +6,7 @@ const files = {
   admin: await readFile("app/admin/advertising/page.tsx", "utf8"),
   adminHome: await readFile("app/admin/page.tsx", "utf8"),
   promotions: await readFile("app/admin/promotions/page.tsx", "utf8"),
+  health: await readFile("app/api/admin/system-health/route.ts", "utf8"),
   commerce: await readFile("docs/COMMERCE_RULES.md", "utf8"),
   migration: await readFile(
     "supabase/migrations/20261008175448_add_merchant_advertising_orders.sql",
@@ -73,6 +74,12 @@ requireSignals("Admin navigation", files.adminHome, [
 requireSignals("Promotion navigation", files.promotions, [
   'href="/admin/advertising"',
   "廣告查詢 / 報價 / 付款 CRM",
+]);
+
+requireSignals("System Health", files.health, [
+  '.from("merchant_advertising_orders")',
+  "Merchant Advertising CRM",
+  "advertisingOrdersProbe.error",
 ]);
 
 requireSignals("Database RLS", files.migration, [
