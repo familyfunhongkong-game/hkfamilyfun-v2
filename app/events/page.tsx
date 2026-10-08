@@ -15,6 +15,7 @@ import {
   eventOccursInRange,
   eventOccursOn,
 } from "@/lib/events/recurrence";
+import { formatEventAge } from "@/lib/events/age-display";
 
 type JsonValue =
   | string
@@ -99,6 +100,7 @@ type EventRecord = {
   quota_label?: string | null;
 
   age_group?: string | null;
+  age_groups?: unknown;
   age_min?: number | string | null;
   age_max?: number | string | null;
   activity_type?: string | null;
@@ -962,23 +964,17 @@ function EventCard({
     event.organizer_name || event.merchant_name,
     uiText(locale, "主辦方待定", "主办方待定", "Organizer TBC"),
   );
-  const ageMin = Number(event.age_min);
-  const ageMax = Number(event.age_max);
-  const numericAgeFallback =
-    Number.isFinite(ageMin) && Number.isFinite(ageMax)
-      ? locale === "en"
-        ? `Ages ${ageMin}–${ageMax}`
-        : `${ageMin}–${ageMax}歲`
-      : Number.isFinite(ageMin)
-        ? locale === "en"
-          ? `Ages ${ageMin}+`
-          : `${ageMin}歲以上`
-        : Number.isFinite(ageMax)
-          ? locale === "en"
-            ? `Up to age ${ageMax}`
-            : `${ageMax}歲或以下`
-          : uiText(locale, "適合年齡待定", "适合年龄待定", "Age TBC");
-  const ageGroup = safeText(event.age_group, numericAgeFallback);
+  const ageGroup = safeText(
+    event.age_group,
+    formatEventAge(
+      {
+        ageGroups: event.age_groups,
+        ageMin: event.age_min,
+        ageMax: event.age_max,
+      },
+      locale,
+    ),
+  );
   const recurrenceNote = safeText(event.recurrence_note);
 
   function stopClick(eventObject: MouseEvent<HTMLElement>) {
