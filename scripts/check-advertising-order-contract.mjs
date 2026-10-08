@@ -64,6 +64,9 @@ requireSignals("Admin CRM", files.admin, [
   'editor.status === "live" && !editor.promo_banner_id',
   "Payment 必須由 Admin 確認",
   ".update(payload)",
+  "bannerPayload.is_paid = true",
+  'bannerPayload.status = "active"',
+  'bannerPayload.status = "paused"',
 ]);
 
 requireSignals("Admin navigation", files.adminHome, [
