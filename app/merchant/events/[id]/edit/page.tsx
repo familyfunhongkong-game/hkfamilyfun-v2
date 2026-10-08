@@ -579,6 +579,14 @@ function submissionMissing(form: FormState, organizerFallback = "") {
     missing.push("結束日期不可早於開始日期");
   }
 
+  if (
+    form.age_min !== "" &&
+    form.age_max !== "" &&
+    Number(form.age_max) < Number(form.age_min)
+  ) {
+    missing.push("最大年齡不可少於最小年齡");
+  }
+
   return Array.from(new Set(missing));
 }
 
