@@ -251,6 +251,11 @@ export default function AdminAdvertisingPage() {
       return;
     }
 
+    if (editor.status === "scheduled" && !startsAt) {
+      setErrorText("Scheduled 必須設定 Start 時間。");
+      return;
+    }
+
     setSaving(true);
 
     const payload: Record<string, unknown> = {
@@ -280,11 +285,61 @@ export default function AdminAdvertisingPage() {
       return;
     }
 
+    const savedOrder = data as AdvertisingOrder;
+
+    let bannerSyncError = "";
+    if (editor.promo_banner_id) {
+      const bannerPayload: Record<string, unknown> = {};
+
+      if (editor.payment_status === "paid") {
+        bannerPayload.is_paid = true;
+      }
+      if (editor.payment_status === "refunded") {
+        bannerPayload.is_paid = false;
+        bannerPayload.status = "paused";
+      }
+
+      if (startsAt !== null) bannerPayload.starts_at = startsAt;
+      if (endsAt !== null) bannerPayload.ends_at = endsAt;
+
+      if (editor.status === "live") {
+        bannerPayload.is_paid = true;
+        bannerPayload.status = "active";
+      }
+      if (editor.status === "completed") {
+        bannerPayload.status = "archived";
+      }
+
+      if (Object.keys(bannerPayload).length > 0) {
+        const bannerResult = await supabase
+          .from("promo_banners")
+          .update(bannerPayload)
+          .eq("id", editor.promo_banner_id);
+
+        if (bannerResult.error) {
+          bannerSyncError = bannerResult.error.message;
+        }
+      }
+    }
+
     setOrders((current) =>
-      current.map((item) => (item.id === selected.id ? (data as AdvertisingOrder) : item)),
+      current.map((item) => (item.id === selected.id ? savedOrder : item)),
     );
-    setEditor(editorFromOrder(data as AdvertisingOrder));
-    setMessage("Advertising order 已更新。");
+    setEditor(editorFromOrder(savedOrder));
+
+    if (bannerSyncError) {
+      setErrorText(
+        "Advertising order 已儲存，但 linked Banner 未能同步：" + bannerSyncError +
+          "。Banner 仍受 Promotion Manager 安全鎖保護，不會因為呢個錯誤而誤上架。",
+      );
+      setMessage("");
+    } else {
+      setMessage(
+        editor.promo_banner_id
+          ? "Advertising order 已更新；linked Banner 商業狀態／排期已同步。"
+          : "Advertising order 已更新。",
+      );
+    }
     setSaving(false);
   }
 
