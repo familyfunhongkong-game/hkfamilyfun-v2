@@ -45,6 +45,7 @@ type EventRecord = {
   cover_image_url?: string | null;
   is_free?: boolean | null;
   is_sen_friendly?: boolean | null;
+  is_indoor?: boolean | null;
   tags?: unknown;
 };
 
@@ -338,7 +339,7 @@ export default function PlannerPage() {
       const { data, error } = await supabase
         .from("public_events_i18n")
         .select(
-          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,start_date,end_date,start_time,end_time,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates,recurrence_note,venue_name,venue_name_sc,venue_name_en,district,mtr_station,price_label,price_display_mode,min_price,max_price,age_group,age_groups,age_min,age_max,activity_category,category,cover_image_url,is_free,is_sen_friendly,tags",
+          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,start_date,end_date,start_time,end_time,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates,recurrence_note,venue_name,venue_name_sc,venue_name_en,district,mtr_station,price_label,price_display_mode,min_price,max_price,age_group,age_groups,age_min,age_max,activity_category,category,cover_image_url,is_free,is_sen_friendly,is_indoor,tags",
         )
         .eq("status", "published")
         .order("start_time", { ascending: true });
@@ -679,6 +680,11 @@ export default function PlannerPage() {
                       {event.is_sen_friendly ? (
                         <span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-[10px] font-black text-fuchsia-700">
                           SEN 友善
+                        </span>
+                      ) : null}
+                      {event.is_indoor ? (
+                        <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black text-sky-700">
+                          {locale === "en" ? "Indoor" : locale === "zh-Hans" ? "室内" : "室內"}
                         </span>
                       ) : null}
                     </div>
