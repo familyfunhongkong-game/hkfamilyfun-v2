@@ -1,0 +1,57 @@
+name: Patch Next.js Security on SEO Branch
+
+on:
+  push:
+    branches:
+      - event-detail-seo-structured-data
+
+permissions:
+  contents: write
+
+jobs:
+  patch-next:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: event-detail-seo-structured-data
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install patched stable Next.js
+        run: |
+          npm install --save-exact next@16.3.8
+          npm install --save-dev --save-exact eslint-config-next@16.3.8
+
+      - name: Verify production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Verify lint
+        run: npm run lint
+
+      - name: Verify type check
+        run: npm run type-check
+
+      - name: Verify production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
+
+      - name: Commit patched dependency lock
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Patch Next.js security baseline to 16.3.8"
+          git push origin HEAD:event-detail-seo-structured-data
