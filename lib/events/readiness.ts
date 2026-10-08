@@ -109,11 +109,19 @@ export function evaluateEventReadiness(
   const imageReady = Number(input.imageCount || 0) > 0;
   const priceReady = Boolean(input.priceReady);
   const ctaReady = Boolean(input.ctaReady);
+  const ageMinProvided = safeText(input.ageMin) !== "";
+  const ageMaxProvided = safeText(input.ageMax) !== "";
   const ageMinReady = hasNumericAge(input.ageMin);
   const ageMaxReady = hasNumericAge(input.ageMax);
+  const ageNumbersValid =
+    (!ageMinProvided || ageMinReady) &&
+    (!ageMaxProvided || ageMaxReady);
   const ageRangeValid =
     !(ageMinReady && ageMaxReady) || Number(input.ageMax) >= Number(input.ageMin);
-  const ageReady = hasAgeInformation(input) && ageRangeValid;
+  const ageReady =
+    hasAgeInformation(input) &&
+    ageNumbersValid &&
+    ageRangeValid;
   const organizerReady = Boolean(safeText(input.organizerName));
   const mapReady = Boolean(input.mapReady);
   const descriptionReady = safeText(input.description).length >= 20;
