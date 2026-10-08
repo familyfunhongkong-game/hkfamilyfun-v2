@@ -1,0 +1,2 @@
+create index merchant_advertising_orders_submitted_by_idx
+on public.merchant_advertising_orders (submitted_by);
