@@ -26,6 +26,7 @@ import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 import { getEventDetailMessages } from "@/lib/i18n/event-page-messages";
+import { formatEventAge } from "@/lib/events/age-display";
 
 type JsonValue =
   | string
@@ -118,6 +119,7 @@ type EventRecord = {
   quota_label?: string | null;
 
   age_group?: string | null;
+  age_groups?: unknown;
   age_min?: number | string | null;
   age_max?: number | string | null;
   activity_type?: string | null;
@@ -426,28 +428,14 @@ function formatAgeRange(event: EventRecord, locale: AppLocale): string {
   const custom = safeText(event.age_group);
   if (custom) return custom;
 
-  const min = Number(event.age_min);
-  const max = Number(event.age_max);
-  const hasMin =
-    event.age_min !== null &&
-    event.age_min !== undefined &&
-    Number.isFinite(min);
-  const hasMax =
-    event.age_max !== null &&
-    event.age_max !== undefined &&
-    Number.isFinite(max);
-
-  if (hasMin && hasMax) {
-    return locale === "en" ? `Ages ${min}–${max}` : `${min}–${max}歲`;
-  }
-  if (hasMin) {
-    return locale === "en" ? `Ages ${min}+` : `${min}歲以上`;
-  }
-  if (hasMax) {
-    return locale === "en" ? `Up to age ${max}` : `${max}歲或以下`;
-  }
-
-  return uiText(locale, "適合年齡待定", "适合年龄待定", "Age TBC");
+  return formatEventAge(
+    {
+      ageGroups: event.age_groups,
+      ageMin: event.age_min,
+      ageMax: event.age_max,
+    },
+    locale,
+  );
 }
 
 function getPhoneUrl(value: unknown): string | null {
