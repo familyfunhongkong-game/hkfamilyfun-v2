@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { evaluateEventReadiness } from "@/lib/events/readiness";
+import { formatEventAge } from "@/lib/events/age-display";
 
 type JsonValue =
   | string
@@ -1379,12 +1380,14 @@ export default function AdminEventReviewPage() {
                   年齡
                 </span>
                 <span className="mt-1 block text-sm font-black text-slate-800">
-                  {getTagArray(event.age_groups).join("、") ||
-                    (event.age_min !== null && event.age_min !== undefined
-                      ? `${event.age_min}歲以上`
-                      : event.age_max !== null && event.age_max !== undefined
-                        ? `${event.age_max}歲或以下`
-                        : "未填")}
+                  {formatEventAge(
+                    {
+                      ageGroups: event.age_groups || event.age_group,
+                      ageMin: event.age_min,
+                      ageMax: event.age_max,
+                    },
+                    "zh-Hant",
+                  )}
                 </span>
               </div>
               <div className="rounded-2xl bg-slate-50 p-3 text-xs font-bold text-slate-600 ring-1 ring-slate-100">
