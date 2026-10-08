@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import {
+  formatHongKongDateTime,
+  hongKongDatetimeLocalToIso,
+  isoToHongKongDatetimeLocal,
+} from "@/lib/hong-kong-datetime";
 
 type AdvertisingOrder = {
   id: string;
@@ -93,33 +98,6 @@ function promotionLabel(value: string) {
   return "其他合作";
 }
 
-function toLocalInput(value?: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
-
-function toIso(value: string) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-function displayDate(value?: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("zh-HK", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
-
 function editorFromOrder(order: AdvertisingOrder): Editor {
   return {
     status: order.status,
@@ -128,8 +106,8 @@ function editorFromOrder(order: AdvertisingOrder): Editor {
       order.quoted_amount === null || order.quoted_amount === undefined
         ? ""
         : String(order.quoted_amount),
-    starts_at: toLocalInput(order.starts_at),
-    ends_at: toLocalInput(order.ends_at),
+    starts_at: isoToHongKongDatetimeLocal(order.starts_at),
+    ends_at: isoToHongKongDatetimeLocal(order.ends_at),
     promo_banner_id: order.promo_banner_id || "",
     admin_notes: order.admin_notes || "",
   };
@@ -244,8 +222,8 @@ export default function AdminAdvertisingPage() {
       return;
     }
 
-    const startsAt = toIso(editor.starts_at);
-    const endsAt = toIso(editor.ends_at);
+    const startsAt = hongKongDatetimeLocalToIso(editor.starts_at);
+    const endsAt = hongKongDatetimeLocalToIso(editor.ends_at);
     if (startsAt && endsAt && new Date(endsAt) < new Date(startsAt)) {
       setErrorText("落架時間不可早過上架時間。");
       return;
@@ -469,7 +447,7 @@ export default function AdminAdvertisingPage() {
                           {order.campaign_name}
                         </h2>
                         <p className="mt-1 text-xs font-semibold text-slate-400">
-                          {merchant?.business_name || "Merchant"} · {displayDate(order.created_at)}
+                          {merchant?.business_name || "Merchant"} · {formatHongKongDateTime(order.created_at)}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -490,8 +468,8 @@ export default function AdminAdvertisingPage() {
                           ? `${order.currency} ${order.quoted_amount}`
                           : "未報價"}
                       </p>
-                      <p>上架：{displayDate(order.starts_at)}</p>
-                      <p>落架：{displayDate(order.ends_at)}</p>
+                      <p>上架：{formatHongKongDateTime(order.starts_at)}</p>
+                      <p>落架：{formatHongKongDateTime(order.ends_at)}</p>
                     </div>
 
                     {order.notes ? (
