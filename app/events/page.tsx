@@ -964,16 +964,14 @@ function EventCard({
     event.organizer_name || event.merchant_name,
     uiText(locale, "主辦方待定", "主办方待定", "Organizer TBC"),
   );
-  const ageGroup = safeText(
-    event.age_group,
-    formatEventAge(
-      {
-        ageGroups: event.age_groups,
-        ageMin: event.age_min,
-        ageMax: event.age_max,
-      },
-      locale,
-    ),
+  const ageGroup = formatEventAge(
+    {
+      ageGroups: event.age_groups,
+      ageMin: event.age_min,
+      ageMax: event.age_max,
+      legacyAgeGroup: event.age_group,
+    },
+    locale,
   );
   const recurrenceNote = safeText(event.recurrence_note);
 
