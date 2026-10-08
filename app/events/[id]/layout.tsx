@@ -1,54 +1,108 @@
 import type { Metadata } from "next";
-import { getPublishedEventById } from "@/lib/supabase/events";
+import { headers } from "next/headers";
+import {
+  buildEventJsonLd,
+  canonicalEventUrl,
+  getEventSeoData,
+  getEventSeoDescription,
+  getEventSeoImage,
+  getEventSeoTitle,
+  isEventExpired,
+  serializeJsonLd,
+} from "@/lib/seo/event-seo";
 
-export async function generateMetadata({
-  params,
-}: {
+type Props = {
+  children: React.ReactNode;
   params: Promise<{ id: string }>;
-}): Promise<Metadata> {
+};
+
+function isCanonicalHost(host: string) {
+  const normalized = host.toLowerCase().split(":")[0];
+  return normalized === "hkfamilyfun.com" || normalized === "www.hkfamilyfun.com";
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const event = await getPublishedEventById(id);
+  const event = await getEventSeoData(id);
+  const requestHeaders = await headers();
+  const host =
+    requestHeaders.get("x-forwarded-host") ||
+    requestHeaders.get("host") ||
+    "";
 
   if (!event) {
     return {
       title: "活動資料",
+      description: "此活動目前未能公開顯示。",
       robots: {
         index: false,
-        follow: true,
+        follow: false,
+        googleBot: {
+          index: false,
+          follow: false,
+        },
       },
     };
   }
 
-  const description =
-    event.shortDescription ||
-    `${event.organizer} 主辦的香港親子活動。日期：${event.date}；地區：${event.district}。`;
+  const title = getEventSeoTitle(event);
+  const description = getEventSeoDescription(event);
+  const image = getEventSeoImage(event);
+  const canonical = canonicalEventUrl(event.id);
+  const canIndex = isCanonicalHost(host) && !isEventExpired(event);
 
   return {
-    title: event.title,
+    title,
     description,
     alternates: {
-      canonical: `/events/${event.id}`,
+      canonical,
     },
     openGraph: {
       type: "website",
-      title: event.title,
+      locale: "zh_HK",
+      siteName: "HK Family Fun",
+      url: canonical,
+      title: `${title}｜HK Family Fun`,
       description,
-      url: `/events/${event.id}`,
-      images: event.image ? [{ url: event.image }] : undefined,
+      images: [
+        {
+          url: image,
+          alt: title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
-      title: event.title,
+      title: `${title}｜HK Family Fun`,
       description,
-      images: event.image ? [event.image] : undefined,
+      images: [image],
+    },
+    robots: {
+      index: canIndex,
+      follow: canIndex,
+      googleBot: {
+        index: canIndex,
+        follow: canIndex,
+      },
     },
   };
 }
 
-export default function EventDetailLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return children;
+export default async function EventDetailLayout({ children, params }: Props) {
+  const { id } = await params;
+  const event = await getEventSeoData(id);
+  const jsonLd = event ? buildEventJsonLd(event) : null;
+
+  return (
+    <>
+      {jsonLd ? (
+        <script
+          id="event-jsonld"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+        />
+      ) : null}
+      {children}
+    </>
+  );
 }

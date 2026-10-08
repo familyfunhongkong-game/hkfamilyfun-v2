@@ -83,6 +83,9 @@ jobs:
       - name: Event detail UX check
         run: npm run check:event-detail
 
+      - name: Event SEO contract check
+        run: npm run check:event-seo
+
       - name: TypeScript check
         run: npm run type-check
 
