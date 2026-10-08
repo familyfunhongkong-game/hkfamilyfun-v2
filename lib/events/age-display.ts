@@ -68,10 +68,12 @@ export function formatEventAge(
     ageGroups,
     ageMin,
     ageMax,
+    legacyAgeGroup,
   }: {
     ageGroups?: unknown;
     ageMin?: unknown;
     ageMax?: unknown;
+    legacyAgeGroup?: unknown;
   },
   locale: AppLocale,
 ) {
@@ -88,10 +90,13 @@ export function formatEventAge(
   const min = Number(ageMin);
   const max = Number(ageMax);
 
+  const legacy = String(legacyAgeGroup ?? "").trim();
+
   if (locale === "en") {
     if (minReady && maxReady) return `Ages ${min}–${max}`;
     if (minReady) return `Ages ${min}+`;
     if (maxReady) return `Up to age ${max}`;
+    if (legacy) return AGE_GROUP_TRANSLATIONS[legacy]?.en || legacy;
     return "Age TBC";
   }
 
@@ -99,5 +104,6 @@ export function formatEventAge(
   if (minReady && maxReady) return `${min}–${max}${suffix}`;
   if (minReady) return `${min}${suffix}以上`;
   if (maxReady) return `${max}${suffix}或以下`;
+  if (legacy) return AGE_GROUP_TRANSLATIONS[legacy]?.[locale] || legacy;
   return locale === "zh-Hans" ? "年龄待定" : "年齡待定";
 }
