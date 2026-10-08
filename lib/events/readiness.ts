@@ -164,10 +164,10 @@ export function evaluateEventReadiness(
     },
     {
       key: "image",
-      label: "活動封面",
+      label: "官方活動圖片",
       done: imageReady,
-      level: "critical",
-      note: "至少一張真實活動圖片，供卡片、詳情頁及社交分享使用。",
+      level: "warning",
+      note: "強烈建議使用主辦方／官方活動圖片；未有可靠圖片時保持空白，公開頁會使用 HK Family Fun 品牌 placeholder，避免以假圖冒充活動素材。",
     },
     {
       key: "price",
@@ -228,16 +228,14 @@ export function evaluateEventReadiness(
     criticalMissing,
     warningMissing,
     publishReady: criticalMissing.length === 0,
-    // Google Event rich-result eligibility depends on a real title, date and
-    // physical location. Weekly series are deliberately excluded until each
-    // occurrence has its own canonical URL. Image/organizer stay as quality
-    // gates so social previews and attribution remain trustworthy.
+    // Google Event required properties include the event name, start date and
+    // physical location/address. Image and organizer improve quality but are
+    // recommended properties, so they must not create a false hard blocker.
+    // Weekly series stay excluded until each occurrence has its own canonical URL.
     googleEventReady:
       titleReady &&
       dateReady &&
       recurrenceType !== "weekly" &&
-      addressReady &&
-      imageReady &&
-      organizerReady,
+      addressReady,
   };
 }

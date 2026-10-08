@@ -713,7 +713,7 @@ export default function AdminEventsPage() {
     }
 
     if ((nextStatus === "approved" || nextStatus === "published") && !hasCriticalReady(event)) {
-      setMessage("此活動仍未符合發布資料要求。請入審批詳情補齊完整地址、年齡、主辦方、圖片、收費及 CTA。");
+      setMessage("此活動仍未符合發布資料要求。請入審批詳情補齊完整地址、年齡、主辦方、收費及 CTA；官方圖片未有可靠來源時可使用品牌 placeholder。");
       return;
     }
 

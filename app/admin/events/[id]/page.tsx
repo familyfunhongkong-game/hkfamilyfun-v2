@@ -875,7 +875,7 @@ export default function AdminEventReviewPage() {
     }
 
     if ((nextStatus === "approved" || nextStatus === "published") && blocked) {
-      setMessage("仍有發布必需資料未完成，請先補齊活動名稱、日期、完整地址、圖片、收費、報名方式、年齡及主辦方。");
+      setMessage("仍有發布必需資料未完成，請先補齊活動名稱、日期、完整地址、收費、報名方式、年齡及主辦方。官方活動圖片如未有可靠來源，可保留空白並使用品牌 placeholder。");
       return;
     }
 

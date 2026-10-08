@@ -58,6 +58,22 @@ requireSignals("shared readiness", files.readiness, [
   'ageNumbersValid',
 ]);
 
+requireSignals("truthful image policy", files.readiness, [
+  'label: "官方活動圖片"',
+  'level: "warning"',
+  "HK Family Fun 品牌 placeholder",
+]);
+
+if (/key: "image"[\s\S]{0,160}level: "critical"/.test(files.readiness)) {
+  console.error("[event-data] missing official event image must not be a hard publish blocker");
+  failed = true;
+}
+
+if (/googleEventReady:[\s\S]{0,260}imageReady/.test(files.readiness)) {
+  console.error("[event-data] Google Event readiness must not require recommended image property");
+  failed = true;
+}
+
 requireSignals("admin detail", files.adminDetail, [
   'evaluateEventReadiness',
   'normalizeAgeGroups(event.age_groups).length > 0',
@@ -117,6 +133,16 @@ requireSignals("launch content integrity UI", files.systemHealthPage, [
   "Current/Future 已發布活動仍缺核心資料",
   "currentFutureCoreIncompleteItems",
 ]);
+
+requireSignals("launch image quality UI", files.systemHealthPage, [
+  "缺官方圖（warning）",
+  "HK Family Fun branded placeholder",
+]);
+
+if (files.systemHealthPage.includes("Core completeness 會檢查活動名稱、日期、地址、圖片")) {
+  console.error("[event-data] System Health must not describe image as core-required data");
+  failed = true;
+}
 
 
 for (const [label, source] of [
