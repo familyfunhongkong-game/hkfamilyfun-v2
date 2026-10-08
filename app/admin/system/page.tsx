@@ -215,7 +215,7 @@ export default function AdminSystemHealthPage() {
                 <h2 className="mt-1 text-xl font-black text-slate-950">
                   {health.contentQuality.currentFutureMissingImage === 0
                     ? "Current / Future 公開活動圖片完整"
-                    : `${health.contentQuality.currentFutureMissingImage} 個 Current / Future 活動仍用 fallback 圖`}
+                    : `${health.contentQuality.currentFutureMissingImage} 個 Current / Future 活動未有可靠官方圖，使用品牌 placeholder`}
                 </h2>
               </div>
               <span
@@ -237,7 +237,7 @@ export default function AdminSystemHealthPage() {
                 ["Current/Future", health.contentQuality.currentFutureTotal],
                 ["Core incomplete", health.contentQuality.currentFutureCoreIncomplete],
                 ["Google Event Ready", health.contentQuality.currentFutureGoogleEventReady],
-                ["Current/Future 缺實圖", health.contentQuality.currentFutureMissingImage],
+                ["缺官方圖（warning）", health.contentQuality.currentFutureMissingImage],
                 ["缺 published_at", health.contentQuality.missingPublishedAt],
               ].map(([label, value]) => (
                 <div
@@ -301,10 +301,11 @@ export default function AdminSystemHealthPage() {
             ) : null}
 
             <p className="mt-4 text-xs leading-6 text-slate-500">
-              Core completeness 會檢查活動名稱、日期、地址、圖片、收費、CTA、年齡及主辦方。
-              缺實圖不會造成 broken image；網站會使用 branded fallback，但 Current/Future Published
-              event 如果缺核心資料會令 launch health 變成 ACTION REQUIRED。歷史 Published 缺 published_at
-              只作資料治理提示，系統唔會補寫假發佈時間。
+              Core completeness 會檢查活動名稱、日期、地址、收費、CTA、年齡及主辦方。
+              官方活動圖片屬 quality warning：如果來源未能可靠核實，資料庫保持空白，公開頁會使用
+              HK Family Fun branded placeholder，唔會用假圖冒充活動素材。Current/Future Published
+              event 只有缺真正核心資料先會令 launch health 變成 ACTION REQUIRED。歷史 Published 缺
+              published_at 只作資料治理提示，系統唔會補寫假發佈時間。
             </p>
           </section>
         ) : null}
