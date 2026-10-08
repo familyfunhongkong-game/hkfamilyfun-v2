@@ -5,6 +5,11 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { canActivatePromotion } from "@/lib/business-model";
 import {
+  formatHongKongDateTime,
+  hongKongDatetimeLocalToIso,
+  isoToHongKongDatetimeLocal,
+} from "@/lib/hong-kong-datetime";
+import {
   getPromotionCommercialStage,
   promotionCommercialStageDetail,
   promotionCommercialStageLabels,
@@ -99,32 +104,6 @@ const commercialStageClasses: Record<PromotionCommercialStage, string> = {
   completed: "border-slate-200 bg-white text-slate-600",
 };
 
-function fromLocalInput(value: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return shifted.toISOString().slice(0, 16);
-}
-
-function toIso(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-function formatTime(value: string | null) {
-  if (!value) return "不限";
-  try {
-    return new Intl.DateTimeFormat("zh-HK", {
-      timeZone: "Asia/Hong_Kong",
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
-}
 
 export default function AdminPromotionsPage() {
   const [rows, setRows] = useState<Banner[]>([]);
@@ -249,8 +228,8 @@ export default function AdminPromotionsPage() {
       sponsor_name: row.sponsor_name || "",
       is_paid: Boolean(row.is_paid),
       priority: Number(row.priority || 100),
-      starts_at: fromLocalInput(row.starts_at),
-      ends_at: fromLocalInput(row.ends_at),
+      starts_at: isoToHongKongDatetimeLocal(row.starts_at),
+      ends_at: isoToHongKongDatetimeLocal(row.ends_at),
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -369,8 +348,8 @@ export default function AdminPromotionsPage() {
       return;
     }
 
-    const startsAt = toIso(draft.starts_at);
-    const endsAt = toIso(draft.ends_at);
+    const startsAt = hongKongDatetimeLocalToIso(draft.starts_at);
+    const endsAt = hongKongDatetimeLocalToIso(draft.ends_at);
     if (startsAt && endsAt && new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
       setErrorText("結束時間必須遲過開始時間。");
       return;
@@ -801,7 +780,7 @@ export default function AdminPromotionsPage() {
                       </div>
                       <h2 className="mt-3 text-xl font-black text-slate-950">{row.headline_tc}</h2>
                       <p className="mt-1 text-xs font-semibold text-slate-400">{row.internal_name}</p>
-                      <p className="mt-3 text-xs leading-5 text-slate-500">上架：{formatTime(row.starts_at)} · 落架：{formatTime(row.ends_at)} · Priority {row.priority}</p>
+                      <p className="mt-3 text-xs leading-5 text-slate-500">上架：{formatHongKongDateTime(row.starts_at, "不限")} · 落架：{formatHongKongDateTime(row.ends_at, "不限")} · Priority {row.priority}</p>
                       <div className="mt-4 grid grid-cols-3 gap-2">
                         <div className="rounded-2xl bg-slate-50 p-3">
                           <p className="text-[10px] font-black uppercase text-slate-400">30日曝光</p>
