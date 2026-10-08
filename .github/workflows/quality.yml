@@ -89,6 +89,9 @@ jobs:
       - name: Event data completeness check
         run: npm run check:event-data
 
+      - name: Advertising order lifecycle check
+        run: npm run check:advertising-orders
+
       - name: TypeScript check
         run: npm run type-check
 

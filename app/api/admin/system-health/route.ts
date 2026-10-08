@@ -114,6 +114,10 @@ export async function GET(request: NextRequest) {
     .from("promotion_events")
     .select("id", { count: "exact", head: true });
 
+  const advertisingOrdersProbe = await client
+    .from("merchant_advertising_orders")
+    .select("id", { count: "exact", head: true });
+
   const merchantLegalProbe = await client
     .from("merchants")
     .select(
@@ -383,15 +387,11 @@ export async function GET(request: NextRequest) {
     },
     merchantAdvertising: {
       required: true,
-      ready:
-        configured(process.env.RESEND_API_KEY) &&
-        configured(process.env.APPROVAL_EMAIL),
-      label: "Merchant Advertising",
-      detail:
-        configured(process.env.RESEND_API_KEY) &&
-        configured(process.env.APPROVAL_EMAIL)
-          ? "一般活動 Listing 免費；付費 Banner / Featured / Sponsored 查詢可由 Merchant Portal 提交，付款仍由 Admin 確認後才可啟用"
-          : "廣告查詢通知未完整設定；一般免費活動 Listing 不受影響",
+      ready: !advertisingOrdersProbe.error,
+      label: "Merchant Advertising CRM",
+      detail: advertisingOrdersProbe.error
+        ? "Advertising Orders schema 未就緒：" + advertisingOrdersProbe.error.message
+        : "Durable enquiry → quote → payment → schedule → live → completed pipeline ready；一般 Event Listing 繼續免費，付款狀態只由 Admin 確認",
     },
     sellWithFamilyFunSafety: {
       required: true,
