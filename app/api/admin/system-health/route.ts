@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isGoogleServiceAccountConfigured } from "@/lib/admin-google-drive";
 import { HK_FAMILY_FUN_BUSINESS_MODEL } from "@/lib/business-model";
+import { evaluateEventReadiness } from "@/lib/events/readiness";
 import {
   CURRENT_MERCHANT_TERMS_VERSION,
   CURRENT_PRIVACY_VERSION,
@@ -29,6 +30,52 @@ function hongKongToday() {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+function textValue(value: unknown) {
+  return String(value ?? "").trim();
+}
+
+function publishedEventImageCount(event: {
+  cover_image_url?: unknown;
+  gallery_image_urls?: unknown;
+}) {
+  const cover = textValue(event.cover_image_url);
+  const gallery = Array.isArray(event.gallery_image_urls)
+    ? event.gallery_image_urls.filter((value) => textValue(value))
+    : [];
+
+  return (cover ? 1 : 0) + gallery.length;
+}
+
+function publishedEventPriceReady(event: Record<string, unknown>) {
+  const mode = textValue(event.price_display_mode).toLowerCase();
+  return (
+    event.is_free === true ||
+    textValue(event.price_type).toLowerCase() === "free" ||
+    Boolean(mode && mode !== "unknown") ||
+    Boolean(textValue(event.price_label)) ||
+    event.price_min !== null && event.price_min !== undefined ||
+    event.price_max !== null && event.price_max !== undefined ||
+    Boolean(textValue(event.min_price)) ||
+    Boolean(textValue(event.max_price))
+  );
+}
+
+function publishedEventCtaReady(event: Record<string, unknown>) {
+  const ctaType = textValue(event.cta_type).toLowerCase();
+  if (ctaType === "none" || ctaType === "contact") return true;
+  if (event.registration_required === false) return true;
+
+  return [
+    event.registration_url,
+    event.booking_url,
+    event.official_url,
+    event.source_url,
+    event.contact_phone,
+    event.contact_email,
+    event.whatsapp,
+  ].some((value) => Boolean(textValue(value)));
 }
 
 export async function GET(request: NextRequest) {
@@ -83,7 +130,7 @@ export async function GET(request: NextRequest) {
   const publishedProbe = await client
     .from("events")
     .select(
-      "id,title_tc,title,start_date,end_date,cover_image_url,gallery_image_urls,published_at",
+      "id,title_tc,title,start_date,end_date,recurrence_type,recurrence_weekdays,venue_name,address,district,cover_image_url,gallery_image_urls,published_at,price_type,price_display_mode,price_label,price_min,price_max,min_price,max_price,is_free,registration_required,registration_url,booking_url,official_url,source_url,cta_type,contact_phone,contact_email,whatsapp,age_group,age_groups,age_min,age_max,organizer_name,merchant_name,google_map_url,google_map_embed_url,description_tc,short_description_tc",
     )
     .eq("status", "published");
 
@@ -103,13 +150,50 @@ export async function GET(request: NextRequest) {
   const missingPublishedAtRows = publishedRows.filter(
     (event) => !event.published_at,
   );
+  const currentFutureRows = publishedRows.filter((event) => {
+    const lastDate = textValue(event.end_date || event.start_date);
+    return Boolean(lastDate && lastDate >= today);
+  });
+  const currentFutureReadiness = currentFutureRows.map((event) => ({
+    event,
+    readiness: evaluateEventReadiness({
+      title: event.title_tc || event.title,
+      startDate: event.start_date,
+      endDate: event.end_date,
+      recurrenceType: event.recurrence_type,
+      recurrenceWeekdays: event.recurrence_weekdays,
+      venueName: event.venue_name,
+      address: event.address,
+      district: event.district,
+      imageCount: publishedEventImageCount(event),
+      priceReady: publishedEventPriceReady(event as Record<string, unknown>),
+      ctaReady: publishedEventCtaReady(event as Record<string, unknown>),
+      ageGroups: event.age_groups || event.age_group,
+      ageMin: event.age_min,
+      ageMax: event.age_max,
+      organizerName: event.organizer_name || event.merchant_name,
+      mapReady:
+        Boolean(textValue(event.google_map_url)) ||
+        Boolean(textValue(event.google_map_embed_url)),
+      description: event.description_tc || event.short_description_tc,
+    }),
+  }));
+  const currentFutureCoreIncompleteRows = currentFutureReadiness.filter(
+    (item) => !item.readiness.publishReady,
+  );
+  const currentFutureGoogleEventReady = currentFutureReadiness.filter(
+    (item) => item.readiness.googleEventReady,
+  ).length;
 
   const contentQuality = {
     queryReady: !publishedProbe.error,
     publishedTotal: publishedRows.length,
+    currentFutureTotal: currentFutureRows.length,
     missingImage: missingImageRows.length,
     currentFutureMissingImage: currentFutureMissingImageRows.length,
     missingPublishedAt: missingPublishedAtRows.length,
+    currentFutureCoreIncomplete: currentFutureCoreIncompleteRows.length,
+    currentFutureGoogleEventReady,
     currentFutureMissingImageItems: currentFutureMissingImageRows
       .slice(0, 8)
       .map((event) => ({
@@ -117,6 +201,15 @@ export async function GET(request: NextRequest) {
         title: String(event.title_tc || event.title || "未命名活動"),
         startDate: event.start_date,
         endDate: event.end_date,
+      })),
+    currentFutureCoreIncompleteItems: currentFutureCoreIncompleteRows
+      .slice(0, 12)
+      .map(({ event, readiness }) => ({
+        id: event.id,
+        title: String(event.title_tc || event.title || "未命名活動"),
+        startDate: event.start_date,
+        endDate: event.end_date,
+        missing: readiness.criticalMissing,
       })),
   };
 
@@ -199,6 +292,18 @@ export async function GET(request: NextRequest) {
       detail: dataHubProbe.error
         ? "Data Hub schema 未就緒：" + dataHubProbe.error.message
         : "Intake / sync / reporting schema ready",
+    },
+    publishedContentIntegrity: {
+      required: true,
+      ready:
+        !publishedProbe.error &&
+        currentFutureCoreIncompleteRows.length === 0,
+      label: "Published Event Data Integrity",
+      detail: publishedProbe.error
+        ? "未能完成 Published event 完整度掃描：" + publishedProbe.error.message
+        : currentFutureCoreIncompleteRows.length === 0
+          ? `Current/Future Published events ${currentFutureRows.length} 個全部通過核心資料 gate`
+          : `ACTION REQUIRED：${currentFutureCoreIncompleteRows.length}/${currentFutureRows.length} 個 Current/Future Published events 缺少核心資料`,
     },
     googleDrive: {
       required: true,
