@@ -42,6 +42,7 @@ type FavoriteEvent = {
   category?: string | null;
   is_free?: boolean | null;
   is_sen_friendly?: boolean | null;
+  is_indoor?: boolean | null;
   registration_url?: string | null;
   booking_url?: string | null;
   official_url?: string | null;
@@ -164,6 +165,7 @@ function toPublicEvent(event: FavoriteEvent, locale: AppLocale): Event {
     priceType: free ? "free" : event.price_type || "paid",
     price: priceText(event, locale),
     senFriendly: Boolean(event.is_sen_friendly),
+    indoor: Boolean(event.is_indoor),
     image:
       event.cover_image_url ||
       "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun",
@@ -208,7 +210,7 @@ export default function FavoritesPage() {
       const { data, error } = await supabase
         .from("public_events_i18n")
         .select(
-          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,merchant_name,start_date,end_date,start_time,end_time,district,mtr_station,cover_image_url,price_type,price_display_mode,price_label,min_price,max_price,age_min,age_max,age_groups,tags,activity_category,category,is_free,is_sen_friendly,registration_url,booking_url,official_url,source_url",
+          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,merchant_name,start_date,end_date,start_time,end_time,district,mtr_station,cover_image_url,price_type,price_display_mode,price_label,min_price,max_price,age_min,age_max,age_groups,tags,activity_category,category,is_free,is_sen_friendly,is_indoor,registration_url,booking_url,official_url,source_url",
         )
         .in("id", ids);
 
