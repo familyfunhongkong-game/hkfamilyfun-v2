@@ -539,10 +539,15 @@ function toggleWeekday(days: number[], value: number) {
     : [...days, value].sort((a, b) => a - b);
 }
 
-function toggleTextOption(values: string[], value: string) {
-  return values.includes(value)
-    ? values.filter((item) => item !== value)
-    : [...values, value];
+function toggleAgeGroup(values: string[], value: string) {
+  if (value === "所有年齡") {
+    return values.includes(value) ? [] : ["所有年齡"];
+  }
+
+  const withoutAllAges = values.filter((item) => item !== "所有年齡");
+  return withoutAllAges.includes(value)
+    ? withoutAllAges.filter((item) => item !== value)
+    : [...withoutAllAges, value];
 }
 
 function readiness(form: FormState, organizerFallback = "") {
@@ -579,6 +584,12 @@ function submissionMissing(form: FormState, organizerFallback = "") {
     missing.push("結束日期不可早於開始日期");
   }
 
+  if (form.age_min !== "" && Number(form.age_min) < 0) {
+    missing.push("最小年齡不可小於 0");
+  }
+  if (form.age_max !== "" && Number(form.age_max) < 0) {
+    missing.push("最大年齡不可小於 0");
+  }
   if (
     form.age_min !== "" &&
     form.age_max !== "" &&
@@ -849,6 +860,29 @@ export default function MerchantEventEditPage() {
       ...previous,
       [key]: value,
     }));
+  }
+
+  function updateAgeNumber(key: "age_min" | "age_max", value: string) {
+    setForm((previous) => ({
+      ...previous,
+      [key]: value,
+      age_groups: value
+        ? previous.age_groups.filter((item) => item !== "所有年齡")
+        : previous.age_groups,
+    }));
+  }
+
+  function updateAgeGroup(value: string) {
+    setForm((previous) => {
+      const nextGroups = toggleAgeGroup(previous.age_groups, value);
+      return {
+        ...previous,
+        age_groups: nextGroups,
+        ...(value === "所有年齡" && nextGroups.includes("所有年齡")
+          ? { age_min: "", age_max: "" }
+          : {}),
+      };
+    });
   }
 
   async function autoFillTranslations() {
@@ -1844,7 +1878,7 @@ export default function MerchantEventEditPage() {
                         key={option}
                         type="button"
                         onClick={() =>
-                          updateField("age_groups", toggleTextOption(form.age_groups, option))
+                          updateAgeGroup(option)
                         }
                         className={[
                           "rounded-full px-3 py-2 text-xs font-black transition",
@@ -1864,14 +1898,14 @@ export default function MerchantEventEditPage() {
                     label="最小年齡（歲，可選）"
                     type="number"
                     value={form.age_min}
-                    onChange={(value) => updateField("age_min", value)}
+                    onChange={(value) => updateAgeNumber("age_min", value)}
                     placeholder="例如 3"
                   />
                   <Input
                     label="最大年齡（歲，可選）"
                     type="number"
                     value={form.age_max}
-                    onChange={(value) => updateField("age_max", value)}
+                    onChange={(value) => updateAgeNumber("age_max", value)}
                     placeholder="例如 8"
                   />
                 </div>
