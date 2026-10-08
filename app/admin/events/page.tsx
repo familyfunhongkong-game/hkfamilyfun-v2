@@ -552,10 +552,6 @@ function hasCriticalReady(event: EventRecord): boolean {
   return getEventReadiness(event).publishReady;
 }
 
-function getCompleteness(event: EventRecord): number {
-  return getEventReadiness(event).score;
-}
-
 function Badge({
   children,
   tone = "purple",
