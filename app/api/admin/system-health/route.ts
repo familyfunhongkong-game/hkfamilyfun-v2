@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 import { isGoogleServiceAccountConfigured } from "@/lib/admin-google-drive";
 import { HK_FAMILY_FUN_BUSINESS_MODEL } from "@/lib/business-model";
 import { evaluateEventReadiness } from "@/lib/events/readiness";
-import { normalizeAgeGroups } from "@/lib/events/age-display";
 import {
   CURRENT_MERCHANT_TERMS_VERSION,
   CURRENT_PRIVACY_VERSION,
@@ -131,7 +130,7 @@ export async function GET(request: NextRequest) {
   const publishedProbe = await client
     .from("events")
     .select(
-      "id,title_tc,title,start_date,end_date,recurrence_type,recurrence_weekdays,venue_name,address,district,cover_image_url,gallery_image_urls,published_at,price_type,price_display_mode,price_label,price_min,price_max,min_price,max_price,is_free,registration_required,registration_url,booking_url,official_url,source_url,cta_type,contact_phone,contact_email,whatsapp,age_group,age_groups,age_min,age_max,organizer_name,merchant_name,google_map_url,google_map_embed_url,description_tc,short_description_tc",
+      "id,title_tc,title,start_date,end_date,recurrence_type,recurrence_weekdays,venue_name,address,district,cover_image_url,gallery_image_urls,published_at,price_type,price_display_mode,price_label,price_min,price_max,min_price,max_price,is_free,registration_required,registration_url,booking_url,official_url,source_url,cta_type,contact_phone,contact_email,whatsapp,age_groups,age_min,age_max,organizer_name,merchant_name,google_map_url,google_map_embed_url,description_tc,short_description_tc",
     )
     .eq("status", "published");
 
@@ -169,10 +168,7 @@ export async function GET(request: NextRequest) {
       imageCount: publishedEventImageCount(event),
       priceReady: publishedEventPriceReady(event as Record<string, unknown>),
       ctaReady: publishedEventCtaReady(event as Record<string, unknown>),
-      ageGroups:
-        normalizeAgeGroups(event.age_groups).length > 0
-          ? event.age_groups
-          : event.age_group,
+      ageGroups: event.age_groups,
       ageMin: event.age_min,
       ageMax: event.age_max,
       organizerName: event.organizer_name || event.merchant_name,

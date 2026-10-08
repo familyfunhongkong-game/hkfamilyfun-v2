@@ -101,8 +101,15 @@ requireSignals("launch content integrity API", files.systemHealth, [
   "currentFutureCoreIncompleteItems",
   "evaluateEventReadiness",
   "Published Event Data Integrity",
-  "normalizeAgeGroups(event.age_groups).length > 0",
+  "ageGroups: event.age_groups",
 ]);
+
+if (files.systemHealth.includes(",whatsapp,age_group,age_groups,")) {
+  console.error(
+    "[event-data] launch health must not depend on legacy age_group database column",
+  );
+  failed = true;
+}
 
 requireSignals("launch content integrity UI", files.systemHealthPage, [
   "Core incomplete",
