@@ -11,6 +11,8 @@ const files = {
   search: await readFile("app/events/page.tsx", "utf8"),
   favorites: await readFile("app/favorites/page.tsx", "utf8"),
   planner: await readFile("app/planner/page.tsx", "utf8"),
+  publicCard: await readFile("components/events/PublicEventCard.tsx", "utf8"),
+  publicType: await readFile("lib/types.ts", "utf8"),
   publicView: await readFile(
     "supabase/migrations/20260921114034_add_sanitized_public_events_view.sql",
     "utf8",
@@ -68,6 +70,17 @@ requireSignals("age display", files.age, [
   '"All ages"',
   'return "Age TBC"',
   'return locale === "zh-Hans" ? "年龄待定" : "年齡待定"',
+]);
+
+requireSignals("shared public accessibility", files.publicCard, [
+  "event.senFriendly",
+  "event.indoor",
+  '"Indoor"',
+]);
+
+requireSignals("public Event type", files.publicType, [
+  "senFriendly: boolean",
+  "indoor?: boolean",
 ]);
 
 for (const [label, source] of [
