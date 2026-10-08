@@ -7,6 +7,7 @@ import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import { getExtraPublicMessages } from "@/lib/i18n/public-extra-messages";
 import { supabase } from "@/lib/supabase/client";
 import ResilientEventImage from "@/components/resilient-event-image";
+import { formatEventAge } from "@/lib/events/age-display";
 
 type EventRecord = {
   id: string;
@@ -36,6 +37,7 @@ type EventRecord = {
   min_price?: number | string | null;
   max_price?: number | string | null;
   age_group?: string | null;
+  age_groups?: unknown;
   age_min?: number | null;
   age_max?: number | null;
   activity_category?: string | null;
@@ -336,7 +338,7 @@ export default function PlannerPage() {
       const { data, error } = await supabase
         .from("public_events_i18n")
         .select(
-          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,start_date,end_date,start_time,end_time,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates,recurrence_note,venue_name,venue_name_sc,venue_name_en,district,mtr_station,price_label,price_display_mode,min_price,max_price,age_group,age_min,age_max,activity_category,category,cover_image_url,is_free,is_sen_friendly,tags",
+          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,start_date,end_date,start_time,end_time,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates,recurrence_note,venue_name,venue_name_sc,venue_name_en,district,mtr_station,price_label,price_display_mode,min_price,max_price,age_group,age_groups,age_min,age_max,activity_category,category,cover_image_url,is_free,is_sen_friendly,tags",
         )
         .eq("status", "published")
         .order("start_time", { ascending: true });
@@ -626,19 +628,14 @@ export default function PlannerPage() {
                 );
             const age = safeText(
               event.age_group,
-              event.age_min !== null && event.age_min !== undefined
-                ? event.age_max !== null && event.age_max !== undefined
-                  ? locale === "en"
-                    ? `Ages ${event.age_min}–${event.age_max}`
-                    : `${event.age_min}–${event.age_max}歲`
-                  : locale === "en"
-                    ? `Ages ${event.age_min}+`
-                    : `${event.age_min}歲以上`
-                : locale === "en"
-                  ? "Age TBC"
-                  : locale === "zh-Hans"
-                    ? "年龄待定"
-                    : "年齡待定",
+              formatEventAge(
+                {
+                  ageGroups: event.age_groups,
+                  ageMin: event.age_min,
+                  ageMax: event.age_max,
+                },
+                locale,
+              ),
             );
             const category = safeText(
               event.activity_category || event.category,
