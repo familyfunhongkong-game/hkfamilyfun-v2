@@ -47,6 +47,7 @@ requireSignals("shared readiness", files.readiness, [
   'label: "主辦方"',
   'level: "critical"',
   'googleEventReady',
+  'recurrenceType !== "weekly"',
   'Number(input.ageMax) >= Number(input.ageMin)',
 ]);
 
@@ -62,6 +63,8 @@ requireSignals("admin list", files.adminList, [
   'const eventReadiness = getEventReadiness(event)',
   'eventReadiness.criticalMissing.join("、")',
   'Google Event Ready',
+  'recurrenceType: event.recurrence_type',
+  'recurrenceWeekdays: event.recurrence_weekdays',
   'disabled={isSaving || !ready}',
 ]);
 
@@ -70,6 +73,7 @@ requireSignals("age display", files.age, [
   '"All ages"',
   'return "Age TBC"',
   'return locale === "zh-Hans" ? "年龄待定" : "年齡待定"',
+  'legacyAgeGroup',
 ]);
 
 requireSignals("shared public accessibility", files.publicCard, [
@@ -82,6 +86,18 @@ requireSignals("public Event type", files.publicType, [
   "senFriendly: boolean",
   "indoor?: boolean",
 ]);
+
+
+for (const [label, source] of [
+  ["event detail", files.detail],
+  ["event search", files.search],
+  ["planner", files.planner],
+]) {
+  if (!source.includes("legacyAgeGroup: event.age_group")) {
+    console.error(`[event-data] ${label} must use legacy age_group only as fallback`);
+    failed = true;
+  }
+}
 
 for (const [label, source] of [
   ["shared public cards", files.publicEvents],
