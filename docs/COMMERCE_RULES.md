@@ -34,7 +34,8 @@ Approved merchants can submit a paid advertising enquiry inside Merchant Portal.
 7. Admin manages the durable lifecycle in Advertising CRM: `enquiry -> quoted -> payment_pending -> paid -> scheduled -> live -> completed`.
 8. Only Admin can set quote/payment/schedule fields. A merchant cannot mark an order paid.
 9. A campaign cannot be treated as Live until payment is confirmed and the order is linked to a Promotion Banner.
-10. Promotion Banner activation continues to enforce the separate `is_paid` / house-promotion rule.
+10. When Admin saves a paid linked order, Advertising CRM synchronizes the Banner commercial flag and schedule. Marking the order Live activates the linked paid Banner; refunded linked orders are paused. If Banner synchronization fails, the order stays saved but Promotion Manager's independent safety lock prevents accidental unpaid publication.
+11. Promotion Banner activation continues to enforce the separate `is_paid` / house-promotion rule.
 
 Submitting an enquiry does not reserve inventory, confirm payment, or guarantee publication.
 
