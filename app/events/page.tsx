@@ -407,8 +407,13 @@ function formatDateRange(event: EventRecord, locale: AppLocale): string {
 }
 
 function formatTimeRange(event: EventRecord, locale: AppLocale): string {
-  const start = safeText(event.start_time);
-  const end = safeText(event.end_time);
+  const normalizeTime = (value: unknown) => {
+    const text = safeText(value);
+    return /^\d{2}:\d{2}/.test(text) ? text.slice(0, 5) : text;
+  };
+
+  const start = normalizeTime(event.start_time);
+  const end = normalizeTime(event.end_time);
 
   if (!start && !end) return uiText(locale, "時間待定", "时间待定", "Time TBC");
   if (start && end) return `${start} - ${end}`;
