@@ -13,6 +13,8 @@ const files = {
   planner: await readFile("app/planner/page.tsx", "utf8"),
   publicCard: await readFile("components/events/PublicEventCard.tsx", "utf8"),
   publicType: await readFile("lib/types.ts", "utf8"),
+  systemHealth: await readFile("app/api/admin/system-health/route.ts", "utf8"),
+  systemHealthPage: await readFile("app/admin/system/page.tsx", "utf8"),
   publicView: await readFile(
     "supabase/migrations/20260921114034_add_sanitized_public_events_view.sql",
     "utf8",
@@ -89,6 +91,21 @@ requireSignals("shared public accessibility", files.publicCard, [
 requireSignals("public Event type", files.publicType, [
   "senFriendly: boolean",
   "indoor?: boolean",
+]);
+
+requireSignals("launch content integrity API", files.systemHealth, [
+  "publishedContentIntegrity",
+  "currentFutureCoreIncomplete",
+  "currentFutureCoreIncompleteItems",
+  "evaluateEventReadiness",
+  "Published Event Data Integrity",
+]);
+
+requireSignals("launch content integrity UI", files.systemHealthPage, [
+  "Core incomplete",
+  "Google Event Ready",
+  "Current/Future 已發布活動仍缺核心資料",
+  "currentFutureCoreIncompleteItems",
 ]);
 
 
