@@ -27,11 +27,14 @@ Approved merchants can submit a paid advertising enquiry inside Merchant Portal.
 
 1. Merchant chooses Banner / Featured / Sponsored placement.
 2. Merchant submits campaign details without leaving HK Family Fun.
-3. The server verifies the signed-in user owns an approved merchant account.
-4. HK Family Fun receives the enquiry at the configured approval inbox.
-5. The merchant receives an acknowledgement email when delivery succeeds.
-6. HK Family Fun confirms availability, price and payment outside the normal free listing workflow.
-7. Admin only activates the campaign after payment has been confirmed.
+3. The server verifies the signed-in user owns an approved merchant account and has accepted the current Merchant Terms / Privacy Policy.
+4. The enquiry is written to `merchant_advertising_orders` before any email is attempted. `request_id` is unique so a retry cannot create a duplicate order.
+5. HK Family Fun receives an email notification when Resend is available. Email failure does **not** delete or invalidate the saved enquiry.
+6. The merchant sees the saved request and lifecycle status in Merchant Portal.
+7. Admin manages the durable lifecycle in Advertising CRM: `enquiry -> quoted -> payment_pending -> paid -> scheduled -> live -> completed`.
+8. Only Admin can set quote/payment/schedule fields. A merchant cannot mark an order paid.
+9. A campaign cannot be treated as Live until payment is confirmed and the order is linked to a Promotion Banner.
+10. Promotion Banner activation continues to enforce the separate `is_paid` / house-promotion rule.
 
 Submitting an enquiry does not reserve inventory, confirm payment, or guarantee publication.
 
