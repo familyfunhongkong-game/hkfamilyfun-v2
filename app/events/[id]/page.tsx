@@ -425,14 +425,12 @@ function formatPrice(event: EventRecord, locale: AppLocale): string {
 }
 
 function formatAgeRange(event: EventRecord, locale: AppLocale): string {
-  const custom = safeText(event.age_group);
-  if (custom) return custom;
-
   return formatEventAge(
     {
       ageGroups: event.age_groups,
       ageMin: event.age_min,
       ageMax: event.age_max,
+      legacyAgeGroup: event.age_group,
     },
     locale,
   );
