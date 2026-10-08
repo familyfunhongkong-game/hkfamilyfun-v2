@@ -627,16 +627,14 @@ export default function PlannerPage() {
                         ? "价格见详情"
                         : "價錢見詳情",
                 );
-            const age = safeText(
-              event.age_group,
-              formatEventAge(
-                {
-                  ageGroups: event.age_groups,
-                  ageMin: event.age_min,
-                  ageMax: event.age_max,
-                },
-                locale,
-              ),
+            const age = formatEventAge(
+              {
+                ageGroups: event.age_groups,
+                ageMin: event.age_min,
+                ageMax: event.age_max,
+                legacyAgeGroup: event.age_group,
+              },
+              locale,
             );
             const category = safeText(
               event.activity_category || event.category,
