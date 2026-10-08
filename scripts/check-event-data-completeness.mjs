@@ -58,6 +58,22 @@ requireSignals("shared readiness", files.readiness, [
   'ageNumbersValid',
 ]);
 
+requireSignals("truthful image policy", files.readiness, [
+  'label: "官方活動圖片"',
+  'level: "warning"',
+  "HK Family Fun 品牌 placeholder",
+]);
+
+if (/key: "image"[\s\S]{0,160}level: "critical"/.test(files.readiness)) {
+  console.error("[event-data] missing official event image must not be a hard publish blocker");
+  failed = true;
+}
+
+if (/googleEventReady:[\s\S]{0,260}imageReady/.test(files.readiness)) {
+  console.error("[event-data] Google Event readiness must not require recommended image property");
+  failed = true;
+}
+
 requireSignals("admin detail", files.adminDetail, [
   'evaluateEventReadiness',
   'normalizeAgeGroups(event.age_groups).length > 0',
