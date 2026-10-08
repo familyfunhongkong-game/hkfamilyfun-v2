@@ -109,7 +109,11 @@ export function evaluateEventReadiness(
   const imageReady = Number(input.imageCount || 0) > 0;
   const priceReady = Boolean(input.priceReady);
   const ctaReady = Boolean(input.ctaReady);
-  const ageReady = hasAgeInformation(input);
+  const ageMinReady = hasNumericAge(input.ageMin);
+  const ageMaxReady = hasNumericAge(input.ageMax);
+  const ageRangeValid =
+    !(ageMinReady && ageMaxReady) || Number(input.ageMax) >= Number(input.ageMin);
+  const ageReady = hasAgeInformation(input) && ageRangeValid;
   const organizerReady = Boolean(safeText(input.organizerName));
   const mapReady = Boolean(input.mapReady);
   const descriptionReady = safeText(input.description).length >= 20;
@@ -176,7 +180,7 @@ export function evaluateEventReadiness(
       label: "適合年齡",
       done: ageReady,
       level: "critical",
-      note: "HK Family Fun 卡片及搜尋需要年齡資料；可用年齡層或最小/最大年齡。",
+      note: "HK Family Fun 卡片及搜尋需要年齡資料；可用年齡層或最小/最大年齡，且最大年齡不可小於最小年齡。",
     },
     {
       key: "organizer",
