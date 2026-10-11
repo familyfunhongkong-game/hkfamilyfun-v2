@@ -31,7 +31,7 @@ const AGE_GROUP_TRANSLATIONS: Record<string, Record<AppLocale, string>> = {
     "zh-Hans": "所有年龄",
     en: "All ages",
   },
-  主辦方未註明: {
+  "主辦方未註明": {
     "zh-Hant": "主辦方未註明年齡限制",
     "zh-Hans": "主办方未注明年龄限制",
     en: "Age restriction not stated by organizer",
