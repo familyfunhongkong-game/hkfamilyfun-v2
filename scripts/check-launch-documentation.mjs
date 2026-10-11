@@ -5,6 +5,7 @@ const checklist = await readFile(
   "docs/HK_FAMILY_FUN_LAUNCH_CHECKLIST.md",
   "utf8",
 );
+const systemHealthUi = await readFile("app/admin/system/page.tsx", "utf8");
 
 let failed = false;
 
@@ -35,6 +36,17 @@ for (const signal of [
   "Sell with Family Fun native ticketing remains safely disabled",
 ]) {
   requireSignal("launch checklist", checklist, signal);
+}
+
+for (const signal of [
+  "Manual Cutover Checks",
+  "Core Ready ≠ 可以立即切 Domain",
+  "舊網站 ownership + rollback destination",
+  "Final Legacy Delta Sync",
+  "Supabase Auth live redirect allowlist",
+  "Google OAuth live callbacks",
+]) {
+  requireSignal("Admin System Health cutover UI", systemHealthUi, signal);
 }
 
 const forbidden = [
