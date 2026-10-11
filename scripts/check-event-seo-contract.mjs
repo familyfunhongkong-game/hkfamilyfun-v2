@@ -30,8 +30,10 @@ for (const signal of [
   "startDate",
   "addressCountry: \"HK\"",
   'recurrence_type).toLowerCase() === "weekly"',
-  "getEventStructuredDataImage",
-  "structuredDataImage ? { image: [structuredDataImage] } : {}",
+  "getEventStructuredDataImages",
+  "gallery_image_urls?: unknown",
+  "structuredDataImages.length ? { image: structuredDataImages } : {}",
+  "isExplicitlyExpiredEvent(event.end_date)",
   'replace(/</g, "\\\\u003c")',
 ]) {
   if (!seo.includes(signal)) {
@@ -42,6 +44,13 @@ for (const signal of [
 
 if (seo.includes("image: [getEventSeoImage(event)]")) {
   console.error("[event-seo] Event JSON-LD must not use the brand OG fallback as an event image");
+  failed = true;
+}
+
+if (seo.includes("text(event.end_date) || text(event.start_date)")) {
+  console.error(
+    "[event-seo] missing end_date must not be treated as expired on the start date",
+  );
   failed = true;
 }
 
