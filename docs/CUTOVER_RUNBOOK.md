@@ -1,6 +1,6 @@
 # HK Family Fun V2 — Production Cutover & Rollback Runbook
 
-Updated: 2026-10-06
+Updated: 2026-10-10
 
 This runbook is the operational procedure for moving `hkfamilyfun.com` / `www.hkfamilyfun.com` from the legacy HK Family Fun site to `hkfamilyfun-v2`.
 
@@ -20,15 +20,32 @@ This runbook is the operational procedure for moving `hkfamilyfun.com` / `www.hk
 
 Do not begin domain cutover if any item below is true:
 
-- CI, Quality Gate, Merchant Auth E2E or Production Smoke is failing on latest `main`.
+- CI, Quality Gate or read-only Production Smoke is failing on latest `main`.
 - Latest Vercel production deployment is not `READY`.
 - Vercel runtime has unresolved 5xx/runtime errors.
 - Old Vercel project/domain ownership is unknown.
 - Final legacy delta dry-run has not been reviewed.
+- Any mutable Merchant/Auth E2E is configured to write against production Supabase. Production-writing E2E must remain manual-only until a dedicated test Supabase project exists.
 - The safe delta report contains unexplained duplicates, unsafe rows or unexpected drift.
 - Supabase Auth live redirect URLs have not been prepared.
 - Google OAuth live callback URLs have not been prepared.
 - The rollback destination (old project/domain assignment) is not known.
+
+## 1A. Verified rebuild state before cutover
+
+Verified on 2026-10-10:
+
+- latest rebuild production runs on `hkfamilyfun-v2.vercel.app`;
+- latest checked main deployment is READY with no recent runtime error/warning logs;
+- current/future published events: **13**;
+- critical published-data completeness issues: **0**;
+- current/future missing official-image warnings: **2** (allowed branded placeholder; not a hard blocker);
+- unsupported legacy `0–99` age placeholders: **0**;
+- public `/events` server-renders event records instead of shipping a zero/loading-only first response;
+- rebuild custom domains: only `hkfamilyfun-v2.vercel.app`;
+- production Google Drive callback is still on the staging Vercel host;
+- live-domain `NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_APP_URL` / `NEXT_PUBLIC_API_URL` cutover values are not yet active;
+- Supabase Security Advisor has no critical database/RLS finding; it still warns that leaked-password protection is disabled. Supabase documents that leaked-password protection requires Pro plan or above, so treat this as a security-hardening item according to the active plan rather than adding web-app QR/TOTP to Admin.
 
 ## 2. Pre-cutover content freeze
 
@@ -113,7 +130,8 @@ After safe-apply:
 - compare actual inserted count with dry-run planned inserts;
 - rerun data-quality checks;
 - confirm no new legacy record is public;
-- rerun CI / Quality Gate / Merchant Auth E2E / Production Smoke.
+- rerun CI / Quality Gate / read-only Production Smoke.
+- Do **not** use the mutable Merchant/Auth E2E against production as a release gate; it remains manual-only until a dedicated test Supabase project exists.
 
 ## 6. Prepare production URLs — do not break Preview
 
@@ -128,6 +146,14 @@ For **Vercel production environment**, set:
 - `GOOGLE_ADMIN_DRIVE_REDIRECT_URI=https://www.hkfamilyfun.com/api/admin/google-drive/callback`
 
 For **Preview**, retain the staging/Vercel callback and URLs. Do not replace Preview values with the live domain.
+
+`GOOGLE_ADMIN_DRIVE_REDIRECT_URI` is currently shared across Production / Preview / Development. Before cutover, split it by Vercel environment target:
+
+- Production → `https://www.hkfamilyfun.com/api/admin/google-drive/callback`
+- Preview → retain `https://hkfamilyfun-v2.vercel.app/api/admin/google-drive/callback` unless a dedicated preview callback is intentionally configured
+- Development → keep a deliberate development/staging callback; do not point local development at the production callback accidentally
+
+Likewise, set the live `NEXT_PUBLIC_*` / `SITE_URL` values for **Production only** unless there is an explicit reason for Preview to generate live-domain links.
 
 Secrets such as Supabase keys, Google client secret, token-encryption key and Resend key are not changed merely because the domain changes.
 
@@ -156,6 +182,17 @@ Retain rollback/preview URLs, including:
 
 Do not remove staging redirects until post-cutover stability is established.
 
+## 7A. Supabase Auth cutover rule
+
+The current password-reset code sends users directly to the request origin:
+
+- Merchant → `/merchant/update-password`
+- Admin → `/merchant/update-password?return=admin`
+
+Therefore the **live Supabase Auth redirect allowlist must be added before DNS is switched**. Keep the stable Vercel staging URLs during the rollback window.
+
+Do not rely on the Supabase default Site URL alone for password recovery; the explicit redirect URLs above must remain allowed.
+
 ## 8. Google OAuth authorized redirect URIs
 
 In the Google OAuth client used by HK Family Fun, add the live callbacks before users are sent to them:
@@ -172,6 +209,8 @@ Do not rotate the Google client secret or token-encryption key as part of normal
 
 ## 9. Confirm old Vercel domain assignment
 
+As of 2026-10-10, the public legacy site still responds on `https://www.hkfamilyfun.com`, and `https://hkfamilyfun.com` redirects to the `www` host. The rebuild project itself still owns only `hkfamilyfun-v2.vercel.app`. Treat the legacy site as live until the controlled cutover is complete.
+
 Before any domain write:
 
 - sign in/connect the legacy HK Family Fun Vercel account;
@@ -185,6 +224,22 @@ Before any domain write:
 Vercel supports moving a project domain directly between projects when the required source/target access is available. Prefer a controlled project-domain move over deleting the domain first.
 
 If the source and target are in different ownership scopes and the move cannot be performed directly, **STOP** and complete Vercel domain ownership/verification first. Do not force-remove the old domain.
+
+## 9A. Recommended order of operations
+
+Use this exact high-level order so callback changes never point users at an unavailable hostname:
+
+1. Start editorial freeze and record the old DNS/domain destination.
+2. Run final guarded legacy delta dry-run; safe-apply only after review.
+3. Re-run CI / Quality Gate / read-only Production Smoke on latest `main`.
+4. In Google OAuth, **add** both live callbacks while keeping staging callbacks.
+5. In Supabase Auth, **add** live reset/redirect URLs while keeping staging URLs.
+6. Add/verify the two domains on the target Vercel project without destroying the recorded rollback path.
+7. Split/update **Production-only** live URL and Drive callback env values; redeploy and confirm READY.
+8. Switch only the web-routing DNS/domain assignment; preserve MX/TXT/email records.
+9. Verify TLS, apex→www redirect, health fingerprint, indexability, password reset and Google callbacks.
+10. Keep the old destination available throughout the monitoring window.
+11. Only after the monitoring window passes should the old web assignment be retired.
 
 ## 10. Domain cutover
 
@@ -220,7 +275,7 @@ This test must pass all checks, including:
 - anonymous protected writes return 401;
 - Google Calendar OAuth runtime is configured;
 - production is not `noindex`;
-- canonical host is `hkfamilyfun.com`;
+- canonical host is `www.hkfamilyfun.com`;
 - rendered DOM has no framework error;
 - mobile/desktop screenshots are generated.
 
@@ -249,6 +304,7 @@ After automated smoke passes:
 
 ### Merchant
 - password login works;
+- use an intentionally approved test/operations merchant for the manual check; do not re-enable production-writing automated E2E;
 - approved merchant can create draft;
 - upload/delete an image;
 - submit event;
@@ -330,7 +386,7 @@ Non-critical optional integrations such as AI fallback alone are not rollback tr
 Cutover is complete only when:
 
 - final safe delta is reconciled;
-- all four release gates are green;
+- CI, Quality Gate and read-only Production Smoke are green on the approved latest `main` commit;
 - live domain serves the expected latest V2 SHA;
 - automated live-domain Production Smoke passes in `production-index` mode;
 - Admin email/password login works with no QR/2FA;

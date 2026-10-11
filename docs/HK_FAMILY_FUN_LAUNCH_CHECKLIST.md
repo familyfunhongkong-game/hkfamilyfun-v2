@@ -1,6 +1,6 @@
 # HK Family Fun V2 — Launch Checklist
 
-Updated: 2026-10-06
+Updated: 2026-10-10
 
 ## Quality target
 
@@ -13,7 +13,7 @@ HK Family Fun V2 is being hardened toward an Awwwards / Webby / FWA-level produc
 - accessibility, keyboard focus and reduced-motion support
 - stable Merchant/Admin workflows
 - secure role separation and database RLS
-- deterministic CI, authenticated E2E and production smoke gates
+- deterministic CI, read-only production smoke gates, and mutable E2E isolated from production
 
 Visual polish must never trade away accessibility, SEO, performance, data safety or operational stability.
 
@@ -26,21 +26,28 @@ Visual polish must never trade away accessibility, SEO, performance, data safety
 
 ## Live infrastructure snapshot
 
+Verified from the current HK Family Fun Supabase / Vercel rebuild on 2026-10-10:
+
 - GitHub repository: `familyfunhongkong-game/hkfamilyfun-v2`
 - Supabase V2 project: `hkfamilyfun-v2` / `uiyrbqqvgnfhfdhedmav`
 - Supabase region: `ap-southeast-1`
 - Vercel project: `hkfamilyfun-v2`
 - Events: **239**
-- Published: **41**
+- Published: **14**
 - Current/future published: **13**
 - Draft: **111**
 - Approved: **1**
 - Rejected: **1**
-- Archived: **85**
-- Profiles: **3**
-- Merchants: **2**
+- Archived: **112**
+- Merchant accounts: **2 pending / 0 approved**
 - Legacy events migrated into V2: **174**
-- `event-images` Storage objects: **35**
+- `event-images` Storage objects: **30**
+- Current/future published critical completeness issues: **0**
+- Current/future official-image warnings: **2**
+- Unsupported legacy `0–99` age placeholders: **0**
+- Explicit `主辦方未註明` age classification: **5**
+- Rebuild custom domain currently attached: **hkfamilyfun-v2.vercel.app only**
+- Public legacy `hkfamilyfun.com` / `www.hkfamilyfun.com` still responds and must be treated as live until controlled cutover
 
 The app currently uses `events.cover_image_url` + `gallery_image_urls` + Supabase Storage as the active image model. A zero-row legacy `event_images` table is therefore not, by itself, an application failure.
 
@@ -88,30 +95,30 @@ The app currently uses `events.cover_image_url` + `gallery_image_urls` + Supabas
 - TypeScript `tsc --noEmit`
 - production `next build`
 
-### Authenticated Merchant/Admin/Auth E2E — PASS
+### Authenticated Merchant/Admin/Auth E2E — HISTORICAL PASS / MANUAL-ONLY NOW
 
-The workflow now runs on every `main` push with concurrency cancellation, so only the newest commit needs to finish. This makes Auth/RLS testing a real release gate rather than evidence from an older commit.
+A production-writing authenticated E2E previously proved the Merchant/Admin/Auth lifecycle, including signup, approval, draft creation, image handling, submission, publish protection and password recovery.
 
-The temporary-data E2E has passed the following production Supabase workflow and cleans up after itself:
+That evidence remains useful, but **the mutable E2E is no longer an automatic production release gate**. The latest safety policy makes it manual-only until a dedicated non-production Supabase test project exists. This prevents CI from creating/deleting production users, merchants, events or storage objects on every main push.
 
-- signup trigger creates pending merchant
-- legal acceptance audit fields recorded
-- merchant password login
-- pending merchant cannot create events
-- Admin can approve compliant merchant
-- approved merchant can create draft
-- merchant can upload and delete draft image
-- uploaded event image is publicly readable
-- merchant can save image reference
-- merchant can submit event
-- merchant cannot self-publish
-- approved-but-unpublished event does not leak publicly
-- Admin can publish
-- published event is public with i18n + image
-- published event route returns HTTP 200
-- password recovery changes the login password
+Current automated release gates are:
 
-Database transaction dry-runs separately confirmed Merchant ownership, Admin access, legal-acceptance protection and self-publish blocking.
+- HK Family Fun CI;
+- HK Family Fun Quality Gate;
+- read-only Production Smoke / Vercel runtime checks.
+
+Do not re-enable production-writing E2E merely to make the checklist look more comprehensive. If repeatable mutable E2E is required, provision a dedicated test Supabase project first.
+
+Historical transaction/E2E evidence confirmed:
+
+- signup trigger creates pending merchant;
+- legal acceptance fields are protected;
+- pending merchant cannot create events;
+- Admin approval is separate;
+- merchant cannot self-publish;
+- unpublished events do not leak publicly;
+- image upload/delete ownership is enforced;
+- password recovery flow works when redirect URLs are correctly allowlisted.
 
 ### Production smoke — PASS
 
@@ -164,7 +171,7 @@ After correction, a new Production Smoke visual artifact was reviewed:
 
 - public i18n view is `security_invoker` + `security_barrier`
 - anonymous public view test exposed **0 non-published events**
-- all 10 current public events have core Simplified Chinese + English content
+- current/future published data has **0 critical completeness blockers**; localized-content quality remains subject to editorial review
 - Merchant cannot modify another merchant's non-public events
 - Merchant cannot modify legal acceptance audit fields
 - Merchant cannot directly publish
@@ -181,11 +188,13 @@ After correction, a new Production Smoke visual artifact was reviewed:
 
 ### Remaining Supabase security action
 
-Supabase Security Advisor still reports:
+Supabase Security Advisor currently reports one password-hardening warning:
 
 - **Leaked Password Protection Disabled**
 
-This remains a platform-level password hardening item. Current compensating controls are 12-character passwords, email confirmation, server-side Admin allowlist/RLS, authenticated E2E and a repository-wide CI contract that prevents QR/TOTP/MFA/OTP/OAuth login from being added to the Admin Portal. Do not add web-app QR/TOTP to the Admin Portal unless product requirements change.
+Supabase documents that leaked-password protection is available on the Pro plan and above. If the HK Family Fun Supabase project remains on a plan without that feature, record it as an accepted platform limitation rather than inventing a custom substitute. If the project is upgraded, enable leaked-password protection in Supabase Auth settings.
+
+Current controls remain password-length requirements, email confirmation where configured, server-side Admin allowlist/RLS, strict Merchant ownership policies and CI contracts. Do **not** add web-app QR/TOTP/MFA to the Admin Portal unless product requirements change.
 
 Performance Advisor also reports multiple-permissive-policy and unused-index notices. These are optimization findings, not evidence of a current public-data leak. Do not drop indexes or rewrite policies blindly before measuring query plans and preserving RLS behavior.
 
@@ -198,7 +207,7 @@ The historical dry-run recorded:
 - old duplicate rows removed: **8**
 - planned unique migration: **174**
 
-Current V2 production contains exactly **174** records marked `legacy_migration=true`.
+Current V2 production contains exactly **174** legacy-migrated records identified by the existing `source_fingerprint` prefix `legacy:`.
 
 A new manual-only `Legacy Delta Sync` workflow now protects the final cutover delta:
 - default mode is **dry-run**
@@ -227,43 +236,54 @@ Current/future legacy review:
 
 ### Required before switching `hkfamilyfun.com`
 
-The rebuild application has repeatedly passed the four automated release gates on current `main`:
-- HK Family Fun CI — PASS
-- HK Family Fun Quality Gate — PASS
-- Merchant Auth E2E — PASS
-- Production Smoke Test — PASS
+Core rebuild code/data is now launch-ready on the staging Vercel domain. The remaining blockers are **cutover/external ownership tasks**, not missing core SaaS functions:
 
-The remaining pre-cutover work is now external ownership / final data reconciliation:
+1. Confirm the exact legacy hosting/Vercel project that currently serves `hkfamilyfun.com` / `www.hkfamilyfun.com`, and record the rollback destination.
+2. Immediately before cutover, run **Legacy Delta Sync** in dry-run mode against the old source. Review new legacy IDs, duplicates and drift; safe-apply only after acceptance.
+3. Ensure latest `main` passes **CI + Quality Gate + read-only Production Smoke**. Mutable production-writing Merchant/Auth E2E stays manual-only until a dedicated test Supabase exists.
+4. Add live Supabase Auth redirect URLs for:
+   - `https://www.hkfamilyfun.com/merchant/update-password`
+   - `https://www.hkfamilyfun.com/merchant/update-password?return=admin`
+   Keep staging redirects during rollback window.
+5. Add live Google OAuth callbacks before switching traffic:
+   - `https://www.hkfamilyfun.com/api/google-calendar/callback`
+   - `https://www.hkfamilyfun.com/api/admin/google-drive/callback`
+   Keep staging callbacks temporarily.
+6. Split Vercel callback/URL variables by environment target. Production must use the live `www` domain; Preview must not be forced to use the live callback.
+7. Attach/verify `www.hkfamilyfun.com` and apex `hkfamilyfun.com` on the rebuild project; make `www` canonical and apex redirect to `www`.
+8. Change only website routing/DNS records. Preserve MX/TXT and other email/domain records.
+9. Run live-domain smoke, password recovery and Google callback checks before retiring the old assignment.
+10. Monitor runtime errors for at least 30–60 minutes with rollback destination still available.
 
-1. **Accepted Free-plan limitation:** Supabase leaked-password protection is unavailable on the current Free plan. Current controls remain 12-character passwords, email verification, RLS/Admin allowlist and automated auth/E2E gates. Admin web login remains **email + password only**; no QR/TOTP/web-app 2FA.
-2. Connect/read the **old HK Family Fun Vercel account** and confirm where `hkfamilyfun.com` / `www.hkfamilyfun.com` are assigned before any move. The rebuild Vercel team still has **no custom-domain alias** for `hkfamilyfun.com`.
-3. Immediately before cutover, run the new **Legacy Delta Sync** workflow in **dry-run** mode using the old Supabase service credential. Review exact legacy IDs, drift, duplicates and planned safe inserts.
-4. Only after the dry-run report is accepted, run **safe-apply** with confirmation `SAFE_DELTA_ONLY`. This is insert-only for unseen legacy IDs and cannot auto-publish.
-5. Re-run the four automated gates on the post-delta `main` commit.
-6. Only then assign `hkfamilyfun.com` / `www.hkfamilyfun.com` to the rebuild and perform post-cutover smoke checks before removing the old assignment.
+Authoritative procedure: **`docs/CUTOVER_RUNBOOK.md`**.
 
 ### Operational configuration status
 
-- **Resend email is configured in Vercel** with `RESEND_API_KEY` and `APPROVAL_EMAIL=info@hkfamilyfun.com`.
-- A one-time authenticated production E2E verified the full path: Merchant submission → production notification API → Vercel runtime → Resend → email delivery.
-- The normal Merchant E2E has been returned to non-spamming mode; durable in-app notification queueing remains continuously tested.
-- Google Calendar Free/Busy is an **optional Planner enhancement**, not a launch blocker. Runtime OAuth configuration and redirect generation are covered by Production Smoke.
-- Generative AI remains optional. Without an AI provider key, normalization/social drafting uses safe deterministic fallback instead of blocking Admin operations.
-- Google Sheets/Admin Data Hub core workflow remains available through the current connected integration. A Service Account is still recommended later for unattended long-term synchronization.
-- The rebuild Vercel project remains on its Vercel staging domain and has not taken over `hkfamilyfun.com`.
+- Latest checked rebuild production deployment on `hkfamilyfun-v2.vercel.app` is READY and recent runtime error/warning scans are clean.
+- Public `/events` now server-renders real event records on first response.
+- Current/future published events: **13** with **0 critical completeness blockers**.
+- Missing official-image count: **2**, intentionally treated as warnings with the branded HK Family Fun fallback rather than fabricated imagery.
+- Unsupported legacy `0–99` age placeholders: **0**.
+- Resend is configured; normal Merchant/Admin notification infrastructure remains present.
+- Google Admin Drive is currently configured against the staging Vercel callback; this must be split/changed for Production during cutover.
+- Rebuild Vercel project currently owns only `hkfamilyfun-v2.vercel.app`; the custom domain has not been moved.
+- Sell with Family Fun native ticketing remains safely disabled.
 
 ### Current live data snapshot
 
 - Events: **239**
-- Published: **41**
+- Published: **14**
 - Current/future published: **13**
 - Draft: **111**
 - Submitted: **0**
 - Approved: **1**
 - Rejected: **1**
-- Archived: **85**
+- Archived: **112**
 - Legacy-migrated records: **174**
-- `event-images` Storage objects: **35**
+- Merchant accounts: **2 pending / 0 approved**
+- `event-images` Storage objects: **30**
+- Current/future critical completeness issues: **0**
+- Current/future image warnings: **2**
 
 ## Content backlog that does not block application launch
 
@@ -275,4 +295,4 @@ The remaining pre-cutover work is now external ownership / final data reconcilia
 
 Do **not** switch `hkfamilyfun.com` to the rebuilt site until the old Vercel domain assignment is confirmed and the final guarded Legacy Delta Sync dry-run is reviewed.
 
-Launch-candidate rule: the candidate is the **latest `main` commit only after CI, Quality Gate, Merchant Auth E2E and Production Smoke all pass on that commit**. Do not rely on a hard-coded SHA in this document.
+Launch-candidate rule: the candidate is the **latest `main` commit only after CI, Quality Gate and read-only Production Smoke pass for that release**. Mutable production-writing Merchant/Auth E2E is not an automatic gate until a dedicated test Supabase project exists. Do not rely on a hard-coded SHA in this document.
