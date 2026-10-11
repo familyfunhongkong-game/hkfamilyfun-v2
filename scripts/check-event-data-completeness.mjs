@@ -23,6 +23,10 @@ const files = {
     "supabase/migrations/20261011030409_correct_mid_autumn_age_classification.sql",
     "utf8",
   ),
+  agePlaceholderCorrection: await readFile(
+    "supabase/migrations/20261011031740_remove_unverified_all_age_placeholders.sql",
+    "utf8",
+  ),
 };
 
 let failed = false;
@@ -206,6 +210,30 @@ if (
   files.midAutumnAgeCorrection.includes("array[\"所有年齡\"]")
 ) {
   console.error("[event-data] unstated organizer age restriction must not be inferred as 所有年齡");
+  failed = true;
+}
+
+requireSignals("legacy 0–99 placeholder correction", files.agePlaceholderCorrection, [
+  "age_min = 0",
+  "age_max = 99",
+  "age_min = null",
+  "age_max = null",
+  "主辦方未註明",
+  "hkp.lcsd.gov.hk",
+  "pmq.org.hk",
+  "facebook.com/jackfruitfestival",
+]);
+
+if (/\bid\s*=\s*'[0-9a-f-]{36}'/i.test(files.agePlaceholderCorrection)) {
+  console.error("[event-data] age placeholder correction must match verified source identity, not generated UUIDs");
+  failed = true;
+}
+
+if (
+  files.agePlaceholderCorrection.includes("array['所有年齡']") ||
+  files.agePlaceholderCorrection.includes("array[\"所有年齡\"]")
+) {
+  console.error("[event-data] unsupported 0–99 placeholders must become 主辦方未註明, not 所有年齡");
   failed = true;
 }
 
