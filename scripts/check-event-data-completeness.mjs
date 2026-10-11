@@ -19,6 +19,10 @@ const files = {
     "supabase/migrations/20260921114034_add_sanitized_public_events_view.sql",
     "utf8",
   ),
+  midAutumnAgeCorrection: await readFile(
+    "supabase/migrations/20261011030409_correct_mid_autumn_age_classification.sql",
+    "utf8",
+  ),
 };
 
 let failed = false;
@@ -182,6 +186,26 @@ if (
 
 if (!files.readiness.includes("不可把未知年齡估成「所有年齡」")) {
   console.error("[event-data] readiness copy must preserve truthful unknown-age handling");
+  failed = true;
+}
+
+requireSignals("verified unknown-age correction", files.midAutumnAgeCorrection, [
+  "主辦方未註明",
+  "unknown/unstated age",
+  "cpo.gov.hk",
+  "丙午年中秋光影裝置｜香港文化中心露天廣場",
+]);
+
+if (/\bid\s*=\s*'[0-9a-f-]{36}'/i.test(files.midAutumnAgeCorrection)) {
+  console.error("[event-data] corrective data migration must not depend on a generated event UUID");
+  failed = true;
+}
+
+if (
+  files.midAutumnAgeCorrection.includes("array['所有年齡']") ||
+  files.midAutumnAgeCorrection.includes("array[\"所有年齡\"]")
+) {
+  console.error("[event-data] unstated organizer age restriction must not be inferred as 所有年齡");
   failed = true;
 }
 
