@@ -30,8 +30,9 @@ for (const signal of [
   "startDate",
   "addressCountry: \"HK\"",
   'recurrence_type).toLowerCase() === "weekly"',
-  "getEventStructuredDataImage",
-  "structuredDataImage ? { image: [structuredDataImage] } : {}",
+  "getEventStructuredDataImages",
+  "gallery_image_urls?: unknown",
+  "structuredDataImages.length ? { image: structuredDataImages } : {}",
   'replace(/</g, "\\\\u003c")',
 ]) {
   if (!seo.includes(signal)) {
