@@ -36,6 +36,7 @@ Approved merchants can submit a paid advertising enquiry inside Merchant Portal.
 9. A campaign cannot be treated as Live until payment is confirmed and the order is linked to a Promotion Banner.
 10. When Admin saves a paid linked order, Advertising CRM synchronizes the Banner commercial flag and schedule. Marking the order Live activates the linked paid Banner; refunded linked orders are paused. If Banner synchronization fails, the order stays saved but Promotion Manager's independent safety lock prevents accidental unpaid publication.
 11. Promotion Banner activation continues to enforce the separate `is_paid` / house-promotion rule.
+12. The same rule is enforced in PostgreSQL as defense in depth: an `active` Banner must be paid or be an HK Family Fun house promotion, and public RLS only exposes paid/house active rows in their valid schedule window.
 
 Submitting an enquiry does not reserve inventory, confirm payment, or guarantee publication.
 
