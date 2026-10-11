@@ -1,11 +1,6 @@
 name: Legacy Delta Sync
 
 on:
-  push:
-    branches:
-      - ops-legacy-delta-dry-run-20261011
-    paths:
-      - ".github/workflows/legacy-delta-sync.yml"
   workflow_dispatch:
     inputs:
       mode:
