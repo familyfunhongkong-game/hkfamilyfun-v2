@@ -19,6 +19,7 @@
     "check:event-data": "node scripts/check-event-data-completeness.mjs",
     "check:event-calendar": "node scripts/check-event-calendar-timezone.mjs",
     "check:events-ssr": "node scripts/check-events-server-preload.mjs",
+    "check:event-display": "node scripts/check-event-display-normalization.mjs",
     "check:advertising-orders": "node scripts/check-advertising-order-contract.mjs",
     "check:production-e2e": "node scripts/check-production-e2e-isolation.mjs",
     "format": "prettier --write \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"scripts/**/*.{mjs,ts}\" \"docs/**/*.md\" \"README.md\"",
