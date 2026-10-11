@@ -95,6 +95,9 @@ jobs:
       - name: Advertising order lifecycle check
         run: npm run check:advertising-orders
 
+      - name: Production E2E isolation check
+        run: npm run check:production-e2e
+
       - name: TypeScript check
         run: npm run type-check
 
