@@ -4,6 +4,10 @@ import { isGoogleServiceAccountConfigured } from "@/lib/admin-google-drive";
 import { HK_FAMILY_FUN_BUSINESS_MODEL } from "@/lib/business-model";
 import { evaluateEventReadiness } from "@/lib/events/readiness";
 import {
+  isCurrentOrOpenEndedEvent,
+  isOpenEndedPastStart,
+} from "@/lib/events/visibility";
+import {
   CURRENT_MERCHANT_TERMS_VERSION,
   CURRENT_PRIVACY_VERSION,
 } from "@/lib/merchant-legal";
@@ -147,17 +151,18 @@ export async function GET(request: NextRequest) {
       : [];
     return !cover && gallery.length === 0;
   });
-  const currentFutureMissingImageRows = missingImageRows.filter((event) => {
-    const lastDate = String(event.end_date || event.start_date || "").trim();
-    return !lastDate || lastDate >= today;
-  });
+  const currentFutureMissingImageRows = missingImageRows.filter((event) =>
+    isCurrentOrOpenEndedEvent(event.end_date, today),
+  );
   const missingPublishedAtRows = publishedRows.filter(
     (event) => !event.published_at,
   );
-  const currentFutureRows = publishedRows.filter((event) => {
-    const lastDate = textValue(event.end_date || event.start_date);
-    return !lastDate || lastDate >= today;
-  });
+  const currentFutureRows = publishedRows.filter((event) =>
+    isCurrentOrOpenEndedEvent(event.end_date, today),
+  );
+  const openEndedPastStartRows = currentFutureRows.filter((event) =>
+    isOpenEndedPastStart(event.start_date, event.end_date, today),
+  );
   const currentFutureReadiness = currentFutureRows.map((event) => ({
     event,
     readiness: evaluateEventReadiness({
@@ -198,6 +203,15 @@ export async function GET(request: NextRequest) {
     missingPublishedAt: missingPublishedAtRows.length,
     currentFutureCoreIncomplete: currentFutureCoreIncompleteRows.length,
     currentFutureGoogleEventReady,
+    openEndedPastStart: openEndedPastStartRows.length,
+    openEndedPastStartItems: openEndedPastStartRows
+      .slice(0, 12)
+      .map((event) => ({
+        id: event.id,
+        title: String(event.title_tc || event.title || "未命名活動"),
+        startDate: event.start_date,
+        endDate: event.end_date,
+      })),
     currentFutureMissingImageItems: currentFutureMissingImageRows
       .slice(0, 8)
       .map((event) => ({
