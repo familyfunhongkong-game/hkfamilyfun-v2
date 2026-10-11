@@ -110,6 +110,9 @@ jobs:
       - name: Production smoke coverage check
         run: npm run check:production-smoke
 
+      - name: Expired event maintenance safety check
+        run: npm run check:archive-cron
+
       - name: Production Smoke concurrency check
         run: npm run check:production-smoke
 
