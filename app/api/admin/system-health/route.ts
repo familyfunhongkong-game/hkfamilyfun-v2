@@ -138,8 +138,18 @@ export async function GET(request: NextRequest) {
     )
     .eq("status", "published");
 
+  const unownedDraftProbe = await client
+    .from("events")
+    .select("id,title_tc,title,start_date,end_date,source_url")
+    .eq("status", "draft")
+    .is("merchant_id", null);
+
   const today = hongKongToday();
   const publishedRows = publishedProbe.data || [];
+  const staleUnownedDraftRows = (unownedDraftProbe.data || []).filter((event) => {
+    const lastDate = textValue(event.end_date || event.start_date);
+    return Boolean(lastDate && lastDate < today);
+  });
   const missingImageRows = publishedRows.filter((event) => {
     const cover = String(event.cover_image_url || "").trim();
     const gallery = Array.isArray(event.gallery_image_urls)
@@ -296,6 +306,16 @@ export async function GET(request: NextRequest) {
       detail: dataHubProbe.error
         ? "Data Hub schema 未就緒：" + dataHubProbe.error.message
         : "Intake / sync / reporting schema ready",
+    },
+    staleUnownedDrafts: {
+      required: false,
+      ready: !unownedDraftProbe.error && staleUnownedDraftRows.length === 0,
+      label: "Expired Auto-discovery Draft Backlog",
+      detail: unownedDraftProbe.error
+        ? "未能檢查過期 Draft：" + unownedDraftProbe.error.message
+        : staleUnownedDraftRows.length === 0
+          ? "0 個已過期、無 merchant owner 的 Draft；待審批清單乾淨"
+          : `${staleUnownedDraftRows.length} 個已過期、無 merchant owner 的 Draft 應轉 Archived`,
     },
     publishedContentIntegrity: {
       required: true,

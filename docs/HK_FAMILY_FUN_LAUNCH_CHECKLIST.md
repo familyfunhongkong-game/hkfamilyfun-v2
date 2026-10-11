@@ -35,10 +35,10 @@ Verified from the current HK Family Fun Supabase / Vercel rebuild on 2026-10-10:
 - Events: **239**
 - Published: **14**
 - Current/future published: **13**
-- Draft: **111**
+- Draft: **82**
 - Approved: **1**
 - Rejected: **1**
-- Archived: **112**
+- Archived: **141**
 - Merchant accounts: **2 pending / 0 approved**
 - Legacy events migrated into V2: **174**
 - `event-images` Storage objects: **30**
@@ -265,7 +265,7 @@ Authoritative procedure: **`docs/CUTOVER_RUNBOOK.md`**.
 - Missing official-image count: **2**, intentionally treated as warnings with the branded HK Family Fun fallback rather than fabricated imagery.
 - Unsupported legacy `0–99` age placeholders: **0**.
 - Resend is configured; normal Merchant/Admin notification infrastructure remains present.
-- Google Admin Drive is currently configured against the staging Vercel callback; this must be split/changed for Production during cutover.
+- Google Admin Drive callback env targets are now split across Production / Preview / Development; all still intentionally point to the staging Vercel callback until the live Google OAuth callback is allowlisted and custom-domain cutover begins.
 - Rebuild Vercel project currently owns only `hkfamilyfun-v2.vercel.app`; the custom domain has not been moved.
 - Sell with Family Fun native ticketing remains safely disabled.
 
@@ -284,6 +284,7 @@ Authoritative procedure: **`docs/CUTOVER_RUNBOOK.md`**.
 - `event-images` Storage objects: **30**
 - Current/future critical completeness issues: **0**
 - Current/future image warnings: **2**
+- Expired unowned Draft backlog: **0** (historical auto-discovery Drafts were archived, not deleted)
 
 ## Content backlog that does not block application launch
 
