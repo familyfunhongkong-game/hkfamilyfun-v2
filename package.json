@@ -22,6 +22,7 @@
     "check:event-display": "node scripts/check-event-display-normalization.mjs",
     "check:advertising-orders": "node scripts/check-advertising-order-contract.mjs",
     "check:production-e2e": "node scripts/check-production-e2e-isolation.mjs",
+    "check:launch-docs": "node scripts/check-launch-documentation.mjs",
     "format": "prettier --write \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"scripts/**/*.{mjs,ts}\" \"docs/**/*.md\" \"README.md\"",
     "db:push": "supabase db push",
     "db:pull": "supabase db pull",
