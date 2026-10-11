@@ -39,6 +39,7 @@ export async function GET() {
       publicEventCount: count ?? 0,
       samplePublicEventId: data?.[0]?.id || null,
       buildSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+      runtimeRegion: process.env.VERCEL_REGION || null,
       checkedAt: new Date().toISOString(),
     },
     { headers: { "Cache-Control": "no-store, max-age=0" } },
