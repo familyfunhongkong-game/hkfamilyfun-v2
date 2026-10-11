@@ -3,6 +3,7 @@
 import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase/client";
 import ResilientEventImage from "@/components/resilient-event-image";
 import ClientPromotionSlot from "@/components/client-promotion-slot";
 import { getClientLocale } from "@/lib/i18n/client";
@@ -1222,12 +1223,11 @@ export default function PublicEventsSearchClient({
 }) {
   const [locale, setLocale] = useState<AppLocale>(initialLocale);
   const m = getEventListMessages(locale);
-  const events = useMemo(
-    () => initialEvents.filter(canShowPublic),
-    [initialEvents],
+  const [events, setEvents] = useState<EventRecord[]>(
+    initialEvents.filter(canShowPublic),
   );
-  const loading = false;
-  const errorText = "";
+  const [loading, setLoading] = useState(initialEvents.length === 0);
+  const [errorText, setErrorText] = useState("");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   const [keyword, setKeyword] = useState("");
@@ -1243,7 +1243,40 @@ export default function PublicEventsSearchClient({
   useEffect(() => {
     setLocale(getClientLocale());
     setFavoriteIds(readFavoriteIds());
-  }, []);
+
+    if (initialEvents.length > 0) return;
+
+    const client = supabase;
+    if (!client) {
+      setErrorText("網站暫時未能連接資料庫，請稍後再試。");
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    void client
+      .from("public_events_i18n")
+      .select("*")
+      .eq("status", "published")
+      .order("start_date", { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+
+        if (error) {
+          setErrorText(error.message || "讀取活動資料失敗。");
+          setEvents([]);
+        } else {
+          setEvents(((data || []) as EventRecord[]).filter(canShowPublic));
+        }
+
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialEvents]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
