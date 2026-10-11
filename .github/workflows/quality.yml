@@ -114,7 +114,7 @@ jobs:
         run: npm run check:archive-cron
 
       - name: Production Smoke concurrency check
-        run: npm run check:production-smoke
+        run: npm run check:production-smoke-concurrency
 
       - name: TypeScript check
         run: npm run type-check
