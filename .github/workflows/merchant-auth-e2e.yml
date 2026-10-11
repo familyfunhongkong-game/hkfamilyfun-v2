@@ -1,8 +1,8 @@
 name: Merchant Auth E2E
 
+# This workflow creates and deletes real Auth / merchant / event rows.
+# Keep it manual until HK Family Fun has a dedicated Supabase test project.
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
 
 permissions:
