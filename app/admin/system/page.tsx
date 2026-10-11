@@ -34,6 +34,13 @@ type ContentQuality = {
   missingPublishedAt: number;
   currentFutureCoreIncomplete: number;
   currentFutureGoogleEventReady: number;
+  openEndedPastStart: number;
+  openEndedPastStartItems: Array<{
+    id: string;
+    title: string;
+    startDate?: string | null;
+    endDate?: string | null;
+  }>;
   currentFutureMissingImageItems: Array<{
     id: string;
     title: string;
@@ -231,12 +238,13 @@ export default function AdminSystemHealthPage() {
               </span>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
               {[
                 ["Published", health.contentQuality.publishedTotal],
                 ["Current/Future", health.contentQuality.currentFutureTotal],
                 ["Core incomplete", health.contentQuality.currentFutureCoreIncomplete],
                 ["Google Event Ready", health.contentQuality.currentFutureGoogleEventReady],
+                ["Open-ended review", health.contentQuality.openEndedPastStart],
                 ["缺官方圖（warning）", health.contentQuality.currentFutureMissingImage],
                 ["缺 published_at", health.contentQuality.missingPublishedAt],
               ].map(([label, value]) => (
@@ -300,12 +308,36 @@ export default function AdminSystemHealthPage() {
               </div>
             ) : null}
 
+            {health.contentQuality.openEndedPastStartItems.length ? (
+              <div className="mt-4 rounded-3xl border border-sky-200 bg-sky-50 p-4">
+                <p className="text-sm font-black text-sky-950">
+                  已開始但未提供結束日 — 保持公開，請定期核實
+                </p>
+                <div className="mt-3 space-y-2">
+                  {health.contentQuality.openEndedPastStartItems.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={`/admin/events/${item.id}`}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-sky-200 bg-white px-4 py-3 text-sm hover:bg-sky-50"
+                    >
+                      <span className="font-bold text-sky-950">{item.title}</span>
+                      <span className="text-xs font-bold text-sky-700">
+                        開始：{item.startDate || "日期待定"} · 結束日未註明
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <p className="mt-4 text-xs leading-6 text-slate-500">
               Core completeness 會檢查活動名稱、日期、地址、收費、CTA、年齡及主辦方。
               官方活動圖片屬 quality warning：如果來源未能可靠核實，資料庫保持空白，公開頁會使用
-              HK Family Fun branded placeholder，唔會用假圖冒充活動素材。Current/Future Published
-              event 只有缺真正核心資料先會令 launch health 變成 ACTION REQUIRED。歷史 Published 缺
-              published_at 只作資料治理提示，系統唔會補寫假發佈時間。
+              HK Family Fun branded placeholder，唔會用假圖冒充活動素材。沒有 end_date 嘅已開始活動
+              視作「結束日未明」而保持公開，並列入 Open-ended review 供 Admin 定期核實；只有明確
+              end_date 已過先會視作過期。Current/Future Published event 只有缺真正核心資料先會令
+              launch health 變成 ACTION REQUIRED。歷史 Published 缺 published_at 只作資料治理提示，
+              系統唔會補寫假發佈時間。
             </p>
           </section>
         ) : null}
@@ -368,75 +400,9 @@ export default function AdminSystemHealthPage() {
           </section>
         ) : null}
 
-        {health ? (
-          <section className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-black text-amber-800">
-                  Manual Cutover Checks
-                </p>
-                <h2 className="mt-1 text-xl font-black text-amber-950">
-                  Core Ready ≠ 可以立即切 Domain
-                </h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-amber-900">
-                  以下項目涉及舊帳戶、Google / Supabase Console 或最終資料對數，
-                  App 本身無法可靠自動證明。全部完成前，不應把 hkfamilyfun.com
-                  轉去 rebuild。
-                </p>
-              </div>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-800 ring-1 ring-amber-200">
-                EXTERNAL VERIFICATION
-              </span>
-            </div>
-
-            <div className="mt-4 grid gap-3">
-              {[
-                {
-                  title: "1. 舊網站 ownership + rollback destination",
-                  detail:
-                    "確認目前 www.hkfamilyfun.com / hkfamilyfun.com 掛在哪個舊 Vercel / hosting project，記錄 project / account / rollback destination。未確認前禁止移除舊 domain。",
-                },
-                {
-                  title: "2. Final Legacy Delta Sync",
-                  detail:
-                    "正式切站前用舊 source 跑 Legacy Delta Sync dry-run；先審核新舊差異、duplicate 及 drift，再按 runbook 決定是否 safe-apply。",
-                },
-                {
-                  title: "3. Supabase Auth live redirect allowlist",
-                  detail:
-                    "先在 Supabase Auth 加入 www.hkfamilyfun.com 的 Merchant / Admin password recovery redirect，並暫時保留 staging redirect 作 rollback。",
-                },
-                {
-                  title: "4. Google OAuth live callbacks",
-                  detail:
-                    "先在 Google OAuth Client 加入 Calendar callback 與 Admin Drive callback 的 www.hkfamilyfun.com URL；staging callback 暫時保留。",
-                },
-              ].map((item) => (
-                <article
-                  key={item.title}
-                  className="rounded-2xl border border-amber-200 bg-white p-4"
-                >
-                  <h3 className="text-sm font-black text-slate-950">
-                    {item.title}
-                  </h3>
-                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">
-                    {item.detail}
-                  </p>
-                </article>
-              ))}
-            </div>
-
-            <p className="mt-4 text-xs font-bold leading-6 text-amber-900">
-              呢 4 項係 cutover blockers，但唔代表 rebuild code 有 bug。Core services
-              可以全綠，同時 domain cutover 仍然保持 HOLD。
-            </p>
-          </section>
-        ) : null}
-
         {health?.allReady ? (
           <div className="mt-6 rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm font-bold leading-6 text-emerald-900">
             Core launch services 已通過設定檢查。Optional 功能（例如 AI）未設定時會使用安全 fallback，不會阻塞核心營運。
-            呢個狀態只代表 rebuild application ready；正式 Domain cutover 仍必須完成上面 Manual Cutover Checks。
           </div>
         ) : (
           <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
