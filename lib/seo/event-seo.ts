@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { isExplicitlyExpiredEvent } from "@/lib/events/visibility";
 
 export type EventSeoRecord = {
   id: string;
@@ -31,6 +32,7 @@ export type EventSeoRecord = {
   address_en?: string | null;
   district?: string | null;
   cover_image_url?: string | null;
+  gallery_image_urls?: unknown;
   price_type?: string | null;
   price_display_mode?: string | null;
   min_price?: number | string | null;
@@ -121,8 +123,15 @@ export function getEventSeoImage(event: EventSeoRecord) {
   return httpUrl(event.cover_image_url) || FALLBACK_OG_IMAGE;
 }
 
-export function getEventStructuredDataImage(event: EventSeoRecord) {
-  return httpUrl(event.cover_image_url) || "";
+export function getEventStructuredDataImages(event: EventSeoRecord) {
+  const candidates = [
+    httpUrl(event.cover_image_url),
+    ...(Array.isArray(event.gallery_image_urls)
+      ? event.gallery_image_urls.map((value) => httpUrl(value))
+      : []),
+  ].filter(Boolean);
+
+  return Array.from(new Set(candidates));
 }
 
 export function getEventVenueName(event: EventSeoRecord) {
@@ -147,24 +156,8 @@ export function getEventOrganizerName(event: EventSeoRecord) {
   return text(event.organizer_name) || text(event.merchant_name);
 }
 
-function hongKongToday() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Hong_Kong",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-
-  const year = parts.find((part) => part.type === "year")?.value || "";
-  const month = parts.find((part) => part.type === "month")?.value || "";
-  const day = parts.find((part) => part.type === "day")?.value || "";
-  return year && month && day ? `${year}-${month}-${day}` : "";
-}
-
 export function isEventExpired(event: EventSeoRecord) {
-  const endDate = text(event.end_date) || text(event.start_date);
-  const today = hongKongToday();
-  return Boolean(endDate && today && endDate < today);
+  return isExplicitlyExpiredEvent(event.end_date);
 }
 
 function isoHongKongDateTime(dateValue: unknown, timeValue: unknown) {
@@ -207,7 +200,7 @@ export function buildEventJsonLd(event: EventSeoRecord) {
   // location. Do not invent either when merchant data is incomplete.
   if (!name || !startDate || !streetAddress) return null;
 
-  const structuredDataImage = getEventStructuredDataImage(event);
+  const structuredDataImages = getEventStructuredDataImages(event);
   const organizerName = getEventOrganizerName(event);
   const organizerUrl =
     httpUrl(event.organizer_website) ||
@@ -229,7 +222,7 @@ export function buildEventJsonLd(event: EventSeoRecord) {
     startDate,
     ...(endDate ? { endDate } : {}),
     url: canonicalEventUrl(event.id),
-    ...(structuredDataImage ? { image: [structuredDataImage] } : {}),
+    ...(structuredDataImages.length ? { image: structuredDataImages } : {}),
     location: {
       "@type": "Place",
       ...(venueName ? { name: venueName } : {}),

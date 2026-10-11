@@ -33,13 +33,13 @@ Verified from the current HK Family Fun Supabase / Vercel rebuild on 2026-10-10:
 - Supabase region: `ap-southeast-1`
 - Vercel project: `hkfamilyfun-v2`
 - Events: **239**
-- Published: **14**
+- Published: **13**
 - Current/future published: **13**
-- Draft: **82**
+- Draft: **81**
 - Approved: **1**
 - Rejected: **1**
-- Archived: **141**
-- Merchant accounts: **2 pending / 0 approved**
+- Archived: **143**
+- Merchant accounts: **0**
 - Legacy events migrated into V2: **174**
 - `event-images` Storage objects: **30**
 - Current/future published critical completeness issues: **0**
@@ -171,6 +171,8 @@ After correction, a new Production Smoke visual artifact was reviewed:
 
 - public i18n view is `security_invoker` + `security_barrier`
 - anonymous public view test exposed **0 non-published events**
+- open-ended published events use explicit `end_date` semantics: missing `end_date` remains visible for Admin review; an anon RLS transaction smoke test confirmed open-ended visible / explicitly expired hidden
+- known pending test merchant records were removed with event/source history preserved via `ON DELETE SET NULL`
 - current/future published data has **0 critical completeness blockers**; localized-content quality remains subject to editorial review
 - Merchant cannot modify another merchant's non-public events
 - Merchant cannot modify legal acceptance audit fields
@@ -263,6 +265,9 @@ Authoritative procedure: **`docs/CUTOVER_RUNBOOK.md`**.
 - Public `/events` now server-renders real event records on first response.
 - Current/future published events: **13** with **0 critical completeness blockers**.
 - Missing official-image count: **2**, intentionally treated as warnings with the branded HK Family Fun fallback rather than fabricated imagery.
+- Known pending test merchants: **0**.
+- Explicitly expired published events: **0**.
+- Expired unowned Draft backlog: **0**.
 - Unsupported legacy `0–99` age placeholders: **0**.
 - Resend is configured; normal Merchant/Admin notification infrastructure remains present.
 - Google Admin Drive callback env targets are now split across Production / Preview / Development; all still intentionally point to the staging Vercel callback until the live Google OAuth callback is allowlisted and custom-domain cutover begins.
@@ -274,13 +279,13 @@ Authoritative procedure: **`docs/CUTOVER_RUNBOOK.md`**.
 - Events: **239**
 - Published: **14**
 - Current/future published: **13**
-- Draft: **111**
+- Draft: **81**
 - Submitted: **0**
 - Approved: **1**
 - Rejected: **1**
-- Archived: **112**
+- Archived: **143**
 - Legacy-migrated records: **174**
-- Merchant accounts: **2 pending / 0 approved**
+- Merchant accounts: **0**
 - `event-images` Storage objects: **30**
 - Current/future critical completeness issues: **0**
 - Current/future image warnings: **2**

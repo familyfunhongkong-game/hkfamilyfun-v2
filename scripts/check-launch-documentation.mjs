@@ -31,7 +31,10 @@ for (const signal of [
 for (const signal of [
   "HISTORICAL PASS / MANUAL-ONLY NOW",
   "0 critical completeness blockers",
-  "2 pending / 0 approved",
+  "Merchant accounts: **0**",
+  "Published: **13**",
+  "Draft: **81**",
+  "Archived: **143**",
   "docs/CUTOVER_RUNBOOK.md",
   "Sell with Family Fun native ticketing remains safely disabled",
 ]) {
@@ -55,6 +58,7 @@ const forbidden = [
   "all four release gates are green",
   "workflow now runs on every `main` push",
   "legacy_migration=true",
+  "2 pending / 0 approved",
 ];
 
 for (const phrase of forbidden) {

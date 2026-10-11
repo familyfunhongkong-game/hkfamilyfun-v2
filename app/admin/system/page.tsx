@@ -34,6 +34,13 @@ type ContentQuality = {
   missingPublishedAt: number;
   currentFutureCoreIncomplete: number;
   currentFutureGoogleEventReady: number;
+  openEndedPastStart: number;
+  openEndedPastStartItems: Array<{
+    id: string;
+    title: string;
+    startDate?: string | null;
+    endDate?: string | null;
+  }>;
   currentFutureMissingImageItems: Array<{
     id: string;
     title: string;
@@ -231,12 +238,13 @@ export default function AdminSystemHealthPage() {
               </span>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
               {[
                 ["Published", health.contentQuality.publishedTotal],
                 ["Current/Future", health.contentQuality.currentFutureTotal],
                 ["Core incomplete", health.contentQuality.currentFutureCoreIncomplete],
                 ["Google Event Ready", health.contentQuality.currentFutureGoogleEventReady],
+                ["Open-ended review", health.contentQuality.openEndedPastStart],
                 ["缺官方圖（warning）", health.contentQuality.currentFutureMissingImage],
                 ["缺 published_at", health.contentQuality.missingPublishedAt],
               ].map(([label, value]) => (
@@ -300,12 +308,36 @@ export default function AdminSystemHealthPage() {
               </div>
             ) : null}
 
+            {health.contentQuality.openEndedPastStartItems.length ? (
+              <div className="mt-4 rounded-3xl border border-sky-200 bg-sky-50 p-4">
+                <p className="text-sm font-black text-sky-950">
+                  已開始但未提供結束日 — 保持公開，請定期核實
+                </p>
+                <div className="mt-3 space-y-2">
+                  {health.contentQuality.openEndedPastStartItems.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={`/admin/events/${item.id}`}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-sky-200 bg-white px-4 py-3 text-sm hover:bg-sky-50"
+                    >
+                      <span className="font-bold text-sky-950">{item.title}</span>
+                      <span className="text-xs font-bold text-sky-700">
+                        開始：{item.startDate || "日期待定"} · 結束日未註明
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <p className="mt-4 text-xs leading-6 text-slate-500">
               Core completeness 會檢查活動名稱、日期、地址、收費、CTA、年齡及主辦方。
               官方活動圖片屬 quality warning：如果來源未能可靠核實，資料庫保持空白，公開頁會使用
-              HK Family Fun branded placeholder，唔會用假圖冒充活動素材。Current/Future Published
-              event 只有缺真正核心資料先會令 launch health 變成 ACTION REQUIRED。歷史 Published 缺
-              published_at 只作資料治理提示，系統唔會補寫假發佈時間。
+              HK Family Fun branded placeholder，唔會用假圖冒充活動素材。沒有 end_date 嘅已開始活動
+              視作「結束日未明」而保持公開，並列入 Open-ended review 供 Admin 定期核實；只有明確
+              end_date 已過先會視作過期。Current/Future Published event 只有缺真正核心資料先會令
+              launch health 變成 ACTION REQUIRED。歷史 Published 缺 published_at 只作資料治理提示，
+              系統唔會補寫假發佈時間。
             </p>
           </section>
         ) : null}
