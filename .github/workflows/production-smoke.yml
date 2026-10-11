@@ -140,7 +140,9 @@ jobs:
             "/merchant/login"
             "/merchant/register"
             "/merchant/events/import"
+            "/merchant/advertising"
             "/admin"
+            "/admin/advertising"
             "/admin/login"
             "/admin/forgot-password"
             "/admin/system"
@@ -277,6 +279,9 @@ jobs:
           geocode_code="$(curl -sS -o /tmp/geocode.json -w "%{http_code}" --max-time 30 "$BASE/api/geocode?q=Central")"
           test "$geocode_code" = "401"
 
+          advertising_code="$(curl -sS -o /tmp/advertising.json -w "%{http_code}" --max-time 30             -X POST "$BASE/api/merchant-advertising-enquiry"             -H "Content-Type: application/json"             --data '{"request_id":"00000000-0000-4000-8000-000000000001","promotion_type":"home_banner","campaign_name":"anonymous-smoke"}')"
+          test "$advertising_code" = "401"
+
       - name: Check SEO index mode
         if: steps.deployment_gate.outputs.should_test == 'true'
         shell: bash
@@ -378,6 +383,7 @@ jobs:
             [calendar]="/calendar"
             [map]="/events/map"
             [event-detail]="/events/$event_id"
+            [merchant-advertising]="/merchant/advertising"
             [admin-login]="/admin/login"
           )
 
