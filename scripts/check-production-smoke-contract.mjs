@@ -7,6 +7,8 @@ const requiredSignals = [
   '"/admin/advertising"',
   '"$BASE/api/merchant-advertising-enquiry"',
   'test "$advertising_code" = "401"',
+  '"$BASE/api/cron/archive-expired-events"',
+  'test "$cron_code" = "401"',
   '[merchant-advertising]="/merchant/advertising"',
   'staging-noindex',
   'production-index',
