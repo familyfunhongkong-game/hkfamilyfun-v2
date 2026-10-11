@@ -2,6 +2,7 @@ import type { Event, PriceType } from "@/lib/types";
 import { supabase } from "@/lib/supabase/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import { formatEventAge } from "@/lib/events/age-display";
+import { isExplicitlyExpiredEvent } from "@/lib/events/visibility";
 import {
   formatEventCategory,
   normalizeEventTags,
@@ -95,8 +96,7 @@ function isInternalTestEvent(event: DatabaseEvent) {
 }
 
 function isExpiredEvent(event: DatabaseEvent) {
-  const end = parseCalendarDate(event.end_date || event.start_date);
-  if (!end) return false;
+  if (!parseCalendarDate(event.end_date)) return false;
 
   const todayText = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Hong_Kong",
@@ -105,8 +105,7 @@ function isExpiredEvent(event: DatabaseEvent) {
     day: "2-digit",
   }).format(new Date());
 
-  const today = parseCalendarDate(todayText);
-  return Boolean(today && end.getTime() < today.getTime());
+  return isExplicitlyExpiredEvent(event.end_date, todayText);
 }
 
 function formatTime(
