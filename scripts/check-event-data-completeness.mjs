@@ -8,7 +8,7 @@ const files = {
   age: await readFile("lib/events/age-display.ts", "utf8"),
   publicEvents: await readFile("lib/supabase/events.ts", "utf8"),
   detail: await readFile("app/events/[id]/page.tsx", "utf8"),
-  search: await readFile("app/events/page.tsx", "utf8"),
+  search: await readFile("components/events/PublicEventsSearchClient.tsx", "utf8"),
   favorites: await readFile("app/favorites/page.tsx", "utf8"),
   planner: await readFile("app/planner/page.tsx", "utf8"),
   publicCard: await readFile("components/events/PublicEventCard.tsx", "utf8"),
