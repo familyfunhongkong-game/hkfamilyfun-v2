@@ -99,19 +99,91 @@ ${xrefOffset}
 }
 
 async function cleanup() {
+  const failures = [];
+
+  async function attempt(label, operation) {
+    try {
+      const result = await operation();
+      if (result?.error) {
+        throw result.error;
+      }
+      return true;
+    } catch (error) {
+      failures.push(
+        `${label}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
+  }
+
   const paths = [storagePath, tempStoragePath].filter(Boolean);
   if (paths.length) {
-    await admin.storage.from("event-images").remove(paths);
+    const removed = await attempt("remove test storage objects", () =>
+      admin.storage.from("event-images").remove(paths),
+    );
+    if (removed) {
+      storagePath = "";
+      tempStoragePath = "";
+    }
   }
+
+  // Notification rows are created by the E2E and can reference both the event
+  // and merchant. Remove them before deleting their parent rows.
   if (eventId) {
-    await admin.from("events").delete().eq("id", eventId);
+    await attempt("delete event notifications", () =>
+      admin.from("platform_notifications").delete().eq("event_id", eventId),
+    );
   }
   if (merchantId) {
-    await admin.from("merchants").delete().eq("id", merchantId);
+    await attempt("delete merchant notifications", () =>
+      admin.from("platform_notifications").delete().eq("merchant_id", merchantId),
+    );
+    await attempt("delete merchant advertising orders", () =>
+      admin.from("merchant_advertising_orders").delete().eq("merchant_id", merchantId),
+    );
   }
   if (userId) {
-    await admin.from("profiles").delete().eq("id", userId);
-    await admin.auth.admin.deleteUser(userId);
+    await attempt("delete submitted advertising orders", () =>
+      admin.from("merchant_advertising_orders").delete().eq("submitted_by", userId),
+    );
+  }
+
+  if (eventId) {
+    const deletedEvent = await attempt("delete test event", () =>
+      admin.from("events").delete().eq("id", eventId),
+    );
+    if (deletedEvent) eventId = "";
+  }
+
+  if (merchantId) {
+    const deletedMerchant = await attempt("delete test merchant", () =>
+      admin.from("merchants").delete().eq("id", merchantId),
+    );
+    if (deletedMerchant) merchantId = "";
+  }
+
+  if (userId) {
+    await attempt("delete test profile", () =>
+      admin.from("profiles").delete().eq("id", userId),
+    );
+
+    const deletedUser = await attempt("delete test auth user", async () => {
+      const result = await admin.auth.admin.deleteUser(userId);
+      // Cleanup is intentionally idempotent. A previous pass may already have
+      // removed the user even if a later cleanup step failed.
+      if (
+        result.error &&
+        !String(result.error.message || "").toLowerCase().includes("user not found")
+      ) {
+        throw result.error;
+      }
+      return { error: null };
+    });
+    if (deletedUser) userId = "";
+  }
+
+  if (failures.length) {
+    throw new Error("E2E cleanup failed:\n- " + failures.join("\n- "));
   }
 }
 
