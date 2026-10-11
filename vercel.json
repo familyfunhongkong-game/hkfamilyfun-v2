@@ -9,5 +9,8 @@
       "path": "/api/cron/archive-expired-events",
       "schedule": "30 17 * * *"
     }
+  ],
+  "regions": [
+    "sin1"
   ]
 }
