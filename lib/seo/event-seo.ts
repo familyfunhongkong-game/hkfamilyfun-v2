@@ -121,6 +121,10 @@ export function getEventSeoImage(event: EventSeoRecord) {
   return httpUrl(event.cover_image_url) || FALLBACK_OG_IMAGE;
 }
 
+export function getEventStructuredDataImage(event: EventSeoRecord) {
+  return httpUrl(event.cover_image_url) || "";
+}
+
 export function getEventVenueName(event: EventSeoRecord) {
   return (
     text(event.venue_name_tc) ||
@@ -203,6 +207,7 @@ export function buildEventJsonLd(event: EventSeoRecord) {
   // location. Do not invent either when merchant data is incomplete.
   if (!name || !startDate || !streetAddress) return null;
 
+  const structuredDataImage = getEventStructuredDataImage(event);
   const organizerName = getEventOrganizerName(event);
   const organizerUrl =
     httpUrl(event.organizer_website) ||
@@ -224,7 +229,7 @@ export function buildEventJsonLd(event: EventSeoRecord) {
     startDate,
     ...(endDate ? { endDate } : {}),
     url: canonicalEventUrl(event.id),
-    image: [getEventSeoImage(event)],
+    ...(structuredDataImage ? { image: [structuredDataImage] } : {}),
     location: {
       "@type": "Place",
       ...(venueName ? { name: venueName } : {}),
