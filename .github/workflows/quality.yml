@@ -107,6 +107,9 @@ jobs:
       - name: Launch documentation safety check
         run: npm run check:launch-docs
 
+      - name: Production smoke coverage check
+        run: npm run check:production-smoke
+
       - name: Production Smoke concurrency check
         run: npm run check:production-smoke
 
