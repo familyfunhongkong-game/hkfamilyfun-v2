@@ -28,13 +28,15 @@ for (const signal of [
   requireSignal("cutover runbook", runbook, signal);
 }
 
+// Production content counts are intentionally NOT hard-coded here.
+// Event / merchant counts are an operational snapshot and must be allowed to
+// change without weakening the launch-safety contract. This check protects
+// invariant release rules only.
 for (const signal of [
   "HISTORICAL PASS / MANUAL-ONLY NOW",
   "0 critical completeness blockers",
-  "Merchant accounts: **0**",
-  "Published: **13**",
-  "Draft: **81**",
-  "Archived: **143**",
+  "Current/future published:",
+  "Rebuild Vercel project currently owns only `hkfamilyfun-v2.vercel.app`",
   "docs/CUTOVER_RUNBOOK.md",
   "Sell with Family Fun native ticketing remains safely disabled",
 ]) {
