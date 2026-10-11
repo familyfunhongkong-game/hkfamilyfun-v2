@@ -1,6 +1,6 @@
 # HK Family Fun V2 — Launch Checklist
 
-Updated: 2026-10-10
+Updated: 2026-10-12 (Hong Kong time)
 
 ## Quality target
 
@@ -32,20 +32,20 @@ Verified from the current HK Family Fun Supabase / Vercel rebuild on 2026-10-10:
 - Supabase V2 project: `hkfamilyfun-v2` / `uiyrbqqvgnfhfdhedmav`
 - Supabase region: `ap-southeast-1`
 - Vercel project: `hkfamilyfun-v2`
-- Events: **239**
-- Published: **13**
-- Current/future published: **13**
-- Draft: **81**
+- Events: **247**
+- Published: **17**
+- Current/future published: **17**
+- Draft: **83**
 - Approved: **1**
 - Rejected: **1**
-- Archived: **143**
+- Archived: **145**
 - Merchant accounts: **0**
 - Legacy events migrated into V2: **174**
 - `event-images` Storage objects: **30**
 - Current/future published critical completeness issues: **0**
-- Current/future official-image warnings: **2**
+- Current/future official-image warnings: **6**
 - Unsupported legacy `0–99` age placeholders: **0**
-- Explicit `主辦方未註明` age classification: **5**
+- Current/future explicit `主辦方未註明` age classification: **8**
 - Rebuild custom domain currently attached: **hkfamilyfun-v2.vercel.app only**
 - Public legacy `hkfamilyfun.com` / `www.hkfamilyfun.com` still responds and must be treated as live until controlled cutover
 
@@ -230,7 +230,11 @@ Reconciliation checks:
 - migrated records attached to new Merchant accounts: **0** by design
 
 Current/future legacy review:
-- Four re-verified legacy activities are now published after source/data correction: Hong Kong Park Arts Corner, Hong Kong Park Morning Bird Watching, PMQ Picture Book Library START FROM HERE, and the 13th Jackfruit Cultural Festival.
+- Four earlier re-verified legacy activities remain published after source/data correction: Hong Kong Park Arts Corner, Hong Kong Park Morning Bird Watching, PMQ Picture Book Library START FROM HERE, and the 13th Jackfruit Cultural Festival.
+- FIFA Museum Hong Kong was re-verified against FIFA Museum / Arena Tix and published with corrected 28 May–28 November 2026 dates, Times Square 4/F 401–404 location, family/all-age context and current admission details.
+- The incorrect legacy `愉景灣週末露天市集 2026` continuous May–December record was archived. It was replaced with four source-verified individual future market records: 31 Oct–1 Nov, 14–15 Nov, 28–29 Nov and 12–13 Dec 2026. This prevents Calendar / Today / SEO from treating separate markets as one continuous event.
+- We Care Run 2026 remains `draft`: the record was corrected to 29 November 2026, parent-child age 5–11 and verified pricing, but official registration had already closed / sold out. It is intentionally not republished as a bookable event.
+- `AI × 競技陀螺實戰班` remains `draft` with a HOLD note because a current official schedule could not be independently verified.
 - The long-running Bliss Infinite family-support programme remains `approved` but intentionally not public because it is a support service rather than a conventional event.
 - other current/future legacy records without recoverable/verified content remain draft/archived and are not publicly exposed.
 
@@ -263,32 +267,34 @@ Authoritative procedure: **`docs/CUTOVER_RUNBOOK.md`**.
 
 - Latest checked rebuild production deployment on `hkfamilyfun-v2.vercel.app` is READY and recent runtime error/warning scans are clean.
 - Public `/events` now server-renders real event records on first response.
-- Current/future published events: **13** with **0 critical completeness blockers**.
-- Missing official-image count: **2**, intentionally treated as warnings with the branded HK Family Fun fallback rather than fabricated imagery.
+- Current/future published events: **17** with **0 critical completeness blockers**.
+- Missing official-image count: **6**, intentionally treated as warnings with the branded HK Family Fun fallback rather than fabricated imagery.
 - Known pending test merchants: **0**.
 - Explicitly expired published events: **0**.
+- Open-ended published events requiring review: **0** at the 2026-10-12 HK-time snapshot.
 - Expired unowned Draft backlog: **0**.
 - Unsupported legacy `0–99` age placeholders: **0**.
 - Resend is configured; normal Merchant/Admin notification infrastructure remains present.
 - Google Admin Drive callback env targets are now split across Production / Preview / Development; all still intentionally point to the staging Vercel callback until the live Google OAuth callback is allowlisted and custom-domain cutover begins.
+- Latest GitHub `main` commit `aa27a6c...` was explicitly redeployed to Vercel production after an automatic-deployment gap; the exact commit is READY on `hkfamilyfun-v2.vercel.app`, Vercel commit status is success, runtime region is `sin1`, and the post-deploy runtime error/warning scan is clean.
 - Rebuild Vercel project currently owns only `hkfamilyfun-v2.vercel.app`; the custom domain has not been moved.
 - Sell with Family Fun native ticketing remains safely disabled.
 
 ### Current live data snapshot
 
-- Events: **239**
-- Published: **14**
-- Current/future published: **13**
-- Draft: **81**
+- Events: **247**
+- Published: **17**
+- Current/future published: **17**
+- Draft: **83**
 - Submitted: **0**
 - Approved: **1**
 - Rejected: **1**
-- Archived: **143**
+- Archived: **145**
 - Legacy-migrated records: **174**
 - Merchant accounts: **0**
 - `event-images` Storage objects: **30**
 - Current/future critical completeness issues: **0**
-- Current/future image warnings: **2**
+- Current/future image warnings: **6**
 - Expired unowned Draft backlog: **0** (historical auto-discovery Drafts were archived, not deleted)
 
 ## Content backlog that does not block application launch
