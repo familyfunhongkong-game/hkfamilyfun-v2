@@ -31,6 +31,7 @@ export type EventSeoRecord = {
   address_en?: string | null;
   district?: string | null;
   cover_image_url?: string | null;
+  gallery_image_urls?: unknown;
   price_type?: string | null;
   price_display_mode?: string | null;
   min_price?: number | string | null;
@@ -121,8 +122,15 @@ export function getEventSeoImage(event: EventSeoRecord) {
   return httpUrl(event.cover_image_url) || FALLBACK_OG_IMAGE;
 }
 
-export function getEventStructuredDataImage(event: EventSeoRecord) {
-  return httpUrl(event.cover_image_url) || "";
+export function getEventStructuredDataImages(event: EventSeoRecord) {
+  const candidates = [
+    httpUrl(event.cover_image_url),
+    ...(Array.isArray(event.gallery_image_urls)
+      ? event.gallery_image_urls.map((value) => httpUrl(value))
+      : []),
+  ].filter(Boolean);
+
+  return Array.from(new Set(candidates));
 }
 
 export function getEventVenueName(event: EventSeoRecord) {
@@ -207,7 +215,7 @@ export function buildEventJsonLd(event: EventSeoRecord) {
   // location. Do not invent either when merchant data is incomplete.
   if (!name || !startDate || !streetAddress) return null;
 
-  const structuredDataImage = getEventStructuredDataImage(event);
+  const structuredDataImages = getEventStructuredDataImages(event);
   const organizerName = getEventOrganizerName(event);
   const organizerUrl =
     httpUrl(event.organizer_website) ||
@@ -229,7 +237,7 @@ export function buildEventJsonLd(event: EventSeoRecord) {
     startDate,
     ...(endDate ? { endDate } : {}),
     url: canonicalEventUrl(event.id),
-    ...(structuredDataImage ? { image: [structuredDataImage] } : {}),
+    ...(structuredDataImages.length ? { image: structuredDataImages } : {}),
     location: {
       "@type": "Place",
       ...(venueName ? { name: venueName } : {}),
