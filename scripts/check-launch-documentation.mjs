@@ -42,6 +42,7 @@ const forbidden = [
   "Merchant Auth E2E or Production Smoke is failing",
   "all four release gates are green",
   "workflow now runs on every `main` push",
+  "legacy_migration=true",
 ];
 
 for (const phrase of forbidden) {
