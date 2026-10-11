@@ -13,7 +13,7 @@ HK Family Fun V2 is being hardened toward an Awwwards / Webby / FWA-level produc
 - accessibility, keyboard focus and reduced-motion support
 - stable Merchant/Admin workflows
 - secure role separation and database RLS
-- deterministic CI, authenticated E2E and production smoke gates
+- deterministic CI, read-only production smoke gates, and mutable E2E isolated from production
 
 Visual polish must never trade away accessibility, SEO, performance, data safety or operational stability.
 
@@ -207,7 +207,7 @@ The historical dry-run recorded:
 - old duplicate rows removed: **8**
 - planned unique migration: **174**
 
-Current V2 production contains exactly **174** records marked `legacy_migration=true`.
+Current V2 production contains exactly **174** legacy-migrated records identified by the existing `source_fingerprint` prefix `legacy:`.
 
 A new manual-only `Legacy Delta Sync` workflow now protects the final cutover delta:
 - default mode is **dry-run**
