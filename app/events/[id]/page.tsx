@@ -27,6 +27,10 @@ import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 import { getEventDetailMessages } from "@/lib/i18n/event-page-messages";
 import { formatEventAge } from "@/lib/events/age-display";
+import {
+  formatEventCategory,
+  normalizeEventTags,
+} from "@/lib/events/display-normalization";
 
 type JsonValue =
   | string
@@ -456,60 +460,17 @@ function getWhatsAppUrl(value: unknown): string | null {
 }
 
 function getCategoryLabel(event: EventRecord, locale: AppLocale): string {
-  const raw = safeText(
+  return formatEventCategory(
     event.activity_category ||
       event.category ||
       event.activity_type ||
       event.age_group,
-    "親子活動",
+    locale,
   );
-
-  const labels: Record<string, [string, string, string]> = {
-    kids: ["親子活動", "亲子活动", "Family Activity"],
-    parent_child: ["親子活動", "亲子活动", "Family Activity"],
-    family: ["親子活動", "亲子活动", "Family Activity"],
-    workshop: ["工作坊", "工作坊", "Workshop"],
-    market: ["市集", "市集", "Market"],
-    exhibition: ["展覽", "展览", "Exhibition"],
-    festival: ["節慶活動", "节庆活动", "Festival"],
-    education: ["教育活動", "教育活动", "Educational"],
-    arts: ["藝術創作", "艺术创作", "Arts"],
-    cooking: ["烹飪", "烹饪", "Cooking"],
-    sports: ["運動", "运动", "Sports"],
-    music: ["音樂", "音乐", "Music"],
-    theatre: ["劇場", "剧场", "Theatre"],
-    outdoor: ["戶外活動", "户外活动", "Outdoor"],
-    indoor: ["室內活動", "室内活动", "Indoor"],
-    sen: ["SEN 友善", "SEN 友善", "SEN Friendly"],
-    free: ["免費活動", "免费活动", "Free Event"],
-  };
-
-  return labels[raw] ? uiText(locale, ...labels[raw]) : raw;
 }
-
 function getTagArray(value: unknown): string[] {
-  if (!value) return [];
-
-  if (Array.isArray(value)) {
-    return value.map((item) => safeText(item)).filter(Boolean).slice(0, 8);
-  }
-
-  if (typeof value === "string") {
-    try {
-      const parsed: unknown = JSON.parse(value);
-      return getTagArray(parsed);
-    } catch {
-      return value
-        .split(/[,\n，、]/)
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .slice(0, 8);
-    }
-  }
-
-  return [];
+  return normalizeEventTags(value, 8);
 }
-
 function getRegistrationUrl(event: EventRecord): string | null {
   if (isHttpUrl(event.registration_url)) return String(event.registration_url).trim();
   if (isHttpUrl(event.booking_url)) return String(event.booking_url).trim();

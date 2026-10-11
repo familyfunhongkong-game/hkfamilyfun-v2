@@ -16,6 +16,10 @@ import {
   eventOccursOn,
 } from "@/lib/events/recurrence";
 import { formatEventAge } from "@/lib/events/age-display";
+import {
+  formatEventCategory,
+  normalizeEventTags,
+} from "@/lib/events/display-normalization";
 import type { EventRecord } from "@/lib/events/public-event-records";
 
 type GalleryImage = {
@@ -359,42 +363,14 @@ function formatPrice(event: EventRecord, locale: AppLocale): string {
 }
 
 function getCategoryLabel(event: EventRecord, locale: AppLocale): string {
-  const raw = safeText(
-    event.category ||
-      event.activity_category ||
+  return formatEventCategory(
+    event.activity_category ||
+      event.category ||
       event.activity_type ||
       event.age_group,
-    "親子活動",
+    locale,
   );
-
-  const labels: Record<string, [string, string, string]> = {
-    kids: ["親子活動", "亲子活动", "Family Activity"],
-    parent_child: ["親子活動", "亲子活动", "Family Activity"],
-    "親子活動": ["親子活動", "亲子活动", "Family Activity"],
-    "亲子活动": ["親子活動", "亲子活动", "Family Activity"],
-    workshop: ["工作坊", "工作坊", "Workshop"],
-    "工作坊": ["工作坊", "工作坊", "Workshop"],
-    market: ["市集", "市集", "Market"],
-    "市集": ["市集", "市集", "Market"],
-    exhibition: ["展覽", "展览", "Exhibition"],
-    "展覽": ["展覽", "展览", "Exhibition"],
-    "展览": ["展覽", "展览", "Exhibition"],
-    sports: ["運動", "运动", "Sports"],
-    music: ["音樂", "音乐", "Music"],
-    theatre: ["劇場", "剧场", "Theatre"],
-    outdoor: ["戶外活動", "户外活动", "Outdoor"],
-    indoor: ["室內活動", "室内活动", "Indoor"],
-    mall: ["商場活動", "商场活动", "Mall Event"],
-    education: ["教育活動", "教育活动", "Educational"],
-    arts: ["藝術創作", "艺术创作", "Arts"],
-    cooking: ["烹飪", "烹饪", "Cooking"],
-    sen: ["SEN 友善", "SEN 友善", "SEN Friendly"],
-    free: ["免費活動", "免费活动", "Free Event"],
-  };
-
-  return labels[raw] ? uiText(locale, ...labels[raw]) : raw;
 }
-
 function getRegistrationUrl(event: EventRecord): string | null {
   if (isHttpUrl(event.registration_url)) return String(event.registration_url).trim();
   if (isHttpUrl(event.booking_url)) return String(event.booking_url).trim();
@@ -449,28 +425,8 @@ function getGoogleMapUrl(event: EventRecord): string | null {
 }
 
 function getTagArray(value: unknown): string[] {
-  if (!value) return [];
-
-  if (Array.isArray(value)) {
-    return value.map((item) => safeText(item)).filter(Boolean).slice(0, 5);
-  }
-
-  if (typeof value === "string") {
-    try {
-      const parsed: unknown = JSON.parse(value);
-      return getTagArray(parsed);
-    } catch {
-      return value
-        .split(/[,\n，、]/)
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .slice(0, 5);
-    }
-  }
-
-  return [];
+  return normalizeEventTags(value, 5);
 }
-
 function normalizedStatus(event: EventRecord): string {
   return safeText(event.status || event.approval_status, "draft").toLowerCase();
 }

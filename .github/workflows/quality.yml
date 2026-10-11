@@ -95,6 +95,9 @@ jobs:
       - name: Events server preload check
         run: npm run check:events-ssr
 
+      - name: Event display normalization check
+        run: npm run check:event-display
+
       - name: Advertising order lifecycle check
         run: npm run check:advertising-orders
 
