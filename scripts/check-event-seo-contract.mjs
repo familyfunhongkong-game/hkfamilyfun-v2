@@ -30,12 +30,19 @@ for (const signal of [
   "startDate",
   "addressCountry: \"HK\"",
   'recurrence_type).toLowerCase() === "weekly"',
+  "getEventStructuredDataImage",
+  "structuredDataImage ? { image: [structuredDataImage] } : {}",
   'replace(/</g, "\\\\u003c")',
 ]) {
   if (!seo.includes(signal)) {
     console.error(`[event-seo] SEO helper missing: ${signal}`);
     failed = true;
   }
+}
+
+if (seo.includes("image: [getEventSeoImage(event)]")) {
+  console.error("[event-seo] Event JSON-LD must not use the brand OG fallback as an event image");
+  failed = true;
 }
 
 if (/service[_-]?role/i.test(seo)) {
