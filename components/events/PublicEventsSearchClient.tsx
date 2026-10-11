@@ -1,0 +1,1749 @@
+"use client";
+
+import type { CSSProperties, MouseEvent, ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase/client";
+import ResilientEventImage from "@/components/resilient-event-image";
+import ClientPromotionSlot from "@/components/client-promotion-slot";
+import { getClientLocale } from "@/lib/i18n/client";
+import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
+import { getEventListMessages } from "@/lib/i18n/event-page-messages";
+import {
+  addCalendarDays,
+  calendarDayOfWeek,
+  eventOccursInRange,
+  eventOccursOn,
+} from "@/lib/events/recurrence";
+import { formatEventAge } from "@/lib/events/age-display";
+import type { EventRecord } from "@/lib/events/public-event-records";
+
+type GalleryImage = {
+  url: string;
+  label: string;
+  isCover: boolean;
+};
+
+type PriceFilter = "all" | "free" | "paid";
+type DateFilter = "all" | "today" | "tomorrow" | "weekend" | "month";
+type SortMode = "recommended" | "date_asc" | "date_desc" | "newest";
+
+const FALLBACK_IMAGE =
+  "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun";
+
+const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
+
+const dateFilterKeys: DateFilter[] = [
+  "all",
+  "today",
+  "tomorrow",
+  "weekend",
+  "month",
+];
+
+const priceFilterKeys: PriceFilter[] = ["all", "free", "paid"];
+
+function dateFilterLabel(locale: AppLocale, key: DateFilter) {
+  const labels: Record<DateFilter, [string, string, string]> = {
+    all: ["全部日期", "全部日期", "All Dates"],
+    today: ["今日", "今天", "Today"],
+    tomorrow: ["明日", "明天", "Tomorrow"],
+    weekend: ["今個週末", "这个周末", "This Weekend"],
+    month: ["本月", "本月", "This Month"],
+  };
+  return uiText(locale, ...labels[key]);
+}
+
+function priceFilterLabel(locale: AppLocale, key: PriceFilter) {
+  const labels: Record<PriceFilter, [string, string, string]> = {
+    all: ["全部收費", "全部收费", "All Prices"],
+    free: ["免費", "免费", "Free"],
+    paid: ["收費", "收费", "Paid"],
+  };
+  return uiText(locale, ...labels[key]);
+}
+
+function safeText(value: unknown, fallback = ""): string {
+  if (value === null || value === undefined) return fallback;
+
+  if (Array.isArray(value)) {
+    const joined = value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .join(", ");
+
+    return joined || fallback;
+  }
+
+  if (typeof value === "object") return fallback;
+
+  const text = String(value).trim();
+  return text.length ? text : fallback;
+}
+
+function toNumber(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return fallback;
+}
+
+function isHttpUrl(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  return /^https?:\/\//i.test(value.trim());
+}
+
+function normalizeImageArray(value: unknown): string[] {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string") return item;
+
+        if (
+          item &&
+          typeof item === "object" &&
+          "url" in item &&
+          typeof (item as { url?: unknown }).url === "string"
+        ) {
+          return String((item as { url: string }).url);
+        }
+
+        if (
+          item &&
+          typeof item === "object" &&
+          "src" in item &&
+          typeof (item as { src?: unknown }).src === "string"
+        ) {
+          return String((item as { src: string }).src);
+        }
+
+        return "";
+      })
+      .map((item) => item.trim())
+      .filter((item) => /^https?:\/\//i.test(item));
+  }
+
+  if (typeof value === "string") {
+    const trimmed: string = value.trim();
+
+    if (!trimmed) return [];
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      return [trimmed];
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      return normalizeImageArray(parsed);
+    } catch {
+      return trimmed
+        .split(/[,\n，、]/)
+        .map((item) => item.trim())
+        .filter((item) => /^https?:\/\//i.test(item));
+    }
+  }
+
+  return [];
+}
+
+function uniqueImages(input: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+
+  for (const raw of input) {
+    const url = raw.trim();
+    if (!/^https?:\/\//i.test(url)) continue;
+
+    const key = url.toLowerCase();
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    output.push(url);
+  }
+
+  return output;
+}
+
+function getGalleryImages(event: EventRecord): GalleryImage[] {
+  const cover =
+    typeof event.cover_image_url === "string" &&
+    /^https?:\/\//i.test(event.cover_image_url.trim())
+      ? event.cover_image_url.trim()
+      : "";
+
+  const galleryFromMain = normalizeImageArray(event.gallery_image_urls);
+  const galleryFromImages = normalizeImageArray(event.images);
+
+  const ordered = uniqueImages([
+    cover,
+    ...galleryFromMain,
+    ...galleryFromImages,
+  ]).slice(0, 6);
+
+  if (!ordered.length) {
+    return [
+      {
+        url: FALLBACK_IMAGE,
+        label: "HK Family Fun 預設圖片",
+        isCover: true,
+      },
+    ];
+  }
+
+  return ordered.map((url, index) => ({
+    url,
+    label: index === 0 ? "封面圖片" : `圖片 ${index}`,
+    isCover: index === 0,
+  }));
+}
+
+function getCoverTransform(event: EventRecord): CSSProperties {
+  const zoom = Math.min(Math.max(toNumber(event.cover_image_zoom, 1), 0.8), 3);
+  const offsetX = Math.min(
+    Math.max(toNumber(event.cover_image_offset_x, 0), -100),
+    100,
+  );
+  const offsetY = Math.min(
+    Math.max(toNumber(event.cover_image_offset_y, 0), -100),
+    100,
+  );
+  const focusY = Math.min(
+    Math.max(toNumber(event.cover_image_focus_y, 50), 0),
+    100,
+  );
+  const rotate = toNumber(event.cover_image_rotate, 0);
+  const flipX = event.cover_image_flip_x ? -1 : 1;
+  const flipY = event.cover_image_flip_y ? -1 : 1;
+
+  return {
+    transform: `translate(${offsetX}%, ${offsetY}%) scale(${zoom}) rotate(${rotate}deg) scaleX(${flipX}) scaleY(${flipY})`,
+    transformOrigin: `50% ${focusY}%`,
+  };
+}
+
+function getCoverFilter(event: EventRecord): CSSProperties {
+  const brightness = Math.min(
+    Math.max(toNumber(event.cover_image_brightness, 100), 40),
+    180,
+  );
+  const contrast = Math.min(
+    Math.max(toNumber(event.cover_image_contrast, 100), 40),
+    180,
+  );
+  const saturation = Math.min(
+    Math.max(toNumber(event.cover_image_saturation, 100), 0),
+    220,
+  );
+  const filterName = safeText(event.cover_image_filter, "none");
+
+  let extraFilter = "";
+  if (filterName === "warm") extraFilter = "sepia(0.16)";
+  if (filterName === "cool") extraFilter = "hue-rotate(8deg) saturate(0.95)";
+  if (filterName === "mono") extraFilter = "grayscale(1)";
+  if (filterName === "soft") extraFilter = "contrast(0.94) brightness(1.04)";
+
+  return {
+    filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${extraFilter}`,
+  };
+}
+
+function hasRealImage(event: EventRecord): boolean {
+  const images = getGalleryImages(event);
+  return Boolean(images.length && images[0]?.url !== FALLBACK_IMAGE);
+}
+
+function formatDate(value: string | null | undefined, locale: AppLocale): string {
+  if (!value) return uiText(locale, "日期待定", "日期待定", "Date TBC");
+
+  // Database event dates are calendar dates, not moments in time.
+  // Parse YYYY-MM-DD in local calendar space so UTC/timezone conversion
+  // can never move an event to the previous/next day.
+  const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const date = dateOnly
+    ? new Date(
+        Number(dateOnly[1]),
+        Number(dateOnly[2]) - 1,
+        Number(dateOnly[3]),
+      )
+    : new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString(
+    locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK",
+    {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    },
+  );
+}
+
+function formatDateRange(event: EventRecord, locale: AppLocale): string {
+  const start = formatDate(event.start_date, locale);
+  const end = formatDate(event.end_date, locale);
+
+  if (!event.start_date && !event.end_date) {
+    return uiText(locale, "日期待定", "日期待定", "Date TBC");
+  }
+  if (!event.end_date || start === end) return start;
+
+  return locale === "en" ? `${start} – ${end}` : `${start} 至 ${end}`;
+}
+
+function formatTimeRange(event: EventRecord, locale: AppLocale): string {
+  const normalizeTime = (value: unknown) => {
+    const text = safeText(value);
+    return /^\d{2}:\d{2}/.test(text) ? text.slice(0, 5) : text;
+  };
+
+  const start = normalizeTime(event.start_time);
+  const end = normalizeTime(event.end_time);
+
+  if (!start && !end) return uiText(locale, "時間待定", "时间待定", "Time TBC");
+  if (start && end) return `${start} - ${end}`;
+
+  return start || end || uiText(locale, "時間待定", "时间待定", "Time TBC");
+}
+
+function formatPrice(event: EventRecord, locale: AppLocale): string {
+  const priceMode = safeText(
+    event.price_display_mode || event.price_type,
+  ).toLowerCase();
+  const priceLabel = safeText(event.price_label || event.price_text);
+  const minPrice = safeText(event.min_price);
+  const maxPrice = safeText(event.max_price);
+  const offerPrice = safeText(event.offer_price);
+  const originalPrice = safeText(event.original_price);
+  const quotaLabel = safeText(event.quota_label);
+
+  if (priceLabel) return priceLabel;
+
+  if (priceMode === "hidden") return uiText(locale, "不顯示價錢", "不显示价格", "Price hidden");
+  if (priceMode === "free") return uiText(locale, "免費", "免费", "Free");
+  if (priceMode === "quota") return quotaLabel || uiText(locale, "名額有限", "名额有限", "Limited places");
+
+  if (priceMode === "early_bird") {
+    if (offerPrice && originalPrice) {
+      return locale === "en" ? `Early bird HK$${offerPrice} (regular HK$${originalPrice})` : uiText(locale, `早鳥優惠 HK$${offerPrice}（原價 HK$${originalPrice}）`, `早鸟优惠 HK$${offerPrice}（原价 HK$${originalPrice}）`, `Early bird HK$${offerPrice} (regular HK$${originalPrice})`);
+    }
+    if (offerPrice) return uiText(locale, `早鳥優惠 HK$${offerPrice}`, `早鸟优惠 HK$${offerPrice}`, `Early bird HK$${offerPrice}`);
+    return uiText(locale, "早鳥優惠待確認", "早鸟优惠待确认", "Early-bird price TBC");
+  }
+
+  if (priceMode === "range") {
+    if (minPrice && maxPrice && minPrice !== maxPrice) {
+      return `HK$${minPrice}–HK$${maxPrice}`;
+    }
+    if (minPrice) return locale === "en" ? `From HK$${minPrice}` : `HK$${minPrice} ${uiText(locale, "起", "起", "from")}`;
+    return uiText(locale, "價錢範圍待確認", "价格范围待确认", "Price range TBC");
+  }
+
+  if (priceMode === "fixed") {
+    if (minPrice) return `HK$${minPrice}`;
+    return uiText(locale, "固定收費待確認", "固定收费待确认", "Fixed price TBC");
+  }
+
+  if (priceMode === "from" || priceMode === "paid") {
+    if (minPrice) return locale === "en" ? `From HK$${minPrice}` : `HK$${minPrice} ${uiText(locale, "起", "起", "from")}`;
+    return uiText(locale, "收費活動", "收费活动", "Paid event");
+  }
+
+  return uiText(locale, "收費待確認", "收费待确认", "Price TBC");
+}
+
+function getCategoryLabel(event: EventRecord, locale: AppLocale): string {
+  const raw = safeText(
+    event.category ||
+      event.activity_category ||
+      event.activity_type ||
+      event.age_group,
+    "親子活動",
+  );
+
+  const labels: Record<string, [string, string, string]> = {
+    kids: ["親子活動", "亲子活动", "Family Activity"],
+    parent_child: ["親子活動", "亲子活动", "Family Activity"],
+    "親子活動": ["親子活動", "亲子活动", "Family Activity"],
+    "亲子活动": ["親子活動", "亲子活动", "Family Activity"],
+    workshop: ["工作坊", "工作坊", "Workshop"],
+    "工作坊": ["工作坊", "工作坊", "Workshop"],
+    market: ["市集", "市集", "Market"],
+    "市集": ["市集", "市集", "Market"],
+    exhibition: ["展覽", "展览", "Exhibition"],
+    "展覽": ["展覽", "展览", "Exhibition"],
+    "展览": ["展覽", "展览", "Exhibition"],
+    sports: ["運動", "运动", "Sports"],
+    music: ["音樂", "音乐", "Music"],
+    theatre: ["劇場", "剧场", "Theatre"],
+    outdoor: ["戶外活動", "户外活动", "Outdoor"],
+    indoor: ["室內活動", "室内活动", "Indoor"],
+    mall: ["商場活動", "商场活动", "Mall Event"],
+    education: ["教育活動", "教育活动", "Educational"],
+    arts: ["藝術創作", "艺术创作", "Arts"],
+    cooking: ["烹飪", "烹饪", "Cooking"],
+    sen: ["SEN 友善", "SEN 友善", "SEN Friendly"],
+    free: ["免費活動", "免费活动", "Free Event"],
+  };
+
+  return labels[raw] ? uiText(locale, ...labels[raw]) : raw;
+}
+
+function getRegistrationUrl(event: EventRecord): string | null {
+  if (isHttpUrl(event.registration_url)) return String(event.registration_url).trim();
+  if (isHttpUrl(event.booking_url)) return String(event.booking_url).trim();
+
+  return null;
+}
+
+function getOfficialWebsiteUrl(event: EventRecord): string | null {
+  if (isHttpUrl(event.official_url)) return String(event.official_url).trim();
+  if (isHttpUrl(event.source_url)) return String(event.source_url).trim();
+
+  return null;
+}
+
+function getPrimaryActionUrl(event: EventRecord): string | null {
+  return getRegistrationUrl(event) || getOfficialWebsiteUrl(event);
+}
+
+function getPrimaryActionLabel(event: EventRecord, locale: AppLocale): string {
+  const custom = safeText(event.cta_label || event.cta_text);
+  if (custom) return custom;
+
+  const ctaType = safeText(event.cta_type).toLowerCase();
+
+  if (getRegistrationUrl(event)) return uiText(locale, "前往報名", "前往报名", "Register");
+  if (ctaType === "whatsapp") return uiText(locale, "WhatsApp 報名", "WhatsApp 报名", "Register via WhatsApp");
+  if (ctaType === "google_form") return uiText(locale, "Google Form 報名", "Google Form 报名", "Register via Google Form");
+  if (getOfficialWebsiteUrl(event)) return uiText(locale, "活動官網查看更多", "活动官网查看更多", "View Official Website");
+  if (ctaType === "none" || event.registration_required === false) return uiText(locale, "無需報名", "无需报名", "No Registration Required");
+  if (ctaType === "contact" || event.registration_required) return uiText(locale, "請向主辦查詢", "请向主办查询", "Contact Organizer");
+
+  return uiText(locale, "活動官網查看更多", "活动官网查看更多", "View Official Website");
+}
+
+function getGoogleMapUrl(event: EventRecord): string | null {
+  if (isHttpUrl(event.google_map_url)) return String(event.google_map_url).trim();
+
+  const query = [
+    event.venue_name_tc || event.venue_name,
+    event.address_tc || event.address,
+    event.district,
+    event.mtr_station,
+    "香港",
+  ]
+    .map((item) => safeText(item))
+    .filter(Boolean)
+    .join(" ");
+
+  if (!query) return null;
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function getTagArray(value: unknown): string[] {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value.map((item) => safeText(item)).filter(Boolean).slice(0, 5);
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      return getTagArray(parsed);
+    } catch {
+      return value
+        .split(/[,\n，、]/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 5);
+    }
+  }
+
+  return [];
+}
+
+function normalizedStatus(event: EventRecord): string {
+  return safeText(event.status || event.approval_status, "draft").toLowerCase();
+}
+
+function canShowPublic(event: EventRecord): boolean {
+  // Supabase public_events 已經按 Asia/Hong_Kong 過濾過期活動。
+  // 前端不可再用訪客裝置本地日期判斷，否則海外用戶會早一日／遲一日。
+  return normalizedStatus(event) === "published";
+}
+
+function isFreeEvent(event: EventRecord): boolean {
+  const priceMode = safeText(
+    event.price_display_mode || event.price_type,
+  ).toLowerCase();
+  const priceText = safeText(event.price_label || event.price_text).toLowerCase();
+
+  return (
+    priceMode === "free" ||
+    priceText.includes("免費") ||
+    priceText.includes("免费") ||
+    priceText === "free"
+  );
+}
+
+function getHongKongToday(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value || "";
+  const month = parts.find((part) => part.type === "month")?.value || "";
+  const day = parts.find((part) => part.type === "day")?.value || "";
+
+  return `${year}-${month}-${day}`;
+}
+
+function eventOverlapsDateText(
+  event: EventRecord,
+  targetDate: string,
+): boolean {
+  return eventOccursOn(
+    {
+      startDate: safeText(event.start_date),
+      endDate: safeText(event.end_date || event.start_date),
+      recurrenceType: safeText(event.recurrence_type, "none"),
+      recurrenceWeekdays: Array.isArray(event.recurrence_weekdays)
+        ? event.recurrence_weekdays.map(Number)
+        : [],
+      recurrenceIncludeDates: Array.isArray(event.recurrence_include_dates)
+        ? event.recurrence_include_dates.map(String)
+        : [],
+      recurrenceExcludeDates: Array.isArray(event.recurrence_exclude_dates)
+        ? event.recurrence_exclude_dates.map(String)
+        : [],
+    },
+    targetDate,
+  );
+}
+
+function eventOverlapsRange(
+  event: EventRecord,
+  rangeStart: string,
+  rangeEnd: string,
+): boolean {
+  return eventOccursInRange(
+    {
+      startDate: safeText(event.start_date),
+      endDate: safeText(event.end_date || event.start_date),
+      recurrenceType: safeText(event.recurrence_type, "none"),
+      recurrenceWeekdays: Array.isArray(event.recurrence_weekdays)
+        ? event.recurrence_weekdays.map(Number)
+        : [],
+      recurrenceIncludeDates: Array.isArray(event.recurrence_include_dates)
+        ? event.recurrence_include_dates.map(String)
+        : [],
+      recurrenceExcludeDates: Array.isArray(event.recurrence_exclude_dates)
+        ? event.recurrence_exclude_dates.map(String)
+        : [],
+    },
+    rangeStart,
+    rangeEnd,
+  );
+}
+
+function getHongKongWeekendRange(today: string) {
+  const weekday = calendarDayOfWeek(today);
+
+  if (weekday === 6) {
+    return {
+      start: today,
+      end: addCalendarDays(today, 1),
+    };
+  }
+
+  if (weekday === 0) {
+    return {
+      start: addCalendarDays(today, -1),
+      end: today,
+    };
+  }
+
+  const daysUntilSaturday = 6 - weekday;
+  const start = addCalendarDays(today, daysUntilSaturday);
+
+  return {
+    start,
+    end: addCalendarDays(start, 1),
+  };
+}
+
+function parseDateOnly(value?: string | null): Date | null {
+  if (!value) return null;
+
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+
+  const date = new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+  );
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function eventMatchesDateFilter(
+  event: EventRecord,
+  filter: DateFilter,
+): boolean {
+  if (filter === "all") return true;
+
+  const today = getHongKongToday();
+
+  if (filter === "today") {
+    return eventOverlapsDateText(event, today);
+  }
+
+  if (filter === "tomorrow") {
+    return eventOverlapsDateText(
+      event,
+      addCalendarDays(today, 1),
+    );
+  }
+
+  if (filter === "weekend") {
+    const weekend = getHongKongWeekendRange(today);
+
+    return eventOverlapsRange(
+      event,
+      weekend.start,
+      weekend.end,
+    );
+  }
+
+  if (filter === "month") {
+    const monthStart = `${today.slice(0, 7)}-01`;
+
+    const [year, month] = today.split("-").map(Number);
+    const monthEndDate = new Date(Date.UTC(year, month, 0));
+
+    const monthEnd = [
+      monthEndDate.getUTCFullYear(),
+      String(monthEndDate.getUTCMonth() + 1).padStart(2, "0"),
+      String(monthEndDate.getUTCDate()).padStart(2, "0"),
+    ].join("-");
+
+    return eventOverlapsRange(event, monthStart, monthEnd);
+  }
+
+  return true;
+}
+
+function getDistrictOptions(events: EventRecord[]): string[] {
+  return Array.from(
+    new Set(
+      events
+        .map((event) => safeText(event.district || event.area))
+        .filter(Boolean),
+    ),
+  ).sort();
+}
+
+function getCategoryOptions(events: EventRecord[], locale: AppLocale): string[] {
+  return Array.from(
+    new Set(events.map((event) => getCategoryLabel(event, locale)).filter(Boolean)),
+  ).sort();
+}
+
+function scoreEvent(event: EventRecord): number {
+  let score = 0;
+
+  if (hasRealImage(event)) score += 30;
+  if (event.start_date) score += 20;
+  if (getPrimaryActionUrl(event)) score += 15;
+  if (safeText(event.short_description_tc || event.description_tc)) score += 15;
+  if (event.google_map_url || event.google_map_embed_url) score += 10;
+  if (isFreeEvent(event)) score += 5;
+  if (safeText(event.published_at || event.updated_at)) score += 5;
+
+  return score;
+}
+
+function readFavoriteIds(): string[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(FAVORITES_STORAGE_KEY);
+    if (!raw) return [];
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function writeFavoriteIds(ids: string[]) {
+  if (typeof window === "undefined") return;
+
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(unique));
+}
+
+function Badge({
+  children,
+  tone = "purple",
+}: {
+  children: ReactNode;
+  tone?: "purple" | "green" | "amber" | "slate" | "rose" | "orange";
+}) {
+  const className =
+    tone === "green"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+      : tone === "amber"
+        ? "bg-amber-50 text-amber-700 ring-amber-100"
+        : tone === "orange"
+          ? "bg-orange-50 text-orange-700 ring-orange-100"
+          : tone === "rose"
+            ? "bg-rose-50 text-rose-700 ring-rose-100"
+            : tone === "slate"
+              ? "bg-slate-100 text-slate-700 ring-slate-200"
+              : "bg-purple-50 text-purple-700 ring-purple-100";
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-black ring-1 ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function QuickEntry({
+  href,
+  icon,
+  title,
+  desc,
+}: {
+  href: string;
+  icon: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md"
+    >
+      <div className="flex items-start gap-3">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-purple-50 text-xl">
+          {icon}
+        </span>
+        <div>
+          <p className="font-black text-slate-950">{title}</p>
+          <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
+            {desc}
+          </p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  note,
+  tone = "slate",
+}: {
+  label: string;
+  value: number | string;
+  note: string;
+  tone?: "slate" | "green" | "purple" | "amber";
+}) {
+  const className =
+    tone === "green"
+      ? "bg-emerald-50 text-emerald-900 ring-emerald-100"
+      : tone === "purple"
+        ? "bg-purple-50 text-purple-950 ring-purple-100"
+        : tone === "amber"
+          ? "bg-amber-50 text-amber-900 ring-amber-100"
+          : "bg-white text-slate-950 ring-slate-200";
+
+  return (
+    <div className={`rounded-3xl p-5 shadow-sm ring-1 ${className}`}>
+      <p className="text-xs font-black opacity-70">{label}</p>
+      <p className="mt-2 text-3xl font-black">{value}</p>
+      <p className="mt-1 text-xs font-bold leading-5 opacity-70">{note}</p>
+    </div>
+  );
+}
+
+function EventCard({
+  event,
+  favoriteIds,
+  onToggleFavorite,
+  locale,
+}: {
+  event: EventRecord;
+  favoriteIds: string[];
+  onToggleFavorite: (eventId: string) => void;
+  locale: AppLocale;
+}) {
+  const [shareCopied, setShareCopied] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const m = getEventListMessages(locale);
+
+  const images = getGalleryImages(event);
+  const safeActiveIndex =
+    activeImageIndex >= images.length ? 0 : activeImageIndex;
+  const hero = images[safeActiveIndex]?.url || FALLBACK_IMAGE;
+  const isFallback = hero === FALLBACK_IMAGE;
+  const isCoverImage = images[safeActiveIndex]?.isCover;
+  const isFavorite = favoriteIds.includes(event.id);
+
+  const coverStyle: CSSProperties =
+    isFallback || !isCoverImage
+      ? {}
+      : {
+          ...getCoverTransform(event),
+          ...getCoverFilter(event),
+        };
+
+  const title = localizedText(locale, {
+    tc: event.title_tc || event.title,
+    sc: event.title_sc,
+    en: event.title_en,
+    fallback: locale === "en" ? "Untitled event" : "未命名活動",
+  });
+  const shortDescription = localizedText(locale, {
+    tc: event.short_description_tc || event.description_tc,
+    sc: event.short_description_sc || event.description_sc,
+    en: event.short_description_en || event.description_en,
+    fallback:
+      locale === "en"
+        ? "See the organizer's official information for event details."
+        : "活動詳情請參閱主辦方公布資料。",
+  });
+  const venue = localizedText(locale, {
+    tc: event.venue_name_tc || event.venue_name || event.address_tc || event.address,
+    sc: event.venue_name_sc || event.address_sc,
+    en: event.venue_name_en || event.address_en,
+    fallback: safeText(
+      event.district,
+      locale === "en" ? "Location TBC" : "地點待定",
+    ),
+  });
+  const district = safeText(event.district || event.area);
+  const mtr = safeText(event.mtr_station);
+  const price = formatPrice(event, locale);
+  const category = getCategoryLabel(event, locale);
+  const tags = getTagArray(event.tags);
+  const ctaLabel = getPrimaryActionLabel(event, locale);
+  const actionUrl = getPrimaryActionUrl(event);
+  const officialUrl = getOfficialWebsiteUrl(event);
+  const registrationUrl = getRegistrationUrl(event);
+  const mapUrl = getGoogleMapUrl(event);
+  const imageCount = images.filter((image) => image.url !== FALLBACK_IMAGE).length;
+  const organizer = safeText(
+    event.organizer_name || event.merchant_name,
+    uiText(locale, "主辦方待定", "主办方待定", "Organizer TBC"),
+  );
+  const ageGroup = formatEventAge(
+    {
+      ageGroups: event.age_groups,
+      ageMin: event.age_min,
+      ageMax: event.age_max,
+      legacyAgeGroup: event.age_group,
+    },
+    locale,
+  );
+  const recurrenceNote = safeText(event.recurrence_note);
+
+  function stopClick(eventObject: MouseEvent<HTMLElement>) {
+    eventObject.preventDefault();
+    eventObject.stopPropagation();
+  }
+
+  function goToPreviousImage(eventObject: MouseEvent<HTMLButtonElement>) {
+    stopClick(eventObject);
+    setActiveImageIndex((current) => {
+      if (images.length <= 1) return 0;
+      return current === 0 ? images.length - 1 : current - 1;
+    });
+  }
+
+  function goToNextImage(eventObject: MouseEvent<HTMLButtonElement>) {
+    stopClick(eventObject);
+    setActiveImageIndex((current) => {
+      if (images.length <= 1) return 0;
+      return current === images.length - 1 ? 0 : current + 1;
+    });
+  }
+
+  function selectImage(index: number, eventObject: MouseEvent<HTMLButtonElement>) {
+    stopClick(eventObject);
+    setActiveImageIndex(index);
+  }
+
+  function toggleFavorite(eventObject: MouseEvent<HTMLButtonElement>) {
+    stopClick(eventObject);
+    onToggleFavorite(event.id);
+  }
+
+  async function shareEvent(eventObject?: MouseEvent<HTMLButtonElement>) {
+    if (eventObject) {
+      eventObject.preventDefault();
+      eventObject.stopPropagation();
+    }
+
+    const shareUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/events/${event.id}`
+        : `/events/${event.id}`;
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({
+          title,
+          text: shortDescription,
+          url: shareUrl,
+        });
+        return;
+      }
+
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareCopied(true);
+        window.setTimeout(() => setShareCopied(false), 1800);
+      }
+    } catch {
+      setShareCopied(false);
+    }
+  }
+
+  return (
+    <article className="group flex h-full flex-col overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg">
+      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
+        <Link href={`/events/${event.id}`} className="absolute inset-0 z-0">
+          <span className="sr-only">{m.details}: {title}</span>
+        </Link>
+
+        <ResilientEventImage
+          src={isFallback ? null : hero}
+          alt={title}
+          loading="lazy"
+          compactFallback
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+          style={coverStyle}
+        />
+
+        <div className="absolute left-3 top-3 z-10 flex max-w-[82%] flex-wrap gap-2">
+          <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-black text-purple-700 shadow-sm backdrop-blur">
+            {category}
+          </span>
+          <span
+            className={[
+              "rounded-full px-3 py-1 text-xs font-black shadow-sm backdrop-blur",
+              isFreeEvent(event)
+                ? "bg-emerald-100/95 text-emerald-700"
+                : "bg-amber-100/95 text-amber-700",
+            ].join(" ")}
+          >
+            {price}
+          </span>
+          {event.is_sen_friendly ? (
+            <span className="rounded-full bg-fuchsia-100/95 px-3 py-1 text-xs font-black text-fuchsia-800 shadow-sm backdrop-blur">
+              SEN 友善
+            </span>
+          ) : null}
+          {event.is_indoor ? (
+            <span className="rounded-full bg-sky-100/95 px-3 py-1 text-xs font-black text-sky-800 shadow-sm backdrop-blur">
+              {uiText(locale, "室內", "室内", "Indoor")}
+            </span>
+          ) : null}
+        </div>
+
+        <button
+          type="button"
+          onClick={toggleFavorite}
+          className={[
+            "absolute right-3 top-3 z-20 rounded-full px-3 py-1 text-xs font-black shadow-sm backdrop-blur transition",
+            isFavorite
+              ? "bg-rose-500 text-white"
+              : "bg-white/95 text-slate-700 hover:bg-rose-50 hover:text-rose-600",
+          ].join(" ")}
+          aria-label={isFavorite ? m.unfavorite : m.favorite}
+        >
+          {isFavorite ? "❤️" : "♡"}
+        </button>
+
+        <div className="absolute bottom-3 left-3 z-10 flex flex-wrap gap-2">
+          {district ? (
+            <span className="rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+              📍 {district}
+            </span>
+          ) : null}
+
+          <span className="rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white backdrop-blur">
+            🖼️ {safeActiveIndex + 1}/{Math.max(imageCount, 1)}
+          </span>
+        </div>
+
+        {images.length > 1 ? (
+          <>
+            <button
+              type="button"
+              onClick={goToPreviousImage}
+              className="absolute left-3 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-sm font-black text-slate-700 shadow-sm backdrop-blur hover:bg-white"
+              aria-label="上一張圖片"
+            >
+              ‹
+            </button>
+
+            <button
+              type="button"
+              onClick={goToNextImage}
+              className="absolute right-3 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-sm font-black text-slate-700 shadow-sm backdrop-blur hover:bg-white"
+              aria-label="下一張圖片"
+            >
+              ›
+            </button>
+
+            <div className="absolute bottom-3 right-3 z-20 flex gap-1 rounded-full bg-white/90 px-2 py-1 shadow-sm backdrop-blur">
+              {images.slice(0, 5).map((image, index) => (
+                <button
+                  key={`${image.url}-${index}`}
+                  type="button"
+                  onClick={(eventObject) => selectImage(index, eventObject)}
+                  className={[
+                    "h-2 w-2 rounded-full transition",
+                    safeActiveIndex === index
+                      ? "bg-purple-700"
+                      : "bg-slate-300 hover:bg-slate-400",
+                  ].join(" ")}
+                  aria-label={`切換到圖片 ${index + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
+
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex flex-wrap gap-2">
+          <Badge tone="purple">{category}</Badge>
+          <Badge tone={isFreeEvent(event) ? "green" : "orange"}>{price}</Badge>
+          {mtr ? <Badge tone="slate">{uiText(locale, "港鐵", "港铁", "MTR")} {mtr}</Badge> : null}
+          {event.is_sen_friendly ? <Badge tone="purple">SEN 友善</Badge> : null}
+          {event.is_indoor ? <Badge tone="slate">{uiText(locale, "室內", "室内", "Indoor")}</Badge> : null}
+        </div>
+
+        <Link href={`/events/${event.id}`} className="mt-4 block">
+          <h2 className="line-clamp-2 min-h-[3.6rem] text-xl font-black leading-tight text-slate-950 group-hover:text-purple-800">
+            {title}
+          </h2>
+        </Link>
+
+        <p className="mt-3 line-clamp-2 min-h-[3rem] text-sm font-medium leading-6 text-slate-600">
+          {shortDescription}
+        </p>
+
+        <div className="mt-4 grid gap-2 text-sm">
+          <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+            <p className="text-xs font-black text-slate-400">{m.date}</p>
+            <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+              {formatDateRange(event, locale)}
+            </p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+              <p className="text-xs font-black text-slate-400">{m.time}</p>
+              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+                {formatTimeRange(event, locale)}
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+              <p className="text-xs font-black text-slate-400">{m.district}</p>
+              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+                {district || m.districtTbc}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+            <p className="text-xs font-black text-slate-400">{m.venue}</p>
+            <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+              {venue}
+            </p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-2xl bg-purple-50/70 px-4 py-3 ring-1 ring-purple-100">
+              <p className="text-xs font-black text-purple-400">
+                {uiText(locale, "適合年齡", "适合年龄", "Age")}
+              </p>
+              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+                {ageGroup}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-purple-50/70 px-4 py-3 ring-1 ring-purple-100">
+              <p className="text-xs font-black text-purple-400">
+                {uiText(locale, "主辦方", "主办方", "Organizer")}
+              </p>
+              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
+                {organizer}
+              </p>
+            </div>
+          </div>
+
+          {recurrenceNote ? (
+            <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
+              <p className="text-xs font-black text-amber-500">
+                {uiText(locale, "活動日子提示", "活动日期提示", "Schedule note")}
+              </p>
+              <p className="mt-1 line-clamp-2 text-xs font-extrabold leading-5 text-amber-900">
+                {recurrenceNote}
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        {tags.length > 0 ? (
+          <div className="mt-4 flex min-h-[2rem] flex-wrap gap-2">
+            {tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 min-h-[2rem]" />
+        )}
+
+        <div className="mt-auto pt-5">
+          <div className="grid gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Link
+                href={`/events/${event.id}`}
+                className="inline-flex items-center justify-center rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
+              >
+                {m.details}
+              </Link>
+
+              {actionUrl ? (
+                <a
+                  href={actionUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={[
+                    "inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-black text-white",
+                    registrationUrl
+                      ? "bg-emerald-600 hover:bg-emerald-700"
+                      : "bg-slate-950 hover:bg-slate-800",
+                  ].join(" ")}
+                >
+                  {ctaLabel}
+                </a>
+              ) : (
+                <span className="inline-flex items-center justify-center rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-600 ring-1 ring-slate-200">
+                  {ctaLabel}
+                </span>
+              )}
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              {mapUrl ? (
+                <a
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                >
+                  📍 Google Map
+                </a>
+              ) : (
+                <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
+                  {m.mapPending}
+                </span>
+              )}
+
+              {officialUrl ? (
+                <a
+                  href={officialUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                >
+                  {m.officialInfo}
+                </a>
+              ) : (
+                <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
+                  {m.officialPending}
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={(eventObject) => shareEvent(eventObject)}
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+              >
+                {shareCopied ? "已複製" : "🔗 分享"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export default function PublicEventsSearchClient({
+  initialEvents,
+  initialLocale,
+}: {
+  initialEvents: EventRecord[];
+  initialLocale: AppLocale;
+}) {
+  const [locale, setLocale] = useState<AppLocale>(initialLocale);
+  const m = getEventListMessages(locale);
+  const [events, setEvents] = useState<EventRecord[]>(
+    initialEvents.filter(canShowPublic),
+  );
+  const [loading, setLoading] = useState(initialEvents.length === 0);
+  const [errorText, setErrorText] = useState("");
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+
+  const [keyword, setKeyword] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [specificDate, setSpecificDate] = useState("");
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
+  const [districtFilter, setDistrictFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [senOnly, setSenOnly] = useState(false);
+  const [indoorOnly, setIndoorOnly] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("recommended");
+
+  useEffect(() => {
+    setLocale(getClientLocale());
+    setFavoriteIds(readFavoriteIds());
+
+    if (initialEvents.length > 0) return;
+
+    const client = supabase;
+    if (!client) {
+      setErrorText("網站暫時未能連接資料庫，請稍後再試。");
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    void client
+      .from("public_events_i18n")
+      .select("*")
+      .eq("status", "published")
+      .order("start_date", { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+
+        if (error) {
+          setErrorText(error.message || "讀取活動資料失敗。");
+          setEvents([]);
+        } else {
+          setEvents(((data || []) as EventRecord[]).filter(canShowPublic));
+        }
+
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialEvents]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const queryKeyword = params.get("q") || "";
+    const queryDate = params.get("date") || "";
+    const queryPrice = params.get("price") || "";
+    const queryDistrict = params.get("district") || "all";
+    const queryCategory = params.get("category") || "all";
+    const legacyFree = params.get("is_free") === "true";
+    const legacySen =
+      params.get("is_sen") === "true" ||
+      params.get("is_sen_friendly") === "true";
+
+    setKeyword(queryKeyword);
+    setDistrictFilter(queryDistrict || "all");
+
+    if (queryCategory === "weekend") {
+      setDateFilter("weekend");
+      setSpecificDate("");
+    } else if (["today", "tomorrow", "weekend", "month"].includes(queryDate)) {
+      setDateFilter(queryDate as DateFilter);
+      setSpecificDate("");
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(queryDate)) {
+      setDateFilter("all");
+      setSpecificDate(queryDate);
+    } else {
+      setDateFilter("all");
+      setSpecificDate("");
+    }
+
+    setPriceFilter(
+      legacyFree
+        ? "free"
+        : queryPrice === "free" || queryPrice === "paid"
+          ? (queryPrice as PriceFilter)
+          : "all",
+    );
+
+    const categoryMap: Record<string, string> = {
+      workshop: "工作坊",
+      mall: "商場活動",
+      market: "市集",
+      exhibition: "展覽",
+      sports: "運動",
+      music: "音樂",
+      theatre: "劇場",
+      outdoor: "戶外活動",
+      indoor: "室內活動",
+      education: "教育活動",
+      arts: "藝術創作",
+      cooking: "烹飪",
+      sen: "SEN 友善",
+    };
+
+    setCategoryFilter(
+      queryCategory === "all" || queryCategory === "weekend"
+        ? "all"
+        : categoryMap[queryCategory] || queryCategory,
+    );
+    setSenOnly(params.get("sen") === "true" || legacySen);
+    setIndoorOnly(params.get("indoor") === "true");
+  }, []);
+
+  const districtOptions = useMemo(() => getDistrictOptions(events), [events]);
+  const categoryOptions = useMemo(() => getCategoryOptions(events, locale), [events, locale]);
+
+  const filteredEvents = useMemo(() => {
+    const text = keyword.trim().toLowerCase();
+
+    let next = [...events];
+
+    if (text) {
+      next = next.filter((event) => {
+        const haystack = [
+          event.title_tc,
+          event.title_sc,
+          event.title_en,
+          event.title,
+          event.short_description_tc,
+          event.short_description_sc,
+          event.short_description_en,
+          event.description_tc,
+          event.description_sc,
+          event.description_en,
+          event.merchant_name,
+          event.organizer_name,
+          event.venue_name_tc,
+          event.venue_name_sc,
+          event.venue_name_en,
+          event.venue_name,
+          event.address_tc,
+          event.address_sc,
+          event.address_en,
+          event.address,
+          event.district,
+          event.area,
+          event.mtr_station,
+          event.activity_category,
+          event.category,
+          event.activity_type,
+          event.tags,
+        ]
+          .map((item) => safeText(item))
+          .join(" ")
+          .toLowerCase();
+
+        return haystack.includes(text);
+      });
+    }
+
+    if (dateFilter !== "all") {
+      next = next.filter((event) => eventMatchesDateFilter(event, dateFilter));
+    }
+
+    if (specificDate) {
+      next = next.filter((event) =>
+    eventOverlapsDateText(event, specificDate),
+      );
+    }
+
+    if (priceFilter === "free") {
+      next = next.filter(isFreeEvent);
+    }
+
+    if (priceFilter === "paid") {
+      next = next.filter((event) => !isFreeEvent(event));
+    }
+
+    if (districtFilter !== "all") {
+      next = next.filter(
+        (event) => safeText(event.district || event.area) === districtFilter,
+      );
+    }
+
+    if (categoryFilter !== "all") {
+      next = next.filter((event) => getCategoryLabel(event, locale) === categoryFilter);
+    }
+
+    if (senOnly) {
+      next = next.filter(
+        (event) =>
+          Boolean(event.is_sen_friendly) ||
+          getCategoryLabel(event, locale) === uiText(locale, "SEN 友善", "SEN 友善", "SEN Friendly") ||
+          getTagArray(event.tags).some((tag) => tag.toUpperCase().includes("SEN")),
+      );
+    }
+
+    if (indoorOnly) {
+      next = next.filter(
+        (event) =>
+          Boolean(event.is_indoor) ||
+          getCategoryLabel(event, locale) === uiText(locale, "室內活動", "室内活动", "Indoor") ||
+          getTagArray(event.tags).some((tag) => tag.includes("室內")),
+      );
+    }
+
+    if (sortMode === "recommended") {
+      next.sort((a, b) => {
+        const favoriteScoreA = favoriteIds.includes(a.id) ? 1000 : 0;
+        const favoriteScoreB = favoriteIds.includes(b.id) ? 1000 : 0;
+        const scoreDiff =
+          scoreEvent(b) + favoriteScoreB - (scoreEvent(a) + favoriteScoreA);
+
+        if (scoreDiff !== 0) return scoreDiff;
+
+        const aDate = parseDateOnly(a.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const bDate = parseDateOnly(b.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        return aDate - bDate;
+      });
+    }
+
+    if (sortMode === "date_asc") {
+      next.sort((a, b) => {
+        const aTime = parseDateOnly(a.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const bTime = parseDateOnly(b.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+      });
+    }
+
+    if (sortMode === "date_desc") {
+      next.sort((a, b) => {
+        const aTime = parseDateOnly(a.start_date)?.getTime() || 0;
+        const bTime = parseDateOnly(b.start_date)?.getTime() || 0;
+        return bTime - aTime;
+      });
+    }
+
+    if (sortMode === "newest") {
+      next.sort((a, b) => {
+        const aTime = new Date(a.published_at || a.updated_at || a.created_at || 0).getTime();
+        const bTime = new Date(b.published_at || b.updated_at || b.created_at || 0).getTime();
+        return bTime - aTime;
+      });
+    }
+
+    return next;
+  }, [
+    events,
+    locale,
+    favoriteIds,
+    keyword,
+    dateFilter,
+    specificDate,
+    priceFilter,
+    districtFilter,
+    categoryFilter,
+    senOnly,
+    indoorOnly,
+    sortMode,
+  ]);
+
+  const todayCount = useMemo(
+    () => events.filter((event) => eventMatchesDateFilter(event, "today")).length,
+    [events],
+  );
+
+  const freeCount = useMemo(() => events.filter(isFreeEvent).length, [events]);
+
+  const imageReadyCount = useMemo(
+    () => events.filter(hasRealImage).length,
+    [events],
+  );
+
+  function clearFilters() {
+    setKeyword("");
+    setDateFilter("all");
+    setSpecificDate("");
+    setPriceFilter("all");
+    setDistrictFilter("all");
+    setCategoryFilter("all");
+    setSenOnly(false);
+    setIndoorOnly(false);
+    setSortMode("recommended");
+  }
+
+  function toggleFavorite(eventId: string) {
+    setFavoriteIds((current) => {
+      const exists = current.includes(eventId);
+      const next = exists
+        ? current.filter((id) => id !== eventId)
+        : [...current, eventId];
+
+      writeFavoriteIds(next);
+      return next;
+    });
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-50">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1500px] px-4 py-8">
+          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
+            <div>
+              <div className="flex flex-wrap gap-2">
+                <Badge tone="purple">{m.kicker}</Badge>
+                <Badge tone="green">{m.publicCount(events.length)}</Badge>
+                <Badge tone="amber">{m.todayCount(todayCount)}</Badge>
+                <Badge tone="rose">{m.savedCount(favoriteIds.length)}</Badge>
+              </div>
+
+              <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-950 lg:text-5xl">
+                {m.title}
+              </h1>
+
+              <p className="mt-4 max-w-3xl text-base font-medium leading-8 text-slate-600">
+                一站式搜尋香港親子市集、工作坊、展覽、商場活動、免費活動及家庭好去處。
+                活動卡已支援圖片切換、收藏、Google Map、分享及官方連結。
+              </p>
+            </div>
+
+            <div className="grid gap-3">
+              <QuickEntry
+                href="/today"
+                icon="☀️"
+                title={m.quickToday}
+                desc={m.quickTodayDesc}
+              />
+              <QuickEntry
+                href="/calendar"
+                icon="🗓️"
+                title={m.quickCalendar}
+                desc={m.quickCalendarDesc}
+              />
+              <QuickEntry
+                href="/events/map"
+                icon="🗺️"
+                title={m.quickMap}
+                desc={m.quickMapDesc}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <ClientPromotionSlot placement="events_top" locale={locale} limit={2} />
+
+      <section className="mx-auto max-w-[1500px] px-4 py-6">
+        <div className="grid gap-4 md:grid-cols-4">
+          <StatCard
+            label={m.summaryPublic}
+            value={events.length}
+            note={m.summaryPublicDesc}
+            tone="slate"
+          />
+          <StatCard
+            label={m.summaryFree}
+            value={freeCount}
+            note={m.summaryFreeDesc}
+            tone="green"
+          />
+          <StatCard
+            label={m.summaryImages}
+            value={imageReadyCount}
+            note={m.summaryImagesDesc}
+            tone="purple"
+          />
+          <StatCard
+            label={m.summaryFavorites}
+            value={favoriteIds.length}
+            note={m.summaryFavoritesDesc}
+            tone="amber"
+          />
+        </div>
+
+        <div className="mt-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-4 xl:grid-cols-[1fr_220px]">
+            <input
+              value={keyword}
+              onChange={(changeEvent) => setKeyword(changeEvent.target.value)}
+              placeholder={m.placeholder}
+              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            />
+
+            <select
+              value={sortMode}
+              onChange={(changeEvent) => setSortMode(changeEvent.target.value as SortMode)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="recommended">{m.sortRecommended}</option>
+              <option value="date_asc">{m.sortDateAsc}</option>
+              <option value="date_desc">{m.sortDateDesc}</option>
+              <option value="newest">{m.sortNewest}</option>
+            </select>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {dateFilterKeys.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setDateFilter(key)}
+                className={[
+                  "rounded-full px-4 py-2 text-sm font-black transition",
+                  dateFilter === key
+                    ? "bg-purple-700 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                ].join(" ")}
+              >
+                {dateFilterLabel(locale, key)}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <select
+              value={priceFilter}
+              onChange={(changeEvent) =>
+                setPriceFilter(changeEvent.target.value as PriceFilter)
+              }
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              {priceFilterKeys.map((key) => (
+                <option key={key} value={key}>
+                  {priceFilterLabel(locale, key)}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={districtFilter}
+              onChange={(changeEvent) => setDistrictFilter(changeEvent.target.value)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="all">{m.allDistricts}</option>
+              {districtOptions.map((district) => (
+                <option key={district} value={district}>
+                  {district}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={categoryFilter}
+              onChange={(changeEvent) => setCategoryFilter(changeEvent.target.value)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="all">{m.allCategories}</option>
+              {categoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-bold text-slate-500">
+              {m.shown(filteredEvents.length, events.length)}
+            </p>
+
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+              {m.clearFilters}
+            </button>
+          </div>
+        </div>
+
+        {errorText ? (
+          <div className="mt-5 rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm font-bold text-rose-800">
+            {errorText}
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-purple-50 text-2xl">
+              親
+            </div>
+            <p className="text-sm font-black text-slate-700">{m.loading}</p>
+          </div>
+        ) : null}
+
+        {!loading && filteredEvents.length === 0 ? (
+          <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <p className="text-xl font-black text-slate-950">
+              {m.emptyTitle}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              {m.emptyDesc}
+            </p>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-5 rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
+            >
+              {m.clearAll}
+            </button>
+          </div>
+        ) : null}
+
+        {!loading && filteredEvents.length > 0 ? (
+          <div className="mt-6 grid items-stretch gap-6 md:grid-cols-2 2xl:grid-cols-3">
+            {filteredEvents.map((event) => (
+              <EventCard
+                key={event.id}
+                event={event}
+                favoriteIds={favoriteIds}
+                onToggleFavorite={toggleFavorite}
+                locale={locale}
+              />
+            ))}
+          </div>
+        ) : null}
+      </section>
+    </main>
+  );
+}

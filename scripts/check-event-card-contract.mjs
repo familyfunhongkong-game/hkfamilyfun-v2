@@ -40,7 +40,7 @@ for (const file of sharedRoutes) {
   }
 }
 
-const eventSearch = await readFile("app/events/page.tsx", "utf8");
+const eventSearch = await readFile("components/events/PublicEventsSearchClient.tsx", "utf8");
 for (const signal of [
   "event.age_min",
   "event.age_max",

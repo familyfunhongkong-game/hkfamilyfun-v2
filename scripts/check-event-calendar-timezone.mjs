@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 const sources = {
   sharedCard: await readFile("components/events/PublicEventCard.tsx", "utf8"),
   publicMapper: await readFile("lib/supabase/events.ts", "utf8"),
-  eventSearch: await readFile("app/events/page.tsx", "utf8"),
+  eventSearch: await readFile("components/events/PublicEventsSearchClient.tsx", "utf8"),
   eventDetail: await readFile("app/events/[id]/page.tsx", "utf8"),
 };
 
