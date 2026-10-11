@@ -11,6 +11,10 @@ for (const signal of [
   'if [[ -n "$current_main_sha" && "$expected_sha" != "$current_main_sha" ]]',
   'echo "should_test=false"',
   "Capture mobile and desktop visual regression screenshots",
+  "Validate screenshot PNG integrity",
+  'signature !== "89504e470d0a1a0a"',
+  "buffer.readUInt32BE(16)",
+  "buffer.length < 15000",
 ]) {
   if (!smoke.includes(signal)) {
     console.error(`[production-smoke] missing safety signal: ${signal}`);
