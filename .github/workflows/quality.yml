@@ -113,6 +113,9 @@ jobs:
       - name: Production Smoke concurrency check
         run: npm run check:production-smoke
 
+      - name: Supabase migration drift safety lock
+        run: npm run check:migration-drift-lock
+
       - name: TypeScript check
         run: npm run type-check
 
