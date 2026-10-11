@@ -276,7 +276,7 @@ Authoritative procedure: **`docs/CUTOVER_RUNBOOK.md`**.
 - Unsupported legacy `0–99` age placeholders: **0**.
 - Resend is configured; normal Merchant/Admin notification infrastructure remains present.
 - Google Admin Drive callback env targets are now split across Production / Preview / Development; all still intentionally point to the staging Vercel callback until the live Google OAuth callback is allowlisted and custom-domain cutover begins.
-- Latest GitHub `main` commit `aa27a6c...` was explicitly redeployed to Vercel production after an automatic-deployment gap; the exact commit is READY on `hkfamilyfun-v2.vercel.app`, Vercel commit status is success, runtime region is `sin1`, and the post-deploy runtime error/warning scan is clean.
+- The latest GitHub `main` release candidate must be verified dynamically by exact deployed SHA rather than a hard-coded historical SHA in this checklist. The current release gate requires that exact `main` commit to be READY on `hkfamilyfun-v2.vercel.app`, Vercel commit status to be success, runtime region to remain `sin1`, and the post-deploy runtime error/warning scan to be clean.
 - Rebuild Vercel project currently owns only `hkfamilyfun-v2.vercel.app`; the custom domain has not been moved.
 - Sell with Family Fun native ticketing remains safely disabled.
 
