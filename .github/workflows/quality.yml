@@ -104,6 +104,9 @@ jobs:
       - name: Production E2E isolation check
         run: npm run check:production-e2e
 
+      - name: Launch documentation safety check
+        run: npm run check:launch-docs
+
       - name: TypeScript check
         run: npm run type-check
 
