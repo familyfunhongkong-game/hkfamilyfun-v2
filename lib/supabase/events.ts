@@ -2,6 +2,10 @@ import type { Event, PriceType } from "@/lib/types";
 import { supabase } from "@/lib/supabase/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import { formatEventAge } from "@/lib/events/age-display";
+import {
+  formatEventCategory,
+  normalizeEventTags,
+} from "@/lib/events/display-normalization";
 
 type DatabaseEvent = {
   id: string;
@@ -123,33 +127,8 @@ function formatTime(
 }
 
 function normalizeTags(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item).trim()).filter(Boolean).slice(0, 8);
-  }
-
-  if (typeof value === "string") {
-    const text = value.trim();
-    if (!text) return [];
-
-    try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        return parsed.map((item) => String(item).trim()).filter(Boolean).slice(0, 8);
-      }
-    } catch {
-      // Plain comma/newline-separated tags are expected in the current schema.
-    }
-
-    return text
-      .split(/[,\n，、]/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .slice(0, 8);
-  }
-
-  return [];
+  return normalizeEventTags(value, 8);
 }
-
 function formatPrice(event: DatabaseEvent, locale: AppLocale) {
   const isFree =
     event.is_free ||
@@ -267,7 +246,10 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
     ageRange: formatEventAge({ ageGroups: event.age_groups, ageMin: event.age_min, ageMax: event.age_max }, locale),
     organizer: event.organizer_name || event.merchant_name || (locale === "en" ? "Organizer TBC" : "主辦單位待定"),
     tags: normalizeTags(event.tags),
-    category: event.activity_category || event.category || "親子活動",
+    category: formatEventCategory(
+      event.activity_category || event.category,
+      locale,
+    ),
     priceType: (
       event.is_free || event.price_type === "free" || event.price_display_mode === "free"
         ? "free"
