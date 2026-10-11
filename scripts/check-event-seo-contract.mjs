@@ -31,6 +31,8 @@ for (const signal of [
   "addressCountry: \"HK\"",
   'recurrence_type).toLowerCase() === "weekly"',
   'replace(/</g, "\\\\u003c")',
+  "getEventStructuredDataImages",
+  "eventImages.length ? { image: eventImages } : {}",
 ]) {
   if (!seo.includes(signal)) {
     console.error(`[event-seo] SEO helper missing: ${signal}`);
@@ -40,6 +42,18 @@ for (const signal of [
 
 if (/service[_-]?role/i.test(seo)) {
   console.error("[event-seo] public SEO path must never use a service-role credential");
+  failed = true;
+}
+
+if (/image:\s*\[getEventSeoImage\(event\)\]/.test(seo)) {
+  console.error(
+    "[event-seo] JSON-LD must not use the HK Family Fun brand fallback as an event image",
+  );
+  failed = true;
+}
+
+if (!seo.includes("gallery_image_urls?: unknown")) {
+  console.error("[event-seo] JSON-LD should consider verified gallery images as event images");
   failed = true;
 }
 
