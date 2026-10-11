@@ -15,6 +15,11 @@ const files = {
   publicType: await readFile("lib/types.ts", "utf8"),
   systemHealth: await readFile("app/api/admin/system-health/route.ts", "utf8"),
   systemHealthPage: await readFile("app/admin/system/page.tsx", "utf8"),
+  visibility: await readFile("lib/events/visibility.ts", "utf8"),
+  publicVisibilityMigration: await readFile(
+    "supabase/migrations/20261011040256_preserve_open_ended_published_events.sql",
+    "utf8",
+  ),
   publicView: await readFile(
     "supabase/migrations/20260921114034_add_sanitized_public_events_view.sql",
     "utf8",
@@ -150,8 +155,47 @@ requireSignals("launch image quality UI", files.systemHealthPage, [
   "HK Family Fun branded placeholder",
 ]);
 
+requireSignals("open-ended event visibility", files.visibility, [
+  "isExplicitlyExpiredEvent",
+  "isCurrentOrOpenEndedEvent",
+  "isOpenEndedPastStart",
+  "Asia/Hong_Kong",
+]);
+
+requireSignals("open-ended visibility migration", files.publicVisibilityMigration, [
+  'alter policy "Public can view published events"',
+  'alter policy "Public can view published event images"',
+  "end_date is null",
+  "security_invoker = true",
+  "hidden_pending_confirmation",
+]);
+
+requireSignals("open-ended launch health", files.systemHealth, [
+  "isCurrentOrOpenEndedEvent",
+  "isOpenEndedPastStart",
+  "openEndedPastStart",
+  "openEndedPastStartItems",
+]);
+
+requireSignals("open-ended launch health UI", files.systemHealthPage, [
+  "Open-ended review",
+  "已開始但未提供結束日",
+  "只有明確",
+  "end_date 已過先會視作過期",
+]);
+
 if (files.systemHealthPage.includes("Core completeness 會檢查活動名稱、日期、地址、圖片")) {
   console.error("[event-data] System Health must not describe image as core-required data");
+  failed = true;
+}
+
+if (files.publicEvents.includes("event.end_date || event.start_date")) {
+  console.error("[event-data] public listing must not treat start_date as an implicit end_date");
+  failed = true;
+}
+
+if (files.systemHealth.includes("event.end_date || event.start_date")) {
+  console.error("[event-data] launch health must not treat start_date as an implicit end_date");
   failed = true;
 }
 
