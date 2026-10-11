@@ -288,6 +288,9 @@ jobs:
           advertising_code="$(curl -sS -o /tmp/advertising.json -w "%{http_code}" --max-time 30             -X POST "$BASE/api/merchant-advertising-enquiry"             -H "Content-Type: application/json"             --data '{"request_id":"00000000-0000-4000-8000-000000000001","promotion_type":"home_banner","campaign_name":"anonymous-smoke"}')"
           test "$advertising_code" = "401"
 
+          cron_code="$(curl -sS -o /tmp/archive-cron.json -w "%{http_code}" --max-time 30 "$BASE/api/cron/archive-expired-events")"
+          test "$cron_code" = "401"
+
       - name: Check SEO index mode
         if: steps.deployment_gate.outputs.should_test == 'true'
         shell: bash
