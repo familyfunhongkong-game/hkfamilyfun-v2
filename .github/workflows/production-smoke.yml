@@ -407,6 +407,83 @@ jobs:
             test -s "visual-smoke/desktop/$name.png"
           done
 
+      - name: Validate screenshot PNG integrity
+        if: steps.deployment_gate.outputs.should_test == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          node <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+
+          const expectedNames = [
+            "home",
+            "events",
+            "today",
+            "calendar",
+            "map",
+            "event-detail",
+            "merchant-advertising",
+            "admin-login",
+          ];
+
+          const expectedSets = [
+            { dir: "visual-smoke/mobile", width: 390, height: 844 },
+            { dir: "visual-smoke/desktop", width: 1440, height: 1000 },
+          ];
+
+          for (const set of expectedSets) {
+            for (const name of expectedNames) {
+              const file = path.join(set.dir, name + ".png");
+
+              if (!fs.existsSync(file)) {
+                throw new Error("missing screenshot: " + file);
+              }
+
+              const buffer = fs.readFileSync(file);
+              if (buffer.length < 15000) {
+                throw new Error(
+                  "screenshot is unexpectedly small / likely blank: " +
+                    file +
+                    " bytes=" +
+                    buffer.length,
+                );
+              }
+
+              const signature = buffer.subarray(0, 8).toString("hex");
+              if (signature !== "89504e470d0a1a0a") {
+                throw new Error("not a valid PNG: " + file);
+              }
+
+              const width = buffer.readUInt32BE(16);
+              const height = buffer.readUInt32BE(20);
+
+              if (width !== set.width || height !== set.height) {
+                throw new Error(
+                  "unexpected screenshot dimensions: " +
+                    file +
+                    " expected=" +
+                    set.width +
+                    "x" +
+                    set.height +
+                    " actual=" +
+                    width +
+                    "x" +
+                    height,
+                );
+              }
+
+              console.log(
+                "[visual-smoke] OK",
+                file,
+                width + "x" + height,
+                buffer.length + " bytes",
+              );
+            }
+          }
+          NODE
+
       - name: Upload visual regression artifact
         if: steps.deployment_gate.outputs.should_test == 'true'
         uses: actions/upload-artifact@v4
