@@ -15,6 +15,15 @@ const files = {
   publicType: await readFile("lib/types.ts", "utf8"),
   systemHealth: await readFile("app/api/admin/system-health/route.ts", "utf8"),
   systemHealthPage: await readFile("app/admin/system/page.tsx", "utf8"),
+  visibility: await readFile("lib/events/visibility.ts", "utf8"),
+  publicVisibilityMigration: await readFile(
+    "supabase/migrations/20261011040256_preserve_open_ended_published_events.sql",
+    "utf8",
+  ),
+  testMerchantCleanupMigration: await readFile(
+    "supabase/migrations/20261011040824_remove_test_merchants_preserve_events.sql",
+    "utf8",
+  ),
   publicView: await readFile(
     "supabase/migrations/20260921114034_add_sanitized_public_events_view.sql",
     "utf8",
@@ -131,6 +140,40 @@ requireSignals("launch content integrity API", files.systemHealth, [
   "ageGroups: event.age_groups",
 ]);
 
+requireSignals("open-ended event visibility", files.visibility, [
+  "isExplicitlyExpiredEvent",
+  "isCurrentOrOpenEndedEvent",
+  "isOpenEndedPastStart",
+  "Asia/Hong_Kong",
+]);
+
+requireSignals("open-ended public data", files.publicEvents, [
+  "isInternalTestEvent",
+  "isExplicitlyExpiredEvent(event.end_date)",
+]);
+
+requireSignals("open-ended launch health", files.systemHealth, [
+  "isCurrentOrOpenEndedEvent(event.end_date, today)",
+  "isOpenEndedPastStart(event.start_date, event.end_date, today)",
+  "openEndedPastStart",
+  "openEndedPastStartItems",
+]);
+
+requireSignals("open-ended visibility migration", files.publicVisibilityMigration, [
+  'alter policy "Public can view published events"',
+  'alter policy "Public can view published event images"',
+  "end_date is null",
+  "security_invoker = true",
+  "hidden_pending_confirmation",
+]);
+
+requireSignals("test merchant cleanup migration", files.testMerchantCleanupMigration, [
+  "Test Family Fun Centre",
+  "business_name='Test'",
+  "status='pending'",
+  "status='archived'",
+]);
+
 if (files.systemHealth.includes(",whatsapp,age_group,age_groups,")) {
   console.error(
     "[event-data] launch health must not depend on legacy age_group database column",
@@ -145,6 +188,13 @@ requireSignals("launch content integrity UI", files.systemHealthPage, [
   "currentFutureCoreIncompleteItems",
 ]);
 
+requireSignals("open-ended launch health UI", files.systemHealthPage, [
+  "Open-ended review",
+  "已開始但未提供結束日",
+  "openEndedPastStartItems",
+  "end_date 已過先會視作過期",
+]);
+
 requireSignals("launch image quality UI", files.systemHealthPage, [
   "缺官方圖（warning）",
   "HK Family Fun branded placeholder",
@@ -152,6 +202,24 @@ requireSignals("launch image quality UI", files.systemHealthPage, [
 
 if (files.systemHealthPage.includes("Core completeness 會檢查活動名稱、日期、地址、圖片")) {
   console.error("[event-data] System Health must not describe image as core-required data");
+  failed = true;
+}
+
+if (files.publicEvents.includes("parseCalendarDate(event.end_date || event.start_date)")) {
+  console.error(
+    "[event-data] public event expiry must not treat start_date as an implicit end_date",
+  );
+  failed = true;
+}
+
+if (
+  /currentFutureRows\s*=\s*publishedRows\.filter[\s\S]{0,220}end_date\s*\|\|\s*event\.start_date/.test(
+    files.systemHealth,
+  )
+) {
+  console.error(
+    "[event-data] Published Current/Future health must use explicit end_date semantics",
+  );
   failed = true;
 }
 
