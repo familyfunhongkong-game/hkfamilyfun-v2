@@ -188,7 +188,7 @@ export function evaluateEventReadiness(
       label: "適合年齡",
       done: ageReady,
       level: "critical",
-      note: "HK Family Fun 卡片及搜尋需要年齡資料；可用年齡層或最小/最大年齡，且最大年齡不可小於最小年齡。",
+      note: "HK Family Fun 卡片及搜尋需要明確年齡狀態；可用年齡層、最小/最大年齡，或在官方資料沒有年齡限制說明時選「主辦方未註明」。不可把未知年齡估成「所有年齡」。",
     },
     {
       key: "organizer",

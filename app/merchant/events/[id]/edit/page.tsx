@@ -320,6 +320,7 @@ const AGE_GROUP_OPTIONS = [
   "中學生",
   "親子家庭",
   "所有年齡",
+  "主辦方未註明",
 ] as const;
 
 const priceModes = [
@@ -541,14 +542,16 @@ function toggleWeekday(days: number[], value: number) {
 }
 
 function toggleAgeGroup(values: string[], value: string) {
-  if (value === "所有年齡") {
-    return values.includes(value) ? [] : ["所有年齡"];
+  const exclusiveValues = new Set(["所有年齡", "主辦方未註明"]);
+
+  if (exclusiveValues.has(value)) {
+    return values.includes(value) ? [] : [value];
   }
 
-  const withoutAllAges = values.filter((item) => item !== "所有年齡");
-  return withoutAllAges.includes(value)
-    ? withoutAllAges.filter((item) => item !== value)
-    : [...withoutAllAges, value];
+  const withoutExclusive = values.filter((item) => !exclusiveValues.has(item));
+  return withoutExclusive.includes(value)
+    ? withoutExclusive.filter((item) => item !== value)
+    : [...withoutExclusive, value];
 }
 
 function readiness(form: FormState, organizerFallback = "") {
@@ -871,7 +874,9 @@ export default function MerchantEventEditPage() {
       ...previous,
       [key]: value,
       age_groups: value
-        ? previous.age_groups.filter((item) => item !== "所有年齡")
+        ? previous.age_groups.filter(
+            (item) => item !== "所有年齡" && item !== "主辦方未註明",
+          )
         : previous.age_groups,
     }));
   }
@@ -882,7 +887,8 @@ export default function MerchantEventEditPage() {
       return {
         ...previous,
         age_groups: nextGroups,
-        ...(value === "所有年齡" && nextGroups.includes("所有年齡")
+        ...(["所有年齡", "主辦方未註明"].includes(value) &&
+        nextGroups.includes(value)
           ? { age_min: "", age_max: "" }
           : {}),
       };
@@ -1866,7 +1872,7 @@ export default function MerchantEventEditPage() {
                   <div>
                     <h3 className="text-sm font-black text-purple-950">適合年齡及活動環境</h3>
                     <p className="mt-1 text-xs leading-5 text-purple-800">
-                      年齡會顯示在 Event Card / Detail Page。可揀年齡層，亦可填最小／最大年齡。
+                      年齡會顯示在 Event Card / Detail Page。可揀年齡層，亦可填最小／最大年齡。若官方資料完全沒有年齡限制說明，請選「主辦方未註明」；不要自行估成「所有年齡」。
                     </p>
                   </div>
                   <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-purple-700 ring-1 ring-purple-100">

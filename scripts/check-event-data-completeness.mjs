@@ -43,7 +43,8 @@ requireSignals("merchant editor", files.merchant, [
   'Google Event rich result',
   'function toggleAgeGroup',
   'function updateAgeNumber',
-  'value === "所有年齡"',
+  '"主辦方未註明"',
+  'exclusiveValues = new Set(["所有年齡", "主辦方未註明"])',
   'getGalleryArray(event.age_group)',
 ]);
 
@@ -95,6 +96,8 @@ requireSignals("admin list", files.adminList, [
 requireSignals("age display", files.age, [
   '"所有年齡"',
   '"All ages"',
+  '"主辦方未註明"',
+  '"Age restriction not stated by organizer"',
   'return "Age TBC"',
   'return locale === "zh-Hans" ? "年龄待定" : "年齡待定"',
   'legacyAgeGroup',
@@ -174,6 +177,11 @@ if (
   files.favorites.includes('return locale === "en" ? "All ages"')
 ) {
   console.error("[event-data] missing age data must never be silently labelled All ages");
+  failed = true;
+}
+
+if (!files.readiness.includes("不可把未知年齡估成「所有年齡」")) {
+  console.error("[event-data] readiness copy must preserve truthful unknown-age handling");
   failed = true;
 }
 
