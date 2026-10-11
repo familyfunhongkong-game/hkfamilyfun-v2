@@ -31,6 +31,7 @@ export type EventSeoRecord = {
   address_en?: string | null;
   district?: string | null;
   cover_image_url?: string | null;
+  gallery_image_urls?: unknown;
   price_type?: string | null;
   price_display_mode?: string | null;
   min_price?: number | string | null;
@@ -117,8 +118,23 @@ export function getEventSeoDescription(event: EventSeoRecord) {
   return raw.replace(/\s+/g, " ").slice(0, 180);
 }
 
+function realEventImageUrls(event: EventSeoRecord) {
+  const urls = [
+    httpUrl(event.cover_image_url),
+    ...(Array.isArray(event.gallery_image_urls)
+      ? event.gallery_image_urls.map((value) => httpUrl(value))
+      : []),
+  ].filter(Boolean);
+
+  return Array.from(new Set(urls));
+}
+
 export function getEventSeoImage(event: EventSeoRecord) {
-  return httpUrl(event.cover_image_url) || FALLBACK_OG_IMAGE;
+  return realEventImageUrls(event)[0] || FALLBACK_OG_IMAGE;
+}
+
+export function getEventStructuredDataImages(event: EventSeoRecord) {
+  return realEventImageUrls(event);
 }
 
 export function getEventVenueName(event: EventSeoRecord) {
@@ -215,6 +231,7 @@ export function buildEventJsonLd(event: EventSeoRecord) {
     text(event.price_display_mode).toLowerCase() === "free";
   const minPrice = numericPrice(event.min_price);
   const offerPrice = isFree ? 0 : minPrice;
+  const eventImages = getEventStructuredDataImages(event);
 
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -224,7 +241,7 @@ export function buildEventJsonLd(event: EventSeoRecord) {
     startDate,
     ...(endDate ? { endDate } : {}),
     url: canonicalEventUrl(event.id),
-    image: [getEventSeoImage(event)],
+    ...(eventImages.length ? { image: eventImages } : {}),
     location: {
       "@type": "Place",
       ...(venueName ? { name: venueName } : {}),
