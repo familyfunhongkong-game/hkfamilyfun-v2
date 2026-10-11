@@ -1,11 +1,6 @@
 name: Legacy Delta Sync
 
 on:
-  push:
-    branches:
-      - ops-legacy-delta-dry-run-20261011
-    paths:
-      - ".github/workflows/legacy-delta-sync.yml"
   workflow_dispatch:
     inputs:
       mode:
@@ -77,8 +72,8 @@ jobs:
           OLD_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.OLD_SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          APPLY_MIGRATION: "true"
-          MIGRATION_CONFIRM: "SAFE_DELTA_ONLY"
+          APPLY_MIGRATION: ${{ inputs.mode == 'safe-apply' && 'true' || 'false' }}
+          MIGRATION_CONFIRM: ${{ inputs.mode == 'safe-apply' && inputs.confirmation || '' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/migrate-legacy-familyfun.mjs
