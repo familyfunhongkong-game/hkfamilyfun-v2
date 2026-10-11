@@ -92,6 +92,9 @@ jobs:
       - name: Event calendar timezone check
         run: npm run check:event-calendar
 
+      - name: Events server preload check
+        run: npm run check:events-ssr
+
       - name: Advertising order lifecycle check
         run: npm run check:advertising-orders
 
