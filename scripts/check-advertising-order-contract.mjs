@@ -17,6 +17,10 @@ const files = {
     "supabase/migrations/20261008175628_index_merchant_advertising_order_submitter.sql",
     "utf8",
   ),
+  promotionGuard: await readFile(
+    "supabase/migrations/20261011003715_harden_paid_promotion_visibility.sql",
+    "utf8",
+  ),
 };
 
 let failed = false;
@@ -114,6 +118,15 @@ requireSignals("Database RLS", files.migration, [
 requireSignals("Submitter index", files.submitterIndex, [
   "merchant_advertising_orders_submitted_by_idx",
   "(submitted_by)",
+]);
+
+requireSignals("Promotion database guard", files.promotionGuard, [
+  "promo_banners_active_commercial_guard",
+  "status <> 'active'",
+  "or is_paid",
+  "= 'hk family fun'",
+  'create policy "Anon can view active promo banners"',
+  'create policy "Authenticated can view public banners or admin all"',
 ]);
 
 requireSignals("Commerce rules", files.commerce, [
