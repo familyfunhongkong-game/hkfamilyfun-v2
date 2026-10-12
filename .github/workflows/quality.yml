@@ -128,6 +128,9 @@ jobs:
       - name: Mobile event content regression check
         run: npm run check:event-mobile-content
 
+      - name: Event import extraction regression check
+        run: npm run check:event-import
+
       - name: TypeScript check
         run: npm run type-check
 
