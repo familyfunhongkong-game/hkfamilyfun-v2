@@ -1155,6 +1155,9 @@ export default function NearbyEventsMapPage() {
                   fitRequest={fitRequest}
                   fitEnabled={!viewportOnly}
                   onBoundsChange={setMapBounds}
+                  favoriteIds={favoriteIds}
+                  onToggleFavorite={toggleFavorite}
+                  onAddCalendar={addEventToCalendar}
                 />
               ) : (
                 <div className="flex min-h-[52vh] items-center justify-center p-8 text-center text-sm font-bold text-rose-700 lg:min-h-full">
