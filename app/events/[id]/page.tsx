@@ -1044,9 +1044,9 @@ export default function PublicEventDetailPage() {
     en: structuredLocalizedText(event.highlights_en || event.highlights, "en"),
   });
   const terms = localizedText(locale, {
-    tc: event.terms,
-    sc: event.terms_sc,
-    en: event.terms_en,
+    tc: structuredLocalizedText(event.terms, "zh-Hant"),
+    sc: structuredLocalizedText(event.terms_sc || event.terms, "zh-Hans"),
+    en: structuredLocalizedText(event.terms_en || event.terms, "en"),
   });
   const parentNote = localizedText(locale, {
     tc: event.parent_note_tc,
