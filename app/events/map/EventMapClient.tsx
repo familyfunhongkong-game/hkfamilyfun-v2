@@ -155,6 +155,9 @@ export default function EventMapClient({
   fitRequest,
   onBoundsChange,
   fitEnabled = true,
+  favoriteIds,
+  onToggleFavorite,
+  onAddCalendar,
 }: {
   events: MapEvent[];
   userLocation: UserLocation;
@@ -163,6 +166,9 @@ export default function EventMapClient({
   fitRequest: number;
   onBoundsChange?: (bounds: MapBounds) => void;
   fitEnabled?: boolean;
+  favoriteIds: string[];
+  onToggleFavorite: (eventId: string) => void;
+  onAddCalendar: (eventId: string) => void;
 }) {
   const selectedEvent =
     events.find((event) => event.id === selectedEventId) || null;
@@ -330,7 +336,7 @@ export default function EventMapClient({
                           ) : null}
                         </button>
 
-                        <div className="mt-2 flex gap-2">
+                        <div className="mt-2 flex flex-wrap gap-2">
                           <a
                             href={`/events/${event.id}`}
                             className="rounded-lg bg-teal-700 px-2.5 py-1.5 text-[11px] font-bold text-white"
@@ -347,6 +353,24 @@ export default function EventMapClient({
                               路線
                             </a>
                           ) : null}
+                          <button
+                            type="button"
+                            onClick={() => onToggleFavorite(event.id)}
+                            className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold ring-1 ${
+                              favoriteIds.includes(event.id)
+                                ? "bg-rose-50 text-rose-700 ring-rose-100"
+                                : "bg-white text-slate-700 ring-slate-200"
+                            }`}
+                          >
+                            {favoriteIds.includes(event.id) ? "已收藏" : "♡ 收藏"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onAddCalendar(event.id)}
+                            className="rounded-lg bg-sky-50 px-2.5 py-1.5 text-[11px] font-bold text-sky-700 ring-1 ring-sky-100"
+                          >
+                            📅 日曆
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -412,7 +436,7 @@ export default function EventMapClient({
                     ) : null}
                   </div>
 
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <a
                       href={`/events/${first.id}`}
                       className="rounded-lg bg-teal-700 px-3 py-2 text-xs font-bold text-white"
@@ -429,6 +453,24 @@ export default function EventMapClient({
                         路線
                       </a>
                     ) : null}
+                    <button
+                      type="button"
+                      onClick={() => onToggleFavorite(first.id)}
+                      className={`rounded-lg px-3 py-2 text-xs font-bold ring-1 ${
+                        favoriteIds.includes(first.id)
+                          ? "bg-rose-50 text-rose-700 ring-rose-100"
+                          : "bg-white text-slate-700 ring-slate-200"
+                      }`}
+                    >
+                      {favoriteIds.includes(first.id) ? "已收藏" : "♡ 收藏"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onAddCalendar(first.id)}
+                      className="rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700 ring-1 ring-sky-100"
+                    >
+                      📅 日曆
+                    </button>
                   </div>
                 </div>
               )}
