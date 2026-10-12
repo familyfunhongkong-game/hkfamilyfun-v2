@@ -59,34 +59,44 @@ export async function POST(request: NextRequest) {
 
   const now = new Date().toISOString();
 
-  if (action === "save") {
-    const patch = {
-      title_tc: text(form.get("title_tc")) || event.title_tc,
-      description_tc: text(form.get("description_tc")) || null,
-      highlights: text(form.get("highlights")) || null,
-      terms: text(form.get("terms")) || null,
-      parent_note_tc: text(form.get("parent_note_tc")) || null,
-      safety_note_tc: text(form.get("safety_note_tc")) || null,
-      venue_name: text(form.get("venue_name")) || null,
-      address: text(form.get("address")) || null,
-      organizer_name: text(form.get("organizer_name")) || null,
-      start_date: text(form.get("start_date")) || null,
-      end_date: text(form.get("end_date")) || null,
-      start_time: text(form.get("start_time")) || null,
-      end_time: text(form.get("end_time")) || null,
-      price_display_mode:
-        text(form.get("price_display_mode")) || event.price_display_mode || "unknown",
-      price_label: text(form.get("price_label")) || null,
-      is_free: text(form.get("price_display_mode")) === "free",
-      cover_image_url: text(form.get("cover_image_url")) || null,
-      registration_url: text(form.get("registration_url")) || null,
-      official_url: text(form.get("official_url")) || event.official_url || null,
-      updated_at: now,
-    };
+  // Every action reads the same editable form, so approval never loses corrections.
+  const patch = {
+    title_tc: text(form.get("title_tc")) || event.title_tc,
+    description_tc: text(form.get("description_tc")) || null,
+    highlights: text(form.get("highlights")) || null,
+    terms: text(form.get("terms")) || null,
+    parent_note_tc: text(form.get("parent_note_tc")) || null,
+    safety_note_tc: text(form.get("safety_note_tc")) || null,
+    venue_name: text(form.get("venue_name")) || null,
+    address: text(form.get("address")) || null,
+    organizer_name: text(form.get("organizer_name")) || null,
+    start_date: text(form.get("start_date")) || null,
+    end_date: text(form.get("end_date")) || null,
+    start_time: text(form.get("start_time")) || null,
+    end_time: text(form.get("end_time")) || null,
+    price_display_mode:
+      text(form.get("price_display_mode")) || event.price_display_mode || "unknown",
+    price_label: text(form.get("price_label")) || null,
+    is_free: text(form.get("price_display_mode")) === "free",
+    cover_image_url: text(form.get("cover_image_url")) || null,
+    registration_url: text(form.get("registration_url")) || null,
+    official_url: text(form.get("official_url")) || event.official_url || null,
+    updated_at: now,
+  };
 
+  if (action === "save") {
     const { error } = await admin.from("events").update(patch).eq("id", id);
     if (error) return new NextResponse("Unable to save changes.", { status: 500 });
     return redirectBack(request, id, expires, sig, "saved");
+  }
+
+  if (!["approve", "publish", "reject"].includes(action)) {
+    return new NextResponse("Unsupported action.", { status: 400 });
+  }
+
+  // An older email must never undo an already published event.
+  if (event.status === "published" || event.status === "rejected") {
+    return new NextResponse("This event has already been finalized.", { status: 409 });
   }
 
   const note = text(form.get("admin_note"));
@@ -95,6 +105,7 @@ export async function POST(request: NextRequest) {
     const { error } = await admin
       .from("events")
       .update({
+        ...patch,
         status: "approved",
         reviewed_at: now,
         admin_review_note: note || "Approved from secure email review.",
@@ -108,7 +119,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "publish") {
-    const missing = publishMissing(event as Record<string, unknown>);
+    const missing = publishMissing({ ...event, ...patch } as Record<string, unknown>);
     if (missing.length) {
       const url = new URL("/event-review/" + encodeURIComponent(id), request.url);
       url.searchParams.set("expires", expires);
@@ -121,6 +132,7 @@ export async function POST(request: NextRequest) {
     const { error } = await admin
       .from("events")
       .update({
+        ...patch,
         status: "published",
         published_at: event.published_at || now,
         reviewed_at: now,
@@ -142,6 +154,7 @@ export async function POST(request: NextRequest) {
     const { error } = await admin
       .from("events")
       .update({
+        ...patch,
         status: "rejected",
         reviewed_at: now,
         admin_review_note: note,

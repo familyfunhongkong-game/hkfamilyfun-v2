@@ -73,7 +73,7 @@ export default async function EventReviewPage({ params, searchParams }: PageProp
             <p className="text-sm font-black text-purple-700">HK Family Fun</p>
             <h1 className="mt-1 text-3xl font-black">活動 Review</h1>
             <p className="mt-2 text-sm text-slate-600">
-              安全電郵審批頁；毋須登入 Admin。請核對資料後再批准或發布。
+              安全電郵審批頁；毋須登入 Admin。請核對資料後直接批准或發布；修改內容會一併儲存。
             </p>
           </div>
           <span className="rounded-full bg-white px-4 py-2 text-sm font-black ring-1 ring-slate-200">
@@ -109,7 +109,7 @@ export default async function EventReviewPage({ params, searchParams }: PageProp
               </div>
             )}
 
-            <form method="post" action="/api/event-review" className="space-y-4">
+            <form id="event-review-form" method="post" action="/api/event-review" className="space-y-4">
               {hidden}
               <label className="block text-sm font-black">
                 活動名稱
@@ -182,19 +182,19 @@ export default async function EventReviewPage({ params, searchParams }: PageProp
           <aside className="space-y-5">
             <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
               <h2 className="text-lg font-black">審批</h2>
-              <form method="post" action="/api/event-review" className="mt-4 space-y-3">
+              <div className="mt-4 space-y-3">
                 {hidden}
-                <textarea name="admin_note" rows={4} placeholder="可選：審批備註；退回時必填。" className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                <button name="action" value="publish" className="w-full rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white">
+                <textarea form="event-review-form" name="admin_note" rows={4} placeholder="可選：審批備註；退回時必填。" className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
+                <button form="event-review-form" name="action" value="publish" className="w-full rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white">
                   批准並正式發布
                 </button>
-                <button name="action" value="approve" className="w-full rounded-2xl bg-purple-700 px-5 py-4 text-sm font-black text-white">
+                <button form="event-review-form" name="action" value="approve" className="w-full rounded-2xl bg-purple-700 px-5 py-4 text-sm font-black text-white">
                   只批准，暫不公開
                 </button>
-                <button name="action" value="reject" className="w-full rounded-2xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm font-black text-rose-700">
+                <button form="event-review-form" name="action" value="reject" className="w-full rounded-2xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm font-black text-rose-700">
                   退回 / 不發布
                 </button>
-              </form>
+              </div>
             </section>
 
             <section className="rounded-3xl bg-purple-50 p-5 ring-1 ring-purple-100">
