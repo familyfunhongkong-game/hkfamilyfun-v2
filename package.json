@@ -31,7 +31,8 @@
     "db:pull": "supabase db pull",
     "db:reset": "supabase db reset",
     "check:calendar-persona": "node scripts/check-calendar-persona-contract.mjs",
-    "check:merchant-preview": "node scripts/check-merchant-preview-contract.mjs"
+    "check:merchant-preview": "node scripts/check-merchant-preview-contract.mjs",
+    "check:approval-workflow": "node scripts/check-approval-workflow-contract.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
