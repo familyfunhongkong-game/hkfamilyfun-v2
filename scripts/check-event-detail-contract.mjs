@@ -18,6 +18,10 @@ const requiredSignals = [
   "ageDisplay",
   "Google Map",
   "rel=\"noopener noreferrer\"",
+  "structuredLocalizedText",
+  "recurrenceDateNote",
+  ".split(/\\n+/)",
+  "bg-purple-500",
 ];
 
 let failed = false;
@@ -31,6 +35,23 @@ for (const signal of requiredSignals) {
 
 if (source.includes("DB Cover")) {
   console.error("[event-detail] internal database wording must not appear in public UI");
+  failed = true;
+}
+
+const dateFormatterStart = source.indexOf("function formatDateRange");
+const timeFormatterStart = source.indexOf("function formatTimeRange");
+const dateFormatter =
+  dateFormatterStart >= 0 && timeFormatterStart > dateFormatterStart
+    ? source.slice(dateFormatterStart, timeFormatterStart)
+    : "";
+
+if (!dateFormatter.includes("recurrenceDateNote(event.recurrence_note)")) {
+  console.error("[event-detail] recurrence note must be stripped of time before entering the date field");
+  failed = true;
+}
+
+if (!source.includes("structuredLocalizedText(event.highlights")) {
+  console.error("[event-detail] highlights must normalize structured multilingual data before rendering");
   failed = true;
 }
 
