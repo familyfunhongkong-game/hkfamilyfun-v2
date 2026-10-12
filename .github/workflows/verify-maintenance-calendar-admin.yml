@@ -1,0 +1,40 @@
+name: Verify Maintenance Calendar Admin
+
+on:
+  push:
+    branches:
+      - ops-verify-maintenance-calendar-admin-20261011
+    paths:
+      - ".github/workflows/verify-maintenance-calendar-admin.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify live maintenance and Admin login
+        shell: bash
+        run: |
+          set -euo pipefail
+          live_home="$(curl -L -sS --fail --max-time 30 https://www.hkfamilyfun.com/)"
+          echo "$live_home" | grep -q "網站升級進行中"
+
+          admin_login="$(curl -L -sS --fail --max-time 30 https://www.hkfamilyfun.com/admin/login)"
+          echo "$admin_login" | grep -q "管理員登入"
+          echo "$admin_login" | grep -q "登入 Admin Portal"
+
+      - name: Verify calendar month navigation and Hong Kong holidays on staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          nov="$(curl -L -sS --fail --max-time 30 'https://hkfamilyfun-v2.vercel.app/calendar?month=2026-11')"
+          echo "$nov" | grep -q "2026年11月"
+
+          oct="$(curl -L -sS --fail --max-time 30 'https://hkfamilyfun-v2.vercel.app/calendar?month=2026-10')"
+          echo "$oct" | grep -q "2026年10月"
+          echo "$oct" | grep -q "國慶日"
+          echo "$oct" | grep -q "重陽節翌日"
+          echo "$oct" | grep -q "紅色日期 = 香港公眾假期"
