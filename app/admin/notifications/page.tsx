@@ -37,6 +37,9 @@ function formatTime(value: string) {
 }
 
 function kindLabel(kind: string) {
+  if (kind === "merchant_updated") return "商戶修改";
+  if (kind === "event_created") return "新活動草稿";
+  if (kind === "event_updated") return "活動修改";
   if (kind === "merchant_registered") return "新商戶";
   if (kind === "event_submitted") return "活動待審";
   if (kind === "event_status_changed") return "活動狀態";
@@ -143,11 +146,12 @@ export default function AdminNotificationsPage() {
                 通知中心
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                所有新商戶及活動審批通知會先寫入站內 queue。即使 email provider 暫時未設定或失效，Admin 仍然可以在這裡看到待處理事項。
+                商戶註冊、建立活動、修改資料及提交審批會顯示在此。完整操作記錄可到「變更歷史」查看；即使電郵暫時未送出，站內通知仍會保留。
               </p>
             </div>
 
             <div className="flex gap-2">
+              <Link href="/admin/change-history" className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white">變更歷史</Link>
               <button
                 type="button"
                 onClick={() => void loadNotifications()}
@@ -253,7 +257,7 @@ export default function AdminNotificationsPage() {
                   </div>
 
                   <div className="flex shrink-0 flex-col gap-2">
-                    {row.kind === "event_submitted" || row.kind === "event_status_changed" ? (
+                    {["event_submitted", "event_status_changed", "event_created", "event_updated"].includes(row.kind) ? (
                       <Link
                         href={row.event_id ? `/admin/events/${row.event_id}` : "/admin/events"}
                         className="rounded-full bg-slate-950 px-4 py-2 text-center text-xs font-black text-white hover:bg-slate-800"
@@ -262,7 +266,7 @@ export default function AdminNotificationsPage() {
                       </Link>
                     ) : null}
 
-                    {row.kind === "merchant_registered" || row.kind === "merchant_status_changed" ? (
+                    {["merchant_registered", "merchant_status_changed", "merchant_updated"].includes(row.kind) ? (
                       <Link
                         href="/admin/merchants"
                         className="rounded-full bg-slate-950 px-4 py-2 text-center text-xs font-black text-white hover:bg-slate-800"
