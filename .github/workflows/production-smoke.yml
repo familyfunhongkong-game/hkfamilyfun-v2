@@ -74,7 +74,7 @@ jobs:
 
           current_main_sha="$(resolve_main_sha)"
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" || "${{ github.event_name }}" == "push" ]]; then
             expected_sha="$current_main_sha"
           else
             expected_sha="${{ github.event.workflow_run.head_sha }}"
