@@ -988,6 +988,12 @@ export async function POST(request: NextRequest) {
 
       const structured = extractStructuredPageDetails(html, resolvedSourceUrl);
 
+      if (structured.startDate) {
+        event.start_date = structured.startDate;
+      }
+      if (structured.endDate) {
+        event.end_date = structured.endDate;
+      }
       if (structured.venueName) {
         event.venue_name = structured.venueName;
       }
