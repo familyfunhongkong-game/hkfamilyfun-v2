@@ -122,6 +122,9 @@ jobs:
       - name: Merchant preview schema check
         run: npm run check:merchant-preview
 
+      - name: Approval workflow regression check
+        run: npm run check:approval-workflow
+
       - name: TypeScript check
         run: npm run type-check
 
