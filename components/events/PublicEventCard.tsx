@@ -355,6 +355,19 @@ export default function PublicEventCard({
                 : event.organizer}
             </p>
 
+            {event.tags.length ? (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {event.tags.slice(0, 2).map((tag) => (
+                  <span
+                    key={tag}
+                    className={`rounded-full px-2 py-0.5 text-[9px] font-bold ring-1 ${tagTone(tag)}`}
+                  >
+                    {displayTag(tag)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
