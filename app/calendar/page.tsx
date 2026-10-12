@@ -28,6 +28,12 @@ function shiftMonth(key: string, delta: number) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function eventTimeSortValue(time: string) {
+  const match = String(time || "").match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
 export default async function CalendarPage({
   searchParams,
 }: {
@@ -67,19 +73,25 @@ export default async function CalendarPage({
     const date = `${selectedMonth}-${String(day).padStart(2, "0")}`;
     eventsByDay.set(
       day,
-      monthEvents.filter((event) =>
-        eventOccursOn(
-          {
-            startDate: event.date,
-            endDate: event.endDate,
-            recurrenceType: event.recurrenceType,
-            recurrenceWeekdays: event.recurrenceWeekdays,
-            recurrenceIncludeDates: event.recurrenceIncludeDates,
-            recurrenceExcludeDates: event.recurrenceExcludeDates,
-          },
-          date,
-        ),
-      ),
+      monthEvents
+        .filter((event) =>
+          eventOccursOn(
+            {
+              startDate: event.date,
+              endDate: event.endDate,
+              recurrenceType: event.recurrenceType,
+              recurrenceWeekdays: event.recurrenceWeekdays,
+              recurrenceIncludeDates: event.recurrenceIncludeDates,
+              recurrenceExcludeDates: event.recurrenceExcludeDates,
+            },
+            date,
+          ),
+        )
+        .sort((a, b) => {
+          const timeDiff = eventTimeSortValue(a.time) - eventTimeSortValue(b.time);
+          if (timeDiff !== 0) return timeDiff;
+          return a.title.localeCompare(b.title, "zh-HK");
+        }),
     );
   }
 
@@ -147,6 +159,9 @@ export default async function CalendarPage({
                 const dayEvents = eventsByDay.get(day) || [];
                 const isToday = date === today;
                 const holiday = getHongKongPublicHoliday(date);
+                const isSunday =
+                  new Date(Date.UTC(year, month - 1, day)).getUTCDay() === 0;
+                const isRedDay = Boolean(holiday) || isSunday;
                 const holidayName = holiday
                   ? getHongKongPublicHolidayName(holiday, locale)
                   : "";
@@ -159,7 +174,7 @@ export default async function CalendarPage({
                       "min-h-[82px] border-b border-r border-slate-100 p-2 text-left hover:bg-purple-50",
                       isToday
                         ? "bg-blue-50"
-                        : holiday
+                        : isRedDay
                           ? "bg-rose-50/50"
                           : "bg-white",
                     ].join(" ")}
@@ -168,10 +183,10 @@ export default async function CalendarPage({
                       className={[
                         "inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-black",
                         isToday
-                          ? holiday
+                          ? isRedDay
                             ? "bg-blue-600 text-white ring-2 ring-rose-400"
                             : "bg-blue-600 text-white"
-                          : holiday
+                          : isRedDay
                             ? "text-rose-600"
                             : "text-slate-700",
                       ].join(" ")}
@@ -208,10 +223,10 @@ export default async function CalendarPage({
             <span className="inline-flex items-center gap-2">
               <span className="h-3 w-3 rounded-full bg-rose-600" />
               {locale === "en"
-                ? "Red date = Hong Kong public holiday"
+                ? "Red date = Hong Kong public holiday / Sunday"
                 : locale === "zh-Hans"
-                  ? "红色日期 = 香港公众假期"
-                  : "紅色日期 = 香港公眾假期"}
+                  ? "红色日期 = 香港公众假期／星期日"
+                  : "紅色日期 = 香港公眾假期／星期日"}
             </span>
             <span className="inline-flex items-center gap-2">
               <span className="h-3 w-3 rounded-full bg-purple-500" />
