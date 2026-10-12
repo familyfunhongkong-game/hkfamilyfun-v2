@@ -280,13 +280,18 @@ function formatTimeRange(event: EventRecord): string {
   return start || end || "時間待定";
 }
 
+function priceValueText(value: unknown): string {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return safeText(value, "");
+}
+
 function formatPrice(event: EventRecord): string {
   const mode = safeText(event.price_display_mode || event.price_type, "").toLowerCase();
   const label = safeText(event.price_label || event.price_text, "");
-  const minPrice = safeText(event.min_price, "");
-  const maxPrice = safeText(event.max_price, "");
-  const originalPrice = safeText(event.original_price, "");
-  const offerPrice = safeText(event.offer_price, "");
+  const minPrice = priceValueText(event.min_price);
+  const maxPrice = priceValueText(event.max_price);
+  const originalPrice = priceValueText(event.original_price);
+  const offerPrice = priceValueText(event.offer_price);
   const quotaLabel = safeText(event.quota_label, "");
 
   if (label) return label;
