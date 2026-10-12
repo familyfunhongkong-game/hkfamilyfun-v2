@@ -1,9 +1,11 @@
 ﻿import type { Metadata } from "next";
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { headers } from "next/headers";
 import LanguageSwitcher from "@/components/language-switcher";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
+import SiteAnalyticsTracker from "@/components/site-analytics-tracker";
 import { getMessages } from "@/lib/i18n/messages";
 import { getServerLocale } from "@/lib/i18n/server";
 import { localeHtmlLang } from "@/lib/i18n/config";
@@ -345,6 +347,9 @@ export default async function RootLayout({
           {children}
         </div>
         <SiteFooter m={m} />
+        <Suspense fallback={null}>
+          <SiteAnalyticsTracker />
+        </Suspense>
         <MobileBottomNav
           ariaLabel={m.parentArea}
           items={[
