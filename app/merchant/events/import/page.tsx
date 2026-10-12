@@ -246,7 +246,7 @@ export default function ImportEventPage() {
       setMessage(
         adminRoute
           ? "請先登入 Admin 帳戶，再建立活動草稿。"
-          : "請先登入商戶帳戶，再建立活動草稿.",
+          : "請先登入商戶帳戶，再建立活動草稿。",
       );
       setLoadingMerchant(false);
       return null;
