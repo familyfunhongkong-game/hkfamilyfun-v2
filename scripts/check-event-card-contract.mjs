@@ -14,6 +14,12 @@ const requiredSharedSignals = [
   "TrainFront",
   "Baby",
   "Building2",
+  "tagTone(tag)",
+  "displayTag(tag)",
+  "toggleFavorite",
+  "addToCalendar",
+  "CalendarPlus",
+  "hkff_favorite_event_ids",
 ];
 
 let failed = false;
@@ -48,6 +54,10 @@ for (const signal of [
   "event.is_sen_friendly",
   "event.is_indoor",
   "recurrenceNote",
+  "tagTone(tag)",
+  "displayTag(tag)",
+  "calendarTemplateUrl(event, locale)",
+  "onToggleFavorite",
 ]) {
   if (!eventSearch.includes(signal)) {
     console.error(`[event-card] /events card missing: ${signal}`);
@@ -56,7 +66,15 @@ for (const signal of [
 }
 
 const mapPage = await readFile("app/events/map/page.tsx", "utf8");
-for (const signal of ["priceText(event, locale)", "ageText(event, locale)", "organizer_name"]) {
+for (const signal of [
+  "priceText(event, locale)",
+  "ageText(event, locale)",
+  "organizer_name",
+  "toggleFavorite(event.id)",
+  "addEventToCalendar(event.id)",
+  "tagTone(tag)",
+  "displayTag(tag)",
+]) {
   if (!mapPage.includes(signal)) {
     console.error(`[event-card] map list card missing: ${signal}`);
     failed = true;
@@ -64,7 +82,15 @@ for (const signal of ["priceText(event, locale)", "ageText(event, locale)", "org
 }
 
 const mapClient = await readFile("app/events/map/EventMapClient.tsx", "utf8");
-for (const signal of ["first.price", "first.age", "first.organizer"]) {
+for (const signal of [
+  "first.price",
+  "first.age",
+  "first.organizer",
+  "onToggleFavorite(first.id)",
+  "onAddCalendar(first.id)",
+  "onToggleFavorite(event.id)",
+  "onAddCalendar(event.id)",
+]) {
   if (!mapClient.includes(signal)) {
     console.error(`[event-card] map popup missing: ${signal}`);
     failed = true;
@@ -96,6 +122,8 @@ for (const signal of [
   "const age =",
   "event.organizer_name",
   "event.is_sen_friendly",
+  "toggleFavorite(event.id)",
+  "googleCalendarUrl(",
 ]) {
   if (!planner.includes(signal)) {
     console.error(`[event-card] planner card missing: ${signal}`);
@@ -106,5 +134,5 @@ for (const signal of [
 if (failed) process.exit(1);
 
 console.log(
-  "[event-card] OK — public event cards retain image, date/time, location, price, age, organizer and accessibility context.",
+  "[event-card] OK — public event cards retain core facts, colorful hashtags, favorites and add-to-calendar actions across list, search, planner and map surfaces.",
 );
