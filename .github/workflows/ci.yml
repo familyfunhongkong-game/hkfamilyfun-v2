@@ -81,6 +81,7 @@ jobs:
           npm run check:production-smoke
           npm run check:migration-drift-lock
           npm run check:calendar-persona
+          npm run check:merchant-preview
 
       - name: Lint
         run: npm run lint
