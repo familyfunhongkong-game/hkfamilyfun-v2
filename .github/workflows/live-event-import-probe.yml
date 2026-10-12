@@ -1,0 +1,82 @@
+name: Live Event Import Probe
+
+on:
+  push:
+    branches:
+      - fix-event-importer-airside-20261012
+    paths:
+      - ".github/workflows/live-event-import-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Probe AIRSIDE event extraction
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import * as cheerio from "cheerio";
+          import { extractStructuredPageDetails } from "./lib/event-import-page-extractor.js";
+
+          const url = "https://www.airside.com.hk/zh-hk/happenings/disgusting-food-museum";
+          const response = await fetch(url, {
+            headers: {
+              "user-agent": "Mozilla/5.0 (compatible; HKFamilyFunProbe/1.0)",
+              "accept-language": "zh-HK,zh;q=0.9,en;q=0.8",
+            },
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const html = await response.text();
+          const $ = cheerio.load(html);
+          const details = extractStructuredPageDetails(html, url);
+
+          const title =
+            $('meta[property="og:title"]').attr("content") ||
+            $('meta[name="twitter:title"]').attr("content") ||
+            $("title").text().trim();
+
+          const image =
+            $('meta[property="og:image"]').attr("content") ||
+            $('meta[name="twitter:image"]').attr("content") ||
+            "";
+
+          const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+          const dateMatch = bodyText.match(
+            /(\d{2})[./-](\d{2})[./-](\d{4}).{0,20}?(\d{2})[./-](\d{2})[./-](\d{4})/,
+          );
+          const dates = dateMatch
+            ? {
+                start_date: `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`,
+                end_date: `${dateMatch[6]}-${dateMatch[5]}-${dateMatch[4]}`,
+              }
+            : {};
+
+          console.log(JSON.stringify({
+            title,
+            image,
+            ...dates,
+            venue_name: details.venueName,
+            address: details.address,
+            schedule: details.scheduleText,
+            price: details.price,
+            booking_url: details.bookingUrl,
+            highlights: details.highlights,
+          }, null, 2));
+
+          if (!/嘔心食物博物館/.test(title)) throw new Error("title not extracted");
+          if (dates.start_date !== "2026-09-29" || dates.end_date !== "2026-11-26") throw new Error("date range not extracted");
+          if (details.price?.price_label !== "HK$68") throw new Error("price not extracted");
+          if (!/312號舖GATE33藝文館/.test(details.venueName)) throw new Error("venue not extracted");
+          if (!details.bookingUrl.includes("bit.ly/4ymG5iI")) throw new Error("booking URL not extracted");
+          if (details.highlights.length < 5) throw new Error("highlights incomplete");
+          NODE
