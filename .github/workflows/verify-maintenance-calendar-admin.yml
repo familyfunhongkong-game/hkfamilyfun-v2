@@ -33,7 +33,13 @@ jobs:
 
           test "$(grep -c '網站升級進行中' /tmp/home.html || true)" -gt 0
           test "$(grep -c '管理員登入' /tmp/admin.html || true)" -gt 0
-          test "$(grep -c '登入 Admin Portal' /tmp/admin.html || true)" -gt 0
+
+          browser="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$browser"
+          dom="$(timeout 45s "$browser"             --headless=new             --no-sandbox             --disable-gpu             --disable-dev-shm-usage             --virtual-time-budget=5000             --dump-dom             https://www.hkfamilyfun.com/admin/login 2>/dev/null)"
+          echo "$dom" | grep -q "登入 Admin Portal"
+          echo "$dom" | grep -q 'type="email"'
+          echo "$dom" | grep -q 'type="password"'
 
       - name: Verify calendar month navigation and Hong Kong holidays on staging
         if: always()
