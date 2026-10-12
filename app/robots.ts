@@ -1,6 +1,18 @@
 import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
+  if (process.env.MAINTENANCE_MODE === "true") {
+    return {
+      rules: [
+        {
+          userAgent: "*",
+          disallow: "/",
+        },
+      ],
+      host: "https://www.hkfamilyfun.com",
+    };
+  }
+
   return {
     rules: [
       {
