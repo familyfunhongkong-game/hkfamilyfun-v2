@@ -41,6 +41,9 @@ assert.equal(result.price?.price_label, "HK$68");
 assert.equal(result.price?.min_price, "68");
 assert.equal(result.price?.max_price, "68");
 
+assert.equal(result.startDate, "2026-09-29");
+assert.equal(result.endDate, "2026-11-26");
+
 assert.equal(result.venueName, "312號舖GATE33藝文館");
 assert.equal(result.address, "AIRSIDE 312號舖GATE33藝文館");
 
