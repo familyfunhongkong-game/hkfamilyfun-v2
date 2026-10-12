@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 
@@ -17,11 +18,20 @@ export default function AdminLayout({
 }: {
   children: ReactNode;
 }) {
+  const pathname = usePathname();
+  const isPublicAdminAuthRoute =
+    pathname === "/admin/login" || pathname === "/admin/forgot-password";
+
   const [accessState, setAccessState] =
     useState<AccessState>("checking");
   const [currentEmail, setCurrentEmail] = useState("");
 
   useEffect(() => {
+    if (isPublicAdminAuthRoute) {
+      setAccessState("signed_out");
+      return;
+    }
+
     const client = supabase;
     let ignore = false;
 
@@ -80,9 +90,9 @@ export default function AdminLayout({
       ignore = true;
       data.subscription.unsubscribe();
     };
-  }, []);
+  }, [isPublicAdminAuthRoute]);
 
-  if (accessState === "allowed") {
+  if (isPublicAdminAuthRoute || accessState === "allowed") {
     return <>{children}</>;
   }
 
