@@ -1,4 +1,6 @@
-"use client";\n\nimport type { ReactNode } from "react";
+"use client";
+
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
