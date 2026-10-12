@@ -8,6 +8,7 @@ import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 import type { MapBounds, MapEvent } from "./EventMapClient";
+import { displayTag, tagTone } from "@/lib/events/tag-tone";
 
 const EventMapClient = dynamic(() => import("./EventMapClient"), {
   ssr: false,
@@ -70,6 +71,68 @@ type UserLocation = {
 type RadiusFilter = "all" | "2" | "5" | "10" | "20";
 type DateFilter = "all" | "today" | "tomorrow" | "weekend";
 type MobileView = "map" | "list";
+
+const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
+
+function readFavoriteIds() {
+  if (typeof window === "undefined") return [] as string[];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(FAVORITES_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeFavoriteIds(ids: string[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    FAVORITES_STORAGE_KEY,
+    JSON.stringify(Array.from(new Set(ids))),
+  );
+}
+
+function calendarTemplateUrl(event: EventRecord, locale: AppLocale) {
+  const date = safeText(event.start_date);
+  if (!date) return "#";
+
+  const compactDate = date.replace(/-/g, "");
+  const startText = safeText(event.start_time, "10:00").slice(0, 5);
+  const endText = safeText(event.end_time).slice(0, 5);
+  const start = compactDate + "T" + startText.replace(":", "") + "00";
+  const endHour = String((Number(startText.slice(0, 2)) + 1) % 24).padStart(2, "0");
+  const end = compactDate + "T" + (endText ? endText.replace(":", "") + "00" : endHour + startText.slice(3, 5) + "00");
+
+  const title = localizedText(locale, {
+    tc: event.title_tc,
+    sc: event.title_sc,
+    en: event.title_en,
+    fallback: uiText(locale, "HK Family Fun 活動", "HK Family Fun 活动", "HK Family Fun Event"),
+  });
+  const venue = localizedText(locale, {
+    tc: event.venue_name || event.address,
+    sc: event.venue_name_sc || event.address_sc,
+    en: event.venue_name_en || event.address_en,
+  });
+
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: title,
+    dates: start + "/" + end,
+    ctz: "Asia/Hong_Kong",
+    location: venue,
+    details: uiText(
+      locale,
+      "由 HK Family Fun 加入。出發前請向主辦方確認最新資料。",
+      "由 HK Family Fun 加入。出发前请向主办方确认最新资料。",
+      "Added from HK Family Fun. Please reconfirm the latest details with the organizer.",
+    ),
+  });
+
+  return "https://calendar.google.com/calendar/render?" + params.toString();
+}
 
 function safeText(value: unknown, fallback = "") {
   if (value === null || value === undefined) return fallback;
@@ -302,6 +365,7 @@ export default function NearbyEventsMapPage() {
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [fitRequest, setFitRequest] = useState(0);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
   const [viewportOnly, setViewportOnly] = useState(false);
@@ -310,6 +374,7 @@ export default function NearbyEventsMapPage() {
 
   useEffect(() => {
     setLocale(getClientLocale());
+    setFavoriteIds(readFavoriteIds());
 
     async function loadEvents() {
       if (!supabase) {
@@ -550,6 +615,22 @@ export default function NearbyEventsMapPage() {
 
     return () => window.clearTimeout(timer);
   }, [mobileView, selectedEventId]);
+
+  function toggleFavorite(eventId: string) {
+    setFavoriteIds((current) => {
+      const next = current.includes(eventId)
+        ? current.filter((id) => id !== eventId)
+        : [...current, eventId];
+      writeFavoriteIds(next);
+      return next;
+    });
+  }
+
+  function addEventToCalendar(eventId: string) {
+    const event = events.find((item) => item.id === eventId);
+    if (!event) return;
+    window.open(calendarTemplateUrl(event, locale), "_blank", "noopener,noreferrer");
+  }
 
   function useMyLocation() {
     setLocationMessage("");
@@ -1008,6 +1089,33 @@ export default function NearbyEventsMapPage() {
                           >
                             {uiText(locale, "Google Maps路線", "Google Maps路线", "Google Maps")}
                           </a>
+                          <button
+                            type="button"
+                            onClick={(clickEvent) => {
+                              clickEvent.stopPropagation();
+                              toggleFavorite(event.id);
+                            }}
+                            aria-pressed={favoriteIds.includes(event.id)}
+                            className={`rounded-full px-3 py-2 text-xs font-black ring-1 ${
+                              favoriteIds.includes(event.id)
+                                ? "bg-rose-50 text-rose-700 ring-rose-100"
+                                : "bg-white text-slate-700 ring-slate-200"
+                            }`}
+                          >
+                            {favoriteIds.includes(event.id)
+                              ? uiText(locale, "已收藏", "已收藏", "Saved")
+                              : uiText(locale, "♡ 收藏", "♡ 收藏", "♡ Save")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(clickEvent) => {
+                              clickEvent.stopPropagation();
+                              addEventToCalendar(event.id);
+                            }}
+                            className="rounded-full bg-sky-50 px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100"
+                          >
+                            {uiText(locale, "📅 加入日曆", "📅 加入日历", "📅 Calendar")}
+                          </button>
                           {mapped ? (
                             <button
                               type="button"
@@ -1154,6 +1262,24 @@ export default function NearbyEventsMapPage() {
                         >
                           路線
                         </a>
+                        <button
+                          type="button"
+                          onClick={() => toggleFavorite(selectedEvent.id)}
+                          className={`rounded-xl px-3 py-2 text-xs font-black ring-1 ${
+                            favoriteIds.includes(selectedEvent.id)
+                              ? "bg-rose-50 text-rose-700 ring-rose-100"
+                              : "bg-white text-slate-700 ring-slate-200"
+                          }`}
+                        >
+                          {favoriteIds.includes(selectedEvent.id) ? "已收藏" : "♡ 收藏"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addEventToCalendar(selectedEvent.id)}
+                          className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100"
+                        >
+                          📅 日曆
+                        </button>
                       </div>
                     </div>
                   </div>
