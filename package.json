@@ -29,7 +29,8 @@
     "db:push": "node scripts/guard-db-push-until-migration-repair.mjs",
     "db:migration:list": "supabase migration list",
     "db:pull": "supabase db pull",
-    "db:reset": "supabase db reset"
+    "db:reset": "supabase db reset",
+    "check:calendar-persona": "node scripts/check-calendar-persona-contract.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
