@@ -209,6 +209,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (queued.duplicate) {
+      return json({ queued: true, queue_id: queued.queue_id, duplicate: true, sent: false, reason: "Already queued; duplicate email suppressed" });
+    }
+
     const result = await sendMail(
       APPROVAL_EMAIL,
       subject,
@@ -276,6 +280,10 @@ export async function POST(request: NextRequest) {
         { error: "Notification queue failed.", reason: queued.queue_error },
         500,
       );
+    }
+
+    if (queued.duplicate) {
+      return json({ queued: true, queue_id: queued.queue_id, duplicate: true, sent: false, reason: "Already queued; duplicate email suppressed" });
     }
 
     const result = await sendMail(
@@ -360,6 +368,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (queued.duplicate) {
+      return json({ queued: true, queue_id: queued.queue_id, duplicate: true, sent: false, reason: "Already queued; duplicate email suppressed" });
+    }
+
     const result = merchant.contact_email
       ? await sendMail(
           merchant.contact_email,
@@ -430,6 +442,10 @@ export async function POST(request: NextRequest) {
         { error: "Notification queue failed.", reason: queued.queue_error },
         500,
       );
+    }
+
+    if (queued.duplicate) {
+      return json({ queued: true, queue_id: queued.queue_id, duplicate: true, sent: false, reason: "Already queued; duplicate email suppressed" });
     }
 
     const result = merchant.contact_email
