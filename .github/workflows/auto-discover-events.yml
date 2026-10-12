@@ -45,7 +45,8 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           APPROVAL_EMAIL: ${{ secrets.APPROVAL_EMAIL }}
-          SITE_URL: https://hkfamilyfun-v2.vercel.app
+          APPROVAL_ACTION_SECRET: ${{ secrets.APPROVAL_ACTION_SECRET }}
+          SITE_URL: https://www.hkfamilyfun.com
           MAX_NEW_EVENTS: "5"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
