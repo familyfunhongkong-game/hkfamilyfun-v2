@@ -309,8 +309,10 @@ function formatPrice(event: EventRecord): string {
 }
 
 function formatAge(event: EventRecord): string {
-  const min = safeText(event.age_min, "");
-  const max = safeText(event.age_max, "");
+  const minNumber = toNumber(event.age_min, NaN);
+  const maxNumber = toNumber(event.age_max, NaN);
+  const min = Number.isFinite(minNumber) ? String(minNumber) : "";
+  const max = Number.isFinite(maxNumber) ? String(maxNumber) : "";
 
   if (min && max) return `${min}–${max} 歲`;
   if (min) return `${min} 歲或以上`;
@@ -495,8 +497,10 @@ function getCompleteness(event: EventRecord, images: GalleryImage[]): Completene
       done: Boolean(
         event.price_label ||
           event.price_text ||
-          event.price_display_mode ||
-          event.price_type ||
+          (safeText(event.price_display_mode, "").toLowerCase() &&
+            safeText(event.price_display_mode, "").toLowerCase() !== "unknown") ||
+          (safeText(event.price_type, "").toLowerCase() &&
+            safeText(event.price_type, "").toLowerCase() !== "unknown") ||
           event.min_price ||
           event.max_price ||
           event.quota_label
