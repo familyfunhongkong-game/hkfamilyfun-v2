@@ -24,7 +24,7 @@ const groups = [
       { href: "/admin/advertising", title: "Advertising CRM", description: "商戶廣告查詢、報價、付款確認、排期、Banner 關聯及完成紀錄。", tone: "amber" },
       { href: "/admin/promotions", title: "Promotion Banner", description: "管理商戶廣告、特別活動宣傳 Banner、上落架日期、位置及 Sponsored 標示。", tone: "amber" },
       { href: "/admin/social", title: "AI Social Content", description: "由已核實 Event / News 資料生成 FB、IG、Threads 草稿，避免重打資料。", tone: "violet" },
-      { href: "/merchant/events/import", title: "智能匯入活動", description: "由活動 URL / PDF 建立可編輯草稿，再由 Admin 審批。", tone: "slate" },
+      { href: "/admin/events/import", title: "智能匯入活動", description: "Admin 由活動 URL / PDF 建立可編輯草稿，不需要商戶帳戶。", tone: "slate" },
     ],
   },
   {

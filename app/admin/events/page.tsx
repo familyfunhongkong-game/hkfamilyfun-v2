@@ -698,7 +698,7 @@ export default function AdminEventsPage() {
       return;
     }
 
-    router.push(`/merchant/events/${data.id}/edit`);
+    router.push(`/admin/events/${data.id}/edit`);
   }
 
   async function updateEventStatus(
@@ -1208,14 +1208,14 @@ export default function AdminEventsPage() {
                         </Link>
 
                         <Link
-                          href={`/merchant/events/${event.id}/preview`}
+                          href={`/admin/events/${event.id}/preview`}
                           className="rounded-2xl border border-purple-200 bg-white px-4 py-3 text-center text-sm font-black text-purple-700 hover:bg-purple-50"
                         >
                           商戶預覽
                         </Link>
 
                         <Link
-                          href={`/merchant/events/${event.id}/edit`}
+                          href={`/admin/events/${event.id}/edit`}
                           className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-center text-sm font-black text-slate-700 hover:bg-slate-50"
                         >
                           編輯

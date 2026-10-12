@@ -1083,7 +1083,7 @@ export default function AdminEventReviewPage() {
               </button>
 
               <Link
-                href={`/merchant/events/${event.id}/preview`}
+                href={`/admin/events/${event.id}/preview`}
                 className="rounded-full border border-purple-200 bg-white px-5 py-2 text-sm font-black text-purple-700 hover:bg-purple-50"
               >
                 商戶 Preview

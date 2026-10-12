@@ -690,7 +690,7 @@ export async function POST(request: NextRequest) {
 
     if (!accessToken) {
       return NextResponse.json(
-        { ok: false, error: "請先登入已獲批准的商戶帳戶。" },
+        { ok: false, error: "請先登入平台管理員或已獲批准的商戶帳戶。" },
         { status: 401 }
       );
     }
@@ -731,17 +731,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: merchant, error: merchantError } = await authClient
-      .from("merchants")
-      .select("id,status")
-      .eq("owner_user_id", user.id)
-      .maybeSingle();
+    const { data: isAdmin, error: adminError } =
+      await authClient.rpc("is_platform_admin");
 
-    if (merchantError || !merchant || merchant.status !== "approved") {
+    if (adminError) {
       return NextResponse.json(
-        { ok: false, error: "商戶帳戶尚未獲批准，暫時不能使用智能網址匯入。" },
-        { status: 403 }
+        { ok: false, error: "未能確認帳戶權限，請稍後再試。" },
+        { status: 503 },
       );
+    }
+
+    if (isAdmin !== true) {
+      const { data: merchant, error: merchantError } = await authClient
+        .from("merchants")
+        .select("id,status")
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+
+      if (merchantError || !merchant || merchant.status !== "approved") {
+        return NextResponse.json(
+          { ok: false, error: "此功能只供平台管理員或已獲批准的商戶使用。" },
+          { status: 403 },
+        );
+      }
     }
 
     const requestContentType = (

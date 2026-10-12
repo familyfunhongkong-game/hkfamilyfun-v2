@@ -1360,6 +1360,9 @@ export default function MerchantEventEditPage() {
       const { data: adminAccess } = await client.rpc("is_platform_admin");
       const currentIsAdmin = adminAccess === true;
       setIsAdmin(currentIsAdmin);
+      if (currentIsAdmin) {
+        setShowAdvancedUrls(true);
+      }
 
       const { data: merchantData, error: merchantError } = await client
         .from("merchants")

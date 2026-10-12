@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 type DraftEvent = {
@@ -178,9 +179,12 @@ function readyScore(draft: DraftEvent) {
 }
 
 export default function ImportEventPage() {
+  const pathname = usePathname();
+  const adminRoute = pathname.startsWith("/admin/");
   const [url, setUrl] = useState("");
   const [draft, setDraft] = useState<DraftEvent>(emptyDraft);
   const [merchant, setMerchant] = useState<MerchantRecord | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loadingMerchant, setLoadingMerchant] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -239,10 +243,37 @@ export default function ImportEventPage() {
     } = await client.auth.getUser();
 
     if (userError || !user) {
-      setMessage("請先登入商戶帳戶，再建立活動草稿。");
+      setMessage(
+        adminRoute
+          ? "請先登入 Admin 帳戶，再建立活動草稿。"
+          : "請先登入商戶帳戶，再建立活動草稿。",
+      );
       setLoadingMerchant(false);
       return null;
     }
+
+    const { data: adminAccess, error: adminAccessError } =
+      await client.rpc("is_platform_admin");
+
+    if (adminAccessError) {
+      setMessage(`確認管理員權限失敗：${adminAccessError.message}`);
+      setLoadingMerchant(false);
+      return null;
+    }
+
+    if (adminRoute && adminAccess === true) {
+      const adminActor: MerchantRecord = {
+        id: "",
+        business_name: "HK Family Fun",
+        status: "approved",
+      };
+      setIsAdmin(true);
+      setMerchant(adminActor);
+      setLoadingMerchant(false);
+      return adminActor;
+    }
+
+    setIsAdmin(false);
 
     const { data, error } = await client
       .from("merchants")
@@ -423,6 +454,8 @@ export default function ImportEventPage() {
     const currentMerchant = merchant || (await loadMerchant());
     if (!currentMerchant) return;
 
+    const adminCreating = adminRoute && currentMerchant.id === "";
+
     setSaving(true);
     setMessage("");
 
@@ -432,7 +465,7 @@ export default function ImportEventPage() {
     ]);
 
     const insertPayload = {
-      merchant_id: currentMerchant.id,
+      merchant_id: adminCreating ? null : currentMerchant.id,
       status: "draft",
       title_tc: draft.title_tc || "未命名活動草稿",
       title: draft.title_tc || "Untitled draft event",
@@ -468,8 +501,11 @@ export default function ImportEventPage() {
       google_map_embed_url: draft.google_map_embed_url,
       cover_image_url: draft.cover_image_url || gallery[0] || "",
       gallery_image_urls: gallery,
-      organizer_name: draft.organizer_name || currentMerchant.business_name || "",
-      merchant_name: currentMerchant.business_name || "",
+      organizer_name:
+        draft.organizer_name ||
+        (adminCreating ? "HK Family Fun" : currentMerchant.business_name) ||
+        "",
+      merchant_name: adminCreating ? "" : currentMerchant.business_name || "",
       tags: draft.tags,
       highlights: draft.highlights,
       terms: draft.terms,
@@ -494,15 +530,23 @@ export default function ImportEventPage() {
     setSaving(false);
   }
 
+  useEffect(() => {
+    void loadMerchant();
+    // Role/account detection is intentionally run once per route.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminRoute]);
+
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-[1400px] px-4 py-8">
           <p className="text-sm font-black text-purple-700">
-            Merchant Portal · 智能網址匯入
+            {adminRoute ? "Admin Portal · 智能活動匯入" : "Merchant Portal · 智能網址匯入"}
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-            貼活動網址或直接上載 PDF，自動建立可編輯草稿
+            {adminRoute
+              ? "Admin：貼活動網址或上載 PDF，建立可編輯草稿"
+              : "貼活動網址或直接上載 PDF，自動建立可編輯草稿"}
           </h1>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
             系統可讀取活動網頁的 HTML、Meta、JSON-LD，亦可直接從 PDF 抽取文字，預填活動名稱、描述、圖片、日期、地點、收費及 CTA。所有結果只會建立草稿，必須人工確認後才提交審批。
@@ -566,16 +610,24 @@ export default function ImportEventPage() {
               disabled={loadingMerchant}
               className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
             >
-              {loadingMerchant ? "正在確認商戶..." : "確認商戶帳戶"}
+              {loadingMerchant
+                ? "正在確認帳戶..."
+                : isAdmin
+                  ? "Admin 權限已確認"
+                  : "確認商戶帳戶"}
             </button>
           </div>
 
           <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
-            <p className="text-sm font-black text-emerald-800">商戶狀態</p>
+            <p className="text-sm font-black text-emerald-800">
+              {isAdmin ? "Admin 狀態" : "商戶狀態"}
+            </p>
             <p className="mt-2 text-sm leading-6 text-emerald-900">
-              {merchant
-                ? `已連接：${merchant.business_name || "未命名商戶"}`
-                : "尚未確認。儲存草稿前系統會自動檢查登入商戶。"}
+              {isAdmin
+                ? "已確認 Platform Admin，可建立沒有 merchant_id 的平台活動草稿。"
+                : merchant
+                  ? `已連接：${merchant.business_name || "未命名商戶"}`
+                  : "尚未確認。儲存草稿前系統會自動檢查登入商戶。"}
             </p>
           </div>
 
@@ -752,13 +804,13 @@ export default function ImportEventPage() {
                 {savedId ? (
                   <>
                     <Link
-                      href={`/merchant/events/${savedId}/edit`}
+                      href={isAdmin ? `/admin/events/${savedId}/edit` : `/merchant/events/${savedId}/edit`}
                       className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
                     >
                       前往編輯
                     </Link>
                     <Link
-                      href={`/merchant/events/${savedId}/preview`}
+                      href={isAdmin ? `/admin/events/${savedId}/preview` : `/merchant/events/${savedId}/preview`}
                       className="rounded-full border border-purple-300 bg-purple-50 px-5 py-3 text-sm font-black text-purple-700 hover:bg-purple-100"
                     >
                       Preview
@@ -767,10 +819,10 @@ export default function ImportEventPage() {
                 ) : null}
 
                 <Link
-                  href="/merchant/dashboard"
+                  href={isAdmin ? "/admin/events" : "/merchant/dashboard"}
                   className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
                 >
-                  返回 Dashboard
+                  {isAdmin ? "返回 Admin 活動中心" : "返回 Dashboard"}
                 </Link>
 
                 <button
