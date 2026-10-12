@@ -49,29 +49,52 @@ type EventRecord = {
   start_time?: string | null;
   end_time?: string | null;
 
+  venue_name?: string | null;
   venue_name_tc?: string | null;
+  venue_name_sc?: string | null;
   venue_name_en?: string | null;
+  address?: string | null;
   address_tc?: string | null;
+  address_sc?: string | null;
   address_en?: string | null;
   area?: string | null;
   district?: string | null;
   mtr_station?: string | null;
 
   price_type?: string | null;
+  price_display_mode?: string | null;
   price_text?: string | null;
+  price_label?: string | null;
   price_note?: string | null;
   min_price?: number | string | null;
+  max_price?: number | string | null;
+  original_price?: number | string | null;
+  offer_price?: number | string | null;
+  quota_label?: string | null;
 
   age_group?: string | null;
+  age_groups?: JsonValue | null;
+  age_min?: number | string | null;
+  age_max?: number | string | null;
+  is_sen_friendly?: boolean | null;
+  is_indoor?: boolean | null;
   activity_type?: string | null;
+  activity_category?: string | null;
   category?: string | null;
   tags?: string[] | JsonValue | null;
 
   registration_required?: boolean | null;
   registration_url?: string | null;
+  booking_url?: string | null;
+  official_url?: string | null;
   source_url?: string | null;
   booking_method?: string | null;
+  cta_type?: string | null;
   cta_text?: string | null;
+  cta_label?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  whatsapp?: string | null;
 
   google_map_url?: string | null;
   google_map_embed_url?: string | null;
@@ -258,19 +281,30 @@ function formatTimeRange(event: EventRecord): string {
 }
 
 function formatPrice(event: EventRecord): string {
-  const priceType = safeText(event.price_type, "").toLowerCase();
-  const priceText = safeText(event.price_text, "");
-  const minPrice = toNumber(event.min_price, NaN);
+  const mode = safeText(event.price_display_mode || event.price_type, "").toLowerCase();
+  const label = safeText(event.price_label || event.price_text, "");
+  const minPrice = safeText(event.min_price, "");
+  const maxPrice = safeText(event.max_price, "");
+  const originalPrice = safeText(event.original_price, "");
+  const offerPrice = safeText(event.offer_price, "");
+  const quotaLabel = safeText(event.quota_label, "");
 
-  if (priceText) return priceText;
-
-  if (priceType === "free") return "免費";
-  if (priceType === "paid" && Number.isFinite(minPrice)) {
-    return `HK$${minPrice} 起`;
+  if (label) return label;
+  if (mode === "hidden") return "不顯示價錢";
+  if (mode === "free") return "免費";
+  if (mode === "quota") return quotaLabel || "名額有限";
+  if (mode === "early_bird") {
+    if (offerPrice && originalPrice) return `早鳥優惠 HK${offerPrice}（原價 HK${originalPrice}）`;
+    if (offerPrice) return `早鳥優惠 HK${offerPrice}`;
+    return "早鳥優惠待確認";
   }
-  if (priceType === "paid") return "收費活動";
-  if (priceType === "early_bird") return "早鳥 / 優惠價";
-  if (priceType === "contact") return "請向主辦查詢";
+  if (mode === "range") {
+    if (minPrice && maxPrice && minPrice !== maxPrice) return `HK${minPrice}–HK${maxPrice}`;
+    if (minPrice) return `HK${minPrice} 起`;
+    return "價錢範圍待確認";
+  }
+  if (mode === "fixed") return minPrice ? `HK${minPrice}` : "固定收費待確認";
+  if (mode === "from" || mode === "paid") return minPrice ? `HK${minPrice} 起` : "收費活動";
   return "收費待確認";
 }
 
@@ -295,6 +329,7 @@ function getStatusLabel(status?: string | null): string {
 
 function getCategoryLabel(event: EventRecord): string {
   const raw =
+    safeText(event.activity_category, "") ||
     safeText(event.category, "") ||
     safeText(event.activity_type, "") ||
     safeText(event.age_group, "");
@@ -347,16 +382,23 @@ function getTagArray(value: unknown): string[] {
 
 function getPrimaryActionUrl(event: EventRecord): string | null {
   if (isValidUrl(event.registration_url)) return event.registration_url.trim();
+  if (isValidUrl(event.booking_url)) return event.booking_url.trim();
+  if (isValidUrl(event.official_url)) return event.official_url.trim();
   if (isValidUrl(event.source_url)) return event.source_url.trim();
   return null;
 }
 
 function getPrimaryActionLabel(event: EventRecord): string {
-  const custom = safeText(event.cta_text, "");
+  const custom = safeText(event.cta_label || event.cta_text, "");
   if (custom) return custom;
 
-  if (isValidUrl(event.registration_url)) return "前往報名";
-  if (isValidUrl(event.source_url)) return "查看官方活動頁";
+  const ctaType = safeText(event.cta_type, "").toLowerCase();
+  if (ctaType === "none" || event.registration_required === false) return "無需報名";
+  if (ctaType === "contact") return "請向主辦查詢";
+  if (ctaType === "whatsapp") return "WhatsApp 報名";
+  if (ctaType === "google_form") return "Google Form 報名";
+  if (isValidUrl(event.registration_url) || isValidUrl(event.booking_url)) return "前往報名";
+  if (isValidUrl(event.official_url) || isValidUrl(event.source_url)) return "查看官方活動頁";
   if (event.registration_required) return "請向主辦查詢";
   return "無需報名";
 }
@@ -428,18 +470,29 @@ function getCompleteness(event: EventRecord, images: GalleryImage[]): Completene
     },
     {
       label: "地點",
-      done: Boolean(event.venue_name_tc || event.address_tc || event.district),
+      done: Boolean(event.venue_name || event.venue_name_tc || event.address || event.address_tc || event.district),
     },
     {
       label: "收費",
-      done: Boolean(event.price_text || event.price_type || event.min_price),
+      done: Boolean(
+        event.price_label ||
+          event.price_text ||
+          event.price_display_mode ||
+          event.price_type ||
+          event.min_price ||
+          event.is_sen_friendly === true
+      ),
     },
     {
       label: "CTA",
       done: Boolean(
         event.registration_url ||
+          event.booking_url ||
+          event.official_url ||
           event.source_url ||
           event.booking_method ||
+          event.cta_type === "none" ||
+          event.cta_type === "contact" ||
           event.registration_required === false,
       ),
     },
@@ -647,10 +700,10 @@ export default function MerchantEventPreviewPage() {
     "暫未提供詳細活動內容。",
   );
   const venue = safeText(
-    event.venue_name_tc,
-    safeText(event.address_tc, safeText(event.district, "地點待定")),
+    event.venue_name || event.venue_name_tc,
+    safeText(event.address || event.address_tc, safeText(event.district, "地點待定")),
   );
-  const address = safeText(event.address_tc, "");
+  const address = safeText(event.address || event.address_tc, "");
   const district = safeText(event.district, "");
   const mtr = safeText(event.mtr_station, "");
   const merchantName = safeText(
