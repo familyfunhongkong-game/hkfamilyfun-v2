@@ -480,7 +480,8 @@ function getCompleteness(event: EventRecord, images: GalleryImage[]): Completene
           event.price_display_mode ||
           event.price_type ||
           event.min_price ||
-          event.is_sen_friendly === true
+          event.max_price ||
+          event.quota_label
       ),
     },
     {
