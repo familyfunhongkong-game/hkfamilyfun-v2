@@ -98,20 +98,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error?.code === "23505" && notification.dedupe_key) {
-      const { data: existing } = await client
-        .from("platform_notifications")
-        .select("id")
-        .eq("dedupe_key", notification.dedupe_key)
-        .maybeSingle();
-
-      if (existing?.id) {
-        return {
-          queued: true,
-          queue_id: String(existing.id),
-          queue_error: null as string | null,
-          duplicate: true,
-        };
-      }
+      // The admin queue is intentionally invisible to merchant RLS.
+      // A unique-key collision confirms that this exact notification was queued,
+      // even though this merchant cannot read back the queue row.
+      return {
+        queued: true,
+        queue_id: null as string | null,
+        queue_error: null as string | null,
+        duplicate: true,
+      };
     }
 
     if (error || !data?.id) {
