@@ -64,4 +64,10 @@ assert.equal(simplePrice?.price_label, "HK$68");
 const hkPrice = parseCurrencyPrice("票價 HK$120");
 assert.equal(hkPrice?.price_label, "HK$120");
 
+const hkdPrice = parseCurrencyPrice("Price: HKD 520.00 / 4 person, +HKD 140 per additional person");
+assert.equal(hkdPrice?.price_display_mode, "fixed");
+assert.equal(hkdPrice?.price_label, "HK$520");
+assert.equal(hkdPrice?.min_price, "520");
+assert.equal(hkdPrice?.max_price, "520");
+
 console.log("Event import extractor contract passed.");
