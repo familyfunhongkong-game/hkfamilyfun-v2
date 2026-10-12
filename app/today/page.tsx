@@ -16,6 +16,11 @@ function hkToday() {
   }).format(new Date());
 }
 
+function eventTimeSortValue(time: string) {
+  const match = String(time || "").match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
 
 export default async function TodayPage() {
   const locale = await getServerLocale();
@@ -36,7 +41,11 @@ export default async function TodayPage() {
         today,
       ),
     )
-    .sort((a, b) => a.time.localeCompare(b.time));
+    .sort((a, b) => {
+      const timeDiff = eventTimeSortValue(a.time) - eventTimeSortValue(b.time);
+      if (timeDiff !== 0) return timeDiff;
+      return a.title.localeCompare(b.title, "zh-HK");
+    });
 
   const displayDate = new Intl.DateTimeFormat(locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK", {
     timeZone: "Asia/Hong_Kong",
