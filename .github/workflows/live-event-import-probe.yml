@@ -10,6 +10,8 @@ on:
 permissions:
   contents: read
 
+# rerun after label-first price hardening
+
 jobs:
   probe:
     runs-on: ubuntu-latest
