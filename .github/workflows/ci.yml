@@ -83,6 +83,7 @@ jobs:
           npm run check:calendar-persona
           npm run check:merchant-preview
           npm run check:approval-workflow
+          npm run check:event-mobile-content
 
       - name: Lint
         run: npm run lint
