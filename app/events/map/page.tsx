@@ -1064,9 +1064,9 @@ export default function NearbyEventsMapPage() {
                             {tags.slice(0, 3).map((tag) => (
                               <span
                                 key={tag}
-                                className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-purple-700"
+                                className={`rounded-full px-2 py-1 text-[10px] font-bold ring-1 ${tagTone(tag)}`}
                               >
-                                {tag}
+                                {displayTag(tag)}
                               </span>
                             ))}
                           </div>
