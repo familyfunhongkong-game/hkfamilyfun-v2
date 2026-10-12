@@ -125,6 +125,9 @@ jobs:
       - name: Approval workflow regression check
         run: npm run check:approval-workflow
 
+      - name: Mobile event content regression check
+        run: npm run check:event-mobile-content
+
       - name: TypeScript check
         run: npm run type-check
 
