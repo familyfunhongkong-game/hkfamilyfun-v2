@@ -33,7 +33,22 @@ for (const signal of requiredSignals) {
   }
 }
 
-if (source.includes('safeText(event.category, "") ||\n    safeText(event.activity_type')) {
+const categoryFunctionStart = source.indexOf("function getCategoryLabel");
+const activityCategoryIndex = source.indexOf(
+  'safeText(event.activity_category, "")',
+  categoryFunctionStart,
+);
+const legacyCategoryIndex = source.indexOf(
+  'safeText(event.category, "")',
+  categoryFunctionStart,
+);
+
+if (
+  categoryFunctionStart < 0 ||
+  activityCategoryIndex < 0 ||
+  legacyCategoryIndex < 0 ||
+  activityCategoryIndex > legacyCategoryIndex
+) {
   console.error("[merchant-preview] activity_category must take precedence over legacy category");
   failed = true;
 }
