@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 
@@ -77,11 +77,15 @@ export default function AnalyticsPage(){
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
 
-  useEffect(()=>{ void load(); },[range]);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    if (!supabase) {
+      setError("Supabase client 未初始化。");
+      setLoading(false);
+      return;
+    }
 
-  async function load(){
-    setLoading(true); setError("");
-    if(!supabase){ setError("Supabase client 未初始化。"); setLoading(false); return; }
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
     if (!token) {
@@ -104,7 +108,11 @@ export default function AnalyticsPage(){
       setData(empty);
     }
     setLoading(false);
-  }
+  }, [range]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const ctr=useMemo(()=>data.totals.eventViews?((data.totals.ctaClicks/data.totals.eventViews)*100).toFixed(1):"0.0",[data]);
 
