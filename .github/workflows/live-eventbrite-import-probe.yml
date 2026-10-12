@@ -79,5 +79,5 @@ jobs:
 
           if (!/Play Across Generations/i.test(title)) throw new Error("title not extracted");
           if (!String(event.startDate || "").includes("2026-10-19")) throw new Error("JSON-LD start date not extracted");
-          if (details.price?.price_label !== "HK$520") throw new Error("HKD 520 price not extracted");
+          if (details.price?.price_label !== "HK$520 / 4人；額外每人 HK$140") throw new Error("package price not extracted");
           NODE
