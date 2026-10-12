@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+"use client";\n\nimport type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -8,10 +9,141 @@ import {
   Clock3,
   MapPin,
   TrainFront,
+  Heart,
+  CalendarPlus,
 } from "lucide-react";
 import type { Event } from "@/lib/types";
 import type { AppLocale } from "@/lib/i18n/config";
 import ResilientEventImage from "@/components/resilient-event-image";
+import { displayTag, tagTone } from "@/lib/events/tag-tone";
+
+
+const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
+const FAVORITES_CHANGED_EVENT = "hkff:favorites-changed";
+
+function readFavoriteIds() {
+  if (typeof window === "undefined") return [] as string[];
+
+  try {
+    const parsed = JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeFavoriteIds(ids: string[]) {
+  localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(new Set(ids))));
+  window.dispatchEvent(new CustomEvent(FAVORITES_CHANGED_EVENT));
+}
+
+function escapeIcsText(value: string) {
+  return String(value || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function dateToken(value?: string) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[1]}${match[2]}${match[3]}` : "";
+}
+
+function nextDateToken(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return "";
+
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  date.setUTCDate(date.getUTCDate() + 1);
+
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, "0"),
+    String(date.getUTCDate()).padStart(2, "0"),
+  ].join("");
+}
+
+function parseTimeRange(value?: string) {
+  const matches = String(value || "").match(/\b(\d{1,2}):(\d{2})\b/g) || [];
+  const normalize = (raw?: string) => {
+    if (!raw) return "";
+    const [hour, minute] = raw.split(":");
+    return `${hour.padStart(2, "0")}${minute}00`;
+  };
+
+  return {
+    start: normalize(matches[0]),
+    end: normalize(matches[1]),
+  };
+}
+
+function buildIcs(event: Event) {
+  const startDate = dateToken(event.date);
+  const endDate = dateToken(event.endDate || event.date);
+  const times = parseTimeRange(event.time);
+  const now = new Date()
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//HK Family Fun//Event Calendar//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${escapeIcsText(event.id)}@hkfamilyfun.com`,
+    `DTSTAMP:${now}`,
+    `SUMMARY:${escapeIcsText(event.title)}`,
+    `DESCRIPTION:${escapeIcsText(event.shortDescription || event.description || "")}`,
+    `LOCATION:${escapeIcsText([event.district, event.address].filter(Boolean).join(" · "))}`,
+  ];
+
+  if (startDate && times.start) {
+    lines.push(`DTSTART;TZID=Asia/Hong_Kong:${startDate}T${times.start}`);
+    lines.push(
+      `DTEND;TZID=Asia/Hong_Kong:${startDate}T${times.end || times.start}`,
+    );
+
+    if (
+      event.recurrenceType === "weekly" &&
+      event.endDate &&
+      event.recurrenceWeekdays?.length
+    ) {
+      const byDay = event.recurrenceWeekdays
+        .map((day) => ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][day])
+        .filter(Boolean)
+        .join(",");
+      lines.push(`RRULE:FREQ=WEEKLY;UNTIL=${endDate}T155959Z;BYDAY=${byDay}`);
+    }
+  } else if (startDate) {
+    lines.push(`DTSTART;VALUE=DATE:${startDate}`);
+    lines.push(`DTEND;VALUE=DATE:${nextDateToken(event.endDate || event.date)}`);
+  }
+
+  if (event.officialLink) {
+    lines.push(`URL:${event.officialLink}`);
+  }
+
+  lines.push("END:VEVENT", "END:VCALENDAR");
+  return lines.join("\r\n");
+}
+
+function downloadCalendarEvent(event: Event) {
+  const blob = new Blob([buildIcs(event)], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${event.title.replace(/[\\/:*?"<>|]+/g, "-").slice(0, 80) || "hk-family-fun-event"}.ics`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 type PublicEventCardProps = {
   event: Event;
@@ -132,6 +264,30 @@ export default function PublicEventCard({
   className = "",
 }: PublicEventCardProps) {
   const dateText = formatCardDate(event, locale);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const syncFavorites = () => setFavoriteIds(readFavoriteIds());
+    syncFavorites();
+    window.addEventListener(FAVORITES_CHANGED_EVENT, syncFavorites);
+    window.addEventListener("storage", syncFavorites);
+    return () => {
+      window.removeEventListener(FAVORITES_CHANGED_EVENT, syncFavorites);
+      window.removeEventListener("storage", syncFavorites);
+    };
+  }, []);
+
+  const isFavorite = favoriteIds.includes(event.id);
+
+  const toggleFavorite = () => {
+    const current = readFavoriteIds();
+    const next = current.includes(event.id)
+      ? current.filter((id) => id !== event.id)
+      : [...current, event.id];
+    writeFavoriteIds(next);
+  };
+
+  const addToCalendar = () => downloadCalendarEvent(event);
   const category = event.category || text(locale, "親子活動", "亲子活动", "Family");
   const price = event.price || text(locale, "詳情請看官方資料", "详情请看官方资料", "See official details");
   const mtrMissing = isPlaceholder(event.mtrStation);
@@ -199,13 +355,33 @@ export default function PublicEventCard({
                 : event.organizer}
             </p>
 
-            <Link
-              href={`/events/${event.id}`}
-              className="mt-2 inline-flex items-center gap-1 text-[11px] font-black text-purple-700"
-            >
-              {text(locale, "查看詳情", "查看详情", "View details")}
-              <ArrowUpRight size={12} />
-            </Link>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={toggleFavorite}
+                aria-pressed={isFavorite}
+                aria-label={isFavorite ? text(locale, "取消收藏", "取消收藏", "Remove saved event") : text(locale, "收藏活動", "收藏活动", "Save event")}
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[10px] font-black ring-1 transition ${isFavorite ? "bg-rose-50 text-rose-700 ring-rose-100" : "bg-white text-slate-600 ring-slate-200"}`}
+              >
+                <Heart size={12} fill={isFavorite ? "currentColor" : "none"} />
+                {isFavorite ? text(locale, "已收藏", "已收藏", "Saved") : text(locale, "收藏", "收藏", "Save")}
+              </button>
+              <button
+                type="button"
+                onClick={addToCalendar}
+                className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1.5 text-[10px] font-black text-sky-700 ring-1 ring-sky-100"
+              >
+                <CalendarPlus size={12} />
+                {text(locale, "加日曆", "加日历", "Calendar")}
+              </button>
+              <Link
+                href={`/events/${event.id}`}
+                className="inline-flex items-center gap-1 text-[11px] font-black text-purple-700"
+              >
+                {text(locale, "查看詳情", "查看详情", "View details")}
+                <ArrowUpRight size={12} />
+              </Link>
+            </div>
           </div>
         </div>
       </article>
@@ -335,9 +511,9 @@ export default function PublicEventCard({
             {event.tags.slice(0, 4).map((tag) => (
               <span
                 key={tag}
-                className="rounded-full bg-purple-50 px-3 py-1 text-[11px] font-bold text-purple-700 ring-1 ring-purple-100"
+                className={`rounded-full px-3 py-1 text-[11px] font-bold ring-1 ${tagTone(tag)}`}
               >
-                #{tag}
+                {displayTag(tag)}
               </span>
             ))}
             {event.tags.length > 4 ? (
@@ -348,7 +524,29 @@ export default function PublicEventCard({
           </div>
         ) : null}
 
-        <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={toggleFavorite}
+            aria-pressed={isFavorite}
+            className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-black ring-1 transition ${isFavorite ? "bg-rose-50 text-rose-700 ring-rose-100" : "bg-white text-slate-700 ring-slate-200 hover:ring-rose-200 hover:text-rose-700"}`}
+          >
+            <Heart size={15} fill={isFavorite ? "currentColor" : "none"} />
+            {isFavorite
+              ? text(locale, "已收藏", "已收藏", "Saved")
+              : text(locale, "收藏", "收藏", "Save")}
+          </button>
+          <button
+            type="button"
+            onClick={addToCalendar}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-50 px-3 py-2.5 text-xs font-black text-sky-700 ring-1 ring-sky-100 transition hover:bg-sky-100"
+          >
+            <CalendarPlus size={15} />
+            {text(locale, "加入日曆", "加入日历", "Add to calendar")}
+          </button>
+        </div>
+
+        <div className="mt-auto grid gap-2 pt-3 sm:grid-cols-2">
           <Link
             href={`/events/${event.id}`}
             className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-purple-700 px-4 py-3 text-sm font-black text-white transition hover:bg-purple-800"
