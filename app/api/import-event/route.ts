@@ -538,6 +538,10 @@ function applyJsonLd(
   const addressValue = location.address;
   const addressObject = isJsonObject(addressValue) ? addressValue : null;
 
+  const offerPrice = Number(offers.price);
+  const offerCurrency = cleanText(offers.priceCurrency).toUpperCase();
+  const hasOfferPrice = Number.isFinite(offerPrice) && offerPrice >= 0;
+
   return {
     ...event,
     title_tc: event.title_tc || cleanText(jsonLdEvent.name),
@@ -565,6 +569,20 @@ function applyJsonLd(
     cover_image_url: event.cover_image_url || absoluteUrl(String(imageValue || ""), url),
     registration_url:
       event.registration_url || absoluteUrl(String(offers.url || jsonLdEvent.url || ""), url),
+    booking_url:
+      event.booking_url || absoluteUrl(String(offers.url || ""), url),
+    cta_type: offers.url ? "booking" : event.cta_type,
+    cta_label: offers.url ? "購票／了解更多" : event.cta_label,
+    price_display_mode:
+      hasOfferPrice && offerPrice === 0 ? "free" : hasOfferPrice ? "fixed" : event.price_display_mode,
+    price_label:
+      hasOfferPrice && offerPrice === 0
+        ? "免費"
+        : hasOfferPrice
+          ? `${offerCurrency === "HKD" || offerCurrency === "HK$" ? "HK$" : offerCurrency ? offerCurrency + " " : ""}${offerPrice}`
+          : event.price_label,
+    min_price: hasOfferPrice && offerPrice > 0 ? String(offerPrice) : event.min_price,
+    max_price: hasOfferPrice && offerPrice > 0 ? String(offerPrice) : event.max_price,
     official_url: event.official_url || url,
   };
 }
