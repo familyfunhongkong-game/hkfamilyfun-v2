@@ -540,6 +540,12 @@ function getHongKongWeekendRange(today: string) {
   };
 }
 
+function eventStartTimeSortValue(value?: string | null): number {
+  const match = safeText(value).match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
 function parseDateOnly(value?: string | null): Date | null {
   if (!value) return null;
 
@@ -1387,6 +1393,21 @@ export default function PublicEventsSearchClient({
           getCategoryLabel(event, locale) === uiText(locale, "室內活動", "室内活动", "Indoor") ||
           getTagArray(event.tags).some((tag) => tag.includes("室內")),
       );
+    }
+
+    if (specificDate) {
+      next.sort((a, b) => {
+        const timeDiff =
+          eventStartTimeSortValue(a.start_time) -
+          eventStartTimeSortValue(b.start_time);
+        if (timeDiff !== 0) return timeDiff;
+
+        const aTitle = safeText(a.title_tc || a.title_sc || a.title_en || a.title);
+        const bTitle = safeText(b.title_tc || b.title_sc || b.title_en || b.title);
+        return aTitle.localeCompare(bTitle, "zh-HK");
+      });
+
+      return next;
     }
 
     if (sortMode === "recommended") {
