@@ -8,6 +8,7 @@ const requiredSignals = [
   "address?: string",
   "price_display_mode",
   "price_label",
+  "priceValueText",
   "max_price",
   "offer_price",
   "age_min",
