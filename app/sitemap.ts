@@ -4,6 +4,10 @@ import { getPublishedEvents } from "@/lib/supabase/events";
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  if (process.env.MAINTENANCE_MODE === "true") {
+    return [];
+  }
+
   const baseUrl = "https://www.hkfamilyfun.com";
   const staticRoutes: MetadataRoute.Sitemap = [
     "",
