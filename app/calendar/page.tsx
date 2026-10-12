@@ -50,6 +50,24 @@ export default async function CalendarPage({
   const monthStart = `${selectedMonth}-01`;
   const monthEnd = `${selectedMonth}-${String(daysInMonth).padStart(2, "0")}`;
   const today = hkToday();
+  const monthHolidays = Array.from({ length: daysInMonth }, (_, index) => {
+    const day = index + 1;
+    const date = `${selectedMonth}-${String(day).padStart(2, "0")}`;
+    const holiday = getHongKongPublicHoliday(date);
+    return holiday
+      ? {
+          date,
+          day,
+          holiday,
+          name: getHongKongPublicHolidayName(holiday, locale),
+        }
+      : null;
+  }).filter(Boolean) as Array<{
+    date: string;
+    day: number;
+    holiday: NonNullable<ReturnType<typeof getHongKongPublicHoliday>>;
+    name: string;
+  }>;
 
   const monthEvents = events.filter(
     (event) =>
@@ -171,7 +189,7 @@ export default async function CalendarPage({
                     key={day}
                     href={`/events?date=${date}`}
                     className={[
-                      "min-h-[82px] border-b border-r border-slate-100 p-2 text-left hover:bg-purple-50",
+                      "min-h-[58px] border-b border-r border-slate-100 p-1.5 text-left hover:bg-purple-50 sm:min-h-[82px] sm:p-2",
                       isToday
                         ? "bg-blue-50"
                         : isRedDay
@@ -195,29 +213,63 @@ export default async function CalendarPage({
                     </span>
 
                     {holiday ? (
-                      <p className="mt-1 line-clamp-2 text-[10px] font-black leading-4 text-rose-600">
+                      <p className="mt-1 hidden line-clamp-2 text-[10px] font-black leading-4 text-rose-600 sm:block">
                         {holidayName}
                       </p>
                     ) : null}
 
                     {dayEvents.length ? (
-                      <div className="mt-2 space-y-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                        <p className="line-clamp-2 text-[11px] font-bold leading-4 text-slate-600">
-                          {dayEvents[0].title}
-                        </p>
-                        {dayEvents.length > 1 ? (
-                          <p className="text-[10px] font-black text-purple-700">
-                            +{dayEvents.length - 1}
+                      <>
+                        <div className="mt-1.5 flex items-center gap-1 sm:hidden">
+                          <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                          <span className="text-[9px] font-black text-purple-700">
+                            {dayEvents.length}
+                          </span>
+                        </div>
+                        <div className="mt-2 hidden space-y-1 sm:block">
+                          <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                          <p className="line-clamp-2 text-[11px] font-bold leading-4 text-slate-600">
+                            {dayEvents[0].title}
                           </p>
-                        ) : null}
-                      </div>
+                          {dayEvents.length > 1 ? (
+                            <p className="text-[10px] font-black text-purple-700">
+                              +{dayEvents.length - 1}
+                            </p>
+                          ) : null}
+                        </div>
+                      </>
                     ) : null}
                   </Link>
                 );
               },
             )}
           </div>
+
+          {monthHolidays.length ? (
+            <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50/60 p-4 sm:hidden">
+              <p className="text-xs font-black text-rose-700">
+                {locale === "en"
+                  ? "Public holidays this month"
+                  : locale === "zh-Hans"
+                    ? "本月公众假期"
+                    : "本月公眾假期"}
+              </p>
+              <div className="mt-2 space-y-1.5">
+                {monthHolidays.map((item) => (
+                  <Link
+                    key={item.date}
+                    href={`/events?date=${item.date}`}
+                    className="flex items-start gap-2 rounded-xl bg-white/80 px-3 py-2 text-xs"
+                  >
+                    <span className="shrink-0 font-black text-rose-600">
+                      {item.day}
+                    </span>
+                    <span className="font-bold text-slate-700">{item.name}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl bg-slate-50 px-4 py-3 text-xs font-bold text-slate-600">
             <span className="inline-flex items-center gap-2">
