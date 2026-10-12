@@ -82,9 +82,27 @@ export default function AnalyticsPage(){
   async function load(){
     setLoading(true); setError("");
     if(!supabase){ setError("Supabase client 未初始化。"); setLoading(false); return; }
-    const {data:result,error:e}=await supabase.rpc("admin_site_analytics_summary",{p_start:startFor(range).toISOString()});
-    if(e){ setError(e.message); setData(empty); }
-    else setData((result as Summary)||empty);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setError("Admin 登入已失效，請重新登入。");
+      setData(empty);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/admin/analytics?start=${encodeURIComponent(startFor(range).toISOString())}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "未能讀取 Analytics。");
+      setData((body.data as Summary) || empty);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "未能讀取 Analytics。");
+      setData(empty);
+    }
     setLoading(false);
   }
 
