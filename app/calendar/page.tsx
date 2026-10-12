@@ -4,6 +4,7 @@ import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import { eventOccursOn, eventOccursInRange } from "@/lib/events/recurrence";
 import PublicEventCard from "@/components/events/PublicEventCard";
+import { getHongKongPublicHoliday, getHongKongPublicHolidayName } from "@/lib/hk-public-holidays";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +31,13 @@ function shiftMonth(key: string, delta: number) {
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams?: { month?: string };
+  searchParams?: Promise<{ month?: string }> | { month?: string };
 }) {
   const locale = await getServerLocale();
   const p = getPublicMessages(locale);
   const events = await getPublishedEvents(locale);
-  const selectedMonth = monthKey(searchParams?.month);
+  const resolvedSearchParams = await Promise.resolve(searchParams || {});
+  const selectedMonth = monthKey(resolvedSearchParams.month);
   const [year, month] = selectedMonth.split("-").map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
   const firstWeekday = new Date(year, month - 1, 1).getDay();
@@ -144,6 +146,10 @@ export default async function CalendarPage({
                 const date = `${selectedMonth}-${String(day).padStart(2, "0")}`;
                 const dayEvents = eventsByDay.get(day) || [];
                 const isToday = date === today;
+                const holiday = getHongKongPublicHoliday(date);
+                const holidayName = holiday
+                  ? getHongKongPublicHolidayName(holiday, locale)
+                  : "";
 
                 return (
                   <Link
@@ -151,19 +157,33 @@ export default async function CalendarPage({
                     href={`/events?date=${date}`}
                     className={[
                       "min-h-[82px] border-b border-r border-slate-100 p-2 text-left hover:bg-purple-50",
-                      isToday ? "bg-blue-50" : "bg-white",
+                      isToday
+                        ? "bg-blue-50"
+                        : holiday
+                          ? "bg-rose-50/50"
+                          : "bg-white",
                     ].join(" ")}
                   >
                     <span
                       className={[
                         "inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-black",
                         isToday
-                          ? "bg-blue-600 text-white"
-                          : "text-slate-700",
+                          ? holiday
+                            ? "bg-blue-600 text-white ring-2 ring-rose-400"
+                            : "bg-blue-600 text-white"
+                          : holiday
+                            ? "text-rose-600"
+                            : "text-slate-700",
                       ].join(" ")}
                     >
                       {day}
                     </span>
+
+                    {holiday ? (
+                      <p className="mt-1 line-clamp-2 text-[10px] font-black leading-4 text-rose-600">
+                        {holidayName}
+                      </p>
+                    ) : null}
 
                     {dayEvents.length ? (
                       <div className="mt-2 space-y-1">
@@ -182,6 +202,25 @@ export default async function CalendarPage({
                 );
               },
             )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl bg-slate-50 px-4 py-3 text-xs font-bold text-slate-600">
+            <span className="inline-flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full bg-rose-600" />
+              {locale === "en"
+                ? "Red date = Hong Kong public holiday"
+                : locale === "zh-Hans"
+                  ? "红色日期 = 香港公众假期"
+                  : "紅色日期 = 香港公眾假期"}
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full bg-purple-500" />
+              {locale === "en"
+                ? "Purple dot = published event"
+                : locale === "zh-Hans"
+                  ? "紫色点 = 已发布活动"
+                  : "紫色點 = 已發布活動"}
+            </span>
           </div>
         </div>
 
