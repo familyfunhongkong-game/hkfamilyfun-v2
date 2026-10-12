@@ -74,7 +74,10 @@ export async function POST(request: NextRequest) {
       end_date: text(form.get("end_date")) || null,
       start_time: text(form.get("start_time")) || null,
       end_time: text(form.get("end_time")) || null,
+      price_display_mode:
+        text(form.get("price_display_mode")) || event.price_display_mode || "unknown",
       price_label: text(form.get("price_label")) || null,
+      is_free: text(form.get("price_display_mode")) === "free",
       cover_image_url: text(form.get("cover_image_url")) || null,
       registration_url: text(form.get("registration_url")) || null,
       official_url: text(form.get("official_url")) || event.official_url || null,
