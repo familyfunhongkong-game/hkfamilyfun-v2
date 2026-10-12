@@ -116,6 +116,12 @@ jobs:
       - name: Supabase migration drift safety lock
         run: npm run check:migration-drift-lock
 
+      - name: Calendar persona regression check
+        run: npm run check:calendar-persona
+
+      - name: Merchant preview schema check
+        run: npm run check:merchant-preview
+
       - name: TypeScript check
         run: npm run type-check
 
