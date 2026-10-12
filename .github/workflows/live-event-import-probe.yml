@@ -6,6 +6,9 @@ on:
       - fix-event-importer-airside-20261012
     paths:
       - ".github/workflows/live-event-import-probe.yml"
+      - "lib/event-import-page-extractor.js"
+      - "app/api/import-event/route.ts"
+      - "scripts/check-event-import-extractor.mjs"
 
 permissions:
   contents: read
