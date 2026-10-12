@@ -13,6 +13,7 @@ const groups = [
       { href: "/admin/reports", title: "Reports / QA", description: "集中睇活動資料缺漏、過期公開、同步錯誤、Intake backlog 同內容營運狀態。", tone: "rose" },
       { href: "/admin/notifications", title: "通知中心", description: "新商戶、待審活動及系統狀態更新。", tone: "amber" },
       { href: "/admin/events", title: "活動審批", description: "草稿、待審、已批准、已發布、拒絕及封存活動。", tone: "emerald" },
+      { href: "/admin/analytics", title: "Analytics / 流量分析", description: "Visitors、Page Views、熱門活動、類別、地區、流量來源、裝置及 CTA 轉換。", tone: "violet" },
       { href: "/admin/merchants", title: "商戶審批", description: "批准、拒絕、暫停商戶帳戶及檢查提交資料。", tone: "sky" },
     ],
   },
