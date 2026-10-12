@@ -63,6 +63,9 @@ type DatabaseEvent = {
   is_featured: boolean | null;
   status: string;
   cover_image_url: string | null;
+  cover_image_offset_x?: number | string | null;
+  cover_image_offset_y?: number | string | null;
+  cover_image_zoom?: number | string | null;
   updated_at?: string | null;
   published_at?: string | null;
 };
@@ -260,6 +263,9 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
     image:
       event.cover_image_url ||
       "https://placehold.co/1200x675/f5f3ff/7c3aed?text=HK+Family+Fun",
+    coverImageOffsetX: Math.max(-50, Math.min(50, Number(event.cover_image_offset_x ?? 0) || 0)),
+    coverImageOffsetY: Math.max(-50, Math.min(50, Number(event.cover_image_offset_y ?? 0) || 0)),
+    coverImageZoom: Math.max(1, Math.min(2.5, Number(event.cover_image_zoom ?? 1) || 1)),
     officialLink:
       event.registration_url ||
       event.booking_url ||

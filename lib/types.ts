@@ -24,6 +24,9 @@ export interface Event {
   senFriendly: boolean;
   indoor?: boolean;
   image: string;
+  coverImageOffsetX?: number;
+  coverImageOffsetY?: number;
+  coverImageZoom?: number;
   officialLink?: string;
   featured?: boolean;
   updatedAt?: string;

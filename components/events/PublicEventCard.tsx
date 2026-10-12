@@ -79,6 +79,17 @@ function priceTone(event: Event) {
     : "bg-amber-100 text-amber-900";
 }
 
+function coverCropStyle(event: Event) {
+  const x = Math.max(-50, Math.min(50, event.coverImageOffsetX ?? 0));
+  const y = Math.max(-50, Math.min(50, event.coverImageOffsetY ?? 0));
+  const zoom = Math.max(1, Math.min(2.5, event.coverImageZoom ?? 1));
+
+  return {
+    transform: `translate(${x}%, ${y}%) scale(${zoom})`,
+    transformOrigin: "center",
+  };
+}
+
 function InfoLine({
   icon,
   label,
@@ -140,7 +151,8 @@ export default function PublicEventCard({
               alt={event.title}
               loading="lazy"
               compactFallback
-              className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]"
+              className="h-full w-full object-cover transition-transform duration-300"
+              style={coverCropStyle(event)}
             />
             <span className={`absolute bottom-1.5 left-1.5 rounded-full px-2 py-1 text-[10px] font-black shadow-sm ${priceTone(event)}`}>
               {price}
@@ -217,7 +229,8 @@ export default function PublicEventCard({
           alt={event.title}
           loading="lazy"
           compactFallback
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.045]"
+          className="h-full w-full object-cover transition-transform duration-500"
+          style={coverCropStyle(event)}
         />
 
         <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/55 to-transparent" />

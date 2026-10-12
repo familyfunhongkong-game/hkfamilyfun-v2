@@ -23,6 +23,9 @@ interface EventCardProps {
 
 export function EventCard({ event, className }: EventCardProps) {
   const [saved, setSaved] = useState(false);
+  const coverX = Math.max(-50, Math.min(50, event.coverImageOffsetX ?? 0));
+  const coverY = Math.max(-50, Math.min(50, event.coverImageOffsetY ?? 0));
+  const coverZoom = Math.max(1, Math.min(2.5, event.coverImageZoom ?? 1));
 
   return (
     <article
@@ -36,7 +39,11 @@ export function EventCard({ event, className }: EventCardProps) {
           src={event.image}
           alt={event.title}
           fill
-          className="object-cover transition duration-300 group-hover:scale-105"
+          className="object-cover transition-transform duration-300"
+          style={{
+            transform: `translate(${coverX}%, ${coverY}%) scale(${coverZoom})`,
+            transformOrigin: "center",
+          }}
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
