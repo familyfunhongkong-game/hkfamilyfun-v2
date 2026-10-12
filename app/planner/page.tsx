@@ -49,6 +49,28 @@ type EventRecord = {
   tags?: unknown;
 };
 
+const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
+
+function readFavoriteIds() {
+  if (typeof window === "undefined") return [] as string[];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(FAVORITES_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeFavoriteIds(ids: string[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    FAVORITES_STORAGE_KEY,
+    JSON.stringify(Array.from(new Set(ids))),
+  );
+}
+
 type SpeechRecognitionResultLike = {
   [index: number]: { transcript?: string };
 };
@@ -317,6 +339,7 @@ export default function PlannerPage() {
   const [date, setDate] = useState(hkToday());
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   const [calendarConfigured, setCalendarConfigured] = useState(false);
   const [calendarConnected, setCalendarConnected] = useState(false);
@@ -328,6 +351,7 @@ export default function PlannerPage() {
     const activeLocale = getClientLocale();
     const activeMessages = getExtraPublicMessages(activeLocale).planner;
     setLocale(activeLocale);
+    setFavoriteIds(readFavoriteIds());
 
     async function load() {
       if (!supabase) {
@@ -475,6 +499,16 @@ export default function PlannerPage() {
       setMessage(m.voiceFailed);
     };
     recognition.start();
+  }
+
+  function toggleFavorite(eventId: string) {
+    setFavoriteIds((current) => {
+      const next = current.includes(eventId)
+        ? current.filter((id) => id !== eventId)
+        : [...current, eventId];
+      writeFavoriteIds(next);
+      return next;
+    });
   }
 
   async function disconnectCalendar() {
@@ -711,6 +745,28 @@ export default function PlannerPage() {
                   >
                     {m.details}
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => toggleFavorite(event.id)}
+                    aria-pressed={favoriteIds.includes(event.id)}
+                    className={`rounded-xl px-4 py-2 text-center text-sm font-black ring-1 transition ${
+                      favoriteIds.includes(event.id)
+                        ? "bg-rose-50 text-rose-700 ring-rose-100"
+                        : "bg-white text-slate-700 ring-slate-300"
+                    }`}
+                  >
+                    {favoriteIds.includes(event.id)
+                      ? locale === "en"
+                        ? "Saved"
+                        : locale === "zh-Hans"
+                          ? "已收藏"
+                          : "已收藏"
+                      : locale === "en"
+                        ? "♡ Save"
+                        : locale === "zh-Hans"
+                          ? "♡ 收藏"
+                          : "♡ 收藏"}
+                  </button>
                   <a
                     href={googleCalendarUrl(
                       event,
@@ -720,9 +776,9 @@ export default function PlannerPage() {
                     )}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-center text-sm font-black text-slate-700"
+                    className="rounded-xl bg-sky-50 px-4 py-2 text-center text-sm font-black text-sky-700 ring-1 ring-sky-100"
                   >
-                    {m.addCalendar}
+                    📅 {m.addCalendar}
                   </a>
                   </div>
                 </div>
