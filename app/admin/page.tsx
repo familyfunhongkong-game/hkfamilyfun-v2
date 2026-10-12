@@ -33,6 +33,7 @@ const groups = [
     description: "少做 IT 維護，多做內容及商戶營運。",
     cards: [
       { href: "/admin/system", title: "系統狀態", description: "檢查 Supabase、Data Hub、Google Drive、Calendar、AI、Email 同 launch readiness。", tone: "slate" },
+      { href: "/admin/users", title: "Admin Users", description: "Super Admin 管理 Admin invitation、啟用/停用同 Super Admin 角色。", tone: "purple" },
       { href: "/news", title: "查看 News / Feature", description: "查看公開圖片主導 editorial 頁面。", tone: "rose" },
       { href: "/events", title: "查看公開活動網站", description: "檢查家長端 Event / Today / Calendar / Map 實際顯示。", tone: "emerald" },
     ],
