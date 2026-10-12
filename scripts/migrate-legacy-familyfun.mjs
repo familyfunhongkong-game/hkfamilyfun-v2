@@ -295,6 +295,17 @@ async function createIssue(report) {
     `- Planned current/future drafts: **${report.plannedDrafts}**`,
     `- Planned expired archives: **${report.plannedArchived}**`,
     "",
+    ...(report.plannedInsertDetails?.length
+      ? [
+          "### Planned insert details",
+          "",
+          ...report.plannedInsertDetails.map(
+            (item) =>
+              `- **${item.title || "(untitled)"}** — legacy \`${item.legacy_activity_id}\`; ${item.start_date || "no date"}; ${item.venue_name || "no venue"}; status \`${item.status}\``,
+          ),
+          "",
+        ]
+      : []),
     APPLY
       ? "### Migration mode: SAFE APPLY (insert-only)"
       : "### Migration mode: DRY RUN ONLY",
@@ -462,6 +473,15 @@ async function main() {
     plannedInserts: inserts.length,
     plannedDrafts,
     plannedArchived,
+    plannedInsertDetails: inserts.map((item) => ({
+      legacy_activity_id: text(item.ai_extracted_json?.legacy_activity_id),
+      title: text(item.title_tc),
+      start_date: text(item.start_date),
+      end_date: text(item.end_date),
+      venue_name: text(item.venue_name),
+      status: text(item.status),
+      source_url: text(item.source_url),
+    })),
     apply: APPLY,
     driftDetails: driftDetails.slice(0, 50),
   };
