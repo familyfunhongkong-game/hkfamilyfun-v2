@@ -15,6 +15,11 @@ const SITE_URL =
   process.env.SITE_URL || "https://hkfamilyfun-v2.vercel.app";
 const MAX_NEW_EVENTS = Number(process.env.MAX_NEW_EVENTS || "5");
 const DRY_RUN = String(process.env.DISCOVERY_DRY_RUN || "false").toLowerCase() === "true";
+const APPROVAL_ACTION_SECRET =
+  process.env.APPROVAL_ACTION_SECRET || SERVICE_KEY;
+const APPROVAL_ACTION_TTL_HOURS = Number(
+  process.env.APPROVAL_ACTION_TTL_HOURS || "168",
+);
 
 if (!SERVICE_KEY) {
   throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
@@ -440,6 +445,110 @@ function looksFamilyRelevant(text) {
   );
 }
 
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function reviewSignature(eventId, expiresAt) {
+  return crypto
+    .createHmac("sha256", APPROVAL_ACTION_SECRET)
+    .update(String(eventId) + "." + String(expiresAt))
+    .digest("hex");
+}
+
+function secureReviewUrl(eventId) {
+  const expiresAt =
+    Math.floor(Date.now() / 1000) +
+    Math.max(1, APPROVAL_ACTION_TTL_HOURS) * 60 * 60;
+  const signature = reviewSignature(eventId, expiresAt);
+  return (
+    SITE_URL +
+    "/event-review/" +
+    encodeURIComponent(eventId) +
+    "?expires=" +
+    expiresAt +
+    "&sig=" +
+    signature
+  );
+}
+
+function extractImageCandidates(html, baseUrl) {
+  const candidates = [];
+  const metaImage = getImage(html, baseUrl);
+  if (metaImage) candidates.push(metaImage);
+
+  for (const match of html.matchAll(
+    /<img\s+[^>]*(?:src|data-src|data-original)=["']([^"']+)["'][^>]*>/gi,
+  )) {
+    const url = absoluteUrl(match[1], baseUrl);
+    if (!url) continue;
+    if (/logo|icon|sprite|avatar|pixel|tracking|spinner/i.test(url)) continue;
+    candidates.push(url);
+    if (candidates.length >= 12) break;
+  }
+
+  return [...new Set(candidates)];
+}
+
+function sourceSection(text, labels) {
+  const compact = cleanText(text);
+  for (const label of labels) {
+    const escaped = label.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
+    const match = compact.match(
+      new RegExp(
+        "(?:" + escaped + ")\\s*[:：]?\\s*(.{8,420}?)(?=\\s(?:日期|時間|地點|機構|主辦|報名|收費|費用|查詢|注意事項|備註|條款|取消|退款|惡劣天氣)\\s*[:：]|$)",
+        "i",
+      ),
+    );
+    if (match?.[1]) return cleanText(match[1]).slice(0, 420);
+  }
+  return "";
+}
+
+function buildFactualHighlights({
+  startDate,
+  endDate,
+  startTime,
+  endTime,
+  venue,
+  organizer,
+  priceLabel,
+}) {
+  const items = [];
+  if (startDate) {
+    items.push(
+      "日期：" +
+        startDate +
+        (endDate && endDate !== startDate ? " 至 " + endDate : ""),
+    );
+  }
+  if (startTime) {
+    items.push(
+      "時間：" +
+        startTime +
+        (endTime ? "–" + endTime : ""),
+    );
+  }
+  if (venue) items.push("地點：" + venue);
+  if (priceLabel && priceLabel !== "收費待確認") {
+    items.push("收費：" + priceLabel);
+  }
+  if (organizer) items.push("主辦：" + organizer);
+  return items.join("\n");
+}
+
+function buildFallbackDescription(title, facts) {
+  const detail = facts.filter(Boolean).join("；");
+  if (!detail) return title;
+  return title + "。活動資料：" + detail + "。";
+}
+
 function extractLinks(html, source) {
   const found = new Set();
 
@@ -510,7 +619,7 @@ async function validateImageUrl(value) {
     const parsed = new URL(value);
     if (!["http:", "https:"].includes(parsed.protocol)) return "";
 
-    const response = await fetch(parsed.toString(), {
+    let response = await fetch(parsed.toString(), {
       method: "HEAD",
       headers: {
         "user-agent":
@@ -521,11 +630,36 @@ async function validateImageUrl(value) {
       signal: AbortSignal.timeout(8000),
     });
 
-    const contentType = (
+    let contentType = (
       response.headers.get("content-type") || ""
     ).toLowerCase();
 
     if (response.ok && contentType.startsWith("image/")) {
+      return response.url || parsed.toString();
+    }
+
+    response = await fetch(parsed.toString(), {
+      method: "GET",
+      headers: {
+        "user-agent":
+          "HKFamilyFunDiscoveryBot/1.0 (+https://hkfamilyfun.com; info@hkfamilyfun.com)",
+        accept: "image/*,*/*;q=0.5",
+        Range: "bytes=0-1024",
+      },
+      redirect: "follow",
+      signal: AbortSignal.timeout(8000),
+    });
+
+    contentType = (
+      response.headers.get("content-type") || ""
+    ).toLowerCase();
+
+    if (response.ok && contentType.startsWith("image/")) {
+      try {
+        await response.body?.cancel();
+      } catch {
+        // Ignore cancellation errors.
+      }
       return response.url || parsed.toString();
     }
   } catch {
@@ -550,7 +684,7 @@ async function extractEvent(url, sourceName) {
     ? extractLabelValue(fullPageText, "備註", ["查詢電話"])
     : "";
 
-  const description = cleanText(
+  let description = cleanText(
     hkplRemarks || jsonLd?.description || getDescription(html),
   );
   const pageText = fullPageText.slice(0, 25000);
@@ -631,23 +765,88 @@ async function extractEvent(url, sourceName) {
         ? imageValue.url || imageValue.contentUrl || ""
         : "";
 
-  const imageCandidate =
-    absoluteUrl(String(rawImageValue || ""), url) ||
-    getImage(html, url);
+  const imageCandidates = [
+    absoluteUrl(String(rawImageValue || ""), url),
+    ...extractImageCandidates(html, url),
+  ].filter(Boolean);
 
-  const image =
-    hkplDetail &&
-    /\/common\/(?:thematic|mainsite|tc\/common|en\/common)\/images\//i.test(
-      imageCandidate,
-    )
-      ? ""
-      : await validateImageUrl(imageCandidate);
+  let image = "";
+  for (const candidate of [...new Set(imageCandidates)]) {
+    if (
+      hkplDetail &&
+      /\/common\/(?:thematic|mainsite|tc\/common|en\/common)\/images\//i.test(
+        candidate,
+      )
+    ) {
+      continue;
+    }
+    image = await validateImageUrl(candidate);
+    if (image) break;
+  }
 
   const offerPrice = Number(offers?.price);
   const isFree =
     /免費|\bfree\b/i.test(
       String(offers?.price || "") + " " + title + " " + description,
     ) || offerPrice === 0;
+
+  const organizerName = cleanText(
+    hkplOrganizer || jsonLd?.organizer?.name || sourceName,
+  );
+  const venueName = cleanText(hkplVenue || location.name || "");
+  const cleanedAddress = cleanText(hkplVenue || address);
+  const priceLabel = isFree
+    ? "免費"
+    : offerPrice > 0
+      ? "HK$" + offerPrice
+      : "收費待確認";
+
+  if (!description || description.length < 24) {
+    description = buildFallbackDescription(title, [
+      startDate
+        ? "日期 " +
+          startDate +
+          (endDate && endDate !== startDate ? " 至 " + endDate : "")
+        : "",
+      venueName ? "地點 " + venueName : "",
+      organizerName ? "主辦 " + organizerName : "",
+      priceLabel !== "收費待確認" ? "收費 " + priceLabel : "",
+    ]);
+  }
+
+  const extractedTerms = sourceSection(fullPageText, [
+    "注意事項",
+    "備註",
+    "報名須知",
+    "參加須知",
+    "條款",
+  ]);
+  const extractedParentNote = sourceSection(fullPageText, [
+    "對象",
+    "適合年齡",
+    "年齡",
+    "參加資格",
+  ]);
+  const extractedSafetyNote = sourceSection(fullPageText, [
+    "惡劣天氣",
+    "安全",
+    "颱風",
+    "暴雨",
+  ]);
+  const extractedCancellation = sourceSection(fullPageText, [
+    "取消",
+    "退款",
+    "退票",
+  ]);
+  const highlights = buildFactualHighlights({
+    startDate,
+    endDate,
+    startTime: parsedStartTime || timeOnly(jsonLd?.startDate) || null,
+    endTime: parsedEndTime || timeOnly(jsonLd?.endDate) || null,
+    venue: venueName || cleanedAddress,
+    organizer: organizerName,
+    priceLabel,
+  });
 
   return {
     event: {
@@ -661,11 +860,9 @@ async function extractEvent(url, sourceName) {
       parsedStartTime || timeOnly(jsonLd?.startDate) || null,
     end_time:
       parsedEndTime || timeOnly(jsonLd?.endDate) || null,
-    venue_name: cleanText(hkplVenue || location.name || ""),
-    address: cleanText(hkplVenue || address),
-    organizer_name: cleanText(
-      hkplOrganizer || jsonLd?.organizer?.name || sourceName,
-    ),
+    venue_name: venueName,
+    address: cleanedAddress,
+    organizer_name: organizerName,
     cover_image_url: image,
     gallery_image_urls: image ? [image] : [],
     price_display_mode: isFree
@@ -673,11 +870,7 @@ async function extractEvent(url, sourceName) {
       : offerPrice > 0
         ? "fixed"
         : "unknown",
-    price_label: isFree
-      ? "免費"
-      : offerPrice > 0
-        ? "HK$" + offerPrice
-        : "收費待確認",
+    price_label: priceLabel,
     min_price: offerPrice > 0 ? offerPrice : null,
     is_free: isFree,
     registration_url: absoluteUrl(
@@ -688,6 +881,12 @@ async function extractEvent(url, sourceName) {
     source_url: url,
     cta_type: "official",
     cta_label: "查看官方活動頁",
+    highlights,
+    terms: extractedTerms || hkplRemarks || null,
+    remarks: hkplRemarks || extractedTerms || null,
+    parent_note_tc: extractedParentNote || null,
+    safety_note_tc: extractedSafetyNote || null,
+    cancellation_policy_tc: extractedCancellation || null,
     source_type: "url",
     status: "draft",
     auto_imported_at: new Date().toISOString(),
@@ -705,51 +904,95 @@ async function extractEvent(url, sourceName) {
 async function sendApprovalEmail(events) {
   if (!events.length || !RESEND_API_KEY) return false;
 
-  const rows = events
-    .map(
-      (event) =>
-        "<li style=\"margin-bottom:16px\"><strong>" +
-        event.title_tc +
-        "</strong><br/>" +
-        (event.start_date || "日期待確認") +
-        " · " +
-        (event.venue_name || "場地待確認") +
-        "<br/><a href=\"" +
-        SITE_URL +
-        "/admin/events/" +
-        event.id +
-        "\">開啟 Admin 審批</a> | <a href=\"" +
-        event.source_url +
-        "\">官方來源</a></li>",
-    )
+  const cards = events
+    .map((event) => {
+      const reviewUrl = secureReviewUrl(event.id);
+      const image = event.cover_image_url
+        ? '<img src="' +
+          escapeHtml(event.cover_image_url) +
+          '" alt="" style="width:100%;max-width:560px;height:auto;border-radius:14px;display:block;margin:12px 0" />'
+        : "";
+      const description = event.description_tc
+        ? '<p style="margin:10px 0;line-height:1.6;color:#334155">' +
+          escapeHtml(event.description_tc).slice(0, 900) +
+          "</p>"
+        : "";
+      const highlights = event.highlights
+        ? '<div style="margin:10px 0;padding:10px 12px;background:#f5f3ff;border-radius:10px;white-space:pre-line"><strong>亮點 / 重點資料</strong><br/>' +
+          escapeHtml(event.highlights) +
+          "</div>"
+        : "";
+      const notes = [event.terms, event.parent_note_tc, event.safety_note_tc]
+        .filter(Boolean)
+        .map((value) => escapeHtml(value))
+        .join("<br/>");
+      return (
+        '<div style="margin:0 0 24px;padding:18px;border:1px solid #e2e8f0;border-radius:16px">' +
+        '<div style="font-size:18px;font-weight:800;color:#0f172a">' +
+        escapeHtml(event.title_tc || "未命名活動") +
+        "</div>" +
+        image +
+        '<div style="margin:8px 0;color:#475569;line-height:1.7">' +
+        "<strong>日期：</strong>" +
+        escapeHtml(event.start_date || "待確認") +
+        (event.end_date && event.end_date !== event.start_date
+          ? " 至 " + escapeHtml(event.end_date)
+          : "") +
+        "<br/><strong>時間：</strong>" +
+        escapeHtml(
+          [event.start_time, event.end_time].filter(Boolean).join("–") ||
+            "待確認",
+        ) +
+        "<br/><strong>地點：</strong>" +
+        escapeHtml(event.venue_name || event.address || "待確認") +
+        "<br/><strong>收費：</strong>" +
+        escapeHtml(event.price_label || "待確認") +
+        "<br/><strong>主辦：</strong>" +
+        escapeHtml(event.organizer_name || "待確認") +
+        "</div>" +
+        description +
+        highlights +
+        (notes
+          ? '<div style="margin:10px 0;padding:10px 12px;background:#fff7ed;border-radius:10px;line-height:1.6"><strong>注意事項</strong><br/>' +
+            notes +
+            "</div>"
+          : "") +
+        '<div style="margin-top:14px">' +
+        '<a href="' +
+        reviewUrl +
+        '" style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;font-weight:800;padding:11px 16px;border-radius:10px;margin-right:8px">直接 Review / Approve（毋須登入）</a>' +
+        '<a href="' +
+        escapeHtml(event.source_url || "") +
+        '" style="display:inline-block;color:#6d28d9;font-weight:700;padding:11px 4px">官方來源</a>' +
+        "</div></div>"
+      );
+    })
     .join("");
 
-  const response = await fetch(
-    "https://api.resend.com/emails",
-    {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + RESEND_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "HK Family Fun <no-reply@hkfamilyfun.com>",
-        to: [APPROVAL_EMAIL],
-        subject:
-          "HK Family Fun：" +
-          events.length +
-          " 個新活動等待審批",
-        html:
-          "<h2>HK Family Fun 自動發現新活動</h2>" +
-          "<p>以下活動已建立為 Draft，不會自動公開。請核對日期、時間、圖片、地點及報名資料後再發布。</p>" +
-          "<ol>" +
-          rows +
-          "</ol><p><a href=\"" +
-          SITE_URL +
-          "/admin/events\">前往 Admin 活動審批中心</a></p>",
-      }),
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + RESEND_API_KEY,
+      "Content-Type": "application/json",
+      "Idempotency-Key":
+        "auto-discover-review-" +
+        events.map((event) => event.id).join("-").slice(0, 180),
     },
-  );
+    body: JSON.stringify({
+      from: "HK Family Fun <no-reply@hkfamilyfun.com>",
+      to: [APPROVAL_EMAIL],
+      reply_to: "info@hkfamilyfun.com",
+      subject:
+        "HK Family Fun：" + events.length + " 個新活動可直接 Review / Approve",
+      html:
+        "<h2>HK Family Fun 自動發現新活動</h2>" +
+        "<p>活動已建立為 Draft。以下已盡量預填圖片、活動介紹、亮點及注意事項。你可直接由此電郵打開安全審批頁，毋須登入 Admin。</p>" +
+        cards +
+        '<p style="font-size:12px;color:#64748b">安全 Review 連結會在 ' +
+        APPROVAL_ACTION_TTL_HOURS +
+        " 小時後失效；活動在你批准發布前不會公開。</p>",
+    }),
+  });
 
   if (!response.ok) {
     throw new Error(
@@ -986,7 +1229,7 @@ async function main() {
         .from("events")
         .insert(event)
         .select(
-          "id,title_tc,start_date,venue_name,source_url",
+          "id,title_tc,description_tc,highlights,terms,parent_note_tc,safety_note_tc,start_date,end_date,start_time,end_time,venue_name,address,organizer_name,cover_image_url,price_label,source_url",
         )
         .single();
 
