@@ -308,6 +308,24 @@ function formatPrice(event: EventRecord): string {
   return "收費待確認";
 }
 
+function formatAge(event: EventRecord): string {
+  const min = safeText(event.age_min, "");
+  const max = safeText(event.age_max, "");
+
+  if (min && max) return `${min}–${max} 歲`;
+  if (min) return `${min} 歲或以上`;
+  if (max) return `${max} 歲或以下`;
+
+  if (Array.isArray(event.age_groups)) {
+    const groups = event.age_groups
+      .map((item) => safeText(item, ""))
+      .filter(Boolean);
+    if (groups.length) return groups.join("、");
+  }
+
+  return safeText(event.age_group, "年齡待定");
+}
+
 function getStatusLabel(status?: string | null): string {
   switch (status) {
     case "draft":
@@ -832,6 +850,9 @@ export default function MerchantEventPreviewPage() {
                 <div className="mb-3 flex flex-wrap gap-2">
                   <PreviewBadge tone="purple">{getCategoryLabel(event)}</PreviewBadge>
                   <PreviewBadge tone="amber">{formatPrice(event)}</PreviewBadge>
+                  <PreviewBadge tone="slate">{formatAge(event)}</PreviewBadge>
+                  {event.is_sen_friendly ? <PreviewBadge tone="purple">SEN 友善</PreviewBadge> : null}
+                  {event.is_indoor ? <PreviewBadge tone="slate">室內</PreviewBadge> : null}
                   {mtr ? <PreviewBadge tone="slate">{mtr}</PreviewBadge> : null}
                 </div>
 
@@ -848,6 +869,14 @@ export default function MerchantEventPreviewPage() {
                   <InfoPill label="時間" value={formatTimeRange(event)} />
                   <InfoPill label="地點" value={venue} />
                   <InfoPill label="收費" value={formatPrice(event)} />
+                  <InfoPill label="年齡" value={formatAge(event)} />
+                  <InfoPill
+                    label="友善標籤"
+                    value={[
+                      event.is_sen_friendly ? "SEN 友善" : "",
+                      event.is_indoor ? "室內" : "",
+                    ].filter(Boolean).join("、") || "未設定"}
+                  />
                 </div>
 
                 {tags.length > 0 ? (
@@ -901,6 +930,9 @@ export default function MerchantEventPreviewPage() {
                   <div className="flex flex-wrap gap-2">
                     <PreviewBadge tone="purple">{getCategoryLabel(event)}</PreviewBadge>
                     <PreviewBadge tone="amber">{formatPrice(event)}</PreviewBadge>
+                    <PreviewBadge tone="slate">{formatAge(event)}</PreviewBadge>
+                    {event.is_sen_friendly ? <PreviewBadge tone="purple">SEN 友善</PreviewBadge> : null}
+                    {event.is_indoor ? <PreviewBadge tone="slate">室內</PreviewBadge> : null}
                   </div>
 
                   <h2 className="mt-4 text-3xl font-black leading-tight text-slate-950">
