@@ -31,6 +31,7 @@ import {
   formatEventCategory,
   normalizeEventTags,
 } from "@/lib/events/display-normalization";
+import { displayTag, tagTone } from "@/lib/events/tag-tone";
 
 type JsonValue =
   | string
@@ -1415,9 +1416,9 @@ export default function PublicEventDetailPage() {
               {tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700 ring-1 ring-purple-100"
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 ${tagTone(tag)}`}
                 >
-                  #{tag}
+                  {displayTag(tag)}
                 </span>
               ))}
             </div>
