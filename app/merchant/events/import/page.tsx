@@ -102,6 +102,7 @@ const priceModes = [
 
 const ctaTypes = [
   { key: "official", title: "官方活動頁", label: "查看官方活動頁" },
+  { key: "booking", title: "購票／預訂", label: "購票／了解更多" },
   { key: "external", title: "外部連結報名", label: "前往報名" },
   { key: "google_form", title: "Google Form", label: "Google Form 報名" },
   { key: "whatsapp", title: "WhatsApp", label: "WhatsApp 報名" },
