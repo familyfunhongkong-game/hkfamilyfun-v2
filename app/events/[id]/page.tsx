@@ -196,6 +196,68 @@ function safeText(value: unknown, fallback = ""): string {
   return text.length ? text : fallback;
 }
 
+function structuredLocalizedText(value: unknown, locale: AppLocale): string {
+  if (value === null || value === undefined) return "";
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+
+    if (
+      (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
+      (trimmed.startsWith("{") && trimmed.endsWith("}"))
+    ) {
+      try {
+        return structuredLocalizedText(JSON.parse(trimmed), locale);
+      } catch {
+        return trimmed;
+      }
+    }
+
+    return trimmed;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => structuredLocalizedText(item, locale))
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const preferredKeys =
+      locale === "en"
+        ? ["en", "en_hk", "en-HK", "zh_hk", "zh-HK", "zh_hant", "tc"]
+        : locale === "zh-Hans"
+          ? ["zh_cn", "zh-CN", "zh_hans", "sc", "zh_hk", "zh-HK", "zh_hant", "tc", "en"]
+          : ["zh_hk", "zh-HK", "zh_hant", "zh-Hant", "tc", "zh_cn", "zh-CN", "sc", "en"];
+
+    for (const key of preferredKeys) {
+      const text = structuredLocalizedText(record[key], locale);
+      if (text) return text;
+    }
+
+    for (const candidate of Object.values(record)) {
+      const text = structuredLocalizedText(candidate, locale);
+      if (text) return text;
+    }
+  }
+
+  return "";
+}
+
+function recurrenceDateNote(value: unknown): string {
+  return safeText(value)
+    .replace(
+      /\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:-|–|—|至|to)\s*\d{1,2}:\d{2}(?::\d{2})?\b/gi,
+      "",
+    )
+    .replace(/\s*[|｜,，;；]+\s*$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function toNumber(value: unknown, fallback: number): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
 
@@ -353,13 +415,15 @@ function formatDateRange(event: EventRecord, locale: AppLocale): string {
     return uiText(locale, "日期待定", "日期待定", "Date TBC");
   }
 
+  const recurrenceNote = recurrenceDateNote(event.recurrence_note);
+
   if (
     safeText(event.recurrence_type, "none").toLowerCase() === "weekly" &&
-    safeText(event.recurrence_note)
+    recurrenceNote
   ) {
     return locale === "en"
-      ? `${start} – ${end} | ${safeText(event.recurrence_note)}`
-      : `${start} 至 ${end}｜${safeText(event.recurrence_note)}`;
+      ? `${start} – ${end} | ${recurrenceNote}`
+      : `${start} 至 ${end}｜${recurrenceNote}`;
   }
 
   if (!event.end_date || start === end) return start;
@@ -975,9 +1039,9 @@ export default function PublicEventDetailPage() {
     fallback: locale === "en" ? "Detailed event information is not available yet." : "暫未提供詳細活動內容。",
   });
   const highlights = localizedText(locale, {
-    tc: event.highlights,
-    sc: event.highlights_sc,
-    en: event.highlights_en,
+    tc: structuredLocalizedText(event.highlights, "zh-Hant"),
+    sc: structuredLocalizedText(event.highlights_sc || event.highlights, "zh-Hans"),
+    en: structuredLocalizedText(event.highlights_en || event.highlights, "en"),
   });
   const terms = localizedText(locale, {
     tc: event.terms,
@@ -1206,7 +1270,7 @@ export default function PublicEventDetailPage() {
                 {shortDescription}
               </p>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <div className="mt-5 grid grid-cols-2 gap-2.5">
                 <InfoPill
                   label={m.date}
                   value={dateDisplay}
@@ -1217,27 +1281,20 @@ export default function PublicEventDetailPage() {
                   value={timeDisplay}
                   icon={<Clock3 size={17} />}
                 />
-                <InfoPill
-                  label={uiText(locale, "適合年齡", "适合年龄", "Age")}
-                  value={ageDisplay}
-                  icon={<Baby size={17} />}
-                />
-                <InfoPill
-                  label={m.location}
-                  value={venue}
-                  icon={<MapPin size={17} />}
-                />
-                <InfoPill
-                  label={uiText(locale, "港鐵", "港铁", "MTR")}
-                  value={mtr || m.mtrTbc}
-                  icon={<TrainFront size={17} />}
-                  muted={!mtr}
-                />
-                <InfoPill
-                  label={m.organizer}
-                  value={merchantName}
-                  icon={<Building2 size={17} />}
-                />
+                <div className="col-span-2 sm:col-span-1">
+                  <InfoPill
+                    label={uiText(locale, "適合年齡", "适合年龄", "Age")}
+                    value={ageDisplay}
+                    icon={<Baby size={17} />}
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <InfoPill
+                    label={m.location}
+                    value={venue}
+                    icon={<MapPin size={17} />}
+                  />
+                </div>
               </div>
 
               <div className="mt-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 p-4 ring-1 ring-amber-100">
