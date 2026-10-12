@@ -57,3 +57,26 @@ export function serviceClient() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
+
+
+export async function requireSuperAdmin(accessToken: string) {
+  const admin = await requireAdmin(accessToken);
+
+  if (!admin.ok || !admin.client) {
+    return admin;
+  }
+
+  const { data: isSuperAdmin, error: superAdminError } =
+    await admin.client.rpc("is_super_admin");
+
+  if (superAdminError || isSuperAdmin !== true) {
+    return {
+      ok: false as const,
+      status: 403,
+      error: "Super Admin access required",
+      client: null,
+    };
+  }
+
+  return admin;
+}
