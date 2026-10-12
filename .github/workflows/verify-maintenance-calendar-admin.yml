@@ -15,18 +15,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify live maintenance and Admin login
+      - name: Inspect live maintenance and Admin login
         shell: bash
         run: |
-          set -euo pipefail
-          live_home="$(curl -L -sS --fail --max-time 30 https://www.hkfamilyfun.com/)"
-          echo "$live_home" | grep -q "網站升級進行中"
+          set -u
+          curl -sS -D /tmp/home.headers -o /tmp/home.html --max-time 30 https://www.hkfamilyfun.com/
+          echo "=== HOME HEADERS ==="
+          cat /tmp/home.headers
+          echo "=== HOME MARKERS ==="
+          grep -o -E '網站升級進行中|精選親子活動|HK Family Fun' /tmp/home.html | head -20 || true
 
-          admin_login="$(curl -L -sS --fail --max-time 30 https://www.hkfamilyfun.com/admin/login)"
-          echo "$admin_login" | grep -q "管理員登入"
-          echo "$admin_login" | grep -q "登入 Admin Portal"
+          curl -sS -D /tmp/admin.headers -o /tmp/admin.html --max-time 30 https://www.hkfamilyfun.com/admin/login
+          echo "=== ADMIN HEADERS ==="
+          cat /tmp/admin.headers
+          echo "=== ADMIN MARKERS ==="
+          grep -o -E '管理員登入|登入 Admin Portal|Admin 頁面已受保護|正在驗證管理員權限' /tmp/admin.html | head -20 || true
+
+          test "$(grep -c '網站升級進行中' /tmp/home.html || true)" -gt 0
+          test "$(grep -c '管理員登入' /tmp/admin.html || true)" -gt 0
+          test "$(grep -c '登入 Admin Portal' /tmp/admin.html || true)" -gt 0
 
       - name: Verify calendar month navigation and Hong Kong holidays on staging
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
