@@ -1,0 +1,80 @@
+name: Live Eventbrite Import Probe
+
+on:
+  push:
+    branches:
+      - fix-event-importer-airside-20261012
+    paths:
+      - ".github/workflows/live-eventbrite-import-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Probe Eventbrite extraction
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import * as cheerio from "cheerio";
+          import { extractStructuredPageDetails } from "./lib/event-import-page-extractor.js";
+
+          const url = "https://www.eventbrite.hk/e/2026-ppds-play-across-generations-event-am-session-additional-1-ticket-tickets-2002600739721";
+          const response = await fetch(url, {
+            headers: {
+              "user-agent": "Mozilla/5.0 (compatible; HKFamilyFunProbe/1.0)",
+              "accept-language": "en-HK,en;q=0.9,zh-HK;q=0.8",
+            },
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const html = await response.text();
+          const $ = cheerio.load(html);
+          const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+          const details = extractStructuredPageDetails(html, url);
+
+          const jsonLdItems = [];
+          $('script[type="application/ld+json"]').each((_, node) => {
+            try {
+              const parsed = JSON.parse($(node).text());
+              if (Array.isArray(parsed)) jsonLdItems.push(...parsed);
+              else if (parsed && Array.isArray(parsed["@graph"])) jsonLdItems.push(...parsed["@graph"]);
+              else jsonLdItems.push(parsed);
+            } catch {}
+          });
+
+          const event = jsonLdItems.find((item) => {
+            const type = item?.["@type"];
+            return Array.isArray(type)
+              ? type.some((value) => String(value).toLowerCase().includes("event"))
+              : String(type || "").toLowerCase().includes("event");
+          }) || {};
+
+          const title =
+            event.name ||
+            $('meta[property="og:title"]').attr("content") ||
+            $("title").text().trim();
+
+          console.log(JSON.stringify({
+            title,
+            jsonld_start: event.startDate || "",
+            jsonld_end: event.endDate || "",
+            jsonld_location: event.location?.name || "",
+            jsonld_offer_price: Array.isArray(event.offers) ? event.offers[0]?.price : event.offers?.price,
+            jsonld_offer_currency: Array.isArray(event.offers) ? event.offers[0]?.priceCurrency : event.offers?.priceCurrency,
+            parsed_price: details.price,
+            body_has_hkd_520: /HKD\s*520(?:\.00)?/i.test(bodyText),
+          }, null, 2));
+
+          if (!/Play Across Generations/i.test(title)) throw new Error("title not extracted");
+          if (!String(event.startDate || "").includes("2026-10-19")) throw new Error("JSON-LD start date not extracted");
+          if (details.price?.price_label !== "HK$520") throw new Error("HKD 520 price not extracted");
+          NODE
