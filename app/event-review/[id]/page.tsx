@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { serviceClient } from "@/lib/admin-auth";
 import { verifyEventReviewToken } from "@/lib/event-review-token";
 
@@ -97,12 +96,11 @@ export default async function EventReviewPage({ params, searchParams }: PageProp
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             {field(event.cover_image_url) ? (
               <div className="relative mb-5 aspect-[16/9] overflow-hidden rounded-2xl bg-slate-100">
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={field(event.cover_image_url)}
                   alt=""
-                  fill
-                  unoptimized
-                  className="object-cover"
+                  className="h-full w-full object-cover"
                 />
               </div>
             ) : (
@@ -157,7 +155,20 @@ export default async function EventReviewPage({ params, searchParams }: PageProp
               </div>
 
               <label className="block text-sm font-black">地址<input name="address" defaultValue={field(event.address)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 font-medium" /></label>
-              <label className="block text-sm font-black">收費顯示<input name="price_label" defaultValue={field(event.price_label)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 font-medium" /></label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-black">
+                  收費類型
+                  <select name="price_display_mode" defaultValue={field(event.price_display_mode) || "unknown"} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 font-medium">
+                    <option value="unknown">待確認</option>
+                    <option value="free">免費</option>
+                    <option value="fixed">固定收費</option>
+                    <option value="from">由某價起</option>
+                    <option value="range">價錢範圍</option>
+                    <option value="hidden">不顯示價錢</option>
+                  </select>
+                </label>
+                <label className="block text-sm font-black">收費顯示<input name="price_label" defaultValue={field(event.price_label)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 font-medium" /></label>
+              </div>
               <label className="block text-sm font-black">封面圖片 URL<input name="cover_image_url" defaultValue={field(event.cover_image_url)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 font-medium" /></label>
               <label className="block text-sm font-black">報名連結<input name="registration_url" defaultValue={field(event.registration_url)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 font-medium" /></label>
               <label className="block text-sm font-black">官方來源<input name="official_url" defaultValue={field(event.official_url || event.source_url)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 font-medium" /></label>
