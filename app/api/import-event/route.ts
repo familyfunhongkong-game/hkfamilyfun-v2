@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { createClient } from "@supabase/supabase-js";
+import { extractStructuredPageDetails, parseCurrencyPrice } from "@/lib/event-import-page-extractor";
 
 export const runtime = "nodejs";
 
@@ -441,62 +442,7 @@ function extractDateRangeFromText(text: string) {
 }
 
 function extractPrices(text: string) {
-  const hkPrices = Array.from(text.matchAll(/HK\$?\s*(\d{1,5})/gi)).map(
-    (match) => match[1]
-  );
-
-  const prices = Array.from(new Set(hkPrices.map((item) => Number(item))))
-    .filter((item) => Number.isFinite(item))
-    .sort((a, b) => a - b);
-
-  if (!prices.length) {
-    if (/免費|free/i.test(text)) {
-      return {
-        price_display_mode: "free",
-        price_label: "免費",
-        min_price: "",
-        max_price: "",
-        offer_price: "",
-        original_price: "",
-      };
-    }
-
-    return null;
-  }
-
-  const hasEarlyBird = /早鳥|early bird|優惠/i.test(text);
-  const hasOriginal = /原價|original/i.test(text);
-
-  if (hasEarlyBird && prices.length >= 2) {
-    return {
-      price_display_mode: "early_bird",
-      price_label: `早鳥優惠價 HK$${prices[0]}（原價 HK$${prices[prices.length - 1]}）`,
-      min_price: String(prices[0]),
-      max_price: String(prices[0]),
-      offer_price: String(prices[0]),
-      original_price: String(prices[prices.length - 1]),
-    };
-  }
-
-  if (prices.length >= 2) {
-    return {
-      price_display_mode: "range",
-      price_label: `HK$${prices[0]}–HK$${prices[prices.length - 1]}`,
-      min_price: String(prices[0]),
-      max_price: String(prices[prices.length - 1]),
-      offer_price: "",
-      original_price: hasOriginal ? String(prices[prices.length - 1]) : "",
-    };
-  }
-
-  return {
-    price_display_mode: "fixed",
-    price_label: `HK$${prices[0]}`,
-    min_price: String(prices[0]),
-    max_price: String(prices[0]),
-    offer_price: "",
-    original_price: "",
-  };
+  return parseCurrencyPrice(text);
 }
 
 function extractVenueFromText(text: string) {
@@ -1040,7 +986,61 @@ export async function POST(request: NextRequest) {
         };
       }
 
+      const structured = extractStructuredPageDetails(html, resolvedSourceUrl);
+
+      if (structured.venueName) {
+        event.venue_name = structured.venueName;
+      }
+      if (structured.address) {
+        event.address = structured.address;
+      }
+      if (structured.price) {
+        event = {
+          ...event,
+          price_display_mode: structured.price.price_display_mode,
+          price_label: structured.price.price_label,
+          min_price: structured.price.min_price,
+          max_price: structured.price.max_price,
+          offer_price: structured.price.offer_price,
+          original_price: structured.price.original_price,
+        };
+      }
+      if (structured.bookingUrl) {
+        event.registration_url = structured.bookingUrl;
+        event.booking_url = structured.bookingUrl;
+        event.cta_type = "booking";
+        event.cta_label = "購票／了解更多";
+      }
+      if (structured.highlights.length) {
+        event.highlights = structured.highlights.join("\n");
+        if (!event.description_tc || event.description_tc.length < 40) {
+          event.description_tc = structured.highlights.join("\n");
+        }
+      }
+      if (structured.scheduleText) {
+        event.remarks = [
+          `開放時間：${structured.scheduleText}`,
+          event.remarks,
+        ]
+          .filter(Boolean)
+          .join("\n");
+        if (structured.startTime && !event.start_time) {
+          event.start_time = structured.startTime;
+        }
+        if (structured.endTime && !event.end_time) {
+          event.end_time = structured.endTime;
+        }
+      }
+
+      event.source_url = resolvedSourceUrl;
+      event.official_url = resolvedSourceUrl;
       event.extraction_notes.push("已完成 server-side HTML / meta / JSON-LD 結構化抽取。");
+      if (structured.scheduleText) {
+        event.extraction_notes.push("已抽取頁面內的分日開放時間；多時段會保留在備註，避免錯誤壓縮成單一時間。");
+      }
+      if (structured.bookingUrl) {
+        event.extraction_notes.push("已抽取購票／報名連結。");
+      }
     }
 
     if (readerText) {
