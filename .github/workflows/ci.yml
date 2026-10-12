@@ -66,6 +66,22 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
+      - name: Run product and persona contract checks
+        run: |
+          npm run check:commerce-copy
+          npm run check:event-cards
+          npm run check:event-detail
+          npm run check:event-seo
+          npm run check:event-data
+          npm run check:event-calendar
+          npm run check:events-ssr
+          npm run check:event-display
+          npm run check:advertising-orders
+          npm run check:production-e2e
+          npm run check:production-smoke
+          npm run check:migration-drift-lock
+          npm run check:calendar-persona
+
       - name: Lint
         run: npm run lint
 
