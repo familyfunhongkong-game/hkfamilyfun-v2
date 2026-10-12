@@ -549,6 +549,52 @@ function buildFallbackDescription(title, facts) {
   return title + "。活動資料：" + detail + "。";
 }
 
+function extractAgeInfo(text) {
+  const compact = cleanText(text);
+  const range = compact.match(/(?:適合|對象|年齡)?[^。；]{0,20}?(\d{1,2})\s*(?:至|到|-|–|—)\s*(\d{1,2})\s*歲/);
+  if (range) {
+    const min = Number(range[1]);
+    const max = Number(range[2]);
+    if (Number.isFinite(min) && Number.isFinite(max) && max >= min && max <= 18) {
+      return {
+        age_groups: [min + "–" + max + "歲"],
+        age_min: min,
+        age_max: max,
+      };
+    }
+  }
+
+  const plus = compact.match(/(?:適合|對象|年齡)?[^。；]{0,20}?(\d{1,2})\s*歲(?:或以上|以上|\+)/);
+  if (plus) {
+    const min = Number(plus[1]);
+    if (Number.isFinite(min) && min <= 18) {
+      return {
+        age_groups: [min + "歲或以上"],
+        age_min: min,
+        age_max: null,
+      };
+    }
+  }
+
+  const under = compact.match(/(?:適合|對象|年齡)?[^。；]{0,20}?(\d{1,2})\s*歲(?:或以下|以下)/);
+  if (under) {
+    const max = Number(under[1]);
+    if (Number.isFinite(max) && max <= 18) {
+      return {
+        age_groups: [max + "歲或以下"],
+        age_min: 0,
+        age_max: max,
+      };
+    }
+  }
+
+  return {
+    age_groups: ["主辦方未註明"],
+    age_min: null,
+    age_max: null,
+  };
+}
+
 function extractLinks(html, source) {
   const found = new Set();
 
@@ -847,6 +893,7 @@ async function extractEvent(url, sourceName) {
     organizer: organizerName,
     priceLabel,
   });
+  const ageInfo = extractAgeInfo(fullPageText);
 
   return {
     event: {
@@ -873,6 +920,9 @@ async function extractEvent(url, sourceName) {
     price_label: priceLabel,
     min_price: offerPrice > 0 ? offerPrice : null,
     is_free: isFree,
+    age_groups: ageInfo.age_groups,
+    age_min: ageInfo.age_min,
+    age_max: ageInfo.age_max,
     registration_url: absoluteUrl(
       String(offers?.url || jsonLd?.url || url),
       url,
