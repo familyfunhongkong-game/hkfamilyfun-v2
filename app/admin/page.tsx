@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 
 const groups = [
@@ -33,7 +33,6 @@ const groups = [
     description: "少做 IT 維護，多做內容及商戶營運。",
     cards: [
       { href: "/admin/system", title: "系統狀態", description: "檢查 Supabase、Data Hub、Google Drive、Calendar、AI、Email 同 launch readiness。", tone: "slate" },
-      { href: "/admin/users", title: "Admin Users", description: "Super Admin 管理 Admin invitation、啟用/停用同 Super Admin 角色。", tone: "purple" },
       { href: "/news", title: "查看 News / Feature", description: "查看公開圖片主導 editorial 頁面。", tone: "rose" },
       { href: "/events", title: "查看公開活動網站", description: "檢查家長端 Event / Today / Calendar / Map 實際顯示。", tone: "emerald" },
     ],
@@ -53,6 +52,22 @@ const toneClasses: Record<string, string> = {
 export default function AdminHomePage() {
   const [driveWorking, setDriveWorking] = useState(false);
   const [driveError, setDriveError] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function checkSuperAdmin() {
+      if (!supabase) return;
+      const { data, error } = await supabase.rpc("is_super_admin");
+      if (!ignore && !error) setIsSuperAdmin(data === true);
+    }
+
+    void checkSuperAdmin();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   async function connectGoogleDrive() {
     if (!supabase) {
@@ -136,6 +151,26 @@ export default function AdminHomePage() {
             </div>
           </div>
         </section>
+        {isSuperAdmin ? (
+          <section>
+            <h2 className="text-xl font-black text-slate-950">Super Admin</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              只有 Super Admin 先會見到呢個管理入口。
+            </p>
+            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <Link
+                href="/admin/users"
+                className={"rounded-3xl border p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md " + toneClasses.purple}
+              >
+                <h3 className="text-lg font-black text-slate-950">Admin Users</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Invite Admin、啟用/停用帳戶，同埋管理 Admin / Super Admin 角色。
+                </p>
+                <p className="mt-5 text-sm font-black text-purple-700">進入管理 →</p>
+              </Link>
+            </div>
+          </section>
+        ) : null}
         {groups.map((group) => (
           <section key={group.title}>
             <h2 className="text-xl font-black text-slate-950">{group.title}</h2>
