@@ -21,6 +21,7 @@ import {
   normalizeEventTags,
 } from "@/lib/events/display-normalization";
 import type { EventRecord } from "@/lib/events/public-event-records";
+import { displayTag, tagTone } from "@/lib/events/tag-tone";
 
 type GalleryImage = {
   url: string;
@@ -663,6 +664,45 @@ function writeFavoriteIds(ids: string[]) {
   window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(unique));
 }
 
+function calendarTemplateUrl(event: EventRecord, locale: AppLocale) {
+  const date = safeText(event.start_date);
+  if (!date) return "#";
+
+  const compactDate = date.replace(/-/g, "");
+  const startTime = safeText(event.start_time, "10:00").slice(0, 5).replace(":", "") + "00";
+  const endTime = safeText(event.end_time, "").slice(0, 5).replace(":", "");
+  const fallbackEnd = String(Number(startTime.slice(0, 2)) + 1).padStart(2, "0") + startTime.slice(2);
+  const normalizedEnd = endTime ? endTime + "00" : fallbackEnd;
+
+  const title = localizedText(locale, {
+    tc: event.title_tc || event.title,
+    sc: event.title_sc,
+    en: event.title_en,
+    fallback: locale === "en" ? "HK Family Fun event" : "HK Family Fun 活動",
+  });
+  const venue = localizedText(locale, {
+    tc: event.venue_name_tc || event.venue_name || event.address_tc || event.address,
+    sc: event.venue_name_sc || event.address_sc,
+    en: event.venue_name_en || event.address_en,
+  });
+
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: title,
+    dates: `${compactDate}T${startTime}/${compactDate}T${normalizedEnd}`,
+    ctz: "Asia/Hong_Kong",
+    location: venue,
+    details: uiText(
+      locale,
+      "由 HK Family Fun 加入。出發前請向主辦方確認最新活動資料。",
+      "由 HK Family Fun 加入。出发前请向主办方确认最新活动资料。",
+      "Added from HK Family Fun. Please reconfirm the latest event details with the organizer.",
+    ),
+  });
+
+  return "https://calendar.google.com/calendar/render?" + params.toString();
+}
+
 function Badge({
   children,
   tone = "purple",
@@ -1089,9 +1129,9 @@ function EventCard({
             {tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"
+                className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${tagTone(tag)}`}
               >
-                #{tag}
+                {displayTag(tag)}
               </span>
             ))}
           </div>
@@ -1130,7 +1170,7 @@ function EventCard({
               )}
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-4">
               {mapUrl ? (
                 <a
                   href={mapUrl}
@@ -1160,6 +1200,15 @@ function EventCard({
                   {m.officialPending}
                 </span>
               )}
+
+              <a
+                href={calendarTemplateUrl(event, locale)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-2xl bg-sky-50 px-4 py-3 text-xs font-black text-sky-700 ring-1 ring-sky-100 hover:bg-sky-100"
+              >
+                📅 {uiText(locale, "加入日曆", "加入日历", "Add to calendar")}
+              </a>
 
               <button
                 type="button"
