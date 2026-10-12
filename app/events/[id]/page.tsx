@@ -742,10 +742,10 @@ function InfoPill({
   muted?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+    <div className="flex min-w-0 items-start gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-3 sm:gap-3 sm:rounded-2xl sm:bg-slate-50 sm:px-4 sm:ring-1 sm:ring-slate-100">
       {icon ? (
         <span
-          className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
+          className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg sm:h-9 sm:w-9 sm:rounded-xl ${
             muted ? "bg-slate-100 text-slate-400" : "bg-purple-50 text-purple-700"
           }`}
         >
@@ -753,11 +753,11 @@ function InfoPill({
         </span>
       ) : null}
       <div className="min-w-0">
-        <p className="text-[11px] font-black uppercase tracking-[0.06em] text-slate-400">
+        <p className="text-[10px] font-extrabold tracking-[0.03em] text-slate-400 sm:text-[11px] sm:font-black sm:uppercase sm:tracking-[0.06em]">
           {label}
         </p>
         <p
-          className={`mt-1 line-clamp-2 text-sm font-extrabold ${
+          className={`mt-0.5 line-clamp-3 text-[13px] font-bold leading-5 sm:mt-1 sm:line-clamp-2 sm:text-sm sm:font-extrabold ${
             muted ? "text-slate-400" : "text-slate-800"
           }`}
         >
@@ -778,9 +778,9 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center gap-2">
-        <span className="grid h-8 w-8 place-items-center rounded-2xl bg-purple-50 text-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:rounded-3xl sm:p-5 sm:shadow-sm">
+      <div className="mb-3 flex items-center gap-2 sm:mb-4">
+        <span className="grid h-8 w-8 place-items-center rounded-xl bg-purple-50 text-sm sm:rounded-2xl">
           {icon}
         </span>
         <h2 className="text-base font-extrabold text-slate-950">{title}</h2>
@@ -1425,8 +1425,8 @@ export default function PublicEventDetailPage() {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="space-y-6">
+      <div className="mx-auto grid max-w-7xl gap-4 px-3 py-4 sm:gap-6 sm:px-4 sm:py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="space-y-4 sm:space-y-6">
           <SectionCard title={m.details} icon="✨">
             <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
               {description}
@@ -1435,9 +1435,18 @@ export default function PublicEventDetailPage() {
 
           {highlights ? (
             <SectionCard title={m.highlights} icon="⭐">
-              <div className="whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700">
-                {highlights}
-              </div>
+              <ul className="space-y-2.5 text-sm font-medium leading-7 text-slate-700">
+                {highlights
+                  .split(/\n+/)
+                  .map((item) => item.replace(/^[•·*-]\s*/, "").trim())
+                  .filter(Boolean)
+                  .map((item, index) => (
+                    <li key={`${item}-${index}`} className="flex items-start gap-2.5">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-500" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+              </ul>
             </SectionCard>
           ) : null}
 
