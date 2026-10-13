@@ -50,7 +50,7 @@ export default function MerchantRegisterPage() {
 
     const acceptedAt = new Date().toISOString();
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -79,8 +79,17 @@ export default function MerchantRegisterPage() {
       return;
     }
 
+    // Supabase may return 200 with a masked/fake user on an existing email.
+    // That is intentionally not a successful merchant registration.
+    if (!data.user || data.user.identities?.length === 0) {
+      setMessage(
+        "如果此電郵已經註冊，系統不會另外建立帳戶或再寄出確認信。請使用原有帳戶登入；如忘記密碼，可使用重設密碼功能。"
+      );
+      return;
+    }
+
     setMessage(
-      "登記成功。請到電郵信箱確認帳戶，之後返回此網站登入。商戶帳戶會先進入審批狀態。"
+      "登記申請已送出。如果這是全新帳戶，請檢查電郵並完成驗證，然後登入 Merchant Portal。帳戶通過審批前不會公開活動。"
     );
   };
 
@@ -245,6 +254,11 @@ export default function MerchantRegisterPage() {
               {isSubmitting ? "正在建立帳戶…" : "建立商戶帳戶"}
             </button>
           </form>
+
+          <div className="mt-5 flex justify-center gap-5 text-sm font-semibold text-primary-700">
+            <Link href="/merchant/login" className="underline">已有帳戶？登入</Link>
+            <Link href="/merchant/forgot-password" className="underline">收唔到確認信／忘記密碼？</Link>
+          </div>
 
           <p className="mt-6 text-center text-sm text-slate-600">
             已有商戶帳戶？{" "}

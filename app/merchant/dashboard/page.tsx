@@ -830,10 +830,10 @@ export default function MerchantDashboardPage() {
                 商戶登入
               </Link>
               <Link
-                href="/merchant/register"
+                href="/merchant/complete-registration"
                 className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
               >
-                商戶免費登記
+                完成商戶登記
               </Link>
             </div>
           </div>
