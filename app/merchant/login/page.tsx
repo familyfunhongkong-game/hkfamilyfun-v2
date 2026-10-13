@@ -13,6 +13,19 @@ export default function MerchantLoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const signInWithProvider = async (provider: "google" | "apple") => {
+    setErrorMessage("");
+    if (!supabase) {
+      setErrorMessage("登入服務暫時未能連接。");
+      return;
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/merchant/dashboard` },
+    });
+    if (error) setErrorMessage((provider === "google" ? "Google" : "Apple") + " 登入未能啟動，請稍後重試或使用電郵登入。");
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage("");
@@ -66,7 +79,13 @@ export default function MerchantLoginPage() {
             </div>
           ) : null}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <button type="button" onClick={() => void signInWithProvider("google")} className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-950 hover:bg-slate-50">使用 Google 登入</button>
+            <button type="button" onClick={() => void signInWithProvider("apple")} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800">使用 Apple 登入</button>
+          </div>
+          <p className="mt-3 text-center text-xs text-slate-500">首次以 Google 或 Apple 登入，可登入後完成商戶登記。</p>
+          <div className="mt-5 flex items-center gap-3 text-xs text-slate-500"><span className="h-px flex-1 bg-slate-200" />或使用電郵及密碼<span className="h-px flex-1 bg-slate-200" /></div>
+          <form onSubmit={handleSubmit} className="mt-5 space-y-5">
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-slate-700">
                 電郵
