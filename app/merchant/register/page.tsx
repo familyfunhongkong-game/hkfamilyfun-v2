@@ -21,18 +21,33 @@ export default function MerchantRegisterPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const signInWithProvider = async (provider: "google" | "apple") => {
+    setErrorMessage("");
+    if (!supabase) {
+      setErrorMessage("登入服務暫時未能連接，請稍後再試。");
+      return;
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/merchant/dashboard`,
+      },
+    });
+    if (error) setErrorMessage("暫時無法以" + (provider === "google" ? " Google" : " Apple") + "登入，請使用電郵登入，或稍後再試。");
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage("");
     setErrorMessage("");
 
     if (!supabase) {
-      setErrorMessage("Supabase 尚未設定，請檢查 .env.local。");
+      setErrorMessage("註冊服務暫時未能連接，請稍後再試。");
       return;
     }
 
-    if (password.length < 12) {
-      setErrorMessage("密碼最少需要 12 個字元。");
+    if (password.length < 8) {
+      setErrorMessage("密碼最少需要 8 個字元。");
       return;
     }
 
@@ -75,7 +90,16 @@ export default function MerchantRegisterPage() {
     setIsSubmitting(false);
 
     if (error) {
-      setErrorMessage(error.message);
+      const detail = error.message?.toLowerCase() || "";
+      setErrorMessage(
+        detail.includes("password") && (detail.includes("short") || detail.includes("length"))
+          ? "密碼未符合帳戶安全要求，請使用至少 8 個字元，並嘗試混合英文字母及數字。"
+          : detail.includes("rate") || detail.includes("email rate")
+            ? "系統暫時限制發送驗證電郵，請稍後再試。"
+            : detail.includes("already registered") || detail.includes("already exists")
+              ? "此電郵可能已有帳戶，請直接登入或重設密碼。"
+              : "未能完成登記，請稍後重試；如已有帳戶，請使用下方登入或忘記密碼連結。"
+      );
       return;
     }
 
@@ -116,11 +140,17 @@ export default function MerchantRegisterPage() {
           ) : null}
 
           {errorMessage ? (
-            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {errorMessage}
             </div>
           ) : null}
 
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <button type="button" onClick={() => void signInWithProvider("google")} className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 hover:bg-slate-50">使用 Google 繼續</button>
+            <button type="button" onClick={() => void signInWithProvider("apple")} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800">使用 Apple 繼續</button>
+          </div>
+          <p className="mt-3 text-center text-xs text-slate-500">社交登入首次使用後，請完成商戶資料登記及審批。</p>
+          <div className="my-5 flex items-center gap-3 text-xs text-slate-500"><span className="h-px flex-1 bg-slate-200" />或使用電郵建立帳戶<span className="h-px flex-1 bg-slate-200" /></div>
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-slate-700">
@@ -193,11 +223,11 @@ export default function MerchantRegisterPage() {
               </span>
               <input
                 required
-                minLength={12}
+                minLength={8}
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="最少 12 個字元"
+                placeholder="最少 8 個字元"
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </label>
@@ -208,7 +238,7 @@ export default function MerchantRegisterPage() {
               </span>
               <input
                 required
-                minLength={12}
+                minLength={8}
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
