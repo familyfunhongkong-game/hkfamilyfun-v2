@@ -820,7 +820,7 @@ export default function MerchantDashboardPage() {
               尚未連接商戶帳戶
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-700">
-              {message || "請先登入或完成完成商戶登記。"}
+              {message || "請先登入或完成商戶免費登記。"}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
@@ -833,7 +833,7 @@ export default function MerchantDashboardPage() {
                 href="/merchant/complete-registration"
                 className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
               >
-                商戶免費登記
+                完成商戶登記
               </Link>
             </div>
           </div>
@@ -842,7 +842,7 @@ export default function MerchantDashboardPage() {
     );
   }
 
-  merchant.status, "pending") !== "approved") {
+  if (safeText(merchant.status, "pending") !== "approved") {
     const status = safeText(merchant.status, "pending");
     const statusCopy =
       status === "rejected"
