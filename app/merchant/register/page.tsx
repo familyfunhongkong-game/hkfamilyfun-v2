@@ -90,7 +90,16 @@ export default function MerchantRegisterPage() {
     setIsSubmitting(false);
 
     if (error) {
-      setErrorMessage(error.message || "登記未成功，請檢查資料後重試。");
+      const detail = error.message?.toLowerCase() || "";
+      setErrorMessage(
+        detail.includes("password") && (detail.includes("short") || detail.includes("length"))
+          ? "密碼未符合帳戶安全要求，請使用至少 8 個字元，並嘗試混合英文字母及數字。"
+          : detail.includes("rate") || detail.includes("email rate")
+            ? "系統暫時限制發送驗證電郵，請稍後再試。"
+            : detail.includes("already registered") || detail.includes("already exists")
+              ? "此電郵可能已有帳戶，請直接登入或重設密碼。"
+              : "未能完成登記，請稍後重試；如已有帳戶，請使用下方登入或忘記密碼連結。"
+      );
       return;
     }
 
@@ -131,7 +140,7 @@ export default function MerchantRegisterPage() {
           ) : null}
 
           {errorMessage ? (
-            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {errorMessage}
             </div>
           ) : null}
