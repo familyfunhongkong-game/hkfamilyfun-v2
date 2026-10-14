@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { googleSignInAvailability } from "@/lib/merchant-google-provider";
+import { socialSignInAvailability } from "@/lib/merchant-google-provider";
 
 export default function MerchantLoginPage() {
   const router = useRouter();
@@ -13,31 +13,39 @@ export default function MerchantLoginPage() {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<"google" | "facebook" | null>(null);
 
-  const signInWithGoogle = async () => {
-    if (googleLoading) return;
+  const signInWithSocial = async (provider: "google" | "facebook") => {
+    if (socialLoading) return;
+    const label = provider === "google" ? "Google" : "Facebook";
     setErrorMessage("");
-    setGoogleLoading(true);
-    const status = await googleSignInAvailability();
-    if (status !== "enabled") {
-      setErrorMessage(status === "disabled"
-        ? "Google 登入尚未啟用。請使用電郵及密碼登入，或等管理員完成 Google 設定。"
-        : "暫時無法確認 Google 登入狀態。請稍後重試或使用電郵及密碼登入。");
-      setGoogleLoading(false);
-      return;
+    setSocialLoading(provider);
+    try {
+      const availability = await socialSignInAvailability(provider);
+      if (availability !== "enabled") {
+        setErrorMessage(
+          availability === "disabled"
+            ? `${label} 登入尚未啟用，請暫時使用電郵及密碼登入。`
+            : `暫時未能核實 ${label} 登入設定，請稍後重試或使用電郵登入。`,
+        );
+        return;
+      }
+      if (!supabase) {
+        setErrorMessage("登入服務暫時無法連線，請稍後重試。");
+        return;
+      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${window.location.origin}/merchant/dashboard` },
+      });
+      if (error) {
+        setErrorMessage(`${label} 登入未能啟動。請檢查登入設定或使用電郵及密碼登入。`);
+      }
+    } catch {
+      setErrorMessage(`${label} 登入暫時未能使用，請稍後重試或使用電郵登入。`);
+    } finally {
+      setSocialLoading(null);
     }
-    if (!supabase) {
-      setErrorMessage("登入服務暫時未能連接。");
-      setGoogleLoading(false);
-      return;
-    }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/merchant/dashboard` },
-    });
-    if (error) setErrorMessage("Google 登入未能啟動，請稍後重試或使用電郵登入。");
-    setGoogleLoading(false);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -93,11 +101,21 @@ export default function MerchantLoginPage() {
             </div>
           ) : null}
 
-          <button type="button" disabled={googleLoading} onClick={() => void signInWithGoogle()}
-            className="mt-6 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-950 hover:bg-slate-50 disabled:opacity-60">
-            {googleLoading ? "正在檢查 Google 登入…" : "使用 Google 登入"}
-          </button>
-          <p className="mt-3 text-center text-xs text-slate-500">首次以 Google 登入，可登入後完成商戶登記。</p>
+          <div className="mt-6 grid gap-3">
+            <button type="button" disabled={socialLoading !== null}
+              onClick={() => void signInWithSocial("google")}
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-950 hover:bg-slate-50 disabled:opacity-60">
+              <span aria-hidden="true" className="font-black text-blue-600">G</span>
+              {socialLoading === "google" ? "正在連接 Google…" : "使用 Google 登入"}
+            </button>
+            <button type="button" disabled={socialLoading !== null}
+              onClick={() => void signInWithSocial("facebook")}
+              className="flex w-full items-center justify-center gap-3 rounded-xl bg-[#1877F2] px-4 py-3 text-sm font-bold text-white hover:bg-[#166FE5] disabled:opacity-60">
+              <span aria-hidden="true" className="text-lg font-black">f</span>
+              {socialLoading === "facebook" ? "正在連接 Facebook…" : "使用 Facebook 登入"}
+            </button>
+          </div>
+          <p className="mt-3 text-center text-xs text-slate-500">首次使用 Google 或 Facebook 登入，請登入後完成商戶登記。</p>
           <div className="mt-5 flex items-center gap-3 text-xs text-slate-500"><span className="h-px flex-1 bg-slate-200" />或使用電郵及密碼<span className="h-px flex-1 bg-slate-200" /></div>
           <form onSubmit={handleSubmit} className="mt-5 space-y-5">
             <label className="block">
