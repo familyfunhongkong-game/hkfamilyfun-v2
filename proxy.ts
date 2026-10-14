@@ -41,7 +41,7 @@ export function proxy(request: NextRequest) {
 
   if (
     pathname === "/maintenance" ||
-    PUBLIC_LEGAL_PATHS.has(pathname.replace(/\\/$/, "")) ||
+    PUBLIC_LEGAL_PATHS.has(pathname.endsWith("/") ? pathname.slice(0, -1) : pathname) ||
     INTERNAL_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/")) ||
     PUBLIC_ASSET_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"))
   ) {
