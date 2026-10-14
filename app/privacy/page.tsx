@@ -55,7 +55,10 @@ export default function PrivacyPage() {
         </p>
       </InfoSection>
 
-      <InfoSection title="11. 政策更新">
+      <InfoSection title="11. 帳戶及資料刪除申請">
+        <p>如果你希望刪除 HK Family Fun 帳戶、商戶帳戶資料，或透過 Google／Facebook 登入時分享的個人資料，請參閱 <a className="font-black text-purple-700 underline" href="/data-deletion">帳戶及個人資料刪除申請指引</a>。我們可能需要核實帳戶持有人身份；依法必須保留的資料將按適用要求處理。</p>
+      </InfoSection>
+      <InfoSection title="12. 政策更新">
         <p>本私隱政策可不時更新，更新版本於網站公布後生效。</p>
       </InfoSection>
     </SimpleInfoPage>
