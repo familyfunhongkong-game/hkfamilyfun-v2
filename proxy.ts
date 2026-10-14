@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 const INTERNAL_PREFIXES = ["/admin", "/merchant", "/api"];
 const PUBLIC_ASSET_PREFIXES = ["/_next", "/favicon.ico", "/robots.txt", "/sitemap.xml"];
+// Legal and account data deletion instructions must remain publicly accessible
+// to visitors and OAuth provider reviewers even while the main site is offline.
+const PUBLIC_LEGAL_PATHS = new Set([
+  "/privacy",
+  "/terms",
+  "/data-deletion",
+  "/merchant-terms",
+  "/disclaimer",
+]);
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -32,6 +41,7 @@ export function proxy(request: NextRequest) {
 
   if (
     pathname === "/maintenance" ||
+    PUBLIC_LEGAL_PATHS.has(pathname.replace(/\\/$/, "")) ||
     INTERNAL_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/")) ||
     PUBLIC_ASSET_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"))
   ) {
