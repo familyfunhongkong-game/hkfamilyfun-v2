@@ -1,10 +1,16 @@
-type ProviderSettings = { external?: { google?: boolean } };
+type Provider = "google" | "facebook";
+type ProviderSettings = { external?: Partial<Record<Provider, boolean>> };
+type Availability = "enabled" | "disabled" | "unavailable";
 
 /**
- * Check the live Supabase Auth provider config before opening a new OAuth window.
- * Do not redirect users to the raw GoTrue "unsupported provider" JSON error page.
+ * Public Supabase Auth settings describe which providers are available.
+ * Query the live configuration before OAuth to avoid sending visitors to a
+ * raw GoTrue error when a provider hasn't been enabled.
+ *
+ * This check doesn't replace OAuth end-to-end verification, especially when
+ * a provider has been toggled on without its client ID and secret.
  */
-export async function googleSignInAvailability(): Promise<"enabled" | "disabled" | "unavailable"> {
+export async function socialSignInAvailability(provider: Provider): Promise<Availability> {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!base || !key) return "unavailable";
@@ -16,11 +22,15 @@ export async function googleSignInAvailability(): Promise<"enabled" | "disabled"
     });
     if (!response.ok) return "unavailable";
     const settings = (await response.json()) as ProviderSettings;
-    if (settings.external?.google === true) return "enabled";
-    if (settings.external?.google === false) return "disabled";
+    const enabled = settings.external?.[provider];
+    if (enabled === true) return "enabled";
+    if (enabled === false) return "disabled";
   } catch {
-    // Network problem: do not open an OAuth page that may display a raw JSON error.
+    // Network failures are shown as a localized message by the caller.
   }
-
   return "unavailable";
+}
+
+export async function googleSignInAvailability(): Promise<Availability> {
+  return socialSignInAvailability("google");
 }
