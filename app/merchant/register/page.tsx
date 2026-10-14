@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { googleSignInAvailability } from "@/lib/merchant-google-provider";
 import {
   CURRENT_MERCHANT_TERMS_VERSION,
   CURRENT_PRIVACY_VERSION,
@@ -20,20 +21,35 @@ export default function MerchantRegisterPage() {
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  const signInWithProvider = async (provider: "google" | "apple") => {
+  const signInWithGoogle = async () => {
+    if (googleLoading) return;
     setErrorMessage("");
+    setGoogleLoading(true);
+    const status = await googleSignInAvailability();
+    if (status !== "enabled") {
+      setErrorMessage(
+        status === "disabled"
+          ? "Google 登入暫未啟用。管理員需先在 Supabase 啟用 Google Provider；你仍可使用電郵及密碼登入。"
+          : "暫時無法確認 Google 登入服務，請稍後再試或使用電郵及密碼登入。",
+      );
+      setGoogleLoading(false);
+      return;
+    }
     if (!supabase) {
-      setErrorMessage("登入服務暫時未能連接，請稍後再試。");
+      setErrorMessage("登入服務暫時未能連接。");
+      setGoogleLoading(false);
       return;
     }
     const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/merchant/dashboard`,
-      },
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/merchant/dashboard` },
     });
-    if (error) setErrorMessage("暫時無法以" + (provider === "google" ? " Google" : " Apple") + "登入，請使用電郵登入，或稍後再試。");
+    if (error) {
+      setErrorMessage("Google 登入未能啟動，請使用電郵及密碼登入或稍後再試。");
+    }
+    setGoogleLoading(false);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -145,10 +161,10 @@ export default function MerchantRegisterPage() {
             </div>
           ) : null}
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => void signInWithProvider("google")} className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 hover:bg-slate-50">使用 Google 繼續</button>
-            <button type="button" onClick={() => void signInWithProvider("apple")} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800">使用 Apple 繼續</button>
-          </div>
+          <button type="button" onClick={() => void signInWithGoogle()} disabled={googleLoading}
+            className="mt-6 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-950 hover:bg-slate-50 disabled:opacity-60">
+            {googleLoading ? "正在檢查 Google 登入…" : "使用 Google 登入"}
+          </button>
           <p className="mt-3 text-center text-xs text-slate-500">社交登入首次使用後，請完成商戶資料登記及審批。</p>
           <div className="my-5 flex items-center gap-3 text-xs text-slate-500"><span className="h-px flex-1 bg-slate-200" />或使用電郵建立帳戶<span className="h-px flex-1 bg-slate-200" /></div>
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
