@@ -33,13 +33,20 @@ const ranges = [
   {key:"year",label:"今年"},
 ] as const;
 
+// Analytics report dates use Hong Kong calendar days, regardless of the
+// Admin browser's local time zone (including owners logging in overseas).
 function startFor(range:string){
-  const now=new Date();
-  if(range==="today"){ const d=new Date(); d.setHours(0,0,0,0); return d; }
-  if(range==="7d") return new Date(now.getTime()-6*86400000);
-  if(range==="30d") return new Date(now.getTime()-29*86400000);
-  if(range==="month") return new Date(now.getFullYear(),now.getMonth(),1);
-  return new Date(now.getFullYear(),0,1);
+  const hkDay = new Intl.DateTimeFormat("en-CA",{
+    timeZone:"Asia/Hong_Kong",year:"numeric",month:"2-digit",day:"2-digit"
+  }).formatToParts(new Date());
+  const part=(name:string)=>Number(hkDay.find(p=>p.type===name)?.value || 0);
+  const year=part("year"), month=part("month"), day=part("day");
+  const hkMidnightUtc=(y:number,m:number,d:number)=>new Date(Date.UTC(y,m-1,d,-8));
+  if(range==="7d") return hkMidnightUtc(year,month,day-6);
+  if(range==="30d") return hkMidnightUtc(year,month,day-29);
+  if(range==="month") return hkMidnightUtc(year,month,1);
+  if(range==="year") return hkMidnightUtc(year,1,1);
+  return hkMidnightUtc(year,month,day);
 }
 
 function Metric({label,value,sub}:{label:string;value:number;sub?:string}){
@@ -165,7 +172,7 @@ export default function AnalyticsPage(){
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div><p className="text-sm font-black text-purple-700">Admin Analytics</p>
           <h1 className="mt-1 text-3xl font-black text-slate-950">網站流量與活動表現</h1>
-          <p className="mt-2 text-sm text-slate-500">匿名 first-party analytics，不儲姓名、Email、電話或 raw IP。</p></div>
+          <p className="mt-2 text-sm text-slate-500">First-party analytics 以隨機訪客及 Session ID 統計，不儲姓名、Email、電話或 raw IP。</p></div>
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">{ranges.map(r=><button key={r.key} onClick={()=>setRange(r.key)} className={`rounded-full px-4 py-2 text-sm font-black ${range===r.key?"bg-purple-700 text-white":"border border-slate-300 bg-white text-slate-600"}`}>{r.label}</button>)}</div>
             <div className="flex flex-wrap gap-2">
