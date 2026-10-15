@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { serviceClient } from "@/lib/admin-auth";
+import { CONSENT_COOKIE, ANALYTICS_CONSENT } from "@/lib/privacy/cookie-consent";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,10 @@ function shouldIgnore(pathname: string) {
 }
 
 export async function POST(request: NextRequest) {
+  // Back-end guard: browser requests without explicit opt-in never enter the analytics table.
+  if (request.cookies.get(CONSENT_COOKIE)?.value !== ANALYTICS_CONSENT) {
+    return new NextResponse(null, { status: 204 });
+  }
   if (process.env.MAINTENANCE_MODE === "true") {
     return new NextResponse(null, { status: 204 });
   }
@@ -46,6 +51,10 @@ export async function POST(request: NextRequest) {
   }
 
   const body = parsed.data;
+  // Query strings can contain user search terms or other personal information.
+  if (body.pagePath.includes("?") || body.pagePath.includes("#")) {
+    return NextResponse.json({ error: "Path only is allowed" }, { status: 400 });
+  }
   if (shouldIgnore(body.pagePath)) {
     return new NextResponse(null, { status: 204 });
   }
