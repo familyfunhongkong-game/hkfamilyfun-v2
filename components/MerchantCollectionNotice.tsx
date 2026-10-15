@@ -28,9 +28,17 @@ const text: Record<AppLocale, {title:string;body:string;mandatory:string;links:s
 export default function MerchantCollectionNotice() {
   const [locale, setLocale] = useState<AppLocale>("zh-Hant");
   useEffect(() => {
-    const raw = document.cookie.split(";").map(x => x.trim()).find(x => x.startsWith("hkff_locale="))?.split("=")[1];
-    const decoded = raw ? decodeURIComponent(raw) : "";
-    if (decoded === "en" || decoded === "zh-Hans" || decoded === "zh-Hant") setLocale(decoded);
+    let mounted = true;
+    void fetch("/api/locale", { cache: "no-store" })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data: { locale?: string } | null) => {
+        if (!mounted) return;
+        if (data?.locale === "en" || data?.locale === "zh-Hans" || data?.locale === "zh-Hant") {
+          setLocale(data.locale);
+        }
+      })
+      .catch(() => { /* Keep Traditional Chinese fallback. */ });
+    return () => { mounted = false; };
   }, []);
   const c = text[locale];
   return <section aria-label={c.title} className="rounded-2xl border border-purple-100 bg-purple-50 p-4 text-xs leading-6 text-slate-700">
