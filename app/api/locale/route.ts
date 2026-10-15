@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerLocale } from "@/lib/i18n/server";
 import {
   LOCALE_COOKIE,
   normalizeLocale,
@@ -27,4 +28,10 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+}
+
+// Locale preference is harmless to expose. The cookie itself remains HttpOnly.
+export async function GET() {
+  const locale = await getServerLocale();
+  return NextResponse.json({ locale }, { headers: { "Cache-Control": "private, no-store" } });
 }
