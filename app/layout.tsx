@@ -141,7 +141,7 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
   );
 }
 
-function SiteFooter({ m }: { m: ReturnType<typeof getMessages> }) {
+function SiteFooter({ m, locale }: { m: ReturnType<typeof getMessages>; locale: "zh-Hant" | "zh-Hans" | "en" }) {
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8">
@@ -305,7 +305,16 @@ function SiteFooter({ m }: { m: ReturnType<typeof getMessages> }) {
 
       <div className="border-t border-slate-100 px-4 py-5">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-xs text-slate-500 md:flex-row">
-          <p>{m.rights}</p>
+          <div className="space-y-1 text-center md:text-left">
+            <p>{m.rights}</p>
+            <p className="font-semibold text-slate-600">
+              {locale === "en"
+                ? "Platform operator: Peyto Dev Hub Limited"
+                : locale === "zh-Hans"
+                ? "平台营运方：Peyto Dev Hub Limited"
+                : "平台營運方：Peyto Dev Hub Limited"}
+            </p>
+          </div>
           <div className="flex flex-wrap justify-center gap-4">
             <Link href="/about" className="hover:text-purple-700">{m.about}</Link>
             <Link href="/contact" className="hover:text-purple-700">{m.contact}</Link>
@@ -346,7 +355,7 @@ export default async function RootLayout({
         >
           {children}
         </div>
-        <SiteFooter m={m} />
+        <SiteFooter m={m} locale={locale} />
         <Suspense fallback={null}>
           <SiteAnalyticsTracker />
         </Suspense>
