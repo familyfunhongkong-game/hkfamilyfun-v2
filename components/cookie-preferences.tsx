@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { AppLocale } from "@/lib/i18n/config";
 import {
@@ -84,6 +84,7 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
   const [open, setOpen] = useState(false);
   const [customizing, setCustomizing] = useState(false);
   const [analytics, setAnalytics] = useState(false);
+  const bannerRef = useRef<HTMLElement | null>(null);
   const c = copy[locale];
 
   useEffect(() => {
@@ -106,6 +107,35 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
     return () => window.removeEventListener("hkff:open-cookie-settings", openPreferences);
   }, []);
 
+  // A fixed consent notice must never make the footer or legal links unreachable.
+  // Reserve scrollable space below the document while it is visible. The space
+  // grows when the visitor opens detailed settings and disappears after a choice.
+  useEffect(() => {
+    if (!open) return;
+    const banner = bannerRef.current;
+    if (!banner) return;
+
+    const body = document.body;
+    const originalInlinePadding = body.style.paddingBottom;
+    const basePadding = Number.parseFloat(window.getComputedStyle(body).paddingBottom) || 0;
+    const updateSpace = () => {
+      const offset = Number.parseFloat(window.getComputedStyle(banner).bottom) || 0;
+      const bannerHeight = banner.getBoundingClientRect().height;
+      body.style.paddingBottom = `${basePadding + bannerHeight + offset + 16}px`;
+    };
+
+    const resizeObserver = new ResizeObserver(updateSpace);
+    resizeObserver.observe(banner);
+    window.addEventListener("resize", updateSpace);
+    updateSpace();
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateSpace);
+      body.style.paddingBottom = originalInlinePadding;
+    };
+  }, [open, customizing]);
+
   function apply(next: "analytics" | "essential") {
     saveConsent(next);
     setChoice(next);
@@ -123,6 +153,7 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
   return (
     <section
       role="region"
+      ref={bannerRef}
       aria-label={c.title}
       className="fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[90] mx-auto max-w-6xl rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-[0_10px_45px_rgba(15,23,42,0.2)] sm:inset-x-5 sm:p-5 lg:bottom-5"
     >
@@ -148,14 +179,14 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
           </div>
         </div>
 
-        <div className="grid w-full shrink-0 grid-cols-3 gap-2 lg:w-[420px]" aria-label={c.title}>
+        <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:w-[420px]" aria-label={c.title}>
           <button type="button" onClick={() => apply("essential")} className={choiceButton}>{c.reject}</button>
           <button type="button" onClick={() => apply("analytics")} className={choiceButton}>{c.accept}</button>
           {customizing ? (
             <button
               type="button"
               onClick={() => apply(analytics ? "analytics" : "essential")}
-              className={neutralButton}
+              className={neutralButton + " col-span-2 sm:col-span-1"}
             >
               {c.save}
             </button>
@@ -165,7 +196,7 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
               onClick={() => setCustomizing(true)}
               aria-expanded={false}
               aria-controls="hkff-cookie-category-settings"
-              className={neutralButton}
+              className={neutralButton + " col-span-2 sm:col-span-1"}
             >
               {c.settings}
             </button>

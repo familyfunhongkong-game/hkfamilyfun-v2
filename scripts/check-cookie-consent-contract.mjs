@@ -21,6 +21,12 @@ assert.match(banner, /apply\("analytics"\)/, "Visitors must be able to opt in");
 assert.match(banner, /"hkff:open-cookie-settings"/, "Footer must reopen preferences");
 assert.match(banner, /max-w-6xl/, "Cookie banner should have a wide, low-profile desktop layout");
 assert.match(banner, /grid-cols-3/, "Accept, reject and settings should be visible in the same layer");
+assert.match(banner, /grid-cols-2 gap-2 sm:grid-cols-3/, "Small mobile screens need a two-column control layout");
+assert.match(banner, /col-span-2 sm:col-span-1/, "Manage settings must remain readable on narrow screens");
+assert.match(banner, /new ResizeObserver\(updateSpace\)/, "Footer must remain scrollable when banner grows");
+assert.match(banner, /body.style.paddingBottom = /, "Banner must reserve footer scroll space");
+assert.match(banner, /body.style.paddingBottom = originalInlinePadding/, "Footer spacing must be restored after closing");
+
 assert.match(banner, /choiceButton/, "Accept and reject should have equal visual emphasis");
 assert.match(banner, /onClick=\{\(\) => apply\("essential"\)\} className=\{choiceButton\}/);
 assert.match(banner, /onClick=\{\(\) => apply\("analytics"\)\} className=\{choiceButton\}/);
