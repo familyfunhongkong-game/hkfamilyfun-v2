@@ -76,6 +76,8 @@ export default function AnalyticsPage(){
   const [data,setData]=useState<Summary>(empty);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
+  const [exporting,setExporting]=useState<"summary"|"events"|null>(null);
+  const [exportError,setExportError]=useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,6 +116,47 @@ export default function AnalyticsPage(){
     void load();
   }, [load]);
 
+  const exportCsv = useCallback(async (type: "summary" | "events") => {
+    if (exporting) return;
+    setExportError("");
+    setExporting(type);
+    try {
+      if (!supabase) throw new Error("登入服務未能連接。");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Admin 登入已失效，請重新登入。");
+
+      const params = new URLSearchParams({
+        type,
+        start: startFor(range).toISOString(),
+      });
+      const response = await fetch(`/api/admin/analytics/export?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(result.error || "CSV 匯出失敗，請稍後再試。");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const date = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = type === "events"
+        ? `hkff-site-analytics-events-${range}-${date}.csv`
+        : `hkff-analytics-summary-${range}-${date}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (cause) {
+      setExportError(cause instanceof Error ? cause.message : "CSV 匯出失敗。");
+    } finally {
+      setExporting(null);
+    }
+  }, [range, exporting]);
+
   const ctr=useMemo(()=>data.totals.eventViews?((data.totals.ctaClicks/data.totals.eventViews)*100).toFixed(1):"0.0",[data]);
 
   return <main className="min-h-screen bg-slate-50">
@@ -123,12 +166,26 @@ export default function AnalyticsPage(){
           <div><p className="text-sm font-black text-purple-700">Admin Analytics</p>
           <h1 className="mt-1 text-3xl font-black text-slate-950">網站流量與活動表現</h1>
           <p className="mt-2 text-sm text-slate-500">匿名 first-party analytics，不儲姓名、Email、電話或 raw IP。</p></div>
-          <div className="flex flex-wrap gap-2">{ranges.map(r=><button key={r.key} onClick={()=>setRange(r.key)} className={`rounded-full px-4 py-2 text-sm font-black ${range===r.key?"bg-purple-700 text-white":"border border-slate-300 bg-white text-slate-600"}`}>{r.label}</button>)}</div>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">{ranges.map(r=><button key={r.key} onClick={()=>setRange(r.key)} className={`rounded-full px-4 py-2 text-sm font-black ${range===r.key?"bg-purple-700 text-white":"border border-slate-300 bg-white text-slate-600"}`}>{r.label}</button>)}</div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={exporting!==null} onClick={()=>void exportCsv("summary")}
+                className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-bold text-purple-900 hover:bg-purple-100 disabled:opacity-60">
+                {exporting==="summary"?"匯出中…":"下載流量摘要 CSV"}
+              </button>
+              <button type="button" disabled={exporting!==null} onClick={()=>void exportCsv("events")}
+                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700 disabled:opacity-60">
+                {exporting==="events"?"匯出中…":"下載詳細事件 CSV"}
+              </button>
+            </div>
+            <p className="max-w-md text-xs leading-5 text-slate-500">依上方日期範圍匯出 Excel 可開啟的 UTF-8 CSV。詳細紀錄不包含訪客 ID 或 Session ID；每次上限 20,000 筆，避免不完整下載。</p>
+          </div>
         </div>
       </div>
     </section>
 
     <section className="mx-auto max-w-[1500px] space-y-6 px-4 py-7">
+      {exportError?<div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">{exportError}</div>:null}
       {error?<div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">{error}</div>:null}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <Metric label="Visitors" value={data.totals.visitors}/><Metric label="Sessions" value={data.totals.sessions}/>
