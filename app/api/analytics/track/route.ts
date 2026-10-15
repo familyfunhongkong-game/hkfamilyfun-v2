@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       "/disclaimer",
       "/data-deletion",
     ]);
-    if (!legalPages.has(body.pagePath.replace(/\\/$/, ""))) {
+    if (!legalPages.has((body.pagePath.endsWith("/") ? body.pagePath.slice(0, -1) : body.pagePath))) {
       return new NextResponse(null, { status: 204 });
     }
   }
