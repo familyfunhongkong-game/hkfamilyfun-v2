@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { CONSENT_EVENT, readConsent } from "@/lib/privacy/cookie-consent";
 
 const EVENT_PATH = /^\/events\/([0-9a-f-]{36})$/i;
 
@@ -34,6 +35,8 @@ function sendAnalytics(
   pagePath: string,
   eventId: string | null,
 ) {
+  if (readConsent() !== "analytics") return;
+
   if (
     pagePath === "/maintenance" ||
     pagePath.startsWith("/admin") ||
@@ -73,19 +76,21 @@ function sendAnalytics(
 
 export default function SiteAnalyticsTracker() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (!pathname) return;
 
-    const pagePath = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : "");
+    // Never send user-entered search query strings, which may contain personal data.
+    const pagePath = pathname;
     const eventMatch = pathname.match(EVENT_PATH);
     const eventId = eventMatch?.[1] || null;
 
-    sendAnalytics("page_view", pagePath, eventId);
-    if (eventId) {
-      sendAnalytics("event_view", pagePath, eventId);
-    }
+    const trackCurrentPage = () => {
+      sendAnalytics("page_view", pagePath, eventId);
+      if (eventId) sendAnalytics("event_view", pagePath, eventId);
+    };
+    trackCurrentPage();
+    window.addEventListener(CONSENT_EVENT, trackCurrentPage);
 
     function handleClick(event: MouseEvent) {
       if (!eventId) return;
@@ -99,8 +104,11 @@ export default function SiteAnalyticsTracker() {
     }
 
     document.addEventListener("click", handleClick, true);
-    return () => document.removeEventListener("click", handleClick, true);
-  }, [pathname, searchParams]);
+    return () => {
+      document.removeEventListener("click", handleClick, true);
+      window.removeEventListener(CONSENT_EVENT, trackCurrentPage);
+    };
+  }, [pathname]);
 
   return null;
 }
