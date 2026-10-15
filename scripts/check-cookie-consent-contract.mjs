@@ -19,6 +19,16 @@ assert.match(preference, /sessionStorage.removeItem\("hkff_session_id"\)/);
 assert.match(banner, /apply\("essential"\)/, "Visitors must be able to refuse analytics");
 assert.match(banner, /apply\("analytics"\)/, "Visitors must be able to opt in");
 assert.match(banner, /"hkff:open-cookie-settings"/, "Footer must reopen preferences");
+assert.match(banner, /max-w-6xl/, "Cookie banner should have a wide, low-profile desktop layout");
+assert.match(banner, /grid-cols-3/, "Accept, reject and settings should be visible in the same layer");
+assert.match(banner, /choiceButton/, "Accept and reject should have equal visual emphasis");
+assert.match(banner, /onClick=\{\(\) => apply\("essential"\)\} className=\{choiceButton\}/);
+assert.match(banner, /onClick=\{\(\) => apply\("analytics"\)\} className=\{choiceButton\}/);
+assert.match(banner, /setAnalytics\(stored === "analytics"\)/, "Optional analytics must not be preselected without prior consent");
+assert.match(banner, /setAnalytics\(previous === "analytics"\)/, "Reopening settings should respect saved choice");
+assert.match(banner, /setCustomizing\(true\)/, "Users should be able to customize choices");
+assert.match(banner, /aria-label=\{c.analytics\}/, "Customizable analytics need an accessible label");
+
 assert.match(tracker, /readConsent\(\) !== "analytics"/, "Tracker must not run without opt-in");
 assert.match(tracker, /pagePath = pathname;/, "Do not send private search-query details");
 assert.match(tracker, /CONSENT_EVENT/, "Tracker must handle consent changes");
