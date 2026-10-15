@@ -213,7 +213,8 @@ export default function AdminReportsPage() {
                 唔需要逐版巡網站。呢度集中顯示最值得你處理嘅異常：資料缺漏、過期公開、同步錯誤、待審資料同 Social backlog。
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Link href="/admin/analytics" className="rounded-full border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-black text-purple-800 hover:bg-purple-100">Analytics CSV 匯出</Link>
               <button type="button" onClick={() => void load()} className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-black text-slate-700">重新整理</button>
               <button type="button" onClick={downloadSnapshot} disabled={loading} className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-50">Export Snapshot</button>
             </div>
