@@ -65,16 +65,13 @@ function csv(rows: Array<Array<string | number | null | undefined>>) {
 }
 
 function localTime(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
+  const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: HK_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).format(new Date(iso));
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const part = (name: string) => parts.find(p => p.type === name)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")}`;
 }
 
 function download(payload: string, name: string) {
@@ -131,7 +128,7 @@ function summaryCsv(summary: Summary, start: string, end: string) {
   return csv(rows);
 }
 
-function eventCsv(events: AnalyticsEvent[], start: string, end: string) {
+function eventCsv(events: AnalyticsEvent[]) {
   const rows: Array<Array<string | number | null | undefined>> = [[
     "occurred_at_hong_kong", "occurred_at_utc", "event_type",
     "page_path", "event_id", "referrer_hostname", "device_type",
@@ -147,10 +144,6 @@ function eventCsv(events: AnalyticsEvent[], start: string, end: string) {
       item.device_type,
     ]);
   }
-  // Start/end are encoded in the filename/date filter and not inserted as
-  // extra rows, so the CSV remains directly usable as a flat Excel table.
-  void start;
-  void end;
   return csv(rows);
 }
 
@@ -233,7 +226,7 @@ export async function GET(request: NextRequest) {
   }
 
   return download(
-    eventCsv(rows, startIso, endIso),
+    eventCsv(rows),
     `hkff-site-analytics-events-${stamp}.csv`,
   );
 }
