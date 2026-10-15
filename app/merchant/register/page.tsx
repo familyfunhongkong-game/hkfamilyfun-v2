@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import MerchantCollectionNotice from "@/components/MerchantCollectionNotice";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { socialSignInAvailability } from "@/lib/merchant-google-provider";
@@ -181,6 +182,7 @@ export default function MerchantRegisterPage() {
           </div>
           <p className="mt-3 text-center text-xs text-slate-500">首次使用 Google 或 Facebook 登入，請登入後完成商戶資料及審批申請。</p>
           <div className="my-5 flex items-center gap-3 text-xs text-slate-500"><span className="h-px flex-1 bg-slate-200" />或使用電郵建立帳戶<span className="h-px flex-1 bg-slate-200" /></div>
+          <div className="mt-5"><MerchantCollectionNotice /></div>
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-slate-700">

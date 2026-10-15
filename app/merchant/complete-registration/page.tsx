@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import MerchantCollectionNotice from "@/components/MerchantCollectionNotice";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
@@ -64,6 +65,7 @@ export default function MerchantCompleteRegistration() {
   <p className="mt-3 text-sm leading-6 text-slate-600">你已擁有經驗證的登入帳戶，毋須再次註冊或收取驗證 Email。請填寫商戶資料，提交管理員審批。</p>
   <p className="mt-3 rounded-xl bg-purple-50 px-4 py-3 text-sm font-bold text-purple-900">登入電郵：{email}</p>
   {error?<p role="alert" className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</p>:null}
+  <div className="mt-5"><MerchantCollectionNotice /></div>
   <form onSubmit={submit} className="mt-6 space-y-5">
    <label className="block text-sm font-bold">商戶／機構名稱 *<input required value={businessName} onChange={e=>setBusinessName(e.target.value)} className="mt-2 w-full rounded-xl border p-3"/></label>
    <label className="block text-sm font-bold">聯絡人姓名 *<input required value={contactName} onChange={e=>setContactName(e.target.value)} className="mt-2 w-full rounded-xl border p-3"/></label>

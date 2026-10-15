@@ -5,6 +5,7 @@ const files = [
   "app/merchant-join/page.tsx",
   "app/merchant/register/page.tsx",
   "app/merchant-terms/page.tsx",
+  "lib/legal/merchant-terms.ts",
   "app/merchant/advertising/page.tsx",
   "components/home/MerchantCTA.tsx",
 ];
@@ -24,8 +25,13 @@ const required = [
     patterns: [/一般活動刊登免費/, /Paid Promotion/, /Sell with Family Fun/],
   },
   {
-    file: "app/merchant-terms/page.tsx",
-    patterns: [/一般活動資料上載、提交審批及正常活動 Listing 不收取刊登費/, /付費推廣/],
+    file: "lib/legal/merchant-terms.ts",
+    patterns: [
+      /一般活動投稿與正常 Listing 目前不收取刊登費/,
+      /付費推廣/,
+      /Ordinary event submissions and standard listings are currently free/,
+      /Separately Paid Promotion/,
+    ],
   },
 ];
 
