@@ -47,4 +47,11 @@ assert.match(proxy, /"\/cookies"/);
 for (const locale of ['"zh-Hant"', '"zh-Hans"', '"en"']) {
   assert.ok(policy.includes(locale), `Missing cookie policy for ${locale}`);
 }
+
+assert.ok(endpoint.includes('const legalPages = new Set'), 'Legal analytics allowlist is needed during maintenance');
+for (const page of ['/privacy', '/cookies', '/terms', '/merchant-terms', '/disclaimer', '/data-deletion']) {
+  assert.ok(endpoint.includes(JSON.stringify(page)), 'Missing legal analytics page: ' + page);
+}
+assert.ok(endpoint.includes('if (!legalPages.has('), 'Non-legal URLs must remain excluded in maintenance');
+
 console.log("[cookie-consent] PASS: opt-in analytics, revocation, server gate, privacy policy and footer controls");
