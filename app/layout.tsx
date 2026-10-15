@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import LanguageSwitcher from "@/components/language-switcher";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import SiteAnalyticsTracker from "@/components/site-analytics-tracker";
+import CookiePreferences, { CookieSettingsButton } from "@/components/cookie-preferences";
 import { getMessages } from "@/lib/i18n/messages";
 import { getServerLocale } from "@/lib/i18n/server";
 import { localeHtmlLang } from "@/lib/i18n/config";
@@ -321,6 +322,8 @@ function SiteFooter({ m, locale }: { m: ReturnType<typeof getMessages>; locale: 
             <Link href="/report" className="hover:text-purple-700">{m.report}</Link>
             <Link href="/terms" className="hover:text-purple-700">{m.terms}</Link>
             <Link href="/privacy" className="hover:text-purple-700">{m.privacy}</Link>
+            <Link href="/cookies" className="hover:text-purple-700">{locale === "en" ? "Cookies Policy" : locale === "zh-Hans" ? "Cookies 政策" : "Cookies 政策"}</Link>
+            <CookieSettingsButton locale={locale} />
             <Link href="/disclaimer" className="hover:text-purple-700">{m.disclaimer}</Link>
             <Link href="/merchant-terms" className="hover:text-purple-700">{m.merchantTerms}</Link>
           </div>
@@ -356,6 +359,7 @@ export default async function RootLayout({
           {children}
         </div>
         <SiteFooter m={m} locale={locale} />
+        <CookiePreferences locale={locale} />
         <Suspense fallback={null}>
           <SiteAnalyticsTracker />
         </Suspense>
