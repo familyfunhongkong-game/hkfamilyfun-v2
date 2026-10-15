@@ -5,14 +5,14 @@ import { disclaimerLegal } from "@/lib/legal/disclaimer";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale();
-  const copy = disclaimerLegal[locale];
+  const data = disclaimerLegal[locale];
   return {
-    title: copy.title,
-    description: copy.lead,
+    title: data.title,
+    description: data.lead,
     alternates: { canonical: "/disclaimer" },
   };
 }
 
-export default function DisclaimerLegalPage() {
+export default function Page() {
   return <LegalPolicyPage translations={disclaimerLegal} />;
 }
