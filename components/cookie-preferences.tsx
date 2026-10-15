@@ -117,3 +117,12 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
     </div>
   </section>;
 }
+
+/** Always-accessible footer control; withdrawing opt-in never requires a login. */
+export function CookieSettingsButton({ locale }: { locale: AppLocale }) {
+  const label = locale === "en" ? "Cookie settings" : locale === "zh-Hans" ? "Cookies 设置" : "Cookies 設定";
+  return <button type="button" className="hover:text-purple-700"
+    onClick={() => window.dispatchEvent(new Event("hkff:open-cookie-settings"))}>
+    {label}
+  </button>;
+}
