@@ -162,7 +162,24 @@ async function checkMobile() {
   }
 }
 
+async function waitForProductionCommit() {
+  const expected = process.env.GITHUB_SHA || "";
+  if (!expected) return;
+  for (let attempt = 1; attempt <= 45; attempt++) {
+    try {
+      const response = await fetch(BASE + "/api/health", { cache: "no-store" });
+      const data = await response.json();
+      if (data?.buildSha === expected) return;
+    } catch {
+      // Production can still be deploying.
+    }
+    await new Promise(resolve => setTimeout(resolve, 8000));
+  }
+  throw new Error("Production deployment SHA did not match the workflow commit.");
+}
+
 try {
+  await waitForProductionCommit();
   await checkDesktop();
   await checkMobile();
   console.log("[cookie-live-e2e] PASS: real Chromium opt-in, reject, mobile footer scroll and withdrawal");
