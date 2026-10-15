@@ -5,14 +5,14 @@ import { privacyLegal } from "@/lib/legal/privacy";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale();
-  const copy = privacyLegal[locale];
+  const data = privacyLegal[locale];
   return {
-    title: copy.title,
-    description: copy.lead,
+    title: data.title,
+    description: data.lead,
     alternates: { canonical: "/privacy" },
   };
 }
 
-export default function PrivacyLegalPage() {
+export default function Page() {
   return <LegalPolicyPage translations={privacyLegal} />;
 }
