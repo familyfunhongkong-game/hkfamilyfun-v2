@@ -56,7 +56,8 @@ export const privacyLegal = {
         "heading": "直接促銷及退出",
         "paragraphs": [
           "如我們計劃以你的個人資料發送活動推介、優惠、廣告或其他直接促銷資訊，會按香港適用法律預先提供所需通知並取得適當同意或不反對表示。此同意與接受平台服務條款分開，並非使用基本服務的必要條件。",
-          "你可以透過訊息內的退訂方式，或電郵 info@hkfamilyfun.com 免費要求停止直接促銷。沒有另行授權前，我們不會將你的個人資料提供予其他商戶作其直接促銷。"
+          "你可以透過訊息內的退訂方式，或電郵 info@hkfamilyfun.com 免費要求停止直接促銷。沒有另行授權前，我們不會將你的個人資料提供予其他商戶作其直接促銷。",
+          "如另行同意，我們可能使用你的姓名、聯絡電郵、活動偏好或你選擇提供的資料，向你推介親子活動、商戶優惠、工作坊、平台服務及清楚標示的贊助推廣。我們會在取得同意前列明擬使用的個人資料類別和推廣主題；如日後擬把資料提供予其他商戶作其直接促銷，會另外告知接收者類別及是否涉及利益，並按法律取得所需同意。現時不會僅因你註冊帳戶而自動加入促銷名單。"
         ]
       },
       {
@@ -89,7 +90,8 @@ export const privacyLegal = {
       {
         "heading": "查閱、更正及私隱查詢",
         "paragraphs": [
-          "你可根據香港《個人資料（私隱）條例》提出查閱或更正個人資料要求。請由相關帳戶電郵至 info@hkfamilyfun.com，主旨註明「個人資料查閱／更正申請」，提供足以識別相關記錄的資料。我們可能合理核實身份，並按適用法例處理、回覆及在法例容許時收取查閱要求的合理費用。"
+          "你可根據香港《個人資料（私隱）條例》提出查閱或更正個人資料要求。請由相關帳戶電郵至 info@hkfamilyfun.com，主旨註明「個人資料查閱／更正申請」，提供足以識別相關記錄的資料。我們可能合理核實身份，並按適用法例處理、回覆及在法例容許時收取查閱要求的合理費用。",
+          "如屬香港《個人資料（私隱）條例》規定的有效查閱資料要求，除法定豁免或其他合法理由外，我們須在收到要求後 40 個曆日內按法例處理或回覆；如未能按期完成，會依適用規定說明並盡快跟進。"
         ]
       },
       {
@@ -162,7 +164,8 @@ export const privacyLegal = {
         "heading": "Direct Marketing and Opt-Out",
         "paragraphs": [
           "If we propose using your personal data to send event recommendations, offers, advertising or other direct marketing, we will give the required notice and seek the necessary consent or indication of no objection under applicable Hong Kong law. Marketing permission is separate from accepting service terms and is not required for basic services.",
-          "You may opt out without charge using any unsubscribe mechanism offered or by emailing info@hkfamilyfun.com. We do not provide your personal data to other merchants for their own direct marketing without the required separate authorization."
+          "You may opt out without charge using any unsubscribe mechanism offered or by emailing info@hkfamilyfun.com. We do not provide your personal data to other merchants for their own direct marketing without the required separate authorization.",
+          "Subject to separate, appropriate permission, we may use your name, contact email, event preferences and voluntarily supplied data to promote family activities, merchant offers, workshops, Platform services and clearly identified sponsored offers. Before seeking permission we specify the kinds of data and marketing subjects. Any future provision of data to another merchant for its own direct marketing requires separate disclosure of recipients, any gain involved and legally required authorization. Account registration alone does not enroll you in marketing."
         ]
       },
       {
@@ -195,7 +198,8 @@ export const privacyLegal = {
       {
         "heading": "Access, Correction and Enquiries",
         "paragraphs": [
-          "You may request access to or correction of personal data in accordance with Hong Kong's Personal Data (Privacy) Ordinance. Email info@hkfamilyfun.com from your registered address, with the subject “Data Access / Correction Request” and enough details to identify the records. We may reasonably verify your identity, respond within applicable statutory requirements, and charge a reasonable access fee where the law permits."
+          "You may request access to or correction of personal data in accordance with Hong Kong's Personal Data (Privacy) Ordinance. Email info@hkfamilyfun.com from your registered address, with the subject “Data Access / Correction Request” and enough details to identify the records. We may reasonably verify your identity, respond within applicable statutory requirements, and charge a reasonable access fee where the law permits.",
+          "For valid data access requests under Hong Kong's Personal Data (Privacy) Ordinance, we must respond or comply as required within 40 calendar days of receipt, subject to statutory exceptions and valid grounds for refusal. If we cannot complete the request in time, we will give the explanations and follow-up required by law."
         ]
       },
       {
@@ -268,7 +272,8 @@ export const privacyLegal = {
         "heading": "直接营销及退出",
         "paragraphs": [
           "如我们拟使用你的个人资料发送活动推荐、优惠、广告或其他直接营销信息，会按香港适用法律提前提供所需通知，并取得适当同意或不反对表示。营销同意与接受平台服务条款分开，并非使用基本服务的必要条件。",
-          "你可以通过信息内提供的退订方式，或发送邮件至 info@hkfamilyfun.com 免费要求停止直接营销。未取得所需的独立授权前，我们不会把你的个人资料提供给其他商户作其直接营销。"
+          "你可以通过信息内提供的退订方式，或发送邮件至 info@hkfamilyfun.com 免费要求停止直接营销。未取得所需的独立授权前，我们不会把你的个人资料提供给其他商户作其直接营销。",
+          "如另行取得适当同意，我们可能使用你的姓名、联系邮箱、活动偏好及自愿提供的资料，向你推荐亲子活动、商户优惠、工作坊、平台服务及明确标识的赞助推广。取得同意前会说明拟使用的数据类别和推广主题；如日后拟把资料提供给其他商户用于直接营销，会另行披露接收者类别及是否涉及利益，并依法获取所需授权。注册账户本身不会自动订阅营销信息。"
         ]
       },
       {
@@ -301,7 +306,8 @@ export const privacyLegal = {
       {
         "heading": "查阅、更正及隐私咨询",
         "paragraphs": [
-          "你可根据香港《个人资料（隐私）条例》提出查阅或更正个人资料要求。请从相关账户邮箱发送邮件至 info@hkfamilyfun.com，主题注明“个人资料查阅／更正申请”，并提供足以识别相关记录的资料。我们可能合理核实身份，并按适用法律处理、回复，以及在法律允许时收取查阅要求的合理费用。"
+          "你可根据香港《个人资料（隐私）条例》提出查阅或更正个人资料要求。请从相关账户邮箱发送邮件至 info@hkfamilyfun.com，主题注明“个人资料查阅／更正申请”，并提供足以识别相关记录的资料。我们可能合理核实身份，并按适用法律处理、回复，以及在法律允许时收取查阅要求的合理费用。",
+          "对符合香港《个人资料（隐私）条例》的有效资料查阅申请，除法定豁免或其他合法理由外，我们须在收到申请后 40 个日历日内依法处理或回复；如无法按期完成，将按适用规定说明原因并尽快跟进。"
         ]
       },
       {
