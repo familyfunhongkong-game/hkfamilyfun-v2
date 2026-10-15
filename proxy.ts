@@ -6,6 +6,7 @@ const PUBLIC_ASSET_PREFIXES = ["/_next", "/favicon.ico", "/robots.txt", "/sitema
 // to visitors and OAuth provider reviewers even while the main site is offline.
 const PUBLIC_LEGAL_PATHS = new Set([
   "/privacy",
+  "/cookies",
   "/terms",
   "/data-deletion",
   "/merchant-terms",

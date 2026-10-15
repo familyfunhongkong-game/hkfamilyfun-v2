@@ -12,6 +12,7 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
+    "check:cookie-consent": "node scripts/check-cookie-consent-contract.mjs",
     "check:commerce-copy": "node scripts/check-commerce-copy.mjs",
     "check:event-cards": "node scripts/check-event-card-contract.mjs",
     "check:event-detail": "node scripts/check-event-detail-contract.mjs",

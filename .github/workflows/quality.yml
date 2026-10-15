@@ -74,6 +74,9 @@ jobs:
           }
           NODE
 
+      - name: Privacy and analytics consent checks
+        run: npm run check:cookie-consent
+
       - name: Commerce model copy check
         run: npm run check:commerce-copy
 

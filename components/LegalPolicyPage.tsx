@@ -4,6 +4,7 @@ import type { LegalTranslations } from "@/lib/legal/types";
 
 const links = [
   { href: "/privacy", tc: "私隱政策", sc: "隐私政策", en: "Privacy Policy" },
+  { href: "/cookies", tc: "Cookies 政策", sc: "Cookies 政策", en: "Cookies Policy" },
   { href: "/terms", tc: "服務條款", sc: "服务条款", en: "Terms of Service" },
   { href: "/merchant-terms", tc: "商戶條款", sc: "商户条款", en: "Merchant Terms" },
   { href: "/disclaimer", tc: "免責聲明", sc: "免责声明", en: "Disclaimer" },

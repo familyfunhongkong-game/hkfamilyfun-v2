@@ -5,7 +5,7 @@ export const privacyLegal = {
     "eyebrow": "Privacy Policy",
     "title": "私隱政策",
     "lead": "本政策說明 HK Family Fun 如何收集、使用、披露、保留及保障個人資料，以及你可以如何行使相關權利。",
-    "updated": "2026-10-14",
+    "updated": "2026-10-15",
     "sections": [
       {
         "heading": "資料使用者、範圍及營運方",
@@ -63,7 +63,7 @@ export const privacyLegal = {
       {
         "heading": "Cookies、分析及第三方連結",
         "paragraphs": [
-          "網站可使用登入及安全所需 Cookies、本地儲存、效能及流量分析技術。瀏覽器可讓你管理 Cookies，但停用必要 Cookies 可能影響登入及部分功能。如使用非必要追蹤或需要同意的技術，我們須先提供適當通知及選擇。",
+          "我們使用必要的登入、保安、語言偏好及 Cookie 選擇記錄。只有在你另行明確同意時，才會建立第一方流量分析訪客／工作階段識別碼（localStorage／sessionStorage），並傳送頁面瀏覽與活動互動至分析資料庫。你可透過網站頁尾「Cookies 設定」隨時拒絕或撤回分析同意。詳細識別碼、儲存技術、保留及第三方資訊請閱讀 https://www.hkfamilyfun.com/cookies。",
           "點擊第三方活動、地圖、報名或付款連結後，對方網站的資料收集、Cookies 及交易條件由該服務自行負責，請閱讀其政策。"
         ]
       },
@@ -113,7 +113,7 @@ export const privacyLegal = {
     "eyebrow": "Privacy Policy",
     "title": "Privacy Policy",
     "lead": "How HK Family Fun collects, uses, discloses, retains and safeguards personal data, and how you may exercise your rights.",
-    "updated": "2026-10-14",
+    "updated": "2026-10-15",
     "sections": [
       {
         "heading": "Data Controller, Scope and Operator",
@@ -171,7 +171,7 @@ export const privacyLegal = {
       {
         "heading": "Cookies, Analytics and External Links",
         "paragraphs": [
-          "The website may use essential sign-in and security cookies, local storage, performance analytics and traffic measurement. Your browser may let you control cookies, although disabling essential cookies can impair services. Non-essential tracking that legally requires notice or choice must be handled with appropriate disclosure and controls.",
+          "We use essential sign-in, security and language settings, as well as your saved cookie preference. Only with separate, explicit permission will first-party analytics create visitor and session identifiers in localStorage/sessionStorage and send page views and event interactions to our analytics database. You can decline or withdraw that permission any time via 'Cookie settings' in the footer. See https://www.hkfamilyfun.com/cookies for the storage names, retention details and third-party information.",
           "Third-party event, map, registration and payment sites have their own data collection and transaction rules. Please review their notices before using them."
         ]
       },
@@ -221,7 +221,7 @@ export const privacyLegal = {
     "eyebrow": "Privacy Policy",
     "title": "隐私政策",
     "lead": "本政策说明 HK Family Fun 如何收集、使用、披露、保留及保护个人资料，以及你可以如何行使相关权利。",
-    "updated": "2026-10-14",
+    "updated": "2026-10-15",
     "sections": [
       {
         "heading": "数据使用者、范围及营运方",
@@ -279,7 +279,7 @@ export const privacyLegal = {
       {
         "heading": "Cookies、分析及第三方链接",
         "paragraphs": [
-          "网站可能使用登录及安全所需 Cookies、本地存储、性能及流量分析技术。浏览器可让你管理 Cookies，但停用必要 Cookies 可能影响登录及部分功能。如使用需征求同意的非必要追踪技术，我们须先提供适当通知及选择。",
+          "我们使用必要的登录、安全、语言偏好和 Cookie 选择记录。只有在你另行明确同意后，第一方流量分析才会在 localStorage／sessionStorage 建立访客和会话识别码，并将页面浏览和活动互动发送至分析数据库。可通过网站页脚“Cookies 设置”随时拒绝或撤回分析同意。储存名称、期限及第三方说明请参阅 https://www.hkfamilyfun.com/cookies。",
           "点击第三方活动、地图、报名或付款链接后，对方网站的数据收集、Cookies 及交易条件由该服务负责，请阅读其政策。"
         ]
       },
