@@ -29,10 +29,6 @@ export async function POST(request: NextRequest) {
   if (request.cookies.get(CONSENT_COOKIE)?.value !== ANALYTICS_CONSENT) {
     return new NextResponse(null, { status: 204 });
   }
-  if (process.env.MAINTENANCE_MODE === "true") {
-    return new NextResponse(null, { status: 204 });
-  }
-
   const host = request.headers.get("host")?.toLowerCase() || "";
   if (host !== "www.hkfamilyfun.com" && host !== "hkfamilyfun.com") {
     return new NextResponse(null, { status: 204 });
@@ -57,6 +53,23 @@ export async function POST(request: NextRequest) {
   }
   if (shouldIgnore(body.pagePath)) {
     return new NextResponse(null, { status: 204 });
+  }
+
+  // The public site is intentionally in maintenance mode, but legal pages
+  // remain accessible. Do not silently discard visitor-consented analytics
+  // for those pages. All other public routes stay suppressed until launch.
+  if (process.env.MAINTENANCE_MODE === "true") {
+    const legalPages = new Set([
+      "/privacy",
+      "/cookies",
+      "/terms",
+      "/merchant-terms",
+      "/disclaimer",
+      "/data-deletion",
+    ]);
+    if (!legalPages.has(body.pagePath.replace(/\\/$/, ""))) {
+      return new NextResponse(null, { status: 204 });
+    }
   }
 
   const client = serviceClient();
