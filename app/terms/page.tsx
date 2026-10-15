@@ -5,14 +5,14 @@ import { termsLegal } from "@/lib/legal/terms";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale();
-  const copy = termsLegal[locale];
+  const data = termsLegal[locale];
   return {
-    title: copy.title,
-    description: copy.lead,
+    title: data.title,
+    description: data.lead,
     alternates: { canonical: "/terms" },
   };
 }
 
-export default function TermsLegalPage() {
+export default function Page() {
   return <LegalPolicyPage translations={termsLegal} />;
 }
