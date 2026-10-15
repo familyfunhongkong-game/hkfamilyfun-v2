@@ -1,5 +1,5 @@
-export const CURRENT_MERCHANT_TERMS_VERSION = "2026-10-07";
-export const CURRENT_PRIVACY_VERSION = "2026-09-28";
+export const CURRENT_MERCHANT_TERMS_VERSION = "2026-10-14";
+export const CURRENT_PRIVACY_VERSION = "2026-10-14";
 
 export type MerchantLegalSnapshot = {
   terms_version?: string | null;
