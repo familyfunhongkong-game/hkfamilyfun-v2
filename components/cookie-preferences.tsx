@@ -25,7 +25,6 @@ type Copy = {
   analytics: string;
   analyticsDescription: string;
   active: string;
-  unavailable: string;
 };
 
 const copy: Record<AppLocale, Copy> = {
@@ -44,7 +43,6 @@ const copy: Record<AppLocale, Copy> = {
     analytics: "流量分析（可選）",
     analyticsDescription: "使用訪客及工作階段識別碼，統計頁面、活動瀏覽及外部連結點擊。",
     active: "必需",
-    unavailable: "關閉",
   },
   "zh-Hans": {
     title: "你的 Cookies 选择",
@@ -61,7 +59,6 @@ const copy: Record<AppLocale, Copy> = {
     analytics: "流量分析（可选）",
     analyticsDescription: "使用访客和会话识别码，统计页面、活动浏览与外部链接点击。",
     active: "必需",
-    unavailable: "关闭",
   },
   en: {
     title: "Your cookie choices",
@@ -78,7 +75,6 @@ const copy: Record<AppLocale, Copy> = {
     analytics: "Analytics (optional)",
     analyticsDescription: "Uses visitor and session IDs to measure page views, event views and outbound clicks.",
     active: "Required",
-    unavailable: "Off",
   },
 };
 
@@ -122,7 +118,7 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
 
   const buttonBase = "min-h-11 rounded-xl border px-3 py-2.5 text-center text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700 sm:text-sm";
   const neutralButton = buttonBase + " border-slate-300 bg-white text-slate-900 hover:bg-slate-100";
-  const purpleButton = buttonBase + " border-purple-700 bg-purple-700 text-white hover:bg-purple-800";
+  const choiceButton = buttonBase + " border-purple-700 bg-purple-50 text-purple-900 hover:bg-purple-100";
 
   return (
     <section
@@ -153,8 +149,8 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
         </div>
 
         <div className="grid w-full shrink-0 grid-cols-3 gap-2 lg:w-[420px]" aria-label={c.title}>
-          <button type="button" onClick={() => apply("essential")} className={neutralButton}>{c.reject}</button>
-          <button type="button" onClick={() => apply("analytics")} className={purpleButton}>{c.accept}</button>
+          <button type="button" onClick={() => apply("essential")} className={choiceButton}>{c.reject}</button>
+          <button type="button" onClick={() => apply("analytics")} className={choiceButton}>{c.accept}</button>
           {customizing ? (
             <button
               type="button"
