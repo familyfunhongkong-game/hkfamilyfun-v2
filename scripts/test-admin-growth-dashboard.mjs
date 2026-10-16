@@ -63,6 +63,10 @@ assert.equal(summary.totals.freePublished,1);
 assert.equal(summary.totals.senPublished,1);
 assert.equal(summary.totals.newAccountsMonth,3);
 assert.equal(summary.totals.unreadNotifications,2);
+const unavailable = buildGrowthDashboard(events,merchants,accounts,admins,[],null,now);
+assert.equal(unavailable.totals.unreadNotifications,null,"Failed optional count must stay unknown, never false zero");
+assert.equal(unavailable.totals.events,3,"Optional count failure must not hide essential event data");
+
 assert.equal(summary.merchants[0].events,2);
 assert.equal(summary.categories[0].label,"博物館");
 assert.equal(summary.categories[0].count,1);
@@ -81,6 +85,11 @@ assert.match(dashboardApi,/MAX_ACCOUNTS = 10000/);
 assert.match(dashboardApi,/MAX_ROWS = 20000/);
 assert.match(dashboardApi,/rows.length > MAX_ACCOUNTS/);
 assert.match(dashboardApi,/result.length > MAX_ROWS/);
+assert.match(dashboardApi,/let unreadCount: number \| null = unread.error \? null : unread.count/);
+assert.match(dashboardApi,/notification count unavailable; trying bounded fallback/);
+assert.match(dashboardApi,/\.limit\(1000\)/);
+assert.doesNotMatch(dashboardApi,/if \(unread.error\) throw/);
+
 const dashboard = readFileSync("app/admin/dashboard/page.tsx","utf8");
 assert.match(dashboard,/\/api\/admin\/dashboard/);
 assert.match(dashboard,/Authorization: `Bearer \$\{token\}`/);
