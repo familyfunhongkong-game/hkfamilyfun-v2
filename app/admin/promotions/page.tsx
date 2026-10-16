@@ -493,6 +493,14 @@ export default function AdminPromotionsPage() {
             <Link href="/admin" className="text-sm font-black text-purple-700">
               ← 返回 Admin
             </Link>
+            <a
+              href="https://hkfamilyfun-v2.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="rounded-full border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-black text-purple-800 hover:bg-purple-100"
+            >
+              查看重建版前台 ↗
+            </a>
             <Link
               href="/admin/advertising"
               className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black text-amber-900"
