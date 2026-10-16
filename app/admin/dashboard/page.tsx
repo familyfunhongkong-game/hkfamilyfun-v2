@@ -33,7 +33,7 @@ type Dashboard = {
     draftEvents: number; reviewEvents: number; activePublished: number;
     freePublished: number; senPublished: number;
     newAccountsMonth: number; newMerchantsMonth: number;
-    unreadNotifications: number;
+    unreadNotifications: number | null;
   };
   analytics: {
     available: boolean; consentedOnly: boolean; error?: string;

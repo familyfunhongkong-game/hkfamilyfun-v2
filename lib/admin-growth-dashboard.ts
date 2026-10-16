@@ -67,7 +67,7 @@ export function buildGrowthDashboard(
   accounts: AccountKpiRow[],
   admins: AdminKpiRow[],
   dailyPageViews: Array<{ date: string; pageViews: number }>,
-  notificationCount: number,
+  notificationCount: number | null,
   now = new Date(),
 ) {
   const adminUserIds = new Set(admins.filter(a => a.status === "active").map(a => a.user_id).filter(Boolean));
