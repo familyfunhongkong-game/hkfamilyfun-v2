@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, serviceClient } from "@/lib/admin-auth";
+import { AnalyticsReportLimitError, getSiteAnalyticsSummary } from "@/lib/admin-analytics-summary";
 
 export const runtime = "nodejs";
 
@@ -23,14 +24,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Analytics service unavailable" }, { status: 503 });
   }
 
-  const { data, error } = await client.rpc("admin_site_analytics_summary", {
-    p_start: parsedStart.toISOString(),
-  });
-
-  if (error) {
-    console.error("admin analytics summary failed", error.message);
+  try {
+    const data = await getSiteAnalyticsSummary(client, parsedStart.toISOString());
+    return NextResponse.json({ ok: true, data });
+  } catch (error) {
+    if (error instanceof AnalyticsReportLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 413 });
+    }
+    console.error("admin analytics summary failed", error);
     return NextResponse.json({ error: "Analytics query failed" }, { status: 503 });
   }
-
-  return NextResponse.json({ ok: true, data: data || {} });
 }
