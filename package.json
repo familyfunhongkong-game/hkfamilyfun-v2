@@ -25,6 +25,7 @@
     "check:events-ssr": "node scripts/check-events-server-preload.mjs",
     "check:event-display": "node scripts/check-event-display-normalization.mjs",
     "check:advertising-orders": "node scripts/check-advertising-order-contract.mjs",
+    "check:banner-preview": "node scripts/check-banner-preview-contract.mjs",
     "check:production-e2e": "node scripts/check-production-e2e-isolation.mjs",
     "check:launch-docs": "node scripts/check-launch-documentation.mjs",
     "check:production-smoke": "node scripts/check-production-smoke-contract.mjs && node scripts/check-production-smoke-concurrency.mjs",
