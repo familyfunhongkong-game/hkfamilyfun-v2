@@ -936,8 +936,8 @@ function EventCard({
   }
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg">
-      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50">
+    <article className="group flex min-w-0 flex-col self-start overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-purple-300 hover:shadow-lg">
+      <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50 sm:aspect-[16/9]">
         <Link href={`/events/${event.id}`} className="absolute inset-0 z-0">
           <span className="sr-only">{m.details}: {title}</span>
         </Link>
@@ -1043,108 +1043,69 @@ function EventCard({
         ) : null}
       </div>
 
-      <div className="flex flex-1 flex-col p-5">
-        <div className="flex flex-wrap gap-2">
-          <Badge tone="purple">{category}</Badge>
-          <Badge tone={isFreeEvent(event) ? "green" : "orange"}>{price}</Badge>
-          {mtr ? <Badge tone="slate">{uiText(locale, "港鐵", "港铁", "MTR")} {mtr}</Badge> : null}
-          {event.is_sen_friendly ? <Badge tone="purple">SEN 友善</Badge> : null}
-          {event.is_indoor ? <Badge tone="slate">{uiText(locale, "室內", "室内", "Indoor")}</Badge> : null}
-        </div>
+      <div className="flex min-w-0 flex-col p-4 sm:p-5">
+        {mtr ? (
+          <p className="mb-1.5 line-clamp-1 text-xs font-semibold text-slate-500">
+            {uiText(locale, "鄰近港鐵", "邻近港铁", "Nearby MTR")} · {mtr}
+          </p>
+        ) : null}
 
-        <Link href={`/events/${event.id}`} className="mt-4 block">
-          <h2 className="line-clamp-2 min-h-[3.6rem] text-xl font-black leading-tight text-slate-950 group-hover:text-purple-800">
+        <Link href={`/events/${event.id}`} className="mt-1 block">
+          <h2 className="line-clamp-2 text-lg font-black leading-snug text-slate-950 group-hover:text-purple-800 sm:text-xl">
             {title}
           </h2>
         </Link>
 
-        <p className="mt-3 line-clamp-2 min-h-[3rem] text-sm font-medium leading-6 text-slate-600">
+        <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-5 text-slate-600 sm:text-sm">
           {shortDescription}
         </p>
 
-        <div className="mt-4 grid gap-2 text-sm">
-          <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-            <p className="text-xs font-black text-slate-400">{m.date}</p>
-            <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
-              {formatDateRange(event, locale)}
+        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 rounded-xl bg-slate-50 p-3 text-xs ring-1 ring-slate-100">
+          <div className="min-w-0">
+            <p className="font-bold text-slate-400">{m.date}</p>
+            <p className="mt-0.5 line-clamp-2 font-extrabold leading-4 text-slate-800">{formatDateRange(event, locale)}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="font-bold text-slate-400">{m.time}</p>
+            <p className="mt-0.5 line-clamp-2 font-extrabold leading-4 text-slate-800">{formatTimeRange(event, locale)}</p>
+          </div>
+          <div className="col-span-2 min-w-0 border-t border-slate-200/80 pt-2">
+            <p className="font-bold text-slate-400">{m.venue} · {m.district}</p>
+            <p className="mt-0.5 line-clamp-2 font-extrabold leading-4 text-slate-800">
+              {venue}{district && venue !== district ? ` · ${district}` : ""}
             </p>
           </div>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-              <p className="text-xs font-black text-slate-400">{m.time}</p>
-              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
-                {formatTimeRange(event, locale)}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-              <p className="text-xs font-black text-slate-400">{m.district}</p>
-              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
-                {district || m.districtTbc}
-              </p>
-            </div>
+          <div className="min-w-0 border-t border-slate-200/80 pt-2">
+            <p className="font-bold text-slate-400">{uiText(locale, "適合年齡", "适合年龄", "Age")}</p>
+            <p className="mt-0.5 line-clamp-1 font-bold text-slate-700">{ageGroup}</p>
           </div>
-
-          <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-            <p className="text-xs font-black text-slate-400">{m.venue}</p>
-            <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
-              {venue}
-            </p>
+          <div className="min-w-0 border-t border-slate-200/80 pt-2">
+            <p className="font-bold text-slate-400">{uiText(locale, "主辦", "主办", "Organizer")}</p>
+            <p className="mt-0.5 line-clamp-1 font-bold text-slate-700">{organizer}</p>
           </div>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="rounded-2xl bg-purple-50/70 px-4 py-3 ring-1 ring-purple-100">
-              <p className="text-xs font-black text-purple-400">
-                {uiText(locale, "適合年齡", "适合年龄", "Age")}
-              </p>
-              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
-                {ageGroup}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-purple-50/70 px-4 py-3 ring-1 ring-purple-100">
-              <p className="text-xs font-black text-purple-400">
-                {uiText(locale, "主辦方", "主办方", "Organizer")}
-              </p>
-              <p className="mt-1 line-clamp-1 font-extrabold text-slate-800">
-                {organizer}
-              </p>
-            </div>
-          </div>
-
           {recurrenceNote ? (
-            <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
-              <p className="text-xs font-black text-amber-500">
-                {uiText(locale, "活動日子提示", "活动日期提示", "Schedule note")}
-              </p>
-              <p className="mt-1 line-clamp-2 text-xs font-extrabold leading-5 text-amber-900">
-                {recurrenceNote}
-              </p>
-            </div>
+            <p className="col-span-2 line-clamp-2 border-t border-amber-200 pt-2 text-[11px] font-bold leading-4 text-amber-800">
+              {uiText(locale, "日子提示", "日期提示", "Schedule")}: {recurrenceNote}
+            </p>
           ) : null}
         </div>
 
         {tags.length > 0 ? (
-          <div className="mt-4 flex min-h-[2rem] flex-wrap gap-2">
-            {tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${tagTone(tag)}`}
-              >
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {tags.slice(0, 2).map((tag) => (
+              <span key={tag} className={`rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ${tagTone(tag)}`}>
                 {displayTag(tag)}
               </span>
             ))}
           </div>
-        ) : (
-          <div className="mt-4 min-h-[2rem]" />
-        )}
+        ) : null}
 
-        <div className="mt-auto pt-5">
+        <div className="mt-3 border-t border-slate-100 pt-3">
           <div className="grid gap-2">
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2">
               <Link
                 href={`/events/${event.id}`}
-                className="inline-flex items-center justify-center rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-purple-700 px-3 py-2.5 text-xs font-black text-white hover:bg-purple-800 sm:text-sm"
               >
                 {m.details}
               </Link>
@@ -1155,7 +1116,7 @@ function EventCard({
                   target="_blank"
                   rel="noreferrer"
                   className={[
-                    "inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-black text-white",
+                    "inline-flex min-h-10 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-black text-white sm:text-sm",
                     registrationUrl
                       ? "bg-emerald-600 hover:bg-emerald-700"
                       : "bg-slate-950 hover:bg-slate-800",
@@ -1164,19 +1125,19 @@ function EventCard({
                   {ctaLabel}
                 </a>
               ) : (
-                <span className="inline-flex items-center justify-center rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-600 ring-1 ring-slate-200">
+                <span className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-100 px-3 py-2.5 text-xs font-black text-slate-600 ring-1 ring-slate-200 sm:text-sm">
                   {ctaLabel}
                 </span>
               )}
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-4">
+            <div className="flex flex-wrap gap-1.5">
               {mapUrl ? (
                 <a
                   href={mapUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                  className="inline-flex min-h-9 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-600 hover:bg-purple-50"
                 >
                   📍 Google Map
                 </a>
@@ -1191,7 +1152,7 @@ function EventCard({
                   href={officialUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                  className="inline-flex min-h-9 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-600 hover:bg-purple-50"
                 >
                   {m.officialInfo}
                 </a>
@@ -1205,7 +1166,7 @@ function EventCard({
                 href={calendarTemplateUrl(event, locale)}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-2xl bg-sky-50 px-4 py-3 text-xs font-black text-sky-700 ring-1 ring-sky-100 hover:bg-sky-100"
+                className="inline-flex min-h-9 items-center justify-center rounded-full bg-sky-50 px-3 py-2 text-[11px] font-bold text-sky-700 ring-1 ring-sky-100 hover:bg-sky-100"
               >
                 📅 {uiText(locale, "加入日曆", "加入日历", "Add to calendar")}
               </a>
@@ -1213,7 +1174,7 @@ function EventCard({
               <button
                 type="button"
                 onClick={(eventObject) => shareEvent(eventObject)}
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+                className="inline-flex min-h-9 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-600 hover:bg-purple-50"
               >
                 {shareCopied ? "已複製" : "🔗 分享"}
               </button>
@@ -1757,7 +1718,7 @@ export default function PublicEventsSearchClient({
         ) : null}
 
         {!loading && filteredEvents.length > 0 ? (
-          <div className="mt-6 grid items-stretch gap-6 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="mt-6 grid items-start gap-4 sm:grid-cols-2 xl:gap-5 2xl:grid-cols-3">
             {filteredEvents.map((event) => (
               <EventCard
                 key={event.id}
