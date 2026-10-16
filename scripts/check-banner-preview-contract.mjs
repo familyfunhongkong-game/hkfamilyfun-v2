@@ -16,6 +16,12 @@ assert.match(editor, /mode: "view", banner: row/, "Existing banners must have a 
 assert.match(editor, /mode: "activate", banner: row/, "Activation must open preview first");
 assert.doesNotMatch(editor, /onClick=\{\(\) => void setStatus\(row.id, "active"\)\}/, "Activation must not bypass preview");
 assert.match(editor, /canActivatePromotion\(/, "Review must preserve payment and house rules");
+assert.match(editor, /function isSafeBannerUrl\(/, "Reject unsafe banner URLs");
+assert.match(editor, /!isSafeBannerUrl\(draft.image_url/, "Validate banner image URL before preview");
+assert.match(editor, /!isSafeBannerUrl\(draft.target_url/, "Validate banner target URL before preview");
+assert.match(editor, /href="https:\/\/hkfamilyfun-v2.vercel.app\//, "Admin must link to rebuilt public-site preview");
+assert.match(preview, /const isHouseBanner/, "Logo house promotions should not be cropped in preview");
+
 
 assert.match(preview, /role="dialog" aria-modal="true"/, "Image preview must be a modal");
 assert.match(preview, /src=\{image\}/, "Preview must display the actual uploaded image");
