@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, serviceClient } from "@/lib/admin-auth";
+import { AnalyticsReportLimitError, getSiteAnalyticsSummary } from "@/lib/admin-analytics-summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -184,22 +185,23 @@ export async function GET(request: NextRequest) {
   const endIso = end.toISOString();
 
   if (mode === "summary") {
-    const { data, error } = await client.rpc("admin_site_analytics_summary", {
-      p_start: startIso,
-    });
-    if (error) {
-      console.error("Admin Analytics export summary failed", error.message);
-      return NextResponse.json({ error: "未能匯出流量摘要。" }, { status: 503 });
-    }
-    // Summary RPC uses a start-only filter. The standard admin range exports
-    // always end at now, matching the admin dashboard's own summary.
+    // The current report uses a start-to-now window like the Dashboard.
     if (endText) {
       return NextResponse.json({ error: "流量摘要只支援截至目前的報表。" }, { status: 400 });
     }
-    return download(
-      summaryCsv((data || {}) as Summary, startIso, endIso),
-      `hkff-analytics-summary-${stamp}.csv`,
-    );
+    try {
+      const data = await getSiteAnalyticsSummary(client, startIso);
+      return download(
+        summaryCsv(data as Summary, startIso, endIso),
+        `hkff-analytics-summary-${stamp}.csv`,
+      );
+    } catch (error) {
+      if (error instanceof AnalyticsReportLimitError) {
+        return NextResponse.json({ error: error.message }, { status: 413 });
+      }
+      console.error("Admin Analytics export summary failed", error);
+      return NextResponse.json({ error: "未能匯出流量摘要。" }, { status: 503 });
+    }
   }
 
   const rows: AnalyticsEvent[] = [];
