@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import AdminGrowthSnapshot from "@/components/admin/AdminGrowthSnapshot";
 
 const groups = [
   {
     title: "每日營運",
     description: "一個人管理網站時，先由呢度處理真正需要你決定嘅工作。",
     cards: [
+      { href: "/admin/dashboard", title: "Business Dashboard / 營運數據", description: "會員、已同意訪客、商戶、收藏可用性、活動分類、增長圖表及最新名單。", tone: "purple" },
       { href: "/admin/operations", title: "Operations Hub", description: "Supabase、Google Drive、表單、同步狀態、待處理數據及營運指標集中管理。", tone: "purple" },
       { href: "/admin/reports", title: "Reports / QA", description: "集中睇活動資料缺漏、過期公開、同步錯誤、Intake backlog 同內容營運狀態。", tone: "rose" },
       { href: "/admin/notifications", title: "通知中心", description: "查看新商戶、活動建立、修改及待審通知。", tone: "amber" },
@@ -122,6 +124,7 @@ export default function AdminHomePage() {
       </section>
 
       <section className="mx-auto max-w-[1500px] space-y-9 px-4 py-8">
+        <AdminGrowthSnapshot />
         <section className="rounded-[2rem] border border-purple-200 bg-gradient-to-r from-purple-50 via-white to-emerald-50 p-6 shadow-sm">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
