@@ -77,6 +77,9 @@ jobs:
       - name: Admin Analytics CSV export security and completeness
         run: npm run check:analytics-export
 
+      - name: Admin Analytics summary correctness and permissions
+        run: npm run check:analytics-summary
+
       - name: Privacy and analytics consent checks
         run: npm run check:cookie-consent
 
