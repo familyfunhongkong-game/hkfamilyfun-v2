@@ -15,7 +15,7 @@ assert.match(api, /Content-Disposition/);
 // Both summary and detailed CSV are available without exposing unique
 // visitor/session pseudonyms in downloads.
 assert.match(api, /mode !== "events" && mode !== "summary"/);
-assert.match(api, /admin_site_analytics_summary/);
+assert.match(api, /getSiteAnalyticsSummary/);
 assert.match(api, /from\("site_analytics_events"\)/);
 assert.match(api, /\.select\("id,occurred_at,event_type,page_path,event_id,referrer_hostname,device_type"\)/);
 assert.doesNotMatch(api, /\.select\([^\n]*visitor_id/);
