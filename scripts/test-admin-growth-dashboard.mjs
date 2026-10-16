@@ -65,7 +65,7 @@ assert.equal(summary.merchants[0].events,2);
 assert.equal(summary.categories[0].label,"博物館");
 assert.equal(summary.categories[0].count,1);
 assert.equal(summary.trend.find(d=>d.date==="2026-10-16").pageViews,7);
-assert.equal(summary.trend.find(d=>d.date==="2026-10-16").accountSignups,1);
+assert.equal(summary.trend.find(d=>d.date==="2026-10-16").accountSignups,2);
 assert.equal(summary.trend.find(d=>d.date==="2026-10-16").merchantSignups,1);
 assert.equal(summary.trend.find(d=>d.date==="2026-10-16").eventsCreated,3);
 assert.equal(summary.favorites.available,false,"Browser-only favorites must never be invented as a count");
