@@ -54,7 +54,7 @@ function BannerMockup({
             key={image}
             src={image}
             alt={banner.headline_tc}
-            className={`${mobile ? "h-64" : "h-72"} w-full ${isHouseBanner ? "bg-gradient-to-br from-purple-100 via-white to-amber-100 object-contain p-8" : "object-cover"}`}
+            className={`${mobile ? "h-auto max-h-80" : "h-72"} w-full ${isHouseBanner ? "bg-gradient-to-br from-purple-100 via-white to-amber-100 object-contain p-8" : mobile ? "bg-slate-950 object-contain" : "object-cover"}`}
             onLoad={() => onImageState("loaded")}
             onError={() => onImageState("error")}
           />
@@ -63,8 +63,8 @@ function BannerMockup({
             <ImageOff className="mr-2 h-5 w-5" /> 尚未上傳圖片
           </div>
         )}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 p-5 text-white">
+        <div className={mobile ? "hidden" : "pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent"} />
+        <div className={mobile ? "relative bg-slate-950 p-5 text-white" : "pointer-events-none absolute inset-x-0 bottom-0 p-5 text-white"}>
           <div className="flex flex-wrap items-center gap-2">
             {banner.badge_text_tc && (
               <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold backdrop-blur">
@@ -135,6 +135,9 @@ export default function BannerApprovalPreview({
         <div className="mt-5 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700 sm:grid-cols-2">
           <p><strong>Desktop 圖片：</strong>{desktop === "loaded" ? "正常顯示" : desktop === "error" ? "讀取失敗／未設定" : "檢查中…"}</p>
           <p><strong>Mobile 圖片：</strong>{mobile === "loaded" ? "正常顯示" : mobile === "error" ? "讀取失敗／未設定" : "檢查中…"}</p>
+          {!banner.mobile_image_url?.trim() && (
+            <p className="sm:col-span-2 text-amber-800"><strong>手機版提醒：</strong>目前沿用 Desktop 圖。網站會顯示完整圖片、標題和按鈕另放圖片下方；建議另上傳手機專用圖片，以改善細屏幕可讀性。</p>
+          )}
           <p className="break-all sm:col-span-2"><strong>點擊目標：</strong>{banner.target_url || "未設定；沒有外部連結"}</p>
           {banner.headline_en && <p className="sm:col-span-2"><strong>英文標題：</strong>{banner.headline_en}</p>}
           <p className="sm:col-span-2 text-slate-500">此為前台 Banner 版面模擬。圖片及文字應於桌面與手機預覽確認無遮擋後才儲存或啟用。</p>
