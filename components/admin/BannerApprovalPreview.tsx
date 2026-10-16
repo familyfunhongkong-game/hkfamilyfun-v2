@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Monitor, Smartphone, ExternalLink, ImageOff, CheckCircle2 } from "lucide-react";
+import { X, Monitor, Smartphone, ImageOff, CheckCircle2 } from "lucide-react";
 
 export type BannerPreviewData = {
   internal_name: string;
