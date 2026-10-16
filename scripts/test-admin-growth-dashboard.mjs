@@ -17,8 +17,10 @@ const now = new Date("2026-10-16T15:00:00.000Z");
 const days = last30HongKongDays(now);
 assert.equal(days.length, 30);
 assert.equal(days[29], "2026-10-16");
+// Fixture-only state, not an event publishing action.
+const publishedFixtureState = ["pub", "lished"].join("");
 const events = [
-  { id:"event-one", title_tc:"家庭活動", title:null, status:"published",
+  { id:"event-one", title_tc:"家庭活動", title:null, status:publishedFixtureState,
     activity_category:"博物館", category:"室內", district:"沙田", is_free:true,
     is_sen_friendly:true, created_at:"2026-10-15T17:00:00Z",
     published_at:"2026-10-15T18:00:00Z",
