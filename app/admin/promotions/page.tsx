@@ -343,12 +343,31 @@ export default function AdminPromotionsPage() {
     await loadRows();
   }
 
+  function isSafeBannerUrl(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return true;
+    try {
+      const url = new URL(trimmed);
+      return url.protocol === "https:" || url.protocol === "http:";
+    } catch {
+      return false;
+    }
+  }
+
   function requestSavePreview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || saving || uploadingField) return;
 
     if (!draft.internal_name.trim() || !draft.headline_tc.trim() || !draft.image_url?.trim()) {
       setErrorText("請輸入內部名稱、繁中標題及 Banner 圖片 URL。");
+      return;
+    }
+
+    if (!isSafeBannerUrl(draft.image_url || "") ||
+      (draft.mobile_image_url && !isSafeBannerUrl(draft.mobile_image_url)) ||
+      (draft.target_url && !isSafeBannerUrl(draft.target_url))) {
+      setErrorText("Banner 圖片及連結只接受 HTTPS／HTTP 或站內 / 開頭的安全網址。");
       return;
     }
 
