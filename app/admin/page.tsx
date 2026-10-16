@@ -115,6 +115,19 @@ export default function AdminHomePage() {
             設計俾一個人營運：資料一次輸入，Supabase 做主資料庫，Google Drive / Forms 做來源同文件層，
             AI 協助整理及出文案；任何公開活動、News 或 Sponsored 內容仍由你最後審批。
           </p>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <a
+              href="https://hkfamilyfun-v2.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-black text-purple-800 hover:bg-purple-100"
+            >
+              預覽重建版前台 ↗
+            </a>
+            <p className="max-w-xl text-xs leading-5 text-slate-500">
+              非正式 Vercel 網址；可查看首頁、活動搜尋、日曆、地圖，但連接真實資料，且目前不是私人測試環境。
+            </p>
+          </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-black text-purple-800">Single source of truth</span>
             <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">AI-assisted</span>

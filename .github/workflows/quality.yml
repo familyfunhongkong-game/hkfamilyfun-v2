@@ -83,6 +83,9 @@ jobs:
       - name: Admin Growth Dashboard accuracy and permissions
         run: npm run check:admin-growth
 
+      - name: Banner review before save and activation
+        run: npm run check:banner-preview
+
       - name: Privacy and analytics consent checks
         run: npm run check:cookie-consent
 
