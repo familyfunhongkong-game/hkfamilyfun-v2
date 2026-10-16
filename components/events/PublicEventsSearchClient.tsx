@@ -1141,11 +1141,7 @@ function EventCard({
                 >
                   📍 Google Map
                 </a>
-              ) : (
-                <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
-                  {m.mapPending}
-                </span>
-              )}
+              ) : null}
 
               {officialUrl ? (
                 <a
@@ -1156,11 +1152,7 @@ function EventCard({
                 >
                   {m.officialInfo}
                 </a>
-              ) : (
-                <span className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-400">
-                  {m.officialPending}
-                </span>
-              )}
+              ) : null}
 
               <a
                 href={calendarTemplateUrl(event, locale)}
