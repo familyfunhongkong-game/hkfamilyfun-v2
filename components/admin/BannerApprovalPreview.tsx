@@ -38,6 +38,8 @@ function BannerMockup({
   mobile: boolean;
   onImageState: (state: "loaded" | "error") => void;
 }) {
+  const isHouseBanner =
+    banner.sponsor_name === "HK Family Fun" && banner.target_url === "/merchant-join";
   return (
     <div className={mobile ? "mx-auto w-full max-w-[345px]" : "w-full"}>
       <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-600">
@@ -52,7 +54,7 @@ function BannerMockup({
             key={image}
             src={image}
             alt={banner.headline_tc}
-            className={mobile ? "h-64 w-full object-cover" : "h-72 w-full object-cover"}
+            className={`${mobile ? "h-64" : "h-72"} w-full ${isHouseBanner ? "bg-gradient-to-br from-purple-100 via-white to-amber-100 object-contain p-8" : "object-cover"}`}
             onLoad={() => onImageState("loaded")}
             onError={() => onImageState("error")}
           />
