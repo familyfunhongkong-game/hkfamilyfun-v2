@@ -51,11 +51,11 @@ export default function PromotionSlot({
                     decoding="async"
                     className={[
                       variant === "horizontal"
-                        ? "h-44 w-full sm:h-52 lg:h-64"
-                        : "h-48 w-full sm:h-60 lg:h-72",
+                        ? "h-auto max-h-80 w-full sm:h-52 sm:max-h-none lg:h-64"
+                        : "h-auto max-h-80 w-full sm:h-60 sm:max-h-none lg:h-72",
                       isHouseBanner
                         ? "bg-gradient-to-br from-purple-100 via-white to-amber-100 object-contain p-8 sm:p-10"
-                        : "object-cover",
+                        : "object-contain bg-slate-950 sm:object-cover",
                     ].join(" ")}
                   />
                 </picture>
@@ -70,9 +70,9 @@ export default function PromotionSlot({
                 />
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent" />
+              <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent sm:block" />
 
-              <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6">
+              <div className="relative bg-slate-950 p-5 text-white sm:absolute sm:inset-x-0 sm:bottom-0 sm:bg-transparent sm:p-6">
                 <div className="flex flex-wrap items-center gap-2">
                   {banner.badgeText ? (
                     <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-black backdrop-blur">
