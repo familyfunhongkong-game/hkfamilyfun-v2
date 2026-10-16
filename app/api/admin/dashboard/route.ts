@@ -73,7 +73,9 @@ export async function GET(request: NextRequest) {
       allRows<AdminKpiRow>(
         db, "admin_users", "user_id,email,status,created_at",
       ),
-      db.from("platform_notifications").select("id", { head: true, count: "exact" })
+      // Notifications are intentionally readable through the authenticated
+      // Admin JWT / RLS, not the service_role key (which has no SELECT grant).
+      admin.client.from("platform_notifications").select("id", { head: true, count: "exact" })
         .eq("recipient_scope", "admin").is("read_at", null),
     ]);
     // Notification counting is auxiliary. A failed optional count must not
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
     let unreadCount: number | null = unread.error ? null : unread.count;
     if (unreadCount === null) {
       console.warn("Growth Dashboard notification count unavailable; trying bounded fallback");
-      const backup = await db.from("platform_notifications").select("id")
+      const backup = await admin.client.from("platform_notifications").select("id")
         .eq("recipient_scope", "admin").is("read_at", null)
         .limit(1000);
       if (!backup.error && backup.data && backup.data.length < 1000) {

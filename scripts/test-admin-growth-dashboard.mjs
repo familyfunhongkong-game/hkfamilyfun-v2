@@ -86,6 +86,11 @@ assert.match(dashboardApi,/MAX_ROWS = 20000/);
 assert.match(dashboardApi,/rows.length > MAX_ACCOUNTS/);
 assert.match(dashboardApi,/result.length > MAX_ROWS/);
 assert.match(dashboardApi,/let unreadCount: number \| null = unread.error \? null : unread.count/);
+assert.match(dashboardApi,/admin.client.from\("platform_notifications"\)/,
+  "Unread notifications must use authenticated Admin RLS client");
+assert.doesNotMatch(dashboardApi,/db.from\("platform_notifications"\)/,
+  "service_role has no SELECT privilege on platform_notifications");
+
 assert.match(dashboardApi,/notification count unavailable; trying bounded fallback/);
 assert.match(dashboardApi,/\.limit\(1000\)/);
 assert.doesNotMatch(dashboardApi,/if \(unread.error\) throw/);
