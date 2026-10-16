@@ -65,6 +65,39 @@ for (const signal of [
   }
 }
 
+
+for (const [name, requirement] of [
+  ["card must not stretch to the tallest row", 'group flex min-w-0 flex-col self-start'],
+  ["cover artwork needs responsive wide aspect ratio", 'aspect-[16/10]'],
+  ["cover aspect ratio must adapt to larger screens", 'sm:aspect-[16/9]'],
+  ["information hierarchy must put primary facts together", 'grid grid-cols-2 gap-x-3 gap-y-2.5 rounded-xl'],
+  ["title should no longer require tall fixed minimum", 'line-clamp-2 text-lg font-black'],
+  ["primary details and booking actions must remain", 'grid grid-cols-2 gap-2'],
+  ["supportive actions should wrap naturally", 'flex flex-wrap gap-1.5'],
+  ["list must not force card row height", 'grid items-start gap-4 sm:grid-cols-2'],
+]) {
+  if (!eventSearch.includes(requirement)) {
+    console.error(`[event-card] responsive redesign failed: ${name}`);
+    failed = true;
+  }
+}
+for (const signal of [
+  "getGalleryImages(event)", "goToPreviousImage", "goToNextImage",
+  "onToggleFavorite(event.id)", "shareEvent(eventObject)",
+  "calendarTemplateUrl(event, locale)", "getGoogleMapUrl(event)",
+  "getOfficialWebsiteUrl(event)", "getRegistrationUrl(event)",
+  "recurrenceNote", "formatEventAge(", "tagTone(tag)",
+]) {
+  if (!eventSearch.includes(signal)) {
+    console.error(`[event-card] redesign must retain function: ${signal}`);
+    failed = true;
+  }
+}
+if (eventSearch.includes('group flex h-full flex-col overflow-hidden rounded-[1.7rem]')) {
+  console.error("[event-card] old tall stretched search card returned");
+  failed = true;
+}
+
 const mapPage = await readFile("app/events/map/page.tsx", "utf8");
 for (const signal of [
   "priceText(event, locale)",
