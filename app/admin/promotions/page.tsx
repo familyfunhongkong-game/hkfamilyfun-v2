@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { canActivatePromotion } from "@/lib/business-model";
+import BannerApprovalPreview, { type BannerPreviewData } from "@/components/admin/BannerApprovalPreview";
 import {
   formatHongKongDateTime,
   hongKongDatetimeLocalToIso,
@@ -109,6 +110,7 @@ export default function AdminPromotionsPage() {
   const [rows, setRows] = useState<Banner[]>([]);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editingId, setEditingId] = useState("");
+  const [preview, setPreview] = useState<{mode: "view"|"save"|"activate"; banner: BannerPreviewData; placementLabel: string; bannerId?: string} | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingField, setUploadingField] = useState<"image_url" | "mobile_image_url" | "">("");
@@ -205,6 +207,7 @@ export default function AdminPromotionsPage() {
   );
 
   function edit(row: Banner) {
+    setPreview(null);
     setEditingId(row.id);
     setDraft({
       internal_name: row.internal_name,
@@ -235,6 +238,7 @@ export default function AdminPromotionsPage() {
   }
 
   function reset() {
+    setPreview(null);
     setEditingId("");
     setDraft(emptyDraft);
     setMessage("");
@@ -339,9 +343,9 @@ export default function AdminPromotionsPage() {
     await loadRows();
   }
 
-  async function save(event: FormEvent<HTMLFormElement>) {
+  function requestSavePreview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!supabase) return;
+    if (!supabase || saving || uploadingField) return;
 
     if (!draft.internal_name.trim() || !draft.headline_tc.trim() || !draft.image_url?.trim()) {
       setErrorText("請輸入內部名稱、繁中標題及 Banner 圖片 URL。");
@@ -368,10 +372,18 @@ export default function AdminPromotionsPage() {
       return;
     }
 
-    setSaving(true);
     setErrorText("");
     setMessage("");
+    setPreview({ mode: "save", banner: { ...draft }, placementLabel: placementLabels[draft.placement] });
+  }
 
+  async function saveConfirmed(): Promise<boolean> {
+    if (!supabase || saving) return false;
+    setSaving(true);
+    setErrorText("");
+
+    const startsAt = hongKongDatetimeLocalToIso(draft.starts_at);
+    const endsAt = hongKongDatetimeLocalToIso(draft.ends_at);
     const payload = {
       ...draft,
       internal_name: draft.internal_name.trim(),
@@ -421,16 +433,18 @@ export default function AdminPromotionsPage() {
 
     if (response.error) {
       setErrorText(response.error.message);
-      return;
+      return false;
     }
 
-    setMessage(editingId ? "Banner 已更新。" : "Banner 草稿已建立。");
+    const savedMessage = editingId ? "Banner 已更新。" : "Banner 已建立。";
     reset();
+    setMessage(savedMessage);
     await loadRows();
+    return true;
   }
 
-  async function setStatus(id: string, status: Status) {
-    if (!supabase) return;
+  async function setStatus(id: string, status: Status): Promise<boolean> {
+    if (!supabase || saving) return false;
 
     if (status === "active") {
       const row = rows.find((item) => item.id === id);
@@ -438,20 +452,37 @@ export default function AdminPromotionsPage() {
         setErrorText(
           "未確認付款的商戶廣告不能啟用。先確認收款，再勾選「已確認收到廣告費」。",
         );
-        return;
+        return false;
       }
     }
 
+    setSaving(true);
     const { error } = await supabase
       .from("promo_banners")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", id);
 
+    setSaving(false);
     if (error) {
       setErrorText(error.message);
-      return;
+      return false;
     }
     await loadRows();
+    return true;
+  }
+
+  async function confirmPreview() {
+    if (!preview || saving) return;
+    if (preview.mode === "save") {
+      const saved = await saveConfirmed();
+      if (saved) setPreview(null);
+    } else if (preview.mode === "activate" && preview.bannerId) {
+      const activated = await setStatus(preview.bannerId, "active");
+      if (activated) {
+        setPreview(null);
+        setMessage("Banner 已檢查並啟用。");
+      }
+    }
   }
 
   return (
@@ -485,7 +516,7 @@ export default function AdminPromotionsPage() {
       </section>
 
       <section className="mx-auto grid max-w-[1500px] gap-6 px-4 py-8 xl:grid-cols-[500px_minmax(0,1fr)]">
-        <form onSubmit={save} className="self-start rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm xl:sticky xl:top-6">
+        <form onSubmit={requestSavePreview} className="self-start rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm xl:sticky xl:top-6">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xl font-black text-slate-950">
               {editingId ? "編輯 Banner" : "新增 Banner"}
@@ -654,8 +685,8 @@ export default function AdminPromotionsPage() {
               </label>
             </div>
 
-            <button disabled={saving} className="rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white disabled:opacity-50">
-              {saving ? "儲存中…" : editingId ? "更新 Banner" : "建立 Banner"}
+            <button disabled={saving || Boolean(uploadingField)} className="rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white disabled:opacity-50">
+              {saving ? "儲存中…" : "先預覽圖片及 Banner →"}
             </button>
           </div>
         </form>
@@ -800,8 +831,9 @@ export default function AdminPromotionsPage() {
                         </div>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setPreview({ mode: "view", banner: row, placementLabel: placementLabels[row.placement] })} className="rounded-full border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-black text-purple-800">預覽圖片</button>
                         <button type="button" onClick={() => edit(row)} className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white">編輯</button>
-                        {row.status !== "active" ? <button type="button" onClick={() => void setStatus(row.id, "active")} className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white">啟用</button> : <button type="button" onClick={() => void setStatus(row.id, "paused")} className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black text-amber-800">暫停</button>}
+                        {row.status !== "active" ? <button type="button" onClick={() => setPreview({ mode: "activate", banner: row, bannerId: row.id, placementLabel: placementLabels[row.placement] })} className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white">預覽後啟用</button> : <button type="button" onClick={() => void setStatus(row.id, "paused")} className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black text-amber-800">暫停</button>}
                         {row.status !== "archived" ? <button type="button" onClick={() => void setStatus(row.id, "archived")} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-600">封存</button> : null}
                         <button
                           type="button"
@@ -821,6 +853,17 @@ export default function AdminPromotionsPage() {
           </div>
         </section>
       </section>
+      {preview && (
+        <BannerApprovalPreview
+          key={preview.bannerId || "new-banner-preview"}
+          banner={preview.banner}
+          placementLabel={preview.placementLabel}
+          mode={preview.mode}
+          confirming={saving}
+          onClose={() => setPreview(null)}
+          onConfirm={() => void confirmPreview()}
+        />
+      )}
     </main>
   );
 }
