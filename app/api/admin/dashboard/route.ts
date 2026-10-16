@@ -76,7 +76,18 @@ export async function GET(request: NextRequest) {
       db.from("platform_notifications").select("id", { head: true, count: "exact" })
         .eq("recipient_scope", "admin").is("read_at", null),
     ]);
-    if (unread.error) throw new Error("Cannot count Admin notifications: " + unread.error.message);
+    // Notification counting is auxiliary. A failed optional count must not
+    // hide all real accounts, merchants and activity charts from the owner.
+    let unreadCount: number | null = unread.error ? null : unread.count;
+    if (unreadCount === null) {
+      console.warn("Growth Dashboard notification count unavailable; trying bounded fallback");
+      const backup = await db.from("platform_notifications").select("id")
+        .eq("recipient_scope", "admin").is("read_at", null)
+        .limit(1000);
+      if (!backup.error && backup.data && backup.data.length < 1000) {
+        unreadCount = backup.data.length;
+      }
+    }
 
     const days = last30HongKongDays();
     const startIso = new Date(`${days[0]}T00:00:00+08:00`).toISOString();
@@ -92,7 +103,7 @@ export async function GET(request: NextRequest) {
     const model = buildGrowthDashboard(
       events, merchants, accounts, adminRows,
       analytics?.trend.map(d => ({ date: d.date, pageViews: d.pageViews })) || [],
-      unread.count || 0,
+      unreadCount,
     );
     return NextResponse.json({
       ok: true,
