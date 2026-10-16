@@ -15,6 +15,7 @@
     "check:cookie-consent": "node scripts/check-cookie-consent-contract.mjs",
     "check:analytics-export": "node scripts/check-analytics-export-contract.mjs",
     "check:analytics-summary": "node scripts/test-analytics-summary.mjs",
+    "check:admin-growth": "node scripts/test-admin-growth-dashboard.mjs",
     "check:commerce-copy": "node scripts/check-commerce-copy.mjs",
     "check:event-cards": "node scripts/check-event-card-contract.mjs",
     "check:event-detail": "node scripts/check-event-detail-contract.mjs",
