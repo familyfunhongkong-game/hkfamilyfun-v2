@@ -123,15 +123,15 @@ export default function ClientPromotionSlot({
                     alt={headline}
                     loading={index === 0 ? "eager" : "lazy"}
                     decoding="async"
-                    className="h-56 w-full object-cover sm:h-64"
+                    className="h-auto max-h-80 w-full bg-slate-950 object-contain sm:h-64 sm:max-h-none sm:object-cover"
                   />
                 </picture>
               ) : (
                 <div className="h-56 bg-gradient-to-br from-purple-700 via-fuchsia-600 to-amber-400 sm:h-64" />
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6">
+              <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent sm:block" />
+              <div className="relative bg-slate-950 p-5 text-white sm:absolute sm:inset-x-0 sm:bottom-0 sm:bg-transparent sm:p-6">
                 <div className="flex flex-wrap gap-2">
                   {badge ? (
                     <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-black backdrop-blur">
