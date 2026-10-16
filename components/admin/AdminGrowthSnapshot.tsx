@@ -11,7 +11,7 @@ type Overview = {
     pendingMerchants: number;
     events: number;
     publishedEvents: number;
-    unreadNotifications: number;
+    unreadNotifications: number | null;
   };
   analytics: { available: boolean; totals?: { visitors: number } };
 };
@@ -76,7 +76,7 @@ export default function AdminGrowthSnapshot() {
       </div>)}
       <Link href="/admin/notifications" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800 hover:border-rose-400">
         <p className="text-xs font-bold">未讀通知</p>
-        <p className="mt-2 text-3xl font-black text-slate-950">{data.totals.unreadNotifications.toLocaleString()}</p>
+        <p className="mt-2 text-3xl font-black text-slate-950">{data.totals.unreadNotifications === null ? "—" : data.totals.unreadNotifications.toLocaleString()}</p>
         <p className="mt-1 text-xs">查看待辦事項 →</p>
       </Link>
     </div>}
