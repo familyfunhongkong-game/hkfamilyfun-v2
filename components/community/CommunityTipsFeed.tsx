@@ -30,6 +30,9 @@ export default function CommunityTipsFeed() {
   const [category,setCategory] = useState("");
   const [keyword,setKeyword] = useState("");
   const [loading,setLoading] = useState(true);
+  const [page,setPage] = useState(0);
+  const [hasMore,setHasMore] = useState(false);
+  const pageSize=20;
   const [loadError,setLoadError] = useState("");
   const [composerOpen,setComposerOpen] = useState(false);
   const [authorId,setAuthorId] = useState<string | null>(null);
@@ -41,29 +44,37 @@ export default function CommunityTipsFeed() {
   useEffect(() => {
     if (!supabase) { setLoading(false); setLoadError("社區服務暫時未設定，請稍後再試。"); return; }
     const client = supabase;
-    let active = true;
-    async function load() {
-      const [{ data: userData }, { data, error: queryError }] = await Promise.all([
-        client.auth.getUser(),
-        client.from("community_tips").select("id,author_id,display_name,title,body,district,category,event_date,source_url,created_at")
-          .eq("status","approved").order("created_at",{ascending:false}).limit(100),
-      ]);
-      if (!active) return;
-      setAuthorId(userData.user?.id ?? null);
-      setPosts((data ?? []) as CommunityPost[]);
-      setLoadError(queryError ? "社區功能尚未啟用，或資料暫時無法讀取。" : "");
-      setLoading(false);
-    }
-    void load();
     const {data: listener}=client.auth.onAuthStateChange((_event,session)=>setAuthorId(session?.user?.id ?? null));
-    return () => { active=false; listener.subscription.unsubscribe(); };
+    void client.auth.getUser().then(({data})=>setAuthorId(data.user?.id??null));
+    return () => listener.subscription.unsubscribe();
   },[]);
 
-  const shown = useMemo(() => posts.filter(post =>
-    (!district || post.district===district) &&
-    (!category || post.category===category) &&
-    (!keyword.trim() || [post.title,post.body,post.district,post.category].join(" ").toLocaleLowerCase().includes(keyword.trim().toLocaleLowerCase()))
-  ),[posts,district,category,keyword]);
+  useEffect(() => {
+    const client=supabase;
+    if(!client){setLoading(false);return;}
+    let active=true;
+    const timer=setTimeout(async()=>{
+      setLoading(true);
+      let request=client.from("community_tips")
+        .select("id,author_id,display_name,title,body,district,category,event_date,source_url,created_at")
+        .eq("status","approved").order("created_at",{ascending:false})
+        .range(page*pageSize,(page+1)*pageSize);
+      if(district) request=request.eq("district",district);
+      if(category) request=request.eq("category",category);
+      // Escape characters with special meaning in PostgreSQL LIKE patterns.
+      const search=keyword.trim().replace(/[\\%_]/g, c=>"\\"+c).replace(/[(),.]/g," ");
+      if(search) request=request.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
+      const {data,error:queryError}=await request;
+      if(!active)return;
+      setPosts(((data??[]) as CommunityPost[]).slice(0,pageSize));
+      setHasMore((data??[]).length>pageSize);
+      setLoadError(queryError?"社區資料暫時無法讀取，請稍後再試。":"");
+      setLoading(false);
+    },250);
+    return ()=>{active=false;clearTimeout(timer);};
+  },[district,category,keyword,page]);
+
+  const shown = useMemo(() => posts,[posts]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -123,9 +134,9 @@ export default function CommunityTipsFeed() {
           </form>
         )}
         <div className="mt-7 grid gap-3 sm:grid-cols-3">
-          <input className={textInput} aria-label="搜尋活動關鍵字" placeholder="搜尋 Workshop、STEAM、免費..." value={keyword} onChange={e=>setKeyword(e.target.value)}/>
-          <select aria-label="搜尋地區" className={textInput} value={district} onChange={e=>setDistrict(e.target.value)}><option value="">全港18區</option>{districts.map(d=><option key={d}>{d}</option>)}</select>
-          <select aria-label="搜尋類別" className={textInput} value={category} onChange={e=>setCategory(e.target.value)}><option value="">所有活動類別</option>{categories.map(c=><option key={c}>{c}</option>)}</select>
+          <input className={textInput} aria-label="搜尋活動關鍵字" placeholder="搜尋 Workshop、STEAM、免費..." value={keyword} onChange={e=>{setPage(0);setKeyword(e.target.value)}}/>
+          <select aria-label="搜尋地區" className={textInput} value={district} onChange={e=>{setPage(0);setDistrict(e.target.value)}}><option value="">全港18區</option>{districts.map(d=><option key={d}>{d}</option>)}</select>
+          <select aria-label="搜尋類別" className={textInput} value={category} onChange={e=>{setPage(0);setCategory(e.target.value)}}><option value="">所有活動類別</option>{categories.map(c=><option key={c}>{c}</option>)}</select>
         </div>
         <div className="mt-6 flex items-center justify-between"><h3 className="text-lg font-black">最新社區分享</h3><span className="text-xs text-slate-500">{shown.length} 則分享</span></div>
         {loading && <p className="mt-4 text-sm text-slate-600">載入社區分享中...</p>}
@@ -144,6 +155,7 @@ export default function CommunityTipsFeed() {
             </div>
           </article>)}
         </div>
+        <div className="mt-5 flex items-center justify-between gap-3"><button type="button" disabled={page===0||loading} onClick={()=>setPage(v=>Math.max(0,v-1))} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold disabled:opacity-40">上一頁</button><span className="text-xs text-slate-500">第 {page+1} 頁</span><button type="button" disabled={!hasMore||loading} onClick={()=>setPage(v=>v+1)} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold disabled:opacity-40">下一頁</button></div>
       </div>
     </section>
   );
