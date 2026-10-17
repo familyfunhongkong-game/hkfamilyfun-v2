@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarDays, Clock3, Moon, Sun, Sunset } from "lucide-react";
 import { getPublishedEvents } from "@/lib/supabase/events";
@@ -7,6 +8,12 @@ import { eventOccursOn } from "@/lib/events/recurrence";
 import { groupTodaySchedule, TODAY_PERIODS, type TodayPeriod } from "@/lib/events/today-schedule";
 import TodayScheduleRow from "@/components/events/TodayScheduleRow";
 import type { AppLocale } from "@/lib/i18n/config";
+
+export const metadata: Metadata = {
+  title: "今日香港親子活動｜今日帶小朋友去邊好",
+  description: "即睇香港今日有咩親子活動，按上午、下午及晚上尋找適合一家大小的免費或收費好去處。活動時間以主辦方資料為準。",
+  alternates: { canonical: "/today" },
+};
 
 export const dynamic = "force-dynamic";
 
