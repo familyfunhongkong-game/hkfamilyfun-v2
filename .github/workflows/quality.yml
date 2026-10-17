@@ -98,6 +98,9 @@ jobs:
       - name: Today chronological timetable and mobile compact layout check
         run: npm run check:today-timeline
 
+      - name: Weekly event opening hours and migration staging safeguards
+        run: npm run check:weekday-hours
+
       - name: Event detail UX check
         run: npm run check:event-detail
 
