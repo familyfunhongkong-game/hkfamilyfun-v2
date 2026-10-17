@@ -36,7 +36,7 @@ export default function AdminCommunityPage(){
     setBusy(null);
   }
   return <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950"><div className="mx-auto max-w-5xl">
-    <Link href="/admin" className="text-sm font-bold text-purple-700">← 返回後台</Link>
+    <div className="flex flex-wrap items-center gap-4"><Link href="/admin" className="text-sm font-bold text-purple-700">← 返回後台</Link><Link href="/admin/community/replies" className="text-sm font-bold text-purple-700 underline">管理社區留言 →</Link></div>
     <div className="mt-5 flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-black text-purple-700">Community Moderation</p><h1 className="mt-2 text-3xl font-black">社區報料審批</h1><p className="mt-2 text-sm text-slate-600">社區分享與官方活動資料分開。只有批准嘅投稿先會公開顯示。</p></div>
     <button type="button" onClick={()=>void load()} className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-bold">重新整理</button></div>
     <div className="mt-6 flex flex-wrap gap-2">{(["pending","approved","rejected","all"] as Filter[]).map(v=><button key={v} type="button" onClick={()=>setFilter(v)} className={`rounded-full px-4 py-2 text-sm font-bold ${filter===v?"bg-purple-700 text-white":"border border-slate-200 bg-white text-slate-700"}`}>{v==="all"?"全部":tags[v]}</button>)}</div>
