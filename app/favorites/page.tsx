@@ -193,12 +193,15 @@ function hkToday() {
 
 function nextOccurrence(event: FavoriteEvent, today: string) {
   const start = (event.start_date || "").slice(0, 10);
-  const end = (event.end_date || event.start_date || "").slice(0, 10);
+  const isWeekly = event.recurrence_type === "weekly";
+  const end = (event.end_date || (isWeekly ? addCalendarDays(today, 7) : start)).slice(0, 10);
   if (!start || !end || end < today) return null;
   const from = start > today ? start : today;
-  if (event.recurrence_type !== "weekly") return from;
+  if (!isWeekly) return from;
+  // Any weekly schedule with a valid weekday has its next occurrence within
+  // seven days. An absent end date means open-ended, not "already expired".
   let date = from;
-  for (let step = 0; step < 370 && date <= end; step++) {
+  for (let step = 0; step < 8 && date <= end; step++) {
     if (eventOccursOn({
       startDate: start,
       endDate: end,
