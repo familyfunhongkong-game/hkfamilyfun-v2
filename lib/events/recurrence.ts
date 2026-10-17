@@ -52,8 +52,10 @@ export function eventOccursOn(event: RecurrenceLike, targetDate: string) {
     ? event.recurrenceExcludeDates.map(String)
     : [];
 
-  if (includes.includes(targetDate)) return true;
+  // Closure/cancellation is always authoritative when both exception lists
+  // contain the same date. Never advertise a cancelled occurrence.
   if (excludes.includes(targetDate)) return false;
+  if (includes.includes(targetDate)) return true;
 
   const weekdays = Array.isArray(event.recurrenceWeekdays)
     ? event.recurrenceWeekdays.map(Number)
