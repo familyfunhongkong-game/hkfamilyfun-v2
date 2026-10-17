@@ -50,6 +50,11 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- The insert caller may not choose a backdated timestamp or review fields.
+  new.created_at := now();
+  new.status := 'pending';
+  new.reviewed_at := null;
+  new.reviewed_by := null;
   if (select count(*) from public.community_tips
       where author_id = new.author_id and created_at >= now() - interval '24 hours') >= 5 then
     raise exception 'Daily community submission limit reached';
