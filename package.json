@@ -18,6 +18,7 @@
     "check:admin-growth": "node scripts/test-admin-growth-dashboard.mjs",
     "check:commerce-copy": "node scripts/check-commerce-copy.mjs",
     "check:event-cards": "node scripts/check-event-card-contract.mjs",
+    "check:today-timeline": "node scripts/test-today-timeline.mjs",
     "check:event-detail": "node scripts/check-event-detail-contract.mjs",
     "check:event-seo": "node scripts/check-event-seo-contract.mjs",
     "check:event-data": "node scripts/check-event-data-completeness.mjs",
