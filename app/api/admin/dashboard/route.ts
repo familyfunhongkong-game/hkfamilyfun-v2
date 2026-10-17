@@ -104,14 +104,35 @@ export async function GET(request: NextRequest) {
     try { days = hongKongDaysInRange(from,to); } catch {return NextResponse.json({error:'日期範圍最多 366 日，並須由早至晚。'}, {status:400});}
     const startIso = new Date(`${days[0]}T00:00:00+08:00`).toISOString();
     const endExclusiveIso = new Date(Date.parse(`${to}T00:00:00+08:00`) + 86400000).toISOString();
+    const previousEnd = new Date(Date.parse(`${from}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+    const previousStart = new Date(Date.parse(`${from}T00:00:00Z`) - days.length * 86400000).toISOString().slice(0, 10);
+    const previousStartIso = new Date(`${previousStart}T00:00:00+08:00`).toISOString();
+    const previousEndIso = startIso;
+    const countInPeriod = (items: Array<{created_at:string}>, start: string, end: string) =>
+      items.filter(item => item.created_at >= start && item.created_at < end).length;
+    const periodCounts = {
+      accounts: countInPeriod(accounts, startIso, endExclusiveIso),
+      merchants: countInPeriod(merchants, startIso, endExclusiveIso),
+      events: countInPeriod(events, startIso, endExclusiveIso),
+    };
+    const previousCounts = {
+      accounts: countInPeriod(accounts, previousStartIso, previousEndIso),
+      merchants: countInPeriod(merchants, previousStartIso, previousEndIso),
+      events: countInPeriod(events, previousStartIso, previousEndIso),
+    };
     let analytics: Awaited<ReturnType<typeof getSiteAnalyticsSummary>> | null = null;
     let analyticsError: string | null = null;
+    let previousAnalytics: Awaited<ReturnType<typeof getSiteAnalyticsSummary>> | null = null;
+    let previousAnalyticsError: string | null = null;
     try {
       analytics = await getSiteAnalyticsSummary(db, startIso, endExclusiveIso);
     } catch (error) {
       analyticsError = error instanceof Error ? error.message : "Analytics 暫時無法讀取";
       console.error("Growth Dashboard analytics unavailable:", analyticsError);
     }
+
+    try { previousAnalytics = await getSiteAnalyticsSummary(db, previousStartIso, previousEndIso); }
+    catch (error) { previousAnalyticsError = error instanceof Error ? error.message : '上期追蹤數據未能取得'; }
 
     const model = buildGrowthDashboard(
       events, merchants, accounts, adminRows,
@@ -125,6 +146,12 @@ export async function GET(request: NextRequest) {
       checkedAt: new Date().toISOString(),
       period: `${from} 至 ${to}（香港時間）`,
       reportRange: { from, to, days: days.length },
+      comparison: {
+        previousPeriod: `${previousStart} 至 ${previousEnd}`,
+        current: { ...periodCounts, visitors: analytics?.totals.visitors ?? null, pageViews: analytics?.totals.pageViews ?? null },
+        previous: { ...previousCounts, visitors: previousAnalytics?.totals.visitors ?? null, pageViews: previousAnalytics?.totals.pageViews ?? null },
+        previousAnalyticsError,
+      },
       ...model,
       analytics: analytics
         ? {
