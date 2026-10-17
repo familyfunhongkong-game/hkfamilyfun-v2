@@ -12,7 +12,7 @@ export const HK_WEEKDAYS = [
   { day: 4, label: "星期四" }, { day: 5, label: "星期五" },
   { day: 6, label: "星期六" },
 ] as const;
-const TIME_RE = /^([01]\\d|2[0-3]):[0-5]\\d$/;
+const TIME_RE = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 
 export function parseWeeklyOpeningHours(input: unknown): WeeklyOpeningHours | null {
   if (input === null || input === undefined) return null;
