@@ -4,7 +4,7 @@ import { serviceClient } from "@/lib/admin-auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const fields = "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,merchant_name,start_date,end_date,start_time,end_time,district,mtr_station,cover_image_url,price_type,price_display_mode,price_label,min_price,max_price,age_min,age_max,age_groups,tags,activity_category,category,is_free,is_sen_friendly,is_indoor,registration_url,booking_url,official_url,source_url,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates";
+const fields = "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,merchant_name,start_date,end_date,start_time,end_time,district,mtr_station,cover_image_url,price_type,price_display_mode,price_label,min_price,max_price,age_min,age_max,age_groups,tags,activity_category,category,is_free,is_sen_friendly,is_indoor,registration_url,booking_url,official_url,source_url,status,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function POST(request: NextRequest) {
@@ -32,5 +32,16 @@ export async function POST(request: NextRequest) {
     console.error("Saved events lookup failed", error.code);
     return NextResponse.json({ error: "Unable to load saved events" }, { status: 500 });
   }
-  return NextResponse.json({ events: data || [] }, { headers: { "Cache-Control": "private, no-store" } });
+  // An archived event is only eligible as history after its actual end date.
+  // Prevent manual early archive/withdrawals from resurfacing through bookmarks.
+  const todayParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (name: string) => todayParts.find((item) => item.type === name)?.value || "";
+  const today = `${part("year")}-${part("month")}-${part("day")}`;
+  const safeEvents = (data || []).filter((event) =>
+    event.status === "published" ||
+    ((event.end_date || event.start_date || "") < today)
+  ).map(({ status: _status, ...publicFields }) => publicFields);
+  return NextResponse.json({ events: safeEvents }, { headers: { "Cache-Control": "private, no-store" } });
 }
