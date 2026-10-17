@@ -9,7 +9,7 @@ const compiled = ts.transpileModule(source, {
 }).outputText;
 const runtime = { exports: {} };
 const calendarDayOfWeek = (s) => {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return -1;
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(s)) return -1;
   return new Date(s + "T12:00:00Z").getUTCDay();
 };
 runInNewContext(compiled, {
