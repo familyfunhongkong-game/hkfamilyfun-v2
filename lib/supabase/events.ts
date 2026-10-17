@@ -243,6 +243,7 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
       : [],
     recurrenceNote: event.recurrence_note || undefined,
     time: formatTime(event.start_time, event.end_time, locale),
+    defaultTime: formatTime(event.start_time, event.end_time, locale),
     district: localizeDistrict(event.district, locale),
     venue: localizedText(locale, {
       tc: event.venue_name,
@@ -337,9 +338,22 @@ export async function getPublishedEvents(locale: AppLocale = "zh-Hant"): Promise
     return [];
   }
 
-  return ((data || []) as DatabaseEvent[])
-    .filter((event) => !isInternalTestEvent(event) && !isExpiredEvent(event))
-    .map((event) => mapDatabaseEvent(event, locale));
+  const visible = ((data || []) as DatabaseEvent[])
+    .filter((event) => !isInternalTestEvent(event) && !isExpiredEvent(event));
+  const recurringIds = visible.filter(e => e.recurrence_type === "weekly").map(e => e.id);
+  const schedules = await getPublishedWeeklyOpeningHours(recurringIds);
+  return visible.map(event => {
+    const mapped = mapDatabaseEvent(event, locale);
+    if (event.recurrence_type !== "weekly") return { ...mapped, weeklyOpeningHours: null };
+    if (!schedules.available) {
+      return { ...mapped, weeklyOpeningHours: undefined, time: formatTime(null, null, locale) };
+    }
+    const hours = schedules.hoursById[event.id] ?? null;
+    if (!hours) return { ...mapped, weeklyOpeningHours: null };
+    const label = locale === "en" ? "Varies by weekday"
+      : locale === "zh-Hans" ? "各天开放时间不同" : "每天開放時間不同";
+    return { ...mapped, weeklyOpeningHours: hours, time: label };
+  });
 }
 
 export async function getPublishedEventById(
@@ -368,5 +382,15 @@ export async function getPublishedEventById(
   const event = data as DatabaseEvent;
   if (isInternalTestEvent(event) || isExpiredEvent(event)) return null;
 
-  return mapDatabaseEvent(event, locale);
+  const mapped = mapDatabaseEvent(event, locale);
+  if (event.recurrence_type !== "weekly") return { ...mapped, weeklyOpeningHours: null };
+  const schedules = await getPublishedWeeklyOpeningHours([id]);
+  if (!schedules.available) {
+    return { ...mapped, weeklyOpeningHours: undefined, time: formatTime(null, null, locale) };
+  }
+  const hours = schedules.hoursById[id] ?? null;
+  if (!hours) return { ...mapped, weeklyOpeningHours: null };
+  const label = locale === "en" ? "Varies by weekday"
+    : locale === "zh-Hans" ? "各天开放时间不同" : "每天開放時間不同";
+  return { ...mapped, weeklyOpeningHours: hours, time: label };
 }
