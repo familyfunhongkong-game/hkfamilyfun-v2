@@ -41,6 +41,12 @@ export function eventOccursOn(event: RecurrenceLike, targetDate: string) {
 
   if (!start || !end || targetDate < start || targetDate > end) return false;
 
+  // Cancelled or closed dates take precedence for ALL event types,
+  // including multi-day non-weekly listings.
+  const cancelled = Array.isArray(event.recurrenceExcludeDates)
+    ? event.recurrenceExcludeDates.map(String) : [];
+  if (cancelled.includes(targetDate)) return false;
+
   if (String(event.recurrenceType || "none").toLowerCase() !== "weekly") {
     return true;
   }
@@ -75,7 +81,21 @@ export function eventOccursInRange(
   if (!start || !end || start > rangeEnd || end < rangeStart) return false;
 
   if (String(event.recurrenceType || "none").toLowerCase() !== "weekly") {
-    return true;
+    // Exclusions must also apply to non-weekly multi-day events.
+    // Look for the first non-cancelled day in the intersected date range.
+    const cancelled = new Set(
+      Array.isArray(event.recurrenceExcludeDates)
+        ? event.recurrenceExcludeDates.map(String) : [],
+    );
+    let date = start > rangeStart ? start : rangeStart;
+    const lastDate = end < rangeEnd ? end : rangeEnd;
+    // An interval with N excluded days must contain an available day
+    // within the next N+1 dates, unless the interval ends first.
+    for (let checked = 0; date <= lastDate && checked <= cancelled.size; checked++) {
+      if (!cancelled.has(date)) return true;
+      date = addCalendarDays(date, 1);
+    }
+    return false;
   }
 
   let current = start > rangeStart ? start : rangeStart;
