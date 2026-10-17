@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     const presetStart = new Date(todayUTC-((preset==='custom' ? 30 : Number(preset))-1)*86400000).toISOString().slice(0,10);
     const from = preset==='custom' ? request.nextUrl.searchParams.get('from') || '' : presetStart;
     const to = preset==='custom' ? request.nextUrl.searchParams.get('to') || '' : currentDay;
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(from) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(to) || to > currentDay) return NextResponse.json({error:'Invalid date range'}, {status:400});
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || to > currentDay) return NextResponse.json({error:'Invalid date range'}, {status:400});
     let days: string[];
     try { days = hongKongDaysInRange(from,to); } catch {return NextResponse.json({error:'日期範圍最多 366 日，並須由早至晚。'}, {status:400});}
     const startIso = new Date(`${days[0]}T00:00:00+08:00`).toISOString();
