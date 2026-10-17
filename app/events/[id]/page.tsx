@@ -441,10 +441,10 @@ function formatTimeRange(event: EventRecord, locale: AppLocale): string {
   const start = normalizeTime(event.start_time);
   const end = normalizeTime(event.end_time);
 
-  if (!start && !end) return uiText(locale, "時間待定", "时间待定", "Time TBC");
+  if (!start && !end) return uiText(locale, "請參閱官網最新時間", "请参阅官网最新时间", "Check official website for latest hours");
   if (start && end) return `${start} - ${end}`;
 
-  return start || end || uiText(locale, "時間待定", "时间待定", "Time TBC");
+  return start || end || uiText(locale, "請參閱官網最新時間", "请参阅官网最新时间", "Check official website for latest hours");
 }
 
 function formatPrice(event: EventRecord, locale: AppLocale): string {
