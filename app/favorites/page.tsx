@@ -184,9 +184,11 @@ function toPublicEvent(event: FavoriteEvent, locale: AppLocale): Event {
 
 
 function hkToday() {
-  return new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date());
+  }).formatToParts(new Date());
+  const field = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  return field("year") + "-" + field("month") + "-" + field("day");
 }
 
 function nextOccurrence(event: FavoriteEvent, today: string) {
