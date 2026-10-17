@@ -244,6 +244,11 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
     recurrenceNote: event.recurrence_note || undefined,
     time: formatTime(event.start_time, event.end_time, locale),
     district: localizeDistrict(event.district, locale),
+    venue: localizedText(locale, {
+      tc: event.venue_name,
+      sc: event.venue_name_sc,
+      en: event.venue_name_en,
+    }) || undefined,
     mtrStation: event.mtr_station || (locale === "en" ? "MTR TBC" : locale === "zh-Hans" ? "港铁站待定" : "港鐵站待定"),
     ageRange: formatEventAge({ ageGroups: event.age_groups, ageMin: event.age_min, ageMax: event.age_max }, locale),
     organizer: event.organizer_name || event.merchant_name || (locale === "en" ? "Organizer TBC" : "主辦單位待定"),

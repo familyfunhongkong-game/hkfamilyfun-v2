@@ -20,14 +20,19 @@ export default function TodayScheduleRow({
 }) {
   const time = displayTodayTime(event);
   const timeTbc = tr(locale, "時間待定", "时间待定", "Time TBC");
-  const district = event.district?.trim() || tr(locale, "地點待確認", "地点待确认", "Location TBC");
+  const district = event.district?.trim() || "";
+  const venue = event.venue?.trim() || "";
+  const address = event.address?.trim() || "";
+  const location = [venue || address || district, district]
+    .filter((text, i, all) => text && all.indexOf(text) === i)
+    .join(" · ") || tr(locale, "地點待確認", "地点待确认", "Location TBC");
   const price = event.price?.trim() || tr(locale, "收費待確認", "收费待确认", "Price TBC");
   const free = event.priceType === "free";
   return (
     <li className="list-none">
       <Link
         href={`/events/${event.id}`}
-        aria-label={`${event.title} · ${time.start ?? timeTbc} · ${district} · ${price}`}
+        aria-label={`${event.title} · ${time.start ?? timeTbc} · ${location} · ${price}`}
         className="group grid min-w-0 grid-cols-[3.9rem_5rem_minmax(0,1fr)] items-center gap-2.5 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm transition hover:-translate-y-0.5 hover:border-purple-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700 sm:grid-cols-[6rem_8.5rem_minmax(0,1fr)_1.5rem] sm:gap-4 sm:p-3"
       >
         <div className="min-w-0 self-center text-center tabular-nums">
@@ -62,7 +67,7 @@ export default function TodayScheduleRow({
           </h3>
           <div className="mt-2 flex min-w-0 items-center gap-1 text-[11px] font-medium text-slate-600 sm:text-xs">
             <MapPin className="h-3 w-3 shrink-0 text-purple-600" aria-hidden="true"/>
-            <span className="truncate">{district}</span>
+            <span className="truncate">{location}</span>
           </div>
           <div className="mt-1.5 flex min-w-0 items-start gap-1 text-[11px] sm:text-xs">
             <Ticket className="mt-0.5 h-3 w-3 shrink-0 text-emerald-600" aria-hidden="true"/>
