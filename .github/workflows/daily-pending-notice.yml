@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Validate notification script syntax
+        run: node --check scripts/send-daily-pending-notice.mjs
       - name: Send daily pending notice digest
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
