@@ -29,6 +29,12 @@ Delivery is **not confirmed** until repository secrets are configured and a succ
 
 ## Current semantics and limitations
 
-This initial version queries up to 1000 `platform_notifications` rows scoped to `recipient_scope=admin` where `read_at IS NULL`. It does not assume an unread notification is an unresolved merchant or event approval. The email explains this limitation and links to the admin portal. It lists at most 100 rows to limit message size.
+The daily message now queries real pending merchant applications (`merchants.status=pending`) and events awaiting approval or publication (`events.status IN (submitted,approved)`). It separately includes unread admin notification count for reference. Marking notifications as read **does not** remove pending approvals from the daily report.
 
-Future upgrade: introduce explicit `pending/resolved` lifecycle and real `due_at` SLA for merchant applications, event submissions and user-reported issues, plus persisted digest delivery IDs to prevent accidental duplicate deliveries after manual reruns.
+The report orders pending items from oldest submission to newest, highlighting items waiting at least five days. The five-day indicator is not a database-enforced SLA/deadline; proper `due_at` fields remain a future improvement. Lists are capped at 100 shown entries and 1000 queried per table; reaching the latter triggers a count warning.
+
+Manual GitHub workflow dispatch can generate duplicate emails. Scheduled GitHub Actions are best-effort, not guaranteed to execute precisely at 09:00. Real email delivery requires configured secrets, a verified sending domain, and a successful end-to-end test. The cron will fail loudly when Supabase/Resend returns an error.
+
+To run a query-only test without sending an email, add `DIGEST_DRY_RUN=1` in a controlled local environment with server-only credentials. The script still requires four configured environment variables and never logs their values.
+
+The current report covers merchant and event review queues only. It does not yet include community reports, customer support messages, or independent notification issue-resolution tracking.
