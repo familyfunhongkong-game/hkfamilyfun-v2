@@ -14,6 +14,7 @@ export interface Event {
   recurrenceNote?: string;
   time: string;
   district: string;
+  venue?: string;
   mtrStation: string;
   ageRange: string;
   organizer: string;
