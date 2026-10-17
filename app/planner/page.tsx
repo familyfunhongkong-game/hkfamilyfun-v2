@@ -337,6 +337,10 @@ export default function PlannerPage() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [query, setQuery] = useState("");
   const [date, setDate] = useState(hkToday());
+  const [budget, setBudget] = useState("any");
+  const [timeOfDay, setTimeOfDay] = useState("any");
+  const [indoorOnly, setIndoorOnly] = useState(false);
+  const [senOnly, setSenOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
@@ -362,13 +366,11 @@ export default function PlannerPage() {
 
       const { data, error } = await supabase
         .from("public_events_i18n")
-        .select(
-          "id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,start_date,end_date,start_time,end_time,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates,recurrence_note,venue_name,venue_name_sc,venue_name_en,district,mtr_station,price_label,price_display_mode,min_price,max_price,age_group,age_groups,age_min,age_max,activity_category,category,cover_image_url,is_free,is_sen_friendly,is_indoor,tags",
-        )
+        .select("*")
         .eq("status", "published")
         .order("start_time", { ascending: true });
 
-      if (error) setMessage(error.message || activeMessages.loadFailed);
+      if (error) setMessage(activeMessages.loadFailed);
       else setEvents((data || []) as EventRecord[]);
 
       setLoading(false);
@@ -437,6 +439,21 @@ export default function PlannerPage() {
   const suggestions = useMemo(() => {
     const candidates = events
       .filter((event) => occursOn(event, date))
+      .filter((event) => {
+        if (senOnly && !event.is_sen_friendly) return false;
+        if (indoorOnly && !event.is_indoor) return false;
+        const free = event.is_free || safeText(event.price_display_mode).toLowerCase() === "free" || /免費|免费|free/i.test(safeText(event.price_label));
+        if (budget === "free" && !free) return false;
+        if (budget === "100" || budget === "300") {
+          const price = Number(event.min_price);
+          if (!free && (!Number.isFinite(price) || price > Number(budget))) return false;
+        }
+        const start = minutes(event.start_time);
+        if (timeOfDay === "am" && start >= 12 * 60) return false;
+        if (timeOfDay === "pm" && (start < 12 * 60 || start >= 18 * 60)) return false;
+        if (timeOfDay === "night" && start < 18 * 60) return false;
+        return true;
+      })
       .filter(
         (event) =>
           !calendarConnected || !overlapsBusy(event, date, busyPeriods),
@@ -471,7 +488,7 @@ export default function PlannerPage() {
     }
 
     return selected;
-  }, [busyPeriods, calendarConnected, date, events, query]);
+  }, [busyPeriods, calendarConnected, date, events, query, budget, timeOfDay, indoorOnly, senOnly]);
 
   function startVoice() {
     setMessage("");
@@ -566,6 +583,22 @@ export default function PlannerPage() {
               🎤 {m.voice}
             </button>
           </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-sm font-bold text-slate-700">預算 / Budget
+              <select aria-label="預算" value={budget} onChange={(e) => setBudget(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3">
+                <option value="any">任何價錢 / Any</option><option value="free">免費 / Free</option><option value="100">HK$100 以下</option><option value="300">HK$300 以下</option>
+              </select>
+            </label>
+            <label className="text-sm font-bold text-slate-700">時段 / Time
+              <select aria-label="時段" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3">
+                <option value="any">任何時間 / Any</option><option value="am">上午 / Morning</option><option value="pm">下午 / Afternoon</option><option value="night">晚上 / Evening</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 self-end rounded-xl border border-slate-200 px-3 py-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={indoorOnly} onChange={(e) => setIndoorOnly(e.target.checked)} />室內 / Indoor</label>
+            <label className="flex items-center gap-2 self-end rounded-xl border border-slate-200 px-3 py-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={senOnly} onChange={(e) => setSenOnly(e.target.checked)} />SEN 友善</label>
+          </div>
+          <p className="mt-3 text-xs text-slate-500">可直接輸入文字，或使用瀏覽器語音輸入。活動建議按網站現有資料配對，不使用付費 AI API。</p>
 
           {calendarConfigured || calendarConnected ? (
             <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
