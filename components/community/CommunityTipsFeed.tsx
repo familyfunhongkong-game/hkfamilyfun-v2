@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
 
 const districts = [
@@ -128,7 +129,7 @@ export default function CommunityTipsFeed() {
         {composerOpen && (
           <form onSubmit={submit} className="mt-6 grid gap-3 rounded-2xl border border-purple-200 bg-purple-50/60 p-4 sm:p-5">
             <p className="text-sm font-bold text-purple-900">分享一個你發現嘅親子活動（免費投稿，審核後公開）</p>
-            {!authorId && <p className="text-sm text-amber-900">需要先登入免費會員帳戶，避免匿名垃圾廣告。你仍然可以先填寫內容。</p>}
+            {!authorId && <p className="text-sm text-amber-900">需要先登入免費會員帳戶，避免匿名垃圾廣告。你仍然可以先填寫內容。 <Link href="/login" className="font-black underline">登入／免費註冊 →</Link></p>}
             <input aria-label="顯示名稱" className={textInput} placeholder="顯示名稱／主辦單位" value={form.display_name} onChange={e=>setForm({...form,display_name:e.target.value})} maxLength={50} required/>
             <input aria-label="活動標題" className={textInput} placeholder="活動標題，例如：沙田週末親子陶藝工作坊" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} maxLength={120} required/>
             <textarea aria-label="活動內容" className={textInput} rows={5} placeholder="活動詳情、日期、時間、費用、適合年齡、報名方法..." value={form.body} onChange={e=>setForm({...form,body:e.target.value})} maxLength={3000} required/>
