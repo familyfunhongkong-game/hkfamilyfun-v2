@@ -5,6 +5,7 @@ import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import PromotionSlot from "@/components/promotion-slot";
 import PublicEventCard from "@/components/events/PublicEventCard";
+import FeaturedEditorialCard from "@/components/events/FeaturedEditorialCard";
 import {
   getActivePromotionBanners,
   type PublicPromotionBanner,
@@ -38,17 +39,17 @@ export default async function HomePage() {
 
   const featuredGridClass =
     featuredEvents.length <= 1
-      ? "grid gap-5 md:max-w-3xl"
+      ? "grid max-w-[540px] gap-5"
       : featuredEvents.length === 2
         ? "grid gap-5 md:grid-cols-2"
         : featuredEvents.length === 3
           ? "grid gap-5 md:grid-cols-2 xl:grid-cols-3"
-          : "grid gap-5 md:grid-cols-2 xl:grid-cols-4";
+          : "grid gap-5 md:grid-cols-2 xl:grid-cols-3";
 
   const featuredIds = new Set(featuredEvents.map((event) => event.id));
   const latestUpdated = latestSorted
     .filter((event) => !featuredIds.has(event.id))
-    .slice(0, 16);
+    .slice(0, 12);
 
   const quickActions = [
     {
@@ -192,12 +193,7 @@ export default async function HomePage() {
         {featuredEvents.length ? (
           <div className={featuredGridClass}>
             {featuredEvents.map((event) => (
-              <PublicEventCard
-                key={event.id}
-                event={event}
-                locale={locale}
-                featured
-              />
+              <FeaturedEditorialCard key={event.id} event={event} locale={locale} />
             ))}
           </div>
         ) : (
@@ -231,7 +227,7 @@ export default async function HomePage() {
           </div>
 
           {latestUpdated.length ? (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {latestUpdated.map((event) => (
                 <PublicEventCard key={event.id} event={event} locale={locale} />
               ))}
