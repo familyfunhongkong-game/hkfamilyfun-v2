@@ -33,11 +33,39 @@ export default function PosterTipForm(){
  const [src,setSrc]=useState("");const [crop,setCrop]=useState({x:0,y:0,w:100,h:100});
  const [fields,setFields]=useState<Record<Field,string>>(blank);const [raw,setRaw]=useState("");
  const [message,setMessage]=useState("");const [loading,setLoading]=useState(false);const [sending,setSending]=useState(false);
- const [consent,setConsent]=useState(false);const [trap,setTrap]=useState("");
+ const [consent,setConsent]=useState(false);const [trap,setTrap]=useState("");const [imageUrl,setImageUrl]=useState("");const [dragging,setDragging]=useState(false);
  const input=useRef<HTMLInputElement>(null);
  useEffect(()=>{const paste=(ev:ClipboardEvent)=>{const file=Array.from(ev.clipboardData?.files||[]).find(f=>f.type.startsWith("image/"));if(file){ev.preventDefault();void select(file);}};window.addEventListener("paste",paste);return()=>window.removeEventListener("paste",paste);},[]);
  async function select(file:File){if(!/^image\/(png|jpeg|webp)$/.test(file.type)){setMessage("請使用 JPG、PNG 或 WebP 圖片");return;}if(file.size>8*1024*1024){setMessage("圖片不可超過 8MB");return;}
  const reader=new FileReader();reader.onload=()=>{setSrc(String(reader.result||""));setCrop({x:0,y:0,w:100,h:100});setMessage("");};reader.readAsDataURL(file);}
+ async function fromUrl(url:string){
+  setMessage("");setLoading(true);
+  try {
+   const u=new URL(url.trim());
+   if(!["https:","http:"].includes(u.protocol))throw new Error("請輸入有效圖片網址。");
+   const response=await fetch(u.toString(),{credentials:"omit",mode:"cors",signal:AbortSignal.timeout(10000)});
+   if(!response.ok)throw new Error("未能下載圖片。");
+   const type=(response.headers.get("content-type")||"").split(";")[0].toLowerCase();
+   if(!["image/jpeg","image/png","image/webp"].includes(type))throw new Error("連結並非 JPG、PNG 或 WebP 圖片。");
+   const len=Number(response.headers.get("content-length")||0);
+   if(len>8*1024*1024)throw new Error("圖片不可超過 8MB。");
+   const blob=await response.blob();
+   if(blob.size>8*1024*1024)throw new Error("圖片不可超過 8MB。");
+   await select(new File([blob],"event-poster", {type}));
+  }catch{
+   setMessage("該網站禁止直接讀取圖片，請先右鍵儲存圖片／截圖，再拖入或上傳。");
+  }finally{setLoading(false);}
+ }
+ function handleDrop(ev:React.DragEvent<HTMLDivElement>){
+  ev.preventDefault();setDragging(false);
+  const file=Array.from(ev.dataTransfer.files).find(f=>f.type.startsWith("image/"));
+  if(file){void select(file);return;}
+  const html=ev.dataTransfer.getData("text/html");
+  const srcFromHtml=html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1]||"";
+  const url=(srcFromHtml||ev.dataTransfer.getData("text/uri-list")||ev.dataTransfer.getData("text/plain")).split("\\n")[0].trim();
+  if(/^https?:\\/\\//i.test(url)){setImageUrl(url);void fromUrl(url);return;}
+  setMessage("未偵測到圖片，請改用選擇圖片或貼上圖片網址。");
+ }
  async function cropped():Promise<string>{
   return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>{const sx=Math.round(image.naturalWidth*crop.x/100),sy=Math.round(image.naturalHeight*crop.y/100),sw=Math.max(1,Math.round(image.naturalWidth*crop.w/100)),sh=Math.max(1,Math.round(image.naturalHeight*crop.h/100));const canvas=document.createElement("canvas");const scale=Math.min(1,1600/Math.max(sw,sh));canvas.width=Math.max(1,Math.round(sw*scale));canvas.height=Math.max(1,Math.round(sh*scale));canvas.getContext("2d")?.drawImage(image,sx,sy,sw,sh,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL("image/jpeg",.8));};image.onerror=()=>reject(new Error("圖片讀取失敗"));image.src=src;});
  }
@@ -55,12 +83,13 @@ export default function PosterTipForm(){
    <p className="text-sm font-bold text-emerald-700">免費 · 海報快速建立活動</p>
    <h2 id="poster-tip-heading" className="mt-2 text-2xl font-black">拖入活動海報，自動填寫活動資料</h2>
    <p className="mt-2 text-sm leading-7 text-slate-600">支援拖放、貼上截圖（Ctrl+V）或選擇相片。裁剪後可免費辨認海報文字；資料只作初步建議，請先核對再提交。</p>
-   <div onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const file=e.dataTransfer.files[0];if(file)void select(file);}}
-     className="mt-5 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 p-5 text-center">
+   <div onDragEnter={e=>{e.preventDefault();setDragging(true);}} onDragLeave={e=>{e.preventDefault();setDragging(false);}} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="copy";}} onDrop={handleDrop}
+     className={`mt-5 rounded-2xl border-2 border-dashed p-5 text-center transition-colors ${dragging?"border-purple-700 bg-purple-100":"border-emerald-300 bg-emerald-50/60"}`}>
     <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const file=e.target.files?.[0];if(file)void select(file);e.target.value="";}} className="sr-only" aria-label="上傳活動海報"/>
     <button type="button" onClick={()=>input.current?.click()} className="rounded-full bg-emerald-700 px-5 py-3 font-bold text-white">選擇海報／圖片</button>
     <p className="mt-3 text-xs text-slate-500">JPG / PNG / WebP · 不多於 8MB · 亦可直接拖放或貼上圖片</p>
    </div>
+   <div className="mt-3 flex flex-col gap-2 sm:flex-row"><input aria-label="貼上圖片網址" value={imageUrl} onChange={e=>setImageUrl(e.target.value)} placeholder="亦可貼上圖片網址 https://..." className="min-w-0 flex-1 rounded-xl border border-slate-300 p-3 text-sm" /><button disabled={loading||!imageUrl.trim()} type="button" onClick={()=>void fromUrl(imageUrl)} className="rounded-xl border border-emerald-700 px-5 py-2 text-sm font-bold text-emerald-800 disabled:opacity-50">載入圖片網址</button></div>
    {src&&<div className="mt-5 grid gap-5 lg:grid-cols-2">
     <div><p className="mb-2 font-bold">海報裁剪預覽</p><div className="relative overflow-hidden rounded-xl bg-slate-100"><img alt="海報裁剪預覽" src={src} className="w-full" /><div aria-hidden="true" className="pointer-events-none absolute border-2 border-emerald-600 bg-emerald-400/10" style={{left:crop.x+"%",top:crop.y+"%",width:crop.w+"%",height:crop.h+"%"}}/></div></div>
     <div className="space-y-3"><p className="font-bold">調整擷取範圍</p>{([["x","左邊起點"],["y","上邊起點"],["w","寬度"],["h","高度"]] as const).map(([key,label])=><label key={key} className="block text-sm">{label}：{crop[key]}%<input type="range" min={key==="w"||key==="h"?10:0} max={key==="w"?100-crop.x:key==="h"?100-crop.y:key==="x"?100-crop.w:100-crop.h} value={crop[key]} onChange={e=>setCrop(old=>({...old,[key]:Number(e.target.value)}))} className="mt-1 block w-full accent-emerald-700"/></label>)}
