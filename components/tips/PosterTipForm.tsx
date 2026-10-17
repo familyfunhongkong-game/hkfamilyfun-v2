@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 type Field = "title" | "date" | "time" | "venue" | "district" | "price" | "url" | "details" | "contact";
 const blank: Record<Field,string> = {title:"",date:"",time:"",venue:"",district:"",price:"",url:"",details:"",contact:""};
 const cn = ["中西區","灣仔","東區","南區","油尖旺","深水埗","九龍城","黃大仙","觀塘","荃灣","屯門","元朗","北區","大埔","沙田","西貢","葵青","離島"];
-declare global { interface Window { Tesseract?: { recognize: (image: string, language: string) => Promise<{data:{text:string}}> }; }; }
+declare global { interface Window { Tesseract?: { recognize: (image: string, language: string) => Promise<{ data: { text: string } }> }; } }
 function guess(text:string):Partial<Record<Field,string>> {
  const lines=text.split(/\n/).map(s=>s.trim()).filter(Boolean);
  return {
