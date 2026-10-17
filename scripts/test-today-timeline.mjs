@@ -60,7 +60,7 @@ assert.match(row, /object-contain/, "Event posters must not be aggressively crop
 assert.match(row, /event.price/, "Display fees directly on today's list");
 assert.match(row, /event.venue/, "Actual venue names must be included");
 const mapper = readFileSync("lib/supabase/events.ts","utf8");
-assert.match(mapper, /venue: localizedText\\(locale/, "Venue must be mapped from official database field");
+assert.ok(mapper.includes("venue: localizedText(locale"), "Venue must be mapped from official database field");
 assert.match(row, /event.district/, "Display location directly on today's list");
 assert.match(row, /href=\{`\/events\/\$\{event.id\}`\}/, "Whole row must navigate to detail");
 assert.doesNotMatch(row, /shortDescription|addToCalendar|toggleFavorite|event\.organizer/, "Today rows should not carry full event card details");
