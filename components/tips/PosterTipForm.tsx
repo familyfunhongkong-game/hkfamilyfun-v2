@@ -62,8 +62,8 @@ export default function PosterTipForm(){
   if(file){void select(file);return;}
   const html=ev.dataTransfer.getData("text/html");
   const srcFromHtml=html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1]||"";
-  const url=(srcFromHtml||ev.dataTransfer.getData("text/uri-list")||ev.dataTransfer.getData("text/plain")).split("\\n")[0].trim();
-  if(/^https?:\\/\\//i.test(url)){setImageUrl(url);void fromUrl(url);return;}
+  const url=(srcFromHtml||ev.dataTransfer.getData("text/uri-list")||ev.dataTransfer.getData("text/plain")).split("\n")[0].trim();
+  if(url.startsWith("https://")||url.startsWith("http://")){setImageUrl(url);void fromUrl(url);return;}
   setMessage("未偵測到圖片，請改用選擇圖片或貼上圖片網址。");
  }
  async function cropped():Promise<string>{
