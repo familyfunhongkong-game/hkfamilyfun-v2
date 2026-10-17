@@ -86,3 +86,12 @@ with check ((select public.is_platform_admin()));
 
 -- Restrict ordinary browser updates to moderation fields, not arbitrary content.
 -- The policy above is gated by is_platform_admin(); members have no update policy.
+
+-- Members may check moderation status of their own submissions, without
+-- gaining access to anyone else's unpublished posts.
+drop policy if exists "Members read own community submissions" on public.community_tips;
+create policy "Members read own community submissions"
+on public.community_tips for select to authenticated
+using (author_id = (select auth.uid()));
+create index if not exists community_tips_member_history_idx
+on public.community_tips (author_id,created_at desc);
