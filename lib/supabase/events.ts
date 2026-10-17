@@ -243,6 +243,7 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
       : [],
     recurrenceNote: event.recurrence_note || undefined,
     time: formatTime(event.start_time, event.end_time, locale),
+    defaultTime: formatTime(event.start_time, event.end_time, locale),
     district: localizeDistrict(event.district, locale),
     venue: localizedText(locale, {
       tc: event.venue_name,
@@ -291,6 +292,35 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
   };
 }
 
+/**
+ * Public read is restricted by the existing events RLS policy to published
+ * activities. A separate column query avoids changing the public i18n view.
+ * Must be deployed AFTER the staged weekly_opening_hours DB migration.
+ */
+export async function getPublishedWeeklyOpeningHours(eventIds: string[]) {
+  const { parseWeeklyOpeningHours } = await import("@/lib/events/weekly-opening-hours");
+  type Hours = NonNullable<ReturnType<typeof parseWeeklyOpeningHours>>;
+  const hoursById: Record<string, Hours> = {};
+  if (eventIds.length === 0) return { available: true, hoursById };
+  if (!supabase) return { available: false, hoursById };
+  for (let i = 0; i < eventIds.length; i += 150) {
+    const { data, error } = await supabase
+      .from("events")
+      .select("id,weekly_opening_hours")
+      .eq("status", "published")
+      .in("id", eventIds.slice(i, i + 150));
+    if (error) {
+      console.error("[weekday-hours] Cannot load scheduled hours", error.message);
+      return { available: false, hoursById: {} };
+    }
+    for (const row of data || []) {
+      const hours = parseWeeklyOpeningHours(row.weekly_opening_hours);
+      if (hours !== null) hoursById[row.id] = hours;
+    }
+  }
+  return { available: true, hoursById };
+}
+
 export async function getPublishedEvents(locale: AppLocale = "zh-Hant"): Promise<Event[]> {
   if (!supabase) {
     console.warn("Supabase 未設定，無法讀取活動資料。");
@@ -308,9 +338,22 @@ export async function getPublishedEvents(locale: AppLocale = "zh-Hant"): Promise
     return [];
   }
 
-  return ((data || []) as DatabaseEvent[])
-    .filter((event) => !isInternalTestEvent(event) && !isExpiredEvent(event))
-    .map((event) => mapDatabaseEvent(event, locale));
+  const visible = ((data || []) as DatabaseEvent[])
+    .filter((event) => !isInternalTestEvent(event) && !isExpiredEvent(event));
+  const recurringIds = visible.filter(e => e.recurrence_type === "weekly").map(e => e.id);
+  const schedules = await getPublishedWeeklyOpeningHours(recurringIds);
+  return visible.map(event => {
+    const mapped = mapDatabaseEvent(event, locale);
+    if (event.recurrence_type !== "weekly") return { ...mapped, weeklyOpeningHours: null };
+    if (!schedules.available) {
+      return { ...mapped, weeklyOpeningHours: undefined, time: formatTime(null, null, locale) };
+    }
+    const hours = schedules.hoursById[event.id] ?? null;
+    if (!hours) return { ...mapped, weeklyOpeningHours: null };
+    const label = locale === "en" ? "Varies by weekday"
+      : locale === "zh-Hans" ? "各天开放时间不同" : "每天開放時間不同";
+    return { ...mapped, weeklyOpeningHours: hours, time: label };
+  });
 }
 
 export async function getPublishedEventById(
@@ -339,5 +382,15 @@ export async function getPublishedEventById(
   const event = data as DatabaseEvent;
   if (isInternalTestEvent(event) || isExpiredEvent(event)) return null;
 
-  return mapDatabaseEvent(event, locale);
+  const mapped = mapDatabaseEvent(event, locale);
+  if (event.recurrence_type !== "weekly") return { ...mapped, weeklyOpeningHours: null };
+  const schedules = await getPublishedWeeklyOpeningHours([id]);
+  if (!schedules.available) {
+    return { ...mapped, weeklyOpeningHours: undefined, time: formatTime(null, null, locale) };
+  }
+  const hours = schedules.hoursById[id] ?? null;
+  if (!hours) return { ...mapped, weeklyOpeningHours: null };
+  const label = locale === "en" ? "Varies by weekday"
+    : locale === "zh-Hans" ? "各天开放时间不同" : "每天開放時間不同";
+  return { ...mapped, weeklyOpeningHours: hours, time: label };
 }

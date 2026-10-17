@@ -1,3 +1,5 @@
+import type { WeeklyOpeningHours } from "@/lib/events/weekly-opening-hours";
+
 export type PriceType = "free" | "paid" | "mixed";
 
 export interface Event {
@@ -13,6 +15,10 @@ export interface Event {
   recurrenceExcludeDates?: string[];
   recurrenceNote?: string;
   time: string;
+  /** Original published time, used on one-off exception dates only. */
+  defaultTime?: string;
+  /** undefined=public timetable read unavailable; null=legacy; object=verified seven-day schedule. */
+  weeklyOpeningHours?: WeeklyOpeningHours | null;
   district: string;
   venue?: string;
   mtrStation: string;

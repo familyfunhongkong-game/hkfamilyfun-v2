@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { evaluateEventReadiness } from "@/lib/events/readiness";
+import { activeWeekdays, parseWeeklyOpeningHours, updateWeekdayHours, type WeeklyOpeningHours } from "@/lib/events/weekly-opening-hours";
 
 type EventRecord = {
   id: string;
@@ -56,6 +57,7 @@ type EventRecord = {
   recurrence_include_dates?: string[] | null;
   recurrence_exclude_dates?: string[] | null;
   recurrence_note?: string | null;
+  weekly_opening_hours?: unknown;
 
   venue_name?: string | null;
   venue_name_sc?: string | null;
@@ -158,6 +160,7 @@ type FormState = {
   recurrence_include_dates: string;
   recurrence_exclude_dates: string;
   recurrence_note: string;
+  weekly_opening_hours: WeeklyOpeningHours | null;
 
   venue_name: string;
   venue_name_sc: string;
@@ -254,6 +257,7 @@ const emptyForm: FormState = {
   recurrence_include_dates: "",
   recurrence_exclude_dates: "",
   recurrence_note: "",
+  weekly_opening_hours: null,
 
   venue_name: "",
   venue_name_sc: "",
@@ -725,6 +729,7 @@ function formFromEvent(event: EventRecord): FormState {
       ? event.recurrence_exclude_dates.map(String).join(", ")
       : "",
     recurrence_note: safeText(event.recurrence_note),
+    weekly_opening_hours: parseWeeklyOpeningHours(event.weekly_opening_hours),
 
     venue_name: safeText(event.venue_name),
     venue_name_sc: safeText(event.venue_name_sc),
@@ -1454,13 +1459,25 @@ export default function MerchantEventEditPage() {
 
       recurrence_type: form.recurrence_type,
       recurrence_weekdays:
-        form.recurrence_type === "weekly" ? form.recurrence_weekdays : [],
+        form.recurrence_type === "weekly"
+          ? (form.weekly_opening_hours !== null
+              ? activeWeekdays(form.weekly_opening_hours)
+              : form.recurrence_weekdays)
+          : [],
       recurrence_include_dates:
         form.recurrence_type === "weekly" ? parseDateList(form.recurrence_include_dates) : [],
       recurrence_exclude_dates:
         form.recurrence_type === "weekly" ? parseDateList(form.recurrence_exclude_dates) : [],
       recurrence_note:
         form.recurrence_type === "weekly" ? form.recurrence_note.trim() || null : null,
+      // Keep hours and weekday selection atomic in the same event update.
+      ...(form.recurrence_type === "weekly" && form.weekly_opening_hours !== null
+        ? {
+            weekly_opening_hours: form.weekly_opening_hours,
+          }
+        : eventRecord?.weekly_opening_hours != null
+          ? { weekly_opening_hours: null }
+          : {}),
 
       age_min: form.age_min === "" ? null : Number(form.age_min),
       age_max: form.age_max === "" ? null : Number(form.age_max),
@@ -1547,6 +1564,12 @@ export default function MerchantEventEditPage() {
       const messageText = error.message || "";
       const missingColumn = extractMissingColumn(messageText);
 
+      if (missingColumn === "weekly_opening_hours") {
+        return {
+          data: null,
+          errorMessage: "每日不同開放時間功能尚未完成資料庫部署，時間表未有儲存。請聯絡管理員。",
+        };
+      }
       if (missingColumn && Object.prototype.hasOwnProperty.call(safePayload, missingColumn)) {
         delete safePayload[missingColumn];
         continue;
@@ -1581,6 +1604,14 @@ export default function MerchantEventEditPage() {
       return false;
     }
 
+    if (form.recurrence_type === "weekly" && form.weekly_opening_hours !== null) {
+      const valid = parseWeeklyOpeningHours(form.weekly_opening_hours);
+      if (!valid || activeWeekdays(valid).length === 0) {
+        setMessage("請先為至少一天設定有效開放時間（開始時間必須早於結束時間），才可儲存。");
+        setAutosaveState("error");
+        return false;
+      }
+    }
     if (nextStatus === "submitted" && submitMissing.length) {
       setMessage(`提交前請先補齊：${submitMissing.join("、")}。`);
       return false;
@@ -2021,12 +2052,17 @@ export default function MerchantEventEditPage() {
                         <button
                           key={day.value}
                           type="button"
-                          onClick={() =>
-                            updateField(
-                              "recurrence_weekdays",
-                              toggleWeekday(form.recurrence_weekdays, day.value),
-                            )
-                          }
+                          onClick={() => setForm(previous => {
+                            const selected = toggleWeekday(previous.recurrence_weekdays, day.value);
+                            if (previous.weekly_opening_hours === null) {
+                              return { ...previous, recurrence_weekdays: selected };
+                            }
+                            const next = updateWeekdayHours(previous.weekly_opening_hours, day.value,
+                              selected.includes(day.value)
+                                ? { start: previous.start_time.slice(0,5), end: previous.end_time.slice(0,5) }
+                                : null);
+                            return { ...previous, recurrence_weekdays: selected, weekly_opening_hours: next };
+                          })}
                           className={[
                             "h-10 w-10 rounded-full text-sm font-black transition",
                             selected
@@ -2038,6 +2074,78 @@ export default function MerchantEventEditPage() {
                         </button>
                       );
                     })}
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border border-purple-200 bg-white p-4">
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-black text-slate-900">
+                      <input type="checkbox" className="h-5 w-5 accent-purple-700"
+                        checked={form.weekly_opening_hours !== null}
+                        onChange={event => setForm(previous => {
+                          if (!event.target.checked) return { ...previous, weekly_opening_hours: null };
+                          const hours: WeeklyOpeningHours = {};
+                          for (const weekday of previous.recurrence_weekdays) {
+                            hours[String(weekday) as keyof WeeklyOpeningHours] = {
+                              start: previous.start_time.slice(0, 5),
+                              end: previous.end_time.slice(0, 5),
+                            };
+                          }
+                          return { ...previous, weekly_opening_hours: hours };
+                        })}
+                      />
+                      各星期幾使用不同開放時間
+                    </label>
+                    <p className="mt-2 text-xs leading-5 text-slate-600">
+                      例如：平日 12:00–20:00；星期六日 11:00–20:00。
+                      系統會先帶入現有時間，請逐日核實。未勾選日子代表休息。
+                    </p>
+                    {form.weekly_opening_hours !== null && (
+                      <div className="mt-4 space-y-2">
+                        {WEEKDAY_OPTIONS.map(day => {
+                          const hours = form.weekly_opening_hours?.[String(day.value) as keyof WeeklyOpeningHours];
+                          return (
+                            <div key={day.value} className="grid grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 rounded-xl bg-purple-50 p-2 sm:grid-cols-[7rem_1fr_1fr]">
+                              <label className="flex min-w-0 items-center gap-1 text-xs font-black text-slate-800">
+                                <input type="checkbox" aria-label={`星期${day.label}開放`}
+                                  checked={Boolean(hours)} className="h-4 w-4 accent-purple-700"
+                                  onChange={e => setForm(previous => {
+                                    const next = updateWeekdayHours(previous.weekly_opening_hours || {}, day.value,
+                                      e.target.checked
+                                        ? { start: previous.start_time.slice(0,5), end: previous.end_time.slice(0,5) }
+                                        : null);
+                                    return { ...previous, weekly_opening_hours: next, recurrence_weekdays: activeWeekdays(next) };
+                                  })}
+                                />星期{day.label}
+                              </label>
+                              <input type="time" aria-label={`星期${day.label}開始時間`}
+                                disabled={!hours} value={hours?.start || ""}
+                                onChange={e => setForm(previous => ({
+                                  ...previous,
+                                  weekly_opening_hours: updateWeekdayHours(
+                                    previous.weekly_opening_hours || {}, day.value,
+                                    { start: e.target.value, end: previous.weekly_opening_hours?.[String(day.value) as keyof WeeklyOpeningHours]?.end || "" },
+                                  ),
+                                }))}
+                                className="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs disabled:opacity-40"
+                              />
+                              <input type="time" aria-label={`星期${day.label}結束時間`}
+                                disabled={!hours} value={hours?.end || ""}
+                                onChange={e => setForm(previous => ({
+                                  ...previous,
+                                  weekly_opening_hours: updateWeekdayHours(
+                                    previous.weekly_opening_hours || {}, day.value,
+                                    { start: previous.weekly_opening_hours?.[String(day.value) as keyof WeeklyOpeningHours]?.start || "", end: e.target.value },
+                                  ),
+                                }))}
+                                className="min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs disabled:opacity-40"
+                              />
+                            </div>
+                          );
+                        })}
+                        <p className="text-xs font-semibold text-amber-800">
+                          本版本不支援跨午夜時段；特別休息日可以使用「例外／暫停日期」。
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
