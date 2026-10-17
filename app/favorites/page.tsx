@@ -5,10 +5,10 @@ import { useEffect, useState } from "react";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import { getExtraPublicMessages } from "@/lib/i18n/public-extra-messages";
-import { supabase } from "@/lib/supabase/client";
 import PublicEventCard from "@/components/events/PublicEventCard";
 import type { Event } from "@/lib/types";
 import { formatEventAge } from "@/lib/events/age-display";
+import { addCalendarDays, eventOccursOn } from "@/lib/events/recurrence";
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
 
@@ -24,6 +24,10 @@ type FavoriteEvent = {
   merchant_name?: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  recurrence_type?: string | null;
+  recurrence_weekdays?: number[] | null;
+  recurrence_include_dates?: string[] | null;
+  recurrence_exclude_dates?: string[] | null;
   start_time?: string | null;
   end_time?: string | null;
   district?: string | null;
@@ -185,16 +189,34 @@ function hkToday() {
   }).format(new Date());
 }
 
+function nextOccurrence(event: FavoriteEvent, today: string) {
+  const start = (event.start_date || "").slice(0, 10);
+  const end = (event.end_date || event.start_date || "").slice(0, 10);
+  if (!start || !end || end < today) return null;
+  const from = start > today ? start : today;
+  if (event.recurrence_type !== "weekly") return from;
+  let date = from;
+  for (let step = 0; step < 370 && date <= end; step++) {
+    if (eventOccursOn({
+      startDate: start,
+      endDate: end,
+      recurrenceType: "weekly",
+      recurrenceWeekdays: event.recurrence_weekdays,
+      recurrenceIncludeDates: event.recurrence_include_dates,
+      recurrenceExcludeDates: event.recurrence_exclude_dates,
+    }, date)) return date;
+    date = addCalendarDays(date, 1);
+  }
+  return null;
+}
+
 function getEventStatus(event: FavoriteEvent, today: string) {
-  const finalDate = event.end_date || event.start_date;
-  if (!finalDate) return "unknown";
-  return finalDate.slice(0, 10) < today ? "expired" : "upcoming";
+  if (!event.start_date) return "unknown";
+  return nextOccurrence(event, today) ? "upcoming" : "expired";
 }
 
 function eventSortDate(event: FavoriteEvent, today: string) {
-  const start = (event.start_date || "").slice(0, 10);
-  if (!start) return "9999-12-31";
-  return start < today && (event.end_date || "") >= today ? today : start;
+  return nextOccurrence(event, today) || "9999-12-31";
 }
 
 function translate(locale: AppLocale, traditional: string, simplified: string, english: string) {
@@ -233,30 +255,28 @@ export default function FavoritesPage() {
         setLoading(false);
         return;
       }
-      if (!supabase) {
-        setErrorText(activeMessages.dbUnavailable);
-        setLoading(false);
-        return;
-      }
-      // Keep the existing public view and its row-level visibility restrictions.
-      const collected: FavoriteEvent[] = [];
-      for (let offset = 0; offset < ids.length; offset += 100) {
-        const { data, error } = await supabase
-          .from("public_events_i18n")
-          .select("id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,merchant_name,start_date,end_date,start_time,end_time,district,mtr_station,cover_image_url,price_type,price_display_mode,price_label,min_price,max_price,age_min,age_max,age_groups,tags,activity_category,category,is_free,is_sen_friendly,is_indoor,registration_url,booking_url,official_url,source_url")
-          .in("id", ids.slice(offset, offset + 100));
-        if (ignore) return;
-        if (error) {
-          setErrorText(error.message || activeMessages.loadFailed);
-          setLoading(false);
-          return;
+      try {
+        const collected: FavoriteEvent[] = [];
+        for (let offset = 0; offset < ids.length; offset += 100) {
+          const response = await fetch("/api/saved-events", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: ids.slice(offset, offset + 100) }),
+            cache: "no-store",
+          });
+          if (!response.ok) throw new Error(activeMessages.loadFailed);
+          const payload = (await response.json()) as { events?: FavoriteEvent[] };
+          if (ignore) return;
+          collected.push(...(payload.events || []));
         }
-        collected.push(...((data || []) as FavoriteEvent[]));
+        if (!ignore) {
+          setEvents(collected);
+          setErrorText("");
+        }
+      } catch {
+        if (!ignore) setErrorText(activeMessages.loadFailed);
       }
-      if (!ignore) {
-        setEvents(collected);
-        setLoading(false);
-      }
+      if (!ignore) setLoading(false);
     }
 
     void loadFavorites();
@@ -406,7 +426,7 @@ export default function FavoritesPage() {
                       </Link>
                       <div className="min-w-0 flex-1">
                         <Link href={"/events/" + event.id} className="line-clamp-2 text-sm font-black text-slate-900 hover:text-purple-700 sm:text-base">{publicEvent.title}</Link>
-                        <p className="mt-1 line-clamp-1 text-xs font-bold text-purple-700">{event.start_date || t("日期待定", "日期待定", "Date TBC")}{event.end_date && event.end_date !== event.start_date ? " – " + event.end_date : ""} · {timeText(event, locale)}</p>
+                        <p className="mt-1 line-clamp-1 text-xs font-bold text-purple-700">{tab === "upcoming" ? (nextOccurrence(event, today) || event.start_date || t("日期待定", "日期待定", "Date TBC")) : (event.end_date || event.start_date || t("日期待定", "日期待定", "Date TBC"))} · {timeText(event, locale)}</p>
                         <p className="mt-1 line-clamp-1 text-xs text-slate-500">{event.district || t("地區待定", "地区待定", "District TBC")} · {publicEvent.category} · {priceText(event, locale)}</p>
                         {tab === "expired" ? <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{t("已過期活動", "已过期活动", "Past event")}</span> : null}
                       </div>
