@@ -5,6 +5,7 @@ import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import PromotionSlot from "@/components/promotion-slot";
 import PublicEventCard from "@/components/events/PublicEventCard";
+import FeaturedEditorialCard from "@/components/events/FeaturedEditorialCard";
 import {
   getActivePromotionBanners,
   type PublicPromotionBanner,
@@ -192,12 +193,7 @@ export default async function HomePage() {
         {featuredEvents.length ? (
           <div className={featuredGridClass}>
             {featuredEvents.map((event) => (
-              <PublicEventCard
-                key={event.id}
-                event={event}
-                locale={locale}
-                featured
-              />
+              <FeaturedEditorialCard key={event.id} event={event} locale={locale} />
             ))}
           </div>
         ) : (
