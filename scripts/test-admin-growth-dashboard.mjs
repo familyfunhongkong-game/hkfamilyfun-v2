@@ -99,7 +99,7 @@ const dashboard = readFileSync("app/admin/dashboard/page.tsx","utf8");
 assert.match(dashboard,/\/api\/admin\/dashboard/);
 assert.match(dashboard,/Authorization: `Bearer \$\{token\}`/);
 assert.match(dashboard,/營運數據總覽/);
-assert.match(dashboard,/最近 30 日增長趨勢/);
+assert.match(dashboard,/增長趨勢/, "Growth trend panel must remain available for selectable date periods");
 assert.match(dashboard,/最新商戶名單/);
 assert.match(dashboard,/最新註冊帳戶/);
 assert.match(dashboard,/收藏/);
