@@ -35,7 +35,6 @@ export async function generateMetadata(): Promise<Metadata> {
       "親子工作坊",
       "HK Family Fun",
     ],
-    alternates: isCanonicalHost ? { canonical: "/" } : undefined,
     openGraph: {
       type: "website",
       locale: "zh_HK",
