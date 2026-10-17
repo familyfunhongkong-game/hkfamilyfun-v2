@@ -1459,7 +1459,11 @@ export default function MerchantEventEditPage() {
 
       recurrence_type: form.recurrence_type,
       recurrence_weekdays:
-        form.recurrence_type === "weekly" ? form.recurrence_weekdays : [],
+        form.recurrence_type === "weekly"
+          ? (form.weekly_opening_hours !== null
+              ? activeWeekdays(form.weekly_opening_hours)
+              : form.recurrence_weekdays)
+          : [],
       recurrence_include_dates:
         form.recurrence_type === "weekly" ? parseDateList(form.recurrence_include_dates) : [],
       recurrence_exclude_dates:
@@ -1470,7 +1474,6 @@ export default function MerchantEventEditPage() {
       ...(form.recurrence_type === "weekly" && form.weekly_opening_hours !== null
         ? {
             weekly_opening_hours: form.weekly_opening_hours,
-            recurrence_weekdays: activeWeekdays(form.weekly_opening_hours),
           }
         : eventRecord?.weekly_opening_hours != null
           ? { weekly_opening_hours: null }
