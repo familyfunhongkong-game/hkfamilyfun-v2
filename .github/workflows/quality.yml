@@ -95,6 +95,9 @@ jobs:
       - name: Event card completeness check
         run: npm run check:event-cards
 
+      - name: Today chronological timetable and mobile compact layout check
+        run: npm run check:today-timeline
+
       - name: Event detail UX check
         run: npm run check:event-detail
 

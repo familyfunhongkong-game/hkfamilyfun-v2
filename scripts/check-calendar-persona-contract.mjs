@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 const holidaySource = await readFile("lib/hk-public-holidays.ts", "utf8");
 const calendarSource = await readFile("app/calendar/page.tsx", "utf8");
 const todaySource = await readFile("app/today/page.tsx", "utf8");
+const todaySortSource = await readFile("lib/events/today-schedule.ts", "utf8");
 const searchSource = await readFile(
   "components/events/PublicEventsSearchClient.tsx",
   "utf8",
@@ -44,9 +45,16 @@ requireSignals("calendar red-day behavior", calendarSource, [
 ]);
 
 requireSignals("Today chronological order", todaySource, [
-  "eventTimeSortValue",
-  "Number.MAX_SAFE_INTEGER",
-  "timeDiff",
+  "groupTodaySchedule(todayEvents)",
+  "eventOccursOn(",
+  "timeZone: \"Asia/Hong_Kong\"",
+]);
+requireSignals("Today deterministic start-time sorting", todaySortSource, [
+  "startMinute(a) ?? Number.POSITIVE_INFINITY",
+  "startMinute(b) ?? Number.POSITIVE_INFINITY",
+  "minuteA - minuteB",
+  "todayPeriod(event)",
+  "unscheduled",
 ]);
 
 requireSignals("date-specific chronological order", searchSource, [

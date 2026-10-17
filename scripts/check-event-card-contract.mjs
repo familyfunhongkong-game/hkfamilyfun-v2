@@ -33,7 +33,6 @@ for (const signal of requiredSharedSignals) {
 
 const sharedRoutes = [
   "app/page.tsx",
-  "app/today/page.tsx",
   "app/calendar/page.tsx",
   "app/favorites/page.tsx",
 ];
@@ -44,6 +43,42 @@ for (const file of sharedRoutes) {
     console.error(`[event-card] ${file} no longer uses PublicEventCard`);
     failed = true;
   }
+}
+
+// /today is deliberately a separate compact time-ordered list, not a
+// stretched multi-column PublicEventCard. Keep shared cards on other routes.
+const today = await readFile("app/today/page.tsx", "utf8");
+const todayRow = await readFile("components/events/TodayScheduleRow.tsx", "utf8");
+for (const signal of [
+  "groupTodaySchedule(todayEvents)",
+  "eventOccursOn(",
+  "Asia/Hong_Kong",
+  "<TodayScheduleRow",
+  "schedule[period].map(",
+  'href="/calendar"',
+]) {
+  if (!today.includes(signal)) {
+    console.error(`[event-card] Today timetable missing ${signal}`);
+    failed = true;
+  }
+}
+for (const signal of [
+  "ResilientEventImage",
+  "object-contain",
+  "event.title",
+  "event.price",
+  "event.district",
+  "displayTodayTime(event)",
+  "href={`/events/${event.id}`}",
+]) {
+  if (!todayRow.includes(signal)) {
+    console.error(`[event-card] Today compact schedule row missing ${signal}`);
+    failed = true;
+  }
+}
+if (today.includes("<PublicEventCard")) {
+  console.error("[event-card] Today must not use oversized details cards.");
+  failed = true;
 }
 
 const eventSearch = await readFile("components/events/PublicEventsSearchClient.tsx", "utf8");
