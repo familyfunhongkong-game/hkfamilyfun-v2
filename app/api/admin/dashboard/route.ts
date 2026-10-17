@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     const allowed = ['7','30','90','365','custom'];
     if (!allowed.includes(preset)) return NextResponse.json({error:'Invalid range'}, {status:400});
     const todayUTC = Date.parse(`${currentDay}T00:00:00Z`);
-    const presetStart = new Date(todayUTC-(Number(preset || 30)-1)*86400000).toISOString().slice(0,10);
+    const presetStart = new Date(todayUTC-((preset==='custom' ? 30 : Number(preset))-1)*86400000).toISOString().slice(0,10);
     const from = preset==='custom' ? request.nextUrl.searchParams.get('from') || '' : presetStart;
     const to = preset==='custom' ? request.nextUrl.searchParams.get('to') || '' : currentDay;
     if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(from) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(to) || to > currentDay) return NextResponse.json({error:'Invalid date range'}, {status:400});
