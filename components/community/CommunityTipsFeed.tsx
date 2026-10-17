@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import CommunityReplies from "@/components/community/CommunityReplies";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
 
 const districts = [
@@ -168,6 +169,7 @@ export default function CommunityTipsFeed() {
               <button type="button" className="text-slate-600 underline underline-offset-2" onClick={()=>navigator.clipboard?.writeText(baseUrl+"/tips")}>分享交流區</button>
               <a className="text-slate-600 underline underline-offset-2" href={`mailto:info@hkfamilyfun.com?subject=${encodeURIComponent("舉報社區帖文 "+post.id)}`}>舉報</a>
             </div>
+            <CommunityReplies postId={post.id}/>
           </article>)}
         </div>
         <div className="mt-5 flex items-center justify-between gap-3"><button type="button" disabled={page===0||loading} onClick={()=>setPage(v=>Math.max(0,v-1))} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold disabled:opacity-40">上一頁</button><span className="text-xs text-slate-500">第 {page+1} 頁</span><button type="button" disabled={!hasMore||loading} onClick={()=>setPage(v=>v+1)} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold disabled:opacity-40">下一頁</button></div>
