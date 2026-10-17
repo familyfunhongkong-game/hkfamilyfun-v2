@@ -22,8 +22,11 @@ export default function ResilientEventImage({
 }) {
   const normalizedSrc = String(src || "").trim();
   const [failedSrc, setFailedSrc] = useState("");
+  const [loadedSrc, setLoadedSrc] = useState("");
+  const imageFailed = !normalizedSrc || failedSrc === normalizedSrc;
+  const imageLoaded = !imageFailed && loadedSrc === normalizedSrc;
 
-  if (!normalizedSrc || failedSrc === normalizedSrc) {
+  if (imageFailed) {
     return <EventImageFallback compact={compactFallback} />;
   }
 
@@ -33,13 +36,20 @@ export default function ResilientEventImage({
         <EventImageFallback compact={compactFallback} />
       </div>
       <img
+        key={normalizedSrc}
         src={normalizedSrc}
-        alt={alt}
+        alt={imageLoaded ? alt : ""}
+        aria-hidden={!imageLoaded}
         loading={loading}
         fetchPriority={fetchPriority}
         decoding="async"
-        className={["relative z-10", className || ""].join(" ")}
+        className={[
+          "relative z-10 transition-opacity duration-150",
+          imageLoaded ? "opacity-100" : "opacity-0",
+          className || "",
+        ].join(" ")}
         style={style}
+        onLoad={() => setLoadedSrc(normalizedSrc)}
         onError={() => setFailedSrc(normalizedSrc)}
       />
     </div>
