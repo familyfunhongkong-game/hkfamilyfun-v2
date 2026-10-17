@@ -15,6 +15,7 @@ const groups = [
       { href: "/admin/reports", title: "Reports / QA", description: "集中睇活動資料缺漏、過期公開、同步錯誤、Intake backlog 同內容營運狀態。", tone: "rose" },
       { href: "/admin/notifications", title: "通知中心", description: "查看新商戶、活動建立、修改及待審通知。", tone: "amber" },
       { href: "/admin/change-history", title: "商戶及活動變更歷史", description: "按日期及活動查看建立、修改、提交、狀態改動及刪除紀錄。", tone: "sky" },
+      { href: "/admin/event-claim-images", title: "主辦單位補圖審批", description: "預覽及核對已認領活動海報，批准後才替換活動封面。", tone: "emerald" },
       { href: "/admin/event-claims", title: "活動認領審批", description: "核實主辦單位認領及補圖申請；批准後不會自動轉移編輯權限。", tone: "amber" },
       { href: "/admin/events", title: "活動審批", description: "草稿、待審、已批准、已發布、拒絕及封存活動。", tone: "emerald" },
       { href: "/admin/analytics", title: "Analytics / 流量分析", description: "Visitors、Page Views、熱門活動、類別、地區、流量來源、裝置及 CTA 轉換。", tone: "violet" },
