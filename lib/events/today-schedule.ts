@@ -40,6 +40,11 @@ export function groupTodaySchedule<T extends Event>(events: T[]): Record<TodayPe
     const minuteA = startMinute(a) ?? Number.POSITIVE_INFINITY;
     const minuteB = startMinute(b) ?? Number.POSITIVE_INFINITY;
     if (minuteA !== minuteB) return minuteA - minuteB;
+    // At the same start time, show newly published listings first. Published
+    // date is authoritative; updatedAt is only a fallback for legacy records.
+    const publishedA = Date.parse(a.publishedAt || a.updatedAt || "") || 0;
+    const publishedB = Date.parse(b.publishedAt || b.updatedAt || "") || 0;
+    if (publishedA !== publishedB) return publishedB - publishedA;
     return a.title.localeCompare(b.title, "zh-HK");
   });
   const groups: Record<TodayPeriod, T[]> = { morning: [], afternoon: [], evening: [], unscheduled: [] };
