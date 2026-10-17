@@ -49,7 +49,7 @@ export default async function HomePage() {
   const featuredIds = new Set(featuredEvents.map((event) => event.id));
   const latestUpdated = latestSorted
     .filter((event) => !featuredIds.has(event.id))
-    .slice(0, 16);
+    .slice(0, 12);
 
   const quickActions = [
     {
@@ -227,7 +227,7 @@ export default async function HomePage() {
           </div>
 
           {latestUpdated.length ? (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {latestUpdated.map((event) => (
                 <PublicEventCard key={event.id} event={event} locale={locale} />
               ))}
