@@ -37,6 +37,20 @@ assert.deepEqual([...ids(grouped.unscheduled)], ["unknown", "unreliable", "bad"]
   return titles[a].localeCompare(titles[b], "zh-HK");
 }));
 assert.equal(JSON.stringify(fixture), snapshot, "Sorting must not mutate original published events");
+const equalStart = [
+  {id:"old",title:"甲",time:"10:00",publishedAt:"2026-09-01T08:00:00Z"},
+  {id:"new",title:"乙",time:"10:00",publishedAt:"2026-10-16T08:00:00Z"},
+  {id:"earlier",title:"丙",time:"09:00",publishedAt:"2026-10-17T08:00:00Z"},
+];
+assert.deepEqual([...ids(groupTodaySchedule(equalStart).morning)], ["earlier", "new", "old"],
+  "Chronological start time wins; newly published listings first for equal start time");
+const unchanged = groupTodaySchedule([
+  {id:"same",title:"甲",time:"10:00",publishedAt:"2026-10-10T00:00:00Z",updatedAt:"2026-10-17T00:00:00Z"},
+  {id:"newest",title:"乙",time:"10:00",publishedAt:"2026-10-16T00:00:00Z"},
+]);
+assert.deepEqual([...ids(unchanged.morning)], ["newest","same"],
+  "Old listing updates must not dominate newly published events");
+
 assert.equal(startMinute({time:"09:00 - 12:00"}), 540);
 assert.equal(startMinute({time:"00:00"}), 0);
 assert.equal(startMinute({time:"23:59"}), 1439);
