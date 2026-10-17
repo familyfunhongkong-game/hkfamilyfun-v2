@@ -7,7 +7,8 @@ const base = process.env.SUPABASE_URL.replace(/\/$/, "");
 const headers = { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   Authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY };
 const escapeHtml = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const today = new Intl.DateTimeFormat("en-CA", { timeZone:"Asia/Hong_Kong", year:"numeric",month:"2-digit",day:"2-digit" }).format(new Date());
+const dateParts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone:"Asia/Hong_Kong", year:"numeric",month:"2-digit",day:"2-digit" }).formatToParts(new Date()).filter(p => p.type !== "literal").map(p => [p.type, p.value]));
+const today = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
 const todayStart = Date.parse(today + "T00:00:00+08:00");
 const day = 86400000;
 const get = async (table, query) => {
@@ -44,7 +45,7 @@ const html='<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto
 '<p><a href="https://www.hkfamilyfun.com/admin/notifications">通知中心</a>｜<a href="https://www.hkfamilyfun.com/admin/merchants">商戶審批</a>｜<a href="https://www.hkfamilyfun.com/admin/events">活動管理</a></p>'+
 '<hr/><small>此郵件不包含商戶私人聯絡資料；請登入管理後台查看詳情。</small></div>';
 if(process.env.DIGEST_DRY_RUN==="1"){ console.log(JSON.stringify({date:today,merchants:merchants.length,events:events.length,unread:unread.length,previewSubject:subject}));process.exit(0);}
-const result=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:"Bearer "+process.env.RESEND_API_KEY,"Content-Type":"application/json"},body:JSON.stringify({from:process.env.DIGEST_FROM_EMAIL,to:[recipient],subject,html})});
+const result=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:"Bearer "+process.env.RESEND_API_KEY,"Content-Type":"application/json","Idempotency-Key":"hkfamilyfun-pending-digest-"+today},body:JSON.stringify({from:process.env.DIGEST_FROM_EMAIL,to:[recipient],subject,html})});
 if(!result.ok)throw Error("Resend rejected email: "+result.status+" "+(await result.text()).slice(0,350));
 const payload=await result.json();
 if(!payload.id)throw Error("Resend gave no email ID.");
