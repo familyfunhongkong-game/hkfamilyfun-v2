@@ -52,7 +52,7 @@ export default function FeaturedEditorialCard({ event, locale }: { event: Event;
         {event.shortDescription && <p className="line-clamp-2 text-sm leading-6 text-slate-600">{event.shortDescription}</p>}
         <div className="flex flex-wrap gap-2 text-xs font-semibold">
           <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">{eventDateLabel(event, locale)}</span>
-          <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-800">{eventPriceLabel(event, locale)}</span>
+          <span className={`rounded-full px-3 py-1.5 ${event.priceType === "free" ? "bg-emerald-50 text-emerald-800" : event.priceType === "mixed" ? "bg-sky-50 text-sky-800" : "bg-amber-50 text-amber-900"}`}>{eventPriceLabel(event, locale)}</span>
         </div>
         <div className="mt-auto flex items-center justify-between gap-3 pt-2">
           <span className="truncate text-xs text-slate-500">{event.district}</span>
