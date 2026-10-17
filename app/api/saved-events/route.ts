@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
   // unpublished, pending-confirmation or merchant-private fields.
   const { data, error } = await admin.from("events").select(fields)
     .in("id", Array.from(new Set(ids)))
-    .eq("status", "published")
-    .eq("hidden_pending_confirmation", false);
+    .or("status.eq.published,and(status.eq.archived,published_at.not.is.null)")
+    .or("hidden_pending_confirmation.is.null,hidden_pending_confirmation.eq.false");
   if (error) {
     console.error("Saved events lookup failed", error.code);
     return NextResponse.json({ error: "Unable to load saved events" }, { status: 500 });
