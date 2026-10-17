@@ -27,6 +27,7 @@ type Dashboard = {
   checkedAt: string;
   period: string;
   reportRange?: {from:string;to:string;days:number};
+  comparison?: {previousPeriod:string;current:Record<string,number|null>;previous:Record<string,number|null>;previousAnalyticsError?:string|null};
   totals: {
     accounts: number; audienceAccounts: number; adminAccounts: number;
     merchantAccounts: number; merchants: number; pendingMerchants: number;
@@ -112,6 +113,24 @@ function GroupBars({ rows, tone = "purple" }: {
         style={{ width: `${x.count === 0 ? 0 : Math.max(2, x.count / max * 100)}%` }} />
     </div>
   </div>)}</div>;
+}
+function ComparisonCard({ label, current, previous }: {label:string;current:number|null|undefined;previous:number|null|undefined}) {
+  const value = typeof current==="number" ? current : null;
+  const prior = typeof previous==="number" ? previous : null;
+  const delta = value !== null && prior !== null ? value - prior : null;
+  const percent = delta !== null && prior !== null && prior !== 0 ? (delta/prior)*100 : null;
+  return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <p className="text-xs font-semibold text-slate-600">{label}</p>
+    <p className="mt-2 text-2xl font-black tabular-nums text-slate-950">{value===null?"—":value.toLocaleString("zh-HK")}</p>
+    <p className="mt-2 text-xs font-bold">
+      {delta===null ? <span className="text-slate-500">歷史資料未能取得</span>
+       : prior===0 ? <span className="text-slate-500">上期為 0，百分比不適用（變化 {delta>=0?"+":""}{delta}）</span>
+       : <span className={delta>0?"text-emerald-700":delta<0?"text-rose-700":"text-slate-600"}>
+          {delta>0?"+":""}{delta.toLocaleString("zh-HK")}（{percent!==null&&percent>0?"+":""}{percent?.toFixed(1)}%）
+         </span>}
+    </p>
+    <p className="mt-1 text-[11px] text-slate-500">上期：{prior===null?"—":prior.toLocaleString("zh-HK")}</p>
+  </div>;
 }
 const trendModes = [
   { key: "pageViews", label: "已同意 Page Views", color: "bg-purple-600" },
@@ -252,6 +271,18 @@ export default function GrowthDashboardPage() {
       {error && <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm font-semibold text-rose-800">{error}</div>}
       {busy && <div role="status" className="rounded-2xl border border-slate-200 bg-white p-6 text-sm font-semibold text-slate-600">正在讀取真實統計資料…</div>}
       {data && <>
+        {data.comparison && <section aria-label="與上一期間比較" className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <h2 className="text-lg font-black text-slate-950">與上一期間比較</h2>
+          <p className="mt-1 text-xs text-slate-600">本期：{data.period} ｜ 上期：{data.comparison.previousPeriod}（同長度、不重疊香港日曆日）</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <ComparisonCard label="Page Views（已同意追蹤）" current={data.comparison.current.pageViews} previous={data.comparison.previous.pageViews}/>
+            <ComparisonCard label="不重複訪客（已同意追蹤）" current={data.comparison.current.visitors} previous={data.comparison.previous.visitors}/>
+            <ComparisonCard label="新增帳戶" current={data.comparison.current.accounts} previous={data.comparison.previous.accounts}/>
+            <ComparisonCard label="新商戶" current={data.comparison.current.merchants} previous={data.comparison.previous.merchants}/>
+            <ComparisonCard label="新建立活動" current={data.comparison.current.events} previous={data.comparison.previous.events}/>
+          </div>
+          <p className="mt-3 text-xs text-slate-500">增長百分比 =（本期 − 上期）÷ 上期 × 100%；上期為零時不顯示百分比。帳戶／商戶／活動均按建立時間統計，不代表已批准或已公開。</p>
+        </section>}
         <section aria-label="重要營運指標">
           <div className="mb-3 flex items-center gap-2"><Activity className="h-5 w-5 text-purple-700"/><h2 className="text-lg font-black">核心 KPI</h2></div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
