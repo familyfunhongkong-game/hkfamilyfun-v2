@@ -70,3 +70,19 @@ for each row execute function public.limit_community_tip_submissions();
 
 comment on table public.community_tips is
   'Community-submitted activities. Only approved posts are publicly searchable; never auto-publish to canonical events.';
+
+-- Admin permissions are enforced in PostgreSQL, not only by the React admin layout.
+grant update on public.community_tips to authenticated;
+drop policy if exists "Platform admins read all community tips" on public.community_tips;
+create policy "Platform admins read all community tips"
+on public.community_tips for select to authenticated
+using ((select public.is_platform_admin()));
+
+drop policy if exists "Platform admins review community tips" on public.community_tips;
+create policy "Platform admins review community tips"
+on public.community_tips for update to authenticated
+using ((select public.is_platform_admin()))
+with check ((select public.is_platform_admin()));
+
+-- Restrict ordinary browser updates to moderation fields, not arbitrary content.
+-- The policy above is gated by is_platform_admin(); members have no update policy.
