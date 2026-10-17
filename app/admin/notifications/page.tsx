@@ -51,6 +51,25 @@ export default function AdminNotificationsPage() {
   const [rows, setRows] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [query, setQuery] = useState("");
+  const [kindFilter, setKindFilter] = useState("all");
+  const [readFilter, setReadFilter] = useState("unread");
+  const [dateOrder, setDateOrder] = useState("newest");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const displayedRows = useMemo(() => rows
+    .filter(row => {
+      const kindMatches = kindFilter === "all" || (kindFilter === "merchant"
+        ? row.kind.startsWith("merchant_")
+        : kindFilter === "event" ? row.kind.startsWith("event_")
+        : !row.kind.startsWith("merchant_") && !row.kind.startsWith("event_"));
+      const readMatches = readFilter === "all" || (readFilter === "unread" ? !row.read_at : !!row.read_at);
+      const haystack = [row.title, row.message, row.email_to, row.id, row.status_snapshot, row.email_error].join(" ").toLowerCase();
+      return kindMatches && readMatches && haystack.includes(query.trim().toLowerCase());
+    })
+    .sort((a, b) => dateOrder === "newest"
+      ? Date.parse(b.created_at) - Date.parse(a.created_at)
+      : Date.parse(a.created_at) - Date.parse(b.created_at)), [rows, query, kindFilter, readFilter, dateOrder]);
 
   const unreadCount = useMemo(
     () => rows.filter((row) => !row.read_at).length,
@@ -188,6 +207,27 @@ export default function AdminNotificationsPage() {
           </div>
         ) : null}
 
+        <div className="mb-5 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="text-xs font-bold text-slate-700">搜尋通知
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="標題、內容、Email、編號…" className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-sm" />
+          </label>
+          <label className="text-xs font-bold text-slate-700">類別
+            <select value={kindFilter} onChange={e => setKindFilter(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm">
+              <option value="all">全部</option><option value="merchant">商戶</option><option value="event">活動</option><option value="other">其他</option>
+            </select>
+          </label>
+          <label className="text-xs font-bold text-slate-700">狀態
+            <select value={readFilter} onChange={e => setReadFilter(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm">
+              <option value="unread">未讀</option><option value="all">全部</option><option value="read">已讀</option>
+            </select>
+          </label>
+          <label className="text-xs font-bold text-slate-700">日期排序
+            <select value={dateOrder} onChange={e => setDateOrder(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm">
+              <option value="newest">最近 → 最遠</option><option value="oldest">最遠 → 最近</option>
+            </select>
+          </label>
+        </div>
+        <p className="mb-4 text-xs text-slate-500">顯示 {displayedRows.length} 項。按通知建立日期排序（非活動或審批截止日期）；每次最多讀取最近 100 項。</p>
         {loading ? (
           <div className="rounded-3xl border border-slate-200 bg-white p-8 text-sm font-bold text-slate-500 shadow-sm">
             正在讀取通知…
@@ -199,13 +239,15 @@ export default function AdminNotificationsPage() {
               新商戶或新活動提交後會顯示在這裡。
             </p>
           </div>
+        ) : displayedRows.length === 0 ? (
+          <div className="rounded-xl border bg-white p-8 text-center text-slate-600">沒有符合搜尋條件的通知</div>
         ) : (
-          <div className="space-y-3">
-            {rows.map((row) => (
+          <div className="space-y-2">
+            {displayedRows.map((row) => (
               <article
                 key={row.id}
                 className={[
-                  "rounded-3xl border bg-white p-5 shadow-sm",
+                  "rounded-xl border bg-white p-3 shadow-sm",
                   row.read_at
                     ? "border-slate-200"
                     : "border-purple-200 ring-2 ring-purple-100",
@@ -214,7 +256,7 @@ export default function AdminNotificationsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-purple-100 px-2.5 py-1 text-[11px] font-black text-purple-800">
+                      <span className={["rounded-full px-2.5 py-1 text-[11px] font-black",row.kind.startsWith("merchant_") ? "bg-violet-100 text-violet-800" : row.kind.startsWith("event_") ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-800"].join(" ")}>
                         {kindLabel(row.kind)}
                       </span>
                       {!row.read_at ? (
@@ -234,16 +276,16 @@ export default function AdminNotificationsPage() {
                       </span>
                     </div>
 
-                    <h2 className="mt-3 text-lg font-black text-slate-950">
-                      {row.title}
-                    </h2>
-                    {row.message ? (
+                    <button type="button" onClick={() => setExpandedId(expandedId === row.id ? null : row.id)} aria-expanded={expandedId === row.id} className="mt-2 text-left text-sm font-black text-slate-950 hover:text-purple-700">
+                      {row.title} <span className="text-xs font-normal text-slate-500">{expandedId === row.id ? "▲ 收起" : "▼ 詳情"}</span>
+                    </button>
+                    {expandedId === row.id && row.message ? (
                       <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">
                         {row.message}
                       </p>
                     ) : null}
 
-                    <div className="mt-4 flex flex-wrap gap-3 text-xs font-bold text-slate-400">
+                    <div className="mt-2 flex flex-wrap gap-3 text-xs font-bold text-slate-500">
                       <span>{formatTime(row.created_at)}</span>
                       {row.status_snapshot ? (
                         <span>狀態：{row.status_snapshot}</span>
