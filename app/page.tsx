@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import type { Event } from "@/lib/types";
 import { getPublishedEvents } from "@/lib/supabase/events";
@@ -9,6 +10,12 @@ import {
   getActivePromotionBanners,
   type PublicPromotionBanner,
 } from "@/lib/content/public";
+
+export const metadata: Metadata = {
+  title: "香港親子活動、週末好去處及免費活動",
+  description: "香港親子活動一站搜尋：今日活動、週末好去處、免費兒童工作坊、SEN 友善活動，按日期、地區、年齡及收費搵活動。",
+  alternates: { canonical: "/" },
+};
 
 export const dynamic = "force-dynamic";
 
