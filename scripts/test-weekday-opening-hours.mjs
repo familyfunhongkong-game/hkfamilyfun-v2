@@ -78,12 +78,18 @@ for (const needle of [
   "各星期幾使用不同開放時間",
   "parseWeeklyOpeningHours(form.weekly_opening_hours)",
 ]) assert.ok(edit.includes(needle),"Missing editor safeguard: "+needle);
-assert.match(today,/getPublishedWeeklyOpeningHours\(/);
+assert.match(data,/getPublishedWeeklyOpeningHours\\(recurringIds\\)/);
+assert.match(today,/event.weeklyOpeningHours/);
+assert.match(today,/event.defaultTime \\|\\| event.time/);
 assert.match(today,/resolveTimeForDate\(/);
 assert.match(today,/if \(resolved === null\) return \[\]/);
 assert.match(detail,/weekly_opening_hours/);
 assert.match(detail,/HK_WEEKDAYS\.map\(/);
 assert.match(data,/\.eq\("status", "published"\)/);
+assert.match(data,/Varies by weekday/, "General event search must not present a false common time");
+assert.match(data,/time: label/);
+assert.match(today,/if \\(resolved === null\\) return \\[\\]/);
+
 assert.match(sql,/add column if not exists weekly_opening_hours jsonb/);
 assert.match(sql,/hkff_valid_weekly_opening_hours/);
 assert.match(sql,/issue #52/);
