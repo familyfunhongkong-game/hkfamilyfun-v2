@@ -1664,6 +1664,7 @@ export default function PublicEventDetailPage() {
             </div>
           </div>
 
+          <Link href={`/merchant/claim-event/${encodeURIComponent(eventId)}`} className="mb-3 inline-flex w-full items-center justify-center rounded-2xl border border-purple-200 bg-purple-50 px-5 py-3 text-sm font-bold text-purple-800 hover:bg-purple-100">{uiText(locale, "主辦單位認領此活動／補充圖片", "主办单位认领此活动／补充图片", "Organizer: claim event or add images")}</Link>
           <Link
             href="/events"
             className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-slate-700 transition hover:border-purple-300 hover:text-purple-700"
