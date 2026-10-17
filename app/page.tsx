@@ -39,12 +39,12 @@ export default async function HomePage() {
 
   const featuredGridClass =
     featuredEvents.length <= 1
-      ? "grid gap-5 md:max-w-3xl"
+      ? "grid max-w-[540px] gap-5"
       : featuredEvents.length === 2
         ? "grid gap-5 md:grid-cols-2"
         : featuredEvents.length === 3
           ? "grid gap-5 md:grid-cols-2 xl:grid-cols-3"
-          : "grid gap-5 md:grid-cols-2 xl:grid-cols-4";
+          : "grid gap-5 md:grid-cols-2 xl:grid-cols-3";
 
   const featuredIds = new Set(featuredEvents.map((event) => event.id));
   const latestUpdated = latestSorted
