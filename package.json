@@ -19,6 +19,7 @@
     "check:commerce-copy": "node scripts/check-commerce-copy.mjs",
     "check:event-cards": "node scripts/check-event-card-contract.mjs",
     "check:today-timeline": "node scripts/test-today-timeline.mjs",
+    "check:weekday-hours": "node scripts/test-weekday-opening-hours.mjs",
     "check:event-detail": "node scripts/check-event-detail-contract.mjs",
     "check:event-seo": "node scripts/check-event-seo-contract.mjs",
     "check:event-data": "node scripts/check-event-data-completeness.mjs",
