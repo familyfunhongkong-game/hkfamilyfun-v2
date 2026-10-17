@@ -243,11 +243,11 @@ function InfoLine({
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+        <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-400">
           {label}
         </p>
         <p
-          className={`mt-0.5 line-clamp-1 text-xs font-extrabold ${
+          className={`mt-0.5 line-clamp-2 break-words text-[13px] font-bold leading-5 ${
             muted ? "text-slate-400" : "text-slate-700"
           }`}
         >
@@ -412,7 +412,7 @@ export default function PublicEventCard({
       <Link
         href={`/events/${event.id}`}
         className={`relative block overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50 ${
-          featured ? "aspect-[16/10]" : "aspect-[4/3]"
+          featured ? "aspect-[16/10]" : "aspect-[5/4]"
         }`}
       >
         <ResilientEventImage
@@ -420,7 +420,7 @@ export default function PublicEventCard({
           alt={event.title}
           loading="lazy"
           compactFallback
-          className="h-full w-full object-cover transition-transform duration-500"
+          className="h-full w-full object-contain transition-transform duration-500"
           style={coverCropStyle(event)}
         />
 
@@ -459,7 +459,7 @@ export default function PublicEventCard({
       <div className={`flex flex-1 flex-col ${featured ? "p-5 sm:p-6" : "p-5"}`}>
         <Link href={`/events/${event.id}`}>
           <h3
-            className={`line-clamp-2 min-h-[3.25rem] font-black leading-snug text-slate-950 transition group-hover:text-purple-800 ${
+            className={`line-clamp-3 min-h-[3.25rem] font-black leading-snug text-slate-950 transition group-hover:text-purple-800 ${
               featured ? "text-xl sm:text-2xl" : "text-lg"
             }`}
           >
@@ -468,12 +468,12 @@ export default function PublicEventCard({
         </Link>
 
         {event.shortDescription ? (
-          <p className="mt-2 line-clamp-2 min-h-[2.75rem] text-sm font-medium leading-6 text-slate-600">
+          <p className="mt-2 line-clamp-3 min-h-[2.75rem] text-sm font-medium leading-6 text-slate-600">
             {event.shortDescription}
           </p>
         ) : null}
 
-        <div className="mt-4 grid gap-x-4 gap-y-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100 sm:grid-cols-2">
+        <div className="mt-4 grid gap-x-5 gap-y-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100 sm:grid-cols-2">
           <InfoLine
             icon={<CalendarDays size={15} />}
             label={text(locale, "日期", "日期", "Date")}
