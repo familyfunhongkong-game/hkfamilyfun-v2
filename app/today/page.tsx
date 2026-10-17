@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { CalendarDays, Clock3, Moon, Sun, Sunset } from "lucide-react";
-import { getPublishedEvents } from "@/lib/supabase/events";
+import { getPublishedEvents, getPublishedWeeklyOpeningHours } from "@/lib/supabase/events";
+import { resolveTimeForDate } from "@/lib/events/weekly-opening-hours";
+import type { Event } from "@/lib/types";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import { eventOccursOn } from "@/lib/events/recurrence";
@@ -52,7 +54,7 @@ export default async function TodayPage() {
   const events = await getPublishedEvents(locale);
   // Recurrences must be evaluated against Hong Kong's calendar day, not
   // the visitor's timezone. Never include activities from another day.
-  const todayEvents = events.filter((event) =>
+  const matchingToday = events.filter((event) =>
     eventOccursOn(
       {
         startDate: event.date,
@@ -65,6 +67,23 @@ export default async function TodayPage() {
       today,
     ),
   );
+  const weekdayHours = await getPublishedWeeklyOpeningHours(
+    matchingToday.filter(e => e.recurrenceType === "weekly").map(e => e.id),
+  );
+  const todayEvents = matchingToday.flatMap((event): Event[] => {
+    if (event.recurrenceType !== "weekly") return [event];
+    if (!weekdayHours.available) {
+      // Never claim an unverified opening time when the timetable read failed.
+      return [{ ...event, time: "時間待定" }];
+    }
+    const configured = weekdayHours.hoursById[event.id] ?? null;
+    const resolved = resolveTimeForDate(
+      today, configured, event.time,
+      Boolean(event.recurrenceIncludeDates?.includes(today)),
+    );
+    if (resolved === null) return []; // Explicitly closed for this weekday.
+    return [{ ...event, time: resolved }];
+  });
   const schedule = groupTodaySchedule(todayEvents);
   const activePeriods = TODAY_PERIODS.filter(period => schedule[period].length > 0);
 
