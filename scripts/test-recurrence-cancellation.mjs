@@ -37,4 +37,14 @@ assert.equal(eventOccursInRange(multiDay, "2026-10-17", "2026-10-18"), false, "C
 assert.equal(eventOccursInRange(multiDay, "2026-10-17", "2026-10-19"), true, "Remaining open day visible in calendar");
 const entirelyClosed = { ...multiDay, recurrenceExcludeDates: ["2026-10-17", "2026-10-18", "2026-10-19"] };
 assert.equal(eventOccursInRange(entirelyClosed, "2026-10-17", "2026-10-19"), false, "Fully closed multi-day event absent");
+const editor = readFileSync("app/merchant/events/[id]/edit/page.tsx", "utf8");
+assert.ok(
+  editor.includes('recurrence_exclude_dates: parseDateList(form.recurrence_exclude_dates),'),
+  "Editor must persist excluded dates for ordinary multi-day events",
+);
+assert.ok(
+  editor.includes('連續日期活動：休館／取消日期（如適用）') &&
+  editor.includes('label="休館／取消日期（可選）"'),
+  "Admin and Merchant must be able to set closures in non-weekly mode",
+);
 console.log("[recurrence-cancellation] PASS: closed days beat inclusions; weekend and special dates are accurate");

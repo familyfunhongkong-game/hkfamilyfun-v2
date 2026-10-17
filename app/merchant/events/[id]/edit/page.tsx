@@ -1457,8 +1457,8 @@ export default function MerchantEventEditPage() {
         form.recurrence_type === "weekly" ? form.recurrence_weekdays : [],
       recurrence_include_dates:
         form.recurrence_type === "weekly" ? parseDateList(form.recurrence_include_dates) : [],
-      recurrence_exclude_dates:
-        form.recurrence_type === "weekly" ? parseDateList(form.recurrence_exclude_dates) : [],
+      // Closure dates apply to weekly AND consecutive-day events.
+      recurrence_exclude_dates: parseDateList(form.recurrence_exclude_dates),
       recurrence_note:
         form.recurrence_type === "weekly" ? form.recurrence_note.trim() || null : null,
 
@@ -2064,7 +2064,22 @@ export default function MerchantEventEditPage() {
                     />
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="md:col-span-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-bold text-amber-950">
+                    連續日期活動：休館／取消日期（如適用）
+                  </p>
+                  <p className="mt-1 mb-3 text-xs leading-5 text-amber-900">
+                    如果活動期間有個別日期不開放，請填入 YYYY-MM-DD，以逗號分隔。這些日期不會出現在「今日活動」及日曆。
+                  </p>
+                  <Input
+                    label="休館／取消日期（可選）"
+                    value={form.recurrence_exclude_dates}
+                    onChange={(value) => updateField("recurrence_exclude_dates", value)}
+                    placeholder="2026-10-19, 2026-10-20"
+                  />
+                </div>
+              )}
               <Input
                 label="開始時間"
                 type="time"
