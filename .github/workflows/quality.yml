@@ -101,6 +101,9 @@ jobs:
       - name: Saved Events search, filters and archive regression check
         run: node scripts/check-saved-events.mjs
 
+      - name: Different weekday opening hours and closure regression check
+        run: node scripts/test-weekly-opening-hours-core.mjs
+
       - name: Today chronological timetable and mobile compact layout check
         run: npm run check:today-timeline
 
