@@ -27,7 +27,9 @@ const fixture = [
 const snapshot = JSON.stringify(fixture);
 const grouped = groupTodaySchedule(fixture);
 const ids = (items) => items.map(x => x.id);
-assert.deepEqual([...ids(grouped.morning)], ["midnight", "morning", "one", "two"]);
+const sameTimeMorning = fixture.filter(x => ["morning","one","two"].includes(x.id))
+  .sort((a,b) => a.title.localeCompare(b.title, "zh-HK")).map(x => x.id);
+assert.deepEqual([...ids(grouped.morning)], ["midnight", ...sameTimeMorning]);
 assert.deepEqual([...ids(grouped.afternoon)], ["afternoon"]);
 assert.deepEqual([...ids(grouped.evening)], ["late", "edge"]);
 assert.deepEqual([...ids(grouped.unscheduled)], ["unknown", "unreliable", "bad"].sort((a,b) => {
