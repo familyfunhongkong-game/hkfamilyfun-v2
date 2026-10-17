@@ -26,6 +26,7 @@ function validExternalUrl(value: string) {
 
 export default function CommunityTipsFeed() {
   const [posts,setPosts] = useState<CommunityPost[]>([]);
+  const [mine,setMine]=useState<Array<{id:string;title:string;status:string;created_at:string}>>([]);
   const [district,setDistrict] = useState("");
   const [category,setCategory] = useState("");
   const [keyword,setKeyword] = useState("");
@@ -75,6 +76,15 @@ export default function CommunityTipsFeed() {
   },[district,category,keyword,page]);
 
   const shown = useMemo(() => posts,[posts]);
+
+  useEffect(()=>{
+    if(!supabase||!authorId){setMine([]);return;}
+    let active=true;
+    void supabase.from("community_tips").select("id,title,status,created_at")
+      .eq("author_id",authorId).order("created_at",{ascending:false}).limit(10)
+      .then(({data})=>{if(active)setMine(data??[]);});
+    return()=>{active=false;};
+  },[authorId,notice]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -133,6 +143,10 @@ export default function CommunityTipsFeed() {
             <button disabled={saving} className="w-fit rounded-full bg-purple-700 px-6 py-3 text-sm font-black text-white disabled:opacity-50">{saving?"提交中...":"提交審核"}</button>
           </form>
         )}
+        {authorId&&mine.length>0&&<div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <h3 className="text-sm font-black">我嘅投稿進度</h3>
+          <div className="mt-3 grid gap-2">{mine.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-2 text-sm"><span className="max-w-xl truncate">{item.title}</span><span className="rounded-full bg-white px-3 py-1 text-xs font-bold">{item.status==="approved"?"已公開":item.status==="rejected"?"未通過審核":"待審批"}</span></div>)}</div>
+        </div>}
         <div className="mt-7 grid gap-3 sm:grid-cols-3">
           <input className={textInput} aria-label="搜尋活動關鍵字" placeholder="搜尋 Workshop、STEAM、免費..." value={keyword} onChange={e=>{setPage(0);setKeyword(e.target.value)}}/>
           <select aria-label="搜尋地區" className={textInput} value={district} onChange={e=>{setPage(0);setDistrict(e.target.value)}}><option value="">全港18區</option>{districts.map(d=><option key={d}>{d}</option>)}</select>
