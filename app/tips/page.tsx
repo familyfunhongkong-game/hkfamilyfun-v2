@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CommunityTipsFeed from "@/components/community/CommunityTipsFeed";
 import { getExtraPublicMessages } from "@/lib/i18n/public-extra-messages";
 import { getServerLocale } from "@/lib/i18n/server";
 
@@ -75,6 +76,8 @@ export default async function TipsPage() {
           </a>
         </article>
       </section>
+
+      <CommunityTipsFeed />
 
       <section className="mx-auto max-w-5xl px-4 pb-10 sm:px-6 lg:px-8">
         <div className="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm">
