@@ -26,6 +26,7 @@ type EventRow = {
 type Dashboard = {
   checkedAt: string;
   period: string;
+  reportRange?: {from:string;to:string;days:number};
   totals: {
     accounts: number; audienceAccounts: number; adminAccounts: number;
     merchantAccounts: number; merchants: number; pendingMerchants: number;
@@ -119,7 +120,7 @@ const trendModes = [
   { key: "eventsCreated", label: "新增活動", color: "bg-emerald-500" },
 ] as const;
 type TrendKey = (typeof trendModes)[number]["key"];
-function TrendBars({ rows }: { rows: Trend[] }) {
+function TrendBars({ rows, period }: { rows: Trend[]; period: string }) {
   const [series, setSeries] = useState<TrendKey>("pageViews");
   const max = Math.max(1, ...rows.map(x => x[series]));
   const colors: Record<TrendKey, string> = {
@@ -138,7 +139,7 @@ function TrendBars({ rows }: { rows: Trend[] }) {
       </button>)}
     </div>
     <div className="flex h-52 items-end gap-1 rounded-2xl bg-slate-50 px-3 pb-2 pt-5 sm:gap-2" role="img"
-      aria-label={`最近30日${trendModes.find(m => m.key === series)?.label}柱狀圖`}>
+      aria-label={`${period}${trendModes.find(m => m.key === series)?.label}柱狀圖`}>
       {rows.map((row, index) => <div key={row.date} className="group flex min-w-0 flex-1 flex-col items-center justify-end">
         <span className="mb-1 text-[9px] font-bold text-slate-700 opacity-0 group-hover:opacity-100">{row[series]}</span>
         <div title={`${row.date}：${row[series]}`}
@@ -189,6 +190,10 @@ export default function GrowthDashboardPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [merchantFilter, setMerchantFilter] = useState("all");
+  const [range, setRange] = useState("30");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [applied, setApplied] = useState({range:"30",from:"",to:""});
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -198,7 +203,9 @@ export default function GrowthDashboardPage() {
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
       if (!token) throw new Error("請先登入 Admin。");
-      const response = await fetch("/api/admin/dashboard", {
+      const params = new URLSearchParams({range:applied.range});
+      if (applied.range === "custom") {params.set("from",applied.from);params.set("to",applied.to);}
+      const response = await fetch(`/api/admin/dashboard?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
       });
       const body = await response.json();
@@ -210,7 +217,7 @@ export default function GrowthDashboardPage() {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [applied]);
   useEffect(() => { void load(); }, [load]);
   const merchants = useMemo(() => data?.merchants.filter(m =>
     (merchantFilter === "all" || m.status === merchantFilter) &&
@@ -248,8 +255,8 @@ export default function GrowthDashboardPage() {
         <section aria-label="重要營運指標">
           <div className="mb-3 flex items-center gap-2"><Activity className="h-5 w-5 text-purple-700"/><h2 className="text-lg font-black">核心 KPI</h2></div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-            <StatCard title="已同意追蹤訪客" value={data.analytics.available ? data.analytics.totals?.visitors : null} note="最近 30 日；不等於全部訪客" icon={ChartColumnIncreasing} tone="purple" href="/admin/analytics"/>
-            <StatCard title="Page Views" value={data.analytics.available ? data.analytics.totals?.pageViews : null} note="最近 30 日；不包含未同意追蹤" icon={Activity} tone="blue" href="/admin/analytics"/>
+            <StatCard title="已同意追蹤訪客" value={data.analytics.available ? data.analytics.totals?.visitors : null} note={`${data.period}；不等於全部訪客`} icon={ChartColumnIncreasing} tone="purple" href="/admin/analytics"/>
+            <StatCard title="Page Views" value={data.analytics.available ? data.analytics.totals?.pageViews : null} note={`${data.period}；不包含未同意追蹤`} icon={Activity} tone="blue" href="/admin/analytics"/>
             <StatCard title="全部註冊帳戶" value={data.totals.accounts} note={`一般用戶 ${data.totals.audienceAccounts} · 商戶 ${data.totals.merchantAccounts} · Admin ${data.totals.adminAccounts}`} icon={Users} tone="emerald"/>
             <StatCard title="商戶總數" value={data.totals.merchants} note={`已批准 ${data.totals.approvedMerchants} · 待審 ${data.totals.pendingMerchants}`} icon={Store} tone="amber" href="/admin/merchants"/>
             <StatCard title="活動總數" value={data.totals.events} note={`已發布 ${data.totals.publishedEvents} · 草稿 ${data.totals.draftEvents}`} icon={CalendarDays} tone="pink" href="/admin/events"/>
@@ -277,9 +284,24 @@ export default function GrowthDashboardPage() {
           流量模組暫不可用：{data.analytics.error || "請稍後再試"}。其他營運數據不受影響。
         </div>}
 
+        <section aria-label="數據日期範圍" className="mb-5 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-2 text-sm font-bold text-slate-800">分析期間</span>
+            {([{key:"7",label:"7日"},{key:"30",label:"30日"},{key:"90",label:"90日"},{key:"365",label:"1年"},{key:"custom",label:"自訂日期"}]).map(option=>
+              <button key={option.key} type="button" onClick={()=>{setRange(option.key);if(option.key!=="custom")setApplied({range:option.key,from:"",to:""});}}
+                aria-pressed={range===option.key}
+                className={`rounded-full border px-3 py-2 text-xs font-bold ${range===option.key?"border-purple-700 bg-purple-700 text-white":"border-slate-200 bg-white text-slate-700"}`}>{option.label}</button>)}
+          </div>
+          {range==="custom" && <div className="mt-3 flex flex-wrap items-end gap-3">
+            <label className="text-xs font-bold text-slate-700">開始日期<input aria-label="開始日期" type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} className="mt-1 block rounded-lg border border-slate-300 p-2"/></label>
+            <label className="text-xs font-bold text-slate-700">結束日期<input aria-label="結束日期" type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} className="mt-1 block rounded-lg border border-slate-300 p-2"/></label>
+            <button type="button" disabled={!dateFrom||!dateTo||dateFrom>dateTo} onClick={()=>setApplied({range:"custom",from:dateFrom,to:dateTo})} className="rounded-lg bg-purple-700 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-40">套用日期</button>
+          </div>}
+          <p className="mt-3 text-xs text-slate-500">目前顯示：{data.period}。流量及增長趨勢按此範圍；歷史總數與目前狀態不受期間篩選。</p>
+        </section>
         <div className="grid gap-5 lg:grid-cols-3">
-          <div className="lg:col-span-2"><Panel title="最近 30 日增長趨勢" subtitle="香港日曆日；可切換流量／註冊／商戶／新增活動">
-            <TrendBars rows={data.trend}/>
+          <div className="lg:col-span-2"><Panel title={`增長趨勢 · ${data.period}`} subtitle="香港日曆日；可切換流量／註冊／商戶／新增活動">
+            <TrendBars rows={data.trend} period={data.period}/>
           </Panel></div>
           <Panel title="活動審批漏斗" subtitle="全部歷史活動狀態，包括封存及未發布">
             <GroupBars rows={data.eventStatuses} tone="purple"/>
