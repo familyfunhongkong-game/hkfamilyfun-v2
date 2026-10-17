@@ -37,6 +37,12 @@ export function hkDate(iso: string): string {
     year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Hong_Kong",
   }).format(new Date(iso));
 }
+export function hongKongDaysInRange(startDate: string, endDate: string) {
+  const start = Date.parse(`${startDate}T00:00:00Z`);
+  const end = Date.parse(`${endDate}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start || (end-start)/86400000 > 365) throw new Error('Invalid reporting range');
+  return Array.from({length: Math.round((end-start)/86400000)+1},(_,index)=>new Date(start+index*86400000).toISOString().slice(0,10));
+}
 export function last30HongKongDays(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit",
@@ -69,6 +75,7 @@ export function buildGrowthDashboard(
   dailyPageViews: Array<{ date: string; pageViews: number }>,
   notificationCount: number | null,
   now = new Date(),
+  reportDays?: string[],
 ) {
   const adminUserIds = new Set(admins.filter(a => a.status === "active").map(a => a.user_id).filter(Boolean));
   const adminEmails = new Set(admins.filter(a => a.status === "active").map(a => a.email.toLowerCase()));
@@ -85,7 +92,7 @@ export function buildGrowthDashboard(
   }
   const merchantStatuses = countsBy(merchants, m => m.status);
   const eventStatuses = countsBy(events, e => e.status || "unknown");
-  const days = last30HongKongDays(now);
+  const days = reportDays || last30HongKongDays(now);
   const dayMap = new Map<string, DayKpiRow>(days.map(date => [date, {
     date, pageViews: 0, accountSignups: 0, merchantSignups: 0, eventsCreated: 0,
   }]));
@@ -109,7 +116,7 @@ export function buildGrowthDashboard(
   const activePublished = published.filter(e =>
     e.start_date && e.start_date <= today && (e.end_date || e.start_date) >= today
   ).length;
-  const thisMonth = today.slice(0, 7);
+  const thisMonth = hkDate(now.toISOString()).slice(0, 7);
 
   return {
     totals: {
