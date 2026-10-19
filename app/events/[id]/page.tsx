@@ -32,6 +32,7 @@ import {
   normalizeEventTags,
 } from "@/lib/events/display-normalization";
 import { displayTag, tagTone } from "@/lib/events/tag-tone";
+import { HK_WEEKDAYS, parseWeeklyOpeningHours, type WeeklyOpeningHours } from "@/lib/events/weekly-opening-hours";
 
 type JsonValue =
   | string
@@ -99,6 +100,7 @@ type EventRecord = {
   recurrence_include_dates?: string[] | null;
   recurrence_exclude_dates?: string[] | null;
   recurrence_note?: string | null;
+  weekly_opening_hours?: WeeklyOpeningHours | null;
 
   venue_name?: string | null;
   venue_name_tc?: string | null;
@@ -433,6 +435,9 @@ function formatDateRange(event: EventRecord, locale: AppLocale): string {
 }
 
 function formatTimeRange(event: EventRecord, locale: AppLocale): string {
+  if (event.weekly_opening_hours !== null && event.weekly_opening_hours !== undefined) {
+    return uiText(locale, "按星期不同（見下方時間表）", "按星期不同（见下方时间表）", "Varies by weekday (see schedule)");
+  }
   const normalizeTime = (value: unknown) => {
     const text = safeText(value);
     return /^\d{2}:\d{2}/.test(text) ? text.slice(0, 5) : text;
@@ -881,8 +886,18 @@ export default function PublicEventDetailPage() {
       }
 
       const loadedEvent = data as EventRecord;
-
-      setEvent(loadedEvent);
+      // Already publicly visible event; DB RLS permits SELECT only for
+      // published records. Read hours independently of the i18n view.
+      const { data: hourRecord, error: hourError } = await supabase
+        .from("events")
+        .select("weekly_opening_hours")
+        .eq("id", eventId)
+        .eq("status", "published")
+        .maybeSingle();
+      if (ignore) return;
+      if (hourError) console.error("Unable to load weekday hours", hourError.message);
+      const configuredHours = hourError ? null : parseWeeklyOpeningHours(hourRecord?.weekly_opening_hours);
+      setEvent({ ...loadedEvent, weekly_opening_hours: configuredHours });
       setSelectedImageIndex(0);
       setLoading(false);
     }
@@ -1297,6 +1312,31 @@ export default function PublicEventDetailPage() {
                   />
                 </div>
               </div>
+
+              {event.weekly_opening_hours !== null && event.weekly_opening_hours !== undefined ? (
+                <section aria-label={uiText(locale, "每週開放時間", "每周开放时间", "Weekly opening hours")}
+                  className="mt-4 rounded-2xl border border-purple-200 bg-purple-50 p-4">
+                  <h3 className="text-sm font-black text-purple-900">
+                    {uiText(locale, "每週開放時間（香港時間）", "每周开放时间（香港时间）", "Weekly hours (Hong Kong time)")}
+                  </h3>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+                    {HK_WEEKDAYS.map(day => {
+                      const hours = event.weekly_opening_hours?.[String(day.day) as keyof WeeklyOpeningHours];
+                      return (
+                        <div key={day.day} className="rounded-xl bg-white px-3 py-2 ring-1 ring-purple-100">
+                          <p className="font-bold text-slate-700">{day.label}</p>
+                          <p className={hours ? "mt-1 font-black text-purple-800" : "mt-1 text-slate-500"}>
+                            {hours ? `${hours.start}–${hours.end}` : uiText(locale, "休息", "休息", "Closed")}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-purple-800">
+                    {uiText(locale, "特別日子及公眾假期或有變動；以主辦方公告為準。", "特别日期和公众假期或有变动；以主办方公告为准。", "Hours may vary on special dates and public holidays. Check with the organizer.")}
+                  </p>
+                </section>
+              ) : null}
 
               <div className="mt-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 p-4 ring-1 ring-amber-100">
                 <div className="flex items-start gap-3">
