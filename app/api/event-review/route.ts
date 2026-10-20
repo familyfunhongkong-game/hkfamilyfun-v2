@@ -84,8 +84,17 @@ export async function POST(request: NextRequest) {
     updated_at: now,
   };
 
+  // Quick approval submits only token and action. Never erase the existing event fields.
+  const submittedPatch: Record<string, unknown> = { updated_at: now };
+  for (const key of Object.keys(patch) as (keyof typeof patch)[]) {
+    if (key === "updated_at") continue;
+    if (form.has(key) || (key === "is_free" && form.has("price_display_mode"))) {
+      submittedPatch[key] = patch[key];
+    }
+  }
+
   if (action === "save") {
-    const { error } = await admin.from("events").update(patch).eq("id", id);
+    const { error } = await admin.from("events").update(submittedPatch).eq("id", id);
     if (error) return new NextResponse("Unable to save changes.", { status: 500 });
     return redirectBack(request, id, expires, sig, "saved");
   }
@@ -105,7 +114,7 @@ export async function POST(request: NextRequest) {
     const { error } = await admin
       .from("events")
       .update({
-        ...patch,
+        ...submittedPatch,
         status: "approved",
         reviewed_at: now,
         admin_review_note: note || "Approved from secure email review.",
@@ -119,7 +128,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "publish") {
-    const missing = publishMissing({ ...event, ...patch } as Record<string, unknown>);
+    const missing = publishMissing({ ...event, ...submittedPatch } as Record<string, unknown>);
     if (missing.length) {
       const url = new URL("/event-review/" + encodeURIComponent(id), request.url);
       url.searchParams.set("expires", expires);
@@ -132,7 +141,7 @@ export async function POST(request: NextRequest) {
     const { error } = await admin
       .from("events")
       .update({
-        ...patch,
+        ...submittedPatch,
         status: "published",
         published_at: event.published_at || now,
         reviewed_at: now,
@@ -154,7 +163,7 @@ export async function POST(request: NextRequest) {
     const { error } = await admin
       .from("events")
       .update({
-        ...patch,
+        ...submittedPatch,
         status: "rejected",
         reviewed_at: now,
         admin_review_note: note,
