@@ -10,6 +10,7 @@ type PageProps = {
     sig?: string;
     result?: string;
     missing?: string;
+    mode?: string;
   }>;
 };
 
@@ -32,6 +33,7 @@ export default async function EventReviewPage({ params, searchParams }: PageProp
   const query = await searchParams;
   const expires = field(query.expires);
   const sig = field(query.sig);
+  const editMode = query.mode === "edit";
 
   if (!verifyEventReviewToken(id, expires, sig)) {
     return (
@@ -92,6 +94,20 @@ export default async function EventReviewPage({ params, searchParams }: PageProp
           </div>
         ) : null}
 
+        <section className="mb-6 rounded-3xl border border-purple-200 bg-white p-5 shadow-sm">
+          <h2 className="text-xl font-black">選擇審批方式</h2>
+          <p className="mt-2 text-sm text-slate-600">快速批准會保留草稿原有內容，毋須登入後台。</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <form method="post" action="/api/event-review">
+              {hidden}
+              <button type="submit" name="action" value="approve" disabled={["published", "rejected"].includes(field(event.status))} className="w-full rounded-2xl bg-emerald-600 px-5 py-4 font-black text-white disabled:opacity-50">直接批准（不修改）</button>
+            </form>
+            <a href={`/event-review/${encodeURIComponent(id)}?expires=${encodeURIComponent(expires)}&sig=${encodeURIComponent(sig)}&mode=edit`} className="flex items-center justify-center rounded-2xl bg-purple-700 px-5 py-4 text-center font-black text-white">查看詳情 / 修改後批准</a>
+          </div>
+          {field(event.status) === "approved" ? <p className="mt-3 text-sm font-bold text-amber-800">已批准，尚未公開。如要正式發布，請進入詳情審批。</p> : null}
+        </section>
+
+        {editMode ? (
         <div className="grid gap-6 lg:grid-cols-[1.5fr_0.8fr]">
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             {field(event.cover_image_url) ? (
@@ -210,6 +226,7 @@ export default async function EventReviewPage({ params, searchParams }: PageProp
             </section>
           </aside>
         </div>
+        ) : null}
       </div>
     </main>
   );
