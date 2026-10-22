@@ -244,11 +244,11 @@ export function CookieSettingsButton({ locale }: { locale: AppLocale }) {
   const label =
     locale === "en" ? "Cookie settings" : locale === "zh-Hans" ? "Cookies 设置" : "Cookies 設定";
   return (
-    <Link
+    <a
       href="/cookies#cookie-settings"
-      className="inline-flex min-h-8 items-center rounded-md px-1 py-1 text-left font-semibold text-slate-600 hover:text-purple-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700"
+      className="relative z-[1] inline-flex min-h-10 cursor-pointer items-center rounded-md px-2 py-1 text-left font-semibold text-slate-600 hover:bg-purple-50 hover:text-purple-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700"
     >
       {label}
-    </Link>
+    </a>
   );
 }
