@@ -18,6 +18,7 @@ import type { Event } from "@/lib/types";
 import type { AppLocale } from "@/lib/i18n/config";
 import ResilientEventImage from "@/components/resilient-event-image";
 import { displayTag, tagTone } from "@/lib/events/tag-tone";
+import { formatEventCardDate } from "@/lib/events/card-date";
 
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
@@ -166,31 +167,6 @@ function text(
   return zhHant;
 }
 
-function parseCalendarDate(value?: string) {
-  if (!value) return null;
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) return null;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatCardDate(event: Event, locale: AppLocale) {
-  const start = parseCalendarDate(event.date);
-  const end = parseCalendarDate(event.endDate);
-
-  if (!start) return text(locale, "日期待定", "日期待定", "Date TBC");
-
-  const formatter = new Intl.DateTimeFormat(
-    locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK",
-    { month: "short", day: "numeric", weekday: "short" },
-  );
-
-  const startText = formatter.format(start);
-  if (!end || event.endDate === event.date) return startText;
-
-  return `${startText} – ${formatter.format(end)}`;
-}
-
 function isPlaceholder(value: string | undefined) {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) return true;
@@ -265,7 +241,7 @@ export default function PublicEventCard({
   compact = false,
   className = "",
 }: PublicEventCardProps) {
-  const dateText = formatCardDate(event, locale);
+  const dateText = formatEventCardDate(event.date, event.endDate, locale);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   useEffect(() => {
