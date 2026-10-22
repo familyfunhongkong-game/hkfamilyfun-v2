@@ -3,20 +3,12 @@ import type { Event } from "@/lib/types";
 import type { AppLocale } from "@/lib/i18n/config";
 import ResilientEventImage from "@/components/resilient-event-image";
 import { formatEventCardDate } from "@/lib/events/card-date";
+import { formatWeeklyDays } from "@/lib/events/weekly-label";
 
 function eventDateLabel(event: Event, locale: AppLocale): string {
-  const translate = (tc: string, sc: string, en: string) =>
-    locale === "en" ? en : locale === "zh-Hans" ? sc : tc;
   const range = formatEventCardDate(event.date, event.endDate, locale, true);
-  if (event.recurrenceType === "weekly" && event.recurrenceWeekdays?.length) {
-    const names = locale === "en"
-      ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-      : ["日", "一", "二", "三", "四", "五", "六"];
-    const days = [...new Set(event.recurrenceWeekdays)].sort((a, b) => a - b)
-      .filter(d => d >= 0 && d <= 6).map(d => names[d]).join("、");
-    return `${range} · ${translate("逢星期", "逢星期", "Every ")}${days}`;
-  }
-  return range;
+  const weekly = event.recurrenceType === "weekly" ? formatWeeklyDays(event.recurrenceWeekdays, locale) : "";
+  return weekly ? `${range} · ${weekly}` : range;
 }
 
 function eventPriceLabel(event: Event, locale: AppLocale): string {
