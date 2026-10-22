@@ -96,11 +96,11 @@ export default async function EventReviewPage({ params, searchParams }: PageProp
 
         <section className="mb-6 rounded-3xl border border-purple-200 bg-white p-5 shadow-sm">
           <h2 className="text-xl font-black">選擇審批方式</h2>
-          <p className="mt-2 text-sm text-slate-600">快速批准會保留草稿原有內容，毋須登入後台。</p>
+          <p className="mt-2 text-sm text-slate-600">直接批准會驗證必填資料並正式發布；如資料不足，系統會提示你先修改。</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <form method="post" action="/api/event-review">
               {hidden}
-              <button type="submit" name="action" value="approve" disabled={["published", "rejected"].includes(field(event.status))} className="w-full rounded-2xl bg-emerald-600 px-5 py-4 font-black text-white disabled:opacity-50">直接批准（不修改）</button>
+              <button type="submit" name="action" value="publish" disabled={["published", "rejected"].includes(field(event.status))} className="w-full rounded-2xl bg-emerald-600 px-5 py-4 font-black text-white disabled:opacity-50">直接批准並發布</button>
             </form>
             <a href={`/event-review/${encodeURIComponent(id)}?expires=${encodeURIComponent(expires)}&sig=${encodeURIComponent(sig)}&mode=edit`} className="flex items-center justify-center rounded-2xl bg-purple-700 px-5 py-4 text-center font-black text-white">查看詳情 / 修改後批准</a>
           </div>
