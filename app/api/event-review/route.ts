@@ -57,6 +57,14 @@ export async function POST(request: NextRequest) {
     return new NextResponse("Event not found.", { status: 404 });
   }
 
+  // Reject stale or finalized review links before any mutation, including Save.
+  if (event.status === "published" || event.status === "rejected") {
+    return new NextResponse("This event has already been finalized. Open the Admin portal for further edits.", { status: 409 });
+  }
+  if (action === "approve" && event.status === "approved") {
+    return redirectBack(request, id, expires, sig, "approved");
+  }
+
   const now = new Date().toISOString();
 
   // Every action reads the same editable form, so approval never loses corrections.
@@ -101,11 +109,6 @@ export async function POST(request: NextRequest) {
 
   if (!["approve", "publish", "reject"].includes(action)) {
     return new NextResponse("Unsupported action.", { status: 400 });
-  }
-
-  // An older email must never undo an already published event.
-  if (event.status === "published" || event.status === "rejected") {
-    return new NextResponse("This event has already been finalized.", { status: 409 });
   }
 
   const note = text(form.get("admin_note"));
