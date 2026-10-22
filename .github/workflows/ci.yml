@@ -68,6 +68,7 @@ jobs:
 
       - name: Run product and persona contract checks
         run: |
+          npm run check:cookie-consent
           npm run check:commerce-copy
           npm run check:event-cards
           npm run check:home-card-readability
