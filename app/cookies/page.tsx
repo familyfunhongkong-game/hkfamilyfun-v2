@@ -3,6 +3,8 @@ import LegalPolicyPage from "@/components/LegalPolicyPage";
 import CookieSettingsPanel from "@/components/cookie-settings-panel";
 import type { LegalTranslations } from "@/lib/legal/types";
 import { getServerLocale } from "@/lib/i18n/server";
+import { cookies } from "next/headers";
+import { ANALYTICS_CONSENT, CONSENT_COOKIE, ESSENTIAL_CONSENT, type ConsentChoice } from "@/lib/privacy/cookie-consent";
 
 const cookieLegal = {
   "zh-Hant": {
@@ -174,8 +176,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function CookiesPolicyPage() {
   const locale = await getServerLocale();
+  const stored = (await cookies()).get(CONSENT_COOKIE)?.value;
+  const choice: ConsentChoice = stored === ANALYTICS_CONSENT ? "analytics" : stored === ESSENTIAL_CONSENT ? "essential" : null;
   return <>
-    <CookieSettingsPanel locale={locale} />
+    <CookieSettingsPanel locale={locale} choice={choice} />
     <LegalPolicyPage translations={cookieLegal} />
   </>;
 }
