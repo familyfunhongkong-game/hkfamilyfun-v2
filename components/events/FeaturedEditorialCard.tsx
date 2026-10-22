@@ -2,19 +2,12 @@ import Link from "next/link";
 import type { Event } from "@/lib/types";
 import type { AppLocale } from "@/lib/i18n/config";
 import ResilientEventImage from "@/components/resilient-event-image";
+import { formatEventCardDate } from "@/lib/events/card-date";
 
 function eventDateLabel(event: Event, locale: AppLocale): string {
   const translate = (tc: string, sc: string, en: string) =>
     locale === "en" ? en : locale === "zh-Hans" ? sc : tc;
-  const valid = (s: string | undefined) => /^\d{4}-\d{2}-\d{2}$/.test(s || "");
-  if (!valid(event.date)) return translate("日期待定", "日期待定", "Date TBC");
-  const start = event.date;
-  const end = valid(event.endDate) ? event.endDate! : start;
-  const localDate = (date: string) => {
-    const [year, month, day] = date.split("-");
-    return locale === "en" ? `${day}/${month}/${year}` : `${Number(month)}月${Number(day)}日`;
-  };
-  const range = start === end ? localDate(start) : `${localDate(start)} – ${localDate(end)}`;
+  const range = formatEventCardDate(event.date, event.endDate, locale, true);
   if (event.recurrenceType === "weekly" && event.recurrenceWeekdays?.length) {
     const names = locale === "en"
       ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
