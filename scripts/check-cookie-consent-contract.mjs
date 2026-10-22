@@ -10,7 +10,7 @@ const endpoint = read("app/api/analytics/track/route.ts");
 const layout = read("app/layout.tsx");
 const proxy = read("proxy.ts");
 const policy = read("app/cookies/page.tsx");
-assert.match(policy, /<CookieSettingsPanel locale=\\{locale\\}/, "Policy page must contain the persistent settings controls");
+assert.ok(policy.includes("<CookieSettingsPanel locale={locale} />"), "Policy page must contain the persistent settings controls");
 
 assert.match(preference, /CONSENT_COOKIE = "hkff_cookie_preferences"/);
 assert.match(preference, /ANALYTICS_CONSENT = "v1_analytics"/);
