@@ -48,4 +48,13 @@ for (const [code, zhHant, en] of [
   assert.equal(formatEventCategory(code, "zh-Hant"), zhHant);
   assert.equal(formatEventCategory(code, "en"), en);
 }
+const { formatWeeklyDays } = importPureTs("lib/events/weekly-label.ts");
+assert.equal(formatWeeklyDays([5, 6, 0], "zh-Hant"), "逢星期五、六、日");
+assert.equal(formatWeeklyDays([0, 6, 5], "en"), "Every Fri, Sat, Sun");
+assert.equal(formatWeeklyDays([0, 1, 2, 3, 4, 5, 6], "zh-Hans"), "每天开放");
+assert.equal(formatWeeklyDays([0, 0, 8, -1, 2.5], "zh-Hant"), "逢星期日");
+assert.equal(formatWeeklyDays(undefined, "zh-Hant"), "");
+const publicCardSource = readFileSync("components/events/PublicEventCard.tsx", "utf8");
+assert.match(publicCardSource, /const weeklyLabel = event\.recurrenceType === "weekly"/);
+assert.match(readFileSync("components/events/FeaturedEditorialCard.tsx", "utf8"), /formatWeeklyDays\(event\.recurrenceWeekdays, locale\)/);
 console.log("[public-formatting] PASS — cross-year dates, short single-day dates and category localization");
