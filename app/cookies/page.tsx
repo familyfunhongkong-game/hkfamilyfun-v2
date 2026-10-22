@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import LegalPolicyPage from "@/components/LegalPolicyPage";
+import CookieSettingsPanel from "@/components/cookie-settings-panel";
 import type { LegalTranslations } from "@/lib/legal/types";
 import { getServerLocale } from "@/lib/i18n/server";
 
@@ -171,6 +172,10 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function CookiesPolicyPage() {
-  return <LegalPolicyPage translations={cookieLegal} />;
+export default async function CookiesPolicyPage() {
+  const locale = await getServerLocale();
+  return <>
+    <CookieSettingsPanel locale={locale} />
+    <LegalPolicyPage translations={cookieLegal} />
+  </>;
 }
