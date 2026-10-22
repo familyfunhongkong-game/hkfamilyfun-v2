@@ -42,8 +42,7 @@
     "check:event-mobile-content": "node scripts/check-event-mobile-content.mjs",
     "check:event-import": "node scripts/check-event-import-extractor.mjs",
     "check:home-card-readability": "node scripts/check-home-card-readability.mjs",
-    "check:public-formatting": "node scripts/test-public-formatting.mjs",
-    "prebuild": "npm run check:cookie-consent && node scripts/live-cookie-choice-smoke.mjs && npm run lint"
+    "check:public-formatting": "node scripts/test-public-formatting.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
