@@ -25,13 +25,20 @@ assert.ok(banner.includes('href="/cookies#cookie-settings"'), "Footer Cookie set
 assert.ok(!banner.includes('onClick={() => window.dispatchEvent('), "Footer must not rely solely on an unmounted banner event listener");
 assert.ok(banner.includes('pathname === "/cookies"'), "Preference banner must not cover the dedicated settings panel");
 assert.ok(settings.includes('id="cookie-settings"'), "Cookie settings anchor must be reachable");
-assert.ok(settings.includes("readConsent()"), "Persistent settings must read the visitor's current choice");
-assert.ok(settings.includes("saveConsent(next)"), "Persistent settings must persist consent");
-assert.ok(settings.includes("readConsent() !== next"), "Show failure if browser blocks preference cookies");
-assert.ok(settings.includes('onClick={() => apply("essential")}'), "Visitor must be able to withdraw analytics consent");
-assert.ok(settings.includes('onClick={() => apply("analytics")}'), "Analytics must require a positive action");
-assert.ok(settings.includes('onChange={(event) =>'), "Analytics toggle must be operable");
-assert.ok(settings.includes('aria-live="polite"'), "Visitor must receive a save result announcement");
+const cookiePost = read("app/api/privacy/cookie-choice/route.ts");
+assert.ok(settings.includes('method="POST" action="/api/privacy/cookie-choice"'), "Cookie settings must work without JavaScript hydration");
+assert.ok(settings.includes('name="choice" value="essential"'), "Visitors must have an always-clickable essential-only action");
+assert.ok(settings.includes('name="choice" value="analytics"'), "Visitors must have an explicit analytics opt-in action");
+assert.ok(settings.includes('name="choice" value="custom"'), "Custom checkbox settings must be submittable");
+assert.ok(settings.includes('name="analytics" value="yes"'), "Analytics must be optional and unchecked by default");
+assert.ok(settings.includes('defaultChecked={choice === "analytics"}'), "Saved preference must be shown on page load");
+assert.ok(!settings.includes("disabled={!ready}"), "Consent buttons must not wait for hydration");
+assert.ok(cookiePost.includes('origin === request.nextUrl.origin'), "Server consent POST must check same-origin");
+assert.ok(cookiePost.includes('fetchSite === "cross-site"'), "Cross-site consent POSTs must be rejected");
+assert.ok(cookiePost.includes('value !== "essential" && value !== "analytics" && value !== "custom"'), "Never accept arbitrary consent values");
+assert.ok(cookiePost.includes('status: 303'), "Server must redirect after POST to avoid duplicate submission");
+assert.ok(cookiePost.includes('CONSENT_COOKIE'), "Server must save the same first-party cookie as the analytics gate");
+assert.ok(cookiePost.includes('sameSite: "lax"'), "Consent cookie must use SameSite=Lax");
 
 assert.match(banner, /max-w-6xl/, "Cookie banner should have a wide, low-profile desktop layout");
 assert.match(banner, /grid-cols-3/, "Accept, reject and settings should be visible in the same layer");
