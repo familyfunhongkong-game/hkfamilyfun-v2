@@ -21,7 +21,7 @@ assert.match(preference, /sessionStorage.removeItem\("hkff_session_id"\)/);
 assert.match(banner, /apply\("essential"\)/, "Visitors must be able to refuse analytics");
 assert.match(banner, /apply\("analytics"\)/, "Visitors must be able to opt in");
 assert.match(banner, /"hkff:open-cookie-settings"/, "Footer must reopen preferences");
-assert.ok(banner.includes('href="/cookies#cookie-settings"'), "Footer Cookie settings must navigate to a persistent, accessible settings section");
+assert.ok(banner.includes('<a\\n      href="/cookies#cookie-settings"'), "Footer must use a real anchor, bypassing client router interception");
 assert.ok(!banner.includes('onClick={() => window.dispatchEvent('), "Footer must not rely solely on an unmounted banner event listener");
 assert.ok(banner.includes('pathname === "/cookies"'), "Preference banner must not cover the dedicated settings panel");
 assert.ok(settings.includes('id="cookie-settings"'), "Cookie settings anchor must be reachable");
