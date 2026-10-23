@@ -174,12 +174,16 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function CookiesPolicyPage() {
+export default async function CookiesPolicyPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
   const locale = await getServerLocale();
   const stored = (await cookies()).get(CONSENT_COOKIE)?.value;
+  const requested = (await searchParams).saved;
+  const saveResult = (requested === "essential" || requested === "analytics")
+    ? (stored === (requested === "analytics" ? ANALYTICS_CONSENT : ESSENTIAL_CONSENT) ? "success" : "blocked")
+    : null;
   const choice: ConsentChoice = stored === ANALYTICS_CONSENT ? "analytics" : stored === ESSENTIAL_CONSENT ? "essential" : null;
   return <>
-    <CookieSettingsPanel locale={locale} choice={choice} />
+    <CookieSettingsPanel locale={locale} choice={choice} saveResult={saveResult} />
     <LegalPolicyPage translations={cookieLegal} />
   </>;
 }
