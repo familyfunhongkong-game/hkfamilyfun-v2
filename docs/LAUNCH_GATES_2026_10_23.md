@@ -44,6 +44,21 @@ Other Advisor notices: leaked-password protection disabled (check current Supaba
 
 **Schema history caveat:** repository Issue #52 already blocks `npm run db:push` because production migration history is not reconciled with local files. Applying a migration to the remote project is **not** proof that the GitHub migration tree is aligned. Keep the guard enabled and resolve history via official Supabase CLI before attempting any blanket schema push.
 
+## Open GitHub work — do not confuse feature backlog with launch gates
+
+**Production blocker:** [Issue #52](https://github.com/familyfunhongkong-game/hkfamilyfun-v2/issues/52) documents a proven local/remote Supabase migration history mismatch; `db:push` must stay locked.
+
+**Unmerged feature branches / roadmap (not automatically safe to release):**
+
+- [PR #101](https://github.com/familyfunhongkong-game/hkfamilyfun-v2/pull/101) — different weekday/weekend event opening hours, explicitly STAGED/DO NOT MERGE pending schema replay and Admin/Merchant E2E.
+- [PR #102](https://github.com/familyfunhongkong-game/hkfamilyfun-v2/pull/102) — moderated community tips feed, requires migration, approval queue, spam/RLS and real review verification.
+- [PR #103](https://github.com/familyfunhongkong-game/hkfamilyfun-v2/pull/103) — Saved Events compact/search/filter view, requires reconciling archived event visibility and recurrence ordering.
+- [PR #111](https://github.com/familyfunhongkong-game/hkfamilyfun-v2/pull/111) — recurring weekday labels; independent of the more complex day-specific opening-hours schema; requires latest-main sync, current CI and a deliberate release decision.
+- [Issue #92](https://github.com/familyfunhongkong-game/hkfamilyfun-v2/issues/92) — authenticated Favorites sync and reliable save analytics (must follow Issue #52; currently browser-local saves must not be misrepresented as server totals).
+- [Issues #57](https://github.com/familyfunhongkong-game/hkfamilyfun-v2/issues/57) and [#108](https://github.com/familyfunhongkong-game/hkfamilyfun-v2/issues/108) — discovered event drafts pending **source-specific editorial review**, not automatic publication. Some listed dates are historical; verify before any approval.
+
+Feature PRs are **not** proof of missing current login or event availability; prioritize operational cutover gates over unreviewed feature merges.
+
 ## Mandatory gates still not independently verified
 
 | Gate | Owner / evidence required | Stop condition |
