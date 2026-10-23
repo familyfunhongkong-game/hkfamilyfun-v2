@@ -26,15 +26,15 @@ function runtime({ writable, storageWritable = true }) {
     sessionStorage: { removeItem: (key) => removed.push(key) },
     dispatchEvent: () => {},
   };
-  const module = { exports: {} };
+  const runtimeModule = { exports: {} };
   runInNewContext(javascript, {
-    module,
-    exports: module.exports,
+    module: runtimeModule,
+    exports: runtimeModule.exports,
     document,
     window,
     Event: class Event {},
   }, { timeout: 3000 });
-  return { ...module.exports, removed, storage };
+  return { ...runtimeModule.exports, removed, storage };
 }
 
 const allowed = runtime({ writable: true });
