@@ -1,5 +1,6 @@
 import type { AppLocale } from "@/lib/i18n/config";
 import type { ConsentChoice } from "@/lib/privacy/cookie-consent";
+import CookieBackupNotice from "@/components/cookie-backup-notice";
 
 const words = {
   "zh-Hant": {
@@ -61,7 +62,7 @@ const words = {
   },
 };
 
-export default function CookieSettingsPanel({ locale, choice, saveResult }: { locale: AppLocale; choice: ConsentChoice; saveResult: "success" | "blocked" | null }) {
+export default function CookieSettingsPanel({ locale, choice, saveResult, attempted }: { locale: AppLocale; choice: ConsentChoice; saveResult: "success" | "blocked" | null; attempted: "essential" | "analytics" | null }) {
   const c = words[locale];
   return (
     <section id="cookie-settings" aria-labelledby="cookie-settings-title"
@@ -79,6 +80,7 @@ export default function CookieSettingsPanel({ locale, choice, saveResult }: { lo
             {saveResult === "blocked" ? c.blocked : c.saved}
           </p>
         )}
+        {saveResult === "blocked" && attempted === "essential" && <CookieBackupNotice locale={locale} />}
         <form method="POST" action="/api/privacy/cookie-choice" className="mt-5">
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 p-4">
