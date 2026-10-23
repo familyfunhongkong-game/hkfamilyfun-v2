@@ -1,0 +1,36 @@
+name: One-time Next.js security patch
+
+on:
+  push:
+    branches: ["fix/cookie-persistence-feedback-20261022"]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-lockfile:
+    if: github.event.head_commit.message == 'chore: run next security update'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Upgrade Next.js to reviewed patched version and lock transitive dependencies
+        run: npm install next@16.4.2 --save-exact --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Verify clean lockfile and no high/critical production vulnerabilities
+        run: |
+          npm ci --ignore-scripts --no-fund --no-audit
+          npm audit --omit=dev --audit-level=high
+      - name: Commit the generated dependency lockfile on the feature branch
+        run: |
+          git config user.name "HK Family Fun Security CI"
+          git config user.email "security-ci@users.noreply.github.com"
+          git add package.json package-lock.json
+          git diff --cached --exit-code && exit 0 || true
+          git commit -m "fix(security): upgrade Next.js to 16.4.2 with npm-generated lockfile"
+          git push origin HEAD:refs/heads/fix/cookie-persistence-feedback-20261022
