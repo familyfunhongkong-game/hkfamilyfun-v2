@@ -10,7 +10,8 @@ const endpoint = read("app/api/analytics/track/route.ts");
 const layout = read("app/layout.tsx");
 const proxy = read("proxy.ts");
 const policy = read("app/cookies/page.tsx");
-assert.ok(policy.includes("<CookieSettingsPanel locale={locale} choice={choice} />"), "Policy page must render saved preference controls");
+assert.ok(policy.includes("<CookieSettingsPanel locale={locale} choice={choice} saveResult={saveResult} />"), "Policy page must render verified persistence result");
+assert.ok(policy.includes('stored === (requested === "analytics" ? ANALYTICS_CONSENT : ESSENTIAL_CONSENT)'), "Server must check the choice was returned as a real cookie");
 
 assert.match(preference, /CONSENT_COOKIE = "hkff_cookie_preferences"/);
 assert.match(preference, /ANALYTICS_CONSENT = "v1_analytics"/);
@@ -27,6 +28,9 @@ assert.ok(!cookieFooter.includes("<Link"), "Footer navigation must bypass client
 assert.ok(!banner.includes('onClick={() => window.dispatchEvent('), "Footer must not rely solely on an unmounted banner event listener");
 assert.ok(banner.includes('pathname === "/cookies"'), "Preference banner must not cover the dedicated settings panel");
 assert.ok(settings.includes('id="cookie-settings"'), "Cookie settings anchor must be reachable");
+assert.ok(settings.includes('role={saveResult === "blocked" ? "alert" : "status"}'), "Save results must distinguish browser-blocked cookies");
+assert.ok(preference.includes("readConsent() !== choice"), "Do not report success before client cookie write is verified");
+assert.ok(banner.includes("setSaveError(true)"), "Cookie banner must keep error state for storage failures");
 const cookiePost = read("app/api/privacy/cookie-choice/route.ts");
 assert.ok(settings.includes('method="POST" action="/api/privacy/cookie-choice"'), "Cookie settings must work without JavaScript hydration");
 assert.ok(settings.includes('name="choice" value="essential"'), "Visitors must have an always-clickable essential-only action");
