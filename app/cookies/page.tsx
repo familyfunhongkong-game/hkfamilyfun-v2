@@ -184,6 +184,14 @@ export default async function CookiesPolicyPage({ searchParams }: { searchParams
   const choice: ConsentChoice = stored === ANALYTICS_CONSENT ? "analytics" : stored === ESSENTIAL_CONSENT ? "essential" : null;
   return <>
     <CookieSettingsPanel locale={locale} choice={choice} saveResult={saveResult} attempted={requested === "essential" || requested === "analytics" ? requested : null} />
-    <LegalPolicyPage translations={cookieLegal} />
+    <div id="cookie-policy" className="scroll-mt-24 bg-slate-50 px-4 pb-8 sm:px-6">
+      <details className="group mx-auto max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-bold text-purple-800 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700 [&::-webkit-details-marker]:hidden">
+          <span>{locale === "en" ? "Read the full Cookies & Browser Storage Policy" : locale === "zh-Hans" ? "展開完整 Cookies 及浏览器存储政策" : "展開完整 Cookies 及瀏覽器儲存政策"}</span>
+          <span aria-hidden="true" className="shrink-0 text-xl leading-none transition-transform group-open:rotate-45">+</span>
+        </summary>
+        <LegalPolicyPage translations={cookieLegal} />
+      </details>
+    </div>
   </>;
 }
