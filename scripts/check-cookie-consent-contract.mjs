@@ -13,6 +13,11 @@ const policy = read("app/cookies/page.tsx");
 assert.ok(policy.includes("<CookieSettingsPanel locale={locale} choice={choice} saveResult={saveResult} attempted="), "Policy page must render verified persistence result");
 assert.ok(policy.includes('stored === (requested === "analytics" ? ANALYTICS_CONSENT : ESSENTIAL_CONSENT)'), "Server must check the choice was returned as a real cookie");
 
+assert.ok(policy.includes('<details className='), "Policy must be accessible on demand rather than overwhelming mobile Cookie settings");
+assert.ok(policy.includes('<summary className='), "Legal policy expansion must work without JS");
+assert.ok(policy.includes('<LegalPolicyPage translations={cookieLegal} />'), "Entire original legal text must remain available");
+assert.ok(settings.includes('href="/"'), "After saving, users must be able to return to Home");
+assert.ok(settings.includes('href="/merchant/login"'), "After saving, users must be able to continue Merchant login");
 assert.match(preference, /CONSENT_COOKIE = "hkff_cookie_preferences"/);
 assert.match(preference, /ANALYTICS_CONSENT = "v1_analytics"/);
 assert.match(preference, /ESSENTIAL_CONSENT = "v1_essential"/);
