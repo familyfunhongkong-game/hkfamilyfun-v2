@@ -18,13 +18,15 @@ export function readConsent(): ConsentChoice {
   } catch {
     // Read denied by the browser; privacy-safe essential-only local fallback below.
   }
-  if (raw === ANALYTICS_CONSENT) return "analytics";
-  if (raw === ESSENTIAL_CONSENT) return "essential";
+  // Revoking analytics must take precedence, even if the browser refuses to
+  // overwrite an older analytics cookie. The client will stop analytics calls.
   try {
     if (window.localStorage.getItem(CONSENT_ESSENTIAL_BACKUP) === ESSENTIAL_CONSENT) return "essential";
   } catch {
     // Some browsers disable cookies and localStorage at the same time.
   }
+  if (raw === ANALYTICS_CONSENT) return "analytics";
+  if (raw === ESSENTIAL_CONSENT) return "essential";
   return null;
 }
 
