@@ -29,7 +29,7 @@ assert.ok(!banner.includes('onClick={() => window.dispatchEvent('), "Footer must
 assert.ok(banner.includes('pathname === "/cookies"'), "Preference banner must not cover the dedicated settings panel");
 assert.ok(settings.includes('id="cookie-settings"'), "Cookie settings anchor must be reachable");
 assert.ok(settings.includes('role={saveResult === "blocked" ? "alert" : "status"}'), "Save results must distinguish browser-blocked cookies");
-assert.ok(preference.includes("const cookieStored = document.cookie.split"), "Client must verify its Cookie write before claiming success");
+assert.ok(preference.includes("cookieStored = document.cookie.split"), "Client must verify its Cookie write before claiming success");
 assert.ok(preference.includes("CONSENT_ESSENTIAL_BACKUP"), "Consent should support privacy-safe essential-only local backup");
 assert.ok(settings.includes("<CookieBackupNotice"), "Page must explain essential-only local fallback when cookie is blocked");
 assert.ok(banner.includes("setSaveError(true)"), "Cookie banner must keep error state for storage failures");
