@@ -34,3 +34,4 @@ jobs:
           git diff --cached --exit-code && exit 0 || true
           git commit -m "fix(security): upgrade Next.js to 16.4.2 with npm-generated lockfile"
           git push origin HEAD:refs/heads/fix/cookie-persistence-feedback-20261022
+# Security upgrade trigger executed only on the explicitly named commit.
