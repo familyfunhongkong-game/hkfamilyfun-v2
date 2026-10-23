@@ -40,7 +40,7 @@ Verified afterward: `anon_execute=false`, `authenticated_execute=false`; the aud
 
 Two other `SECURITY DEFINER` RPCs remain authorized for `authenticated` by design: `review_event_claim` and `review_event_claim_image`; the actual function bodies require `auth.uid()` and `public.is_super_admin()`. Do not revoke these without a full Admin regression test.
 
-Other Advisor notices: leaked-password protection disabled (check current Supabase plan/capability); `site_analytics_events` RLS enabled with no policies (review intentional server-side ingestion; do not invent public policies).
+Other Advisor notices: leaked-password protection disabled; the connected Supabase organization was verified on the **Free / tier_free** plan, so enabling a paid-plan feature must not be promised or silently trigger a subscription purchase; `site_analytics_events` RLS enabled with no policies (review intentional server-side ingestion; do not invent public policies).
 
 **Schema history caveat:** repository Issue #52 already blocks `npm run db:push` because production migration history is not reconciled with local files. Applying a migration to the remote project is **not** proof that the GitHub migration tree is aligned. Keep the guard enabled and resolve history via official Supabase CLI before attempting any blanket schema push.
 
