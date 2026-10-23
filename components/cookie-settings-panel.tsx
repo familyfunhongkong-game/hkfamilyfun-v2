@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { AppLocale } from "@/lib/i18n/config";
 import type { ConsentChoice } from "@/lib/privacy/cookie-consent";
 import CookieBackupNotice from "@/components/cookie-backup-notice";
@@ -20,7 +21,8 @@ const words = {
     currentNone: "尚未選擇",
     note: "按下按鈕後會儲存至你的瀏覽器，再返回此頁確認選擇。",
     saved: "已確認成功儲存。你可以隨時更改選擇。",
-    done: "完成，返回商戶登入",
+    done: "返回商戶登入",
+    home: "返回首頁",
     blocked: "你的瀏覽器未有保留這次 Cookies 選擇。請允許 hkfamilyfun.com 儲存第一方網站資料，並使用同一個 www.hkfamilyfun.com 網址重新嘗試。未同意前不會啟用可選流量分析。",
   },
   "zh-Hans": {
@@ -40,7 +42,8 @@ const words = {
     currentNone: "尚未选择",
     note: "点击按钮后，设置会保存在浏览器，并返回此页显示结果。",
     saved: "已确认成功保存。你可以随时更改选择。",
-    done: "完成，返回商户登录",
+    done: "返回商户登录",
+    home: "返回首页",
     blocked: "浏览器未保存本次 Cookies 选择。请允许 hkfamilyfun.com 保存第一方网站数据，并使用 www.hkfamilyfun.com 重新尝试。未同意前不会启动可选流量分析。",
   },
   en: {
@@ -60,7 +63,8 @@ const words = {
     currentNone: "You have not chosen yet",
     note: "Your browser will save the choice and return to this page to confirm it.",
     saved: "Your selection has been saved and verified. You can change it at any time.",
-    done: "Done — return to merchant sign-in",
+    done: "Return to merchant sign-in",
+    home: "Return to home",
     blocked: "Your browser did not retain this cookie choice. Allow first-party site data for hkfamilyfun.com and try again at www.hkfamilyfun.com. Analytics will remain disabled until consent is saved.",
   },
 };
@@ -84,9 +88,14 @@ export default function CookieSettingsPanel({ locale, choice, saveResult, attemp
           </p>
         )}
         {saveResult === "success" && (
-          <a href="/merchant/login" className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-purple-700 px-5 py-3 text-sm font-bold text-white hover:bg-purple-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">
-            {c.done}
-          </a>
+          <nav aria-label={locale === "en" ? "Continue browsing" : "繼續瀏覽"} className="mt-3 flex flex-wrap gap-2">
+            <Link href="/" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-purple-700 px-5 py-3 text-sm font-bold text-white hover:bg-purple-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">
+              {c.home}
+            </Link>
+            <Link href="/merchant/login" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-purple-300 bg-white px-5 py-3 text-sm font-bold text-purple-800 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">
+              {c.done}
+            </Link>
+          </nav>
         )}
         {saveResult === "blocked" && attempted === "essential" && <CookieBackupNotice locale={locale} />}
         <form method="POST" action="/api/privacy/cookie-choice" className="mt-5">
