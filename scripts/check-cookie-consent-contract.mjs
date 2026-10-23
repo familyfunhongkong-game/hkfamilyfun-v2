@@ -33,6 +33,12 @@ assert.ok(preference.includes("cookieStored = document.cookie.split"), "Client m
 assert.ok(preference.includes("CONSENT_ESSENTIAL_BACKUP"), "Consent should support privacy-safe essential-only local backup");
 assert.ok(settings.includes("<CookieBackupNotice"), "Page must explain essential-only local fallback when cookie is blocked");
 assert.ok(banner.includes("setSaveError(true)"), "Cookie banner must keep error state for storage failures");
+assert.ok(banner.includes('data-testid="cookie-save-confirmation"'), "Saved preference must show explicit confirmation before closing the banner");
+assert.ok(banner.includes('if (readConsent() !== next)'), "Verify the saved choice before displaying success");
+assert.ok(banner.includes('setConfirmed(next)'), "Success must be shown as a persistent confirmation state");
+assert.ok(banner.includes('data-testid="cookie-confirm-close"'), "Visitor must have an explicit button to close the success state");
+assert.ok(banner.includes('setOpen(false); setConfirmed(null);'), "Only explicit Close and continue should dismiss successful consent");
+assert.ok(settings.includes('href="/merchant/login"'), "Settings page must offer an actionable next step after save");
 const cookiePost = read("app/api/privacy/cookie-choice/route.ts");
 assert.ok(settings.includes('method="POST" action="/api/privacy/cookie-choice"'), "Cookie settings must work without JavaScript hydration");
 assert.ok(settings.includes('name="choice" value="essential"'), "Visitors must have an always-clickable essential-only action");
