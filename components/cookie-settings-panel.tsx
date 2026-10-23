@@ -18,6 +18,8 @@ const words = {
     currentEssential: "目前選擇：只使用必要 Cookies",
     currentNone: "尚未選擇",
     note: "按下按鈕後會儲存至你的瀏覽器，再返回此頁確認選擇。",
+    saved: "已確認成功儲存。你可以隨時更改選擇。",
+    blocked: "你的瀏覽器未有保留這次 Cookies 選擇。請允許 hkfamilyfun.com 儲存第一方網站資料，並使用同一個 www.hkfamilyfun.com 網址重新嘗試。未同意前不會啟用可選流量分析。",
   },
   "zh-Hans": {
     eyebrow: "Cookies 设置中心",
@@ -35,6 +37,8 @@ const words = {
     currentEssential: "当前选择：仅使用必要 Cookies",
     currentNone: "尚未选择",
     note: "点击按钮后，设置会保存在浏览器，并返回此页显示结果。",
+    saved: "已确认成功保存。你可以随时更改选择。",
+    blocked: "浏览器未保存本次 Cookies 选择。请允许 hkfamilyfun.com 保存第一方网站数据，并使用 www.hkfamilyfun.com 重新尝试。未同意前不会启动可选流量分析。",
   },
   en: {
     eyebrow: "Cookie preferences",
@@ -52,10 +56,12 @@ const words = {
     currentEssential: "Current choice: essential only",
     currentNone: "You have not chosen yet",
     note: "Your browser will save the choice and return to this page to confirm it.",
+    saved: "Your selection has been saved and verified. You can change it at any time.",
+    blocked: "Your browser did not retain this cookie choice. Allow first-party site data for hkfamilyfun.com and try again at www.hkfamilyfun.com. Analytics will remain disabled until consent is saved.",
   },
 };
 
-export default function CookieSettingsPanel({ locale, choice }: { locale: AppLocale; choice: ConsentChoice }) {
+export default function CookieSettingsPanel({ locale, choice, saveResult }: { locale: AppLocale; choice: ConsentChoice; saveResult: "success" | "blocked" | null }) {
   const c = words[locale];
   return (
     <section id="cookie-settings" aria-labelledby="cookie-settings-title"
@@ -67,6 +73,12 @@ export default function CookieSettingsPanel({ locale, choice }: { locale: AppLoc
         <p className="mt-4 text-sm font-semibold text-purple-800" role="status">
           {choice === "analytics" ? c.currentAnalytics : choice === "essential" ? c.currentEssential : c.currentNone}
         </p>
+        {saveResult && (
+          <p role={saveResult === "blocked" ? "alert" : "status"}
+            className={`mt-4 rounded-xl border px-4 py-3 text-sm font-semibold leading-6 ${saveResult === "blocked" ? "border-amber-300 bg-amber-50 text-amber-950" : "border-emerald-300 bg-emerald-50 text-emerald-900"}`}>
+            {saveResult === "blocked" ? c.blocked : c.saved}
+          </p>
+        )}
         <form method="POST" action="/api/privacy/cookie-choice" className="mt-5">
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 p-4">
