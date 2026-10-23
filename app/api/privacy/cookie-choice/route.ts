@@ -27,7 +27,9 @@ export async function POST(request: NextRequest) {
 
   const analytics = value === "analytics" ||
     (value === "custom" && form.get("analytics") === "yes");
-  const destination = new URL("/cookies#cookie-settings", request.url);
+  const destination = new URL("/cookies", request.url);
+  destination.searchParams.set("saved", analytics ? "analytics" : "essential");
+  destination.hash = "cookie-settings";
   const response = NextResponse.redirect(destination, { status: 303 });
   response.cookies.set(CONSENT_COOKIE, analytics ? ANALYTICS_CONSENT : ESSENTIAL_CONSENT, {
     path: "/",
