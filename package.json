@@ -42,8 +42,7 @@
     "check:event-mobile-content": "node scripts/check-event-mobile-content.mjs",
     "check:event-import": "node scripts/check-event-import-extractor.mjs",
     "check:home-card-readability": "node scripts/check-home-card-readability.mjs",
-    "check:public-formatting": "node scripts/test-public-formatting.mjs",
-    "prebuild": "node scripts/preview-zod-lock-diff.mjs"
+    "check:public-formatting": "node scripts/test-public-formatting.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
@@ -67,7 +66,7 @@
     "react-leaflet": "5.0.0",
     "tailwind-merge": "^2.2.2",
     "typescript": "^5.4.4",
-    "zod": "^3.22.4",
+    "zod": "4.6.7",
     "zustand": "^4.4.7"
   },
   "devDependencies": {
