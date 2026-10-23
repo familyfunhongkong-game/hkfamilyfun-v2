@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { AppLocale } from "@/lib/i18n/config";
 import type { ConsentChoice } from "@/lib/privacy/cookie-consent";
 import CookieBackupNotice from "@/components/cookie-backup-notice";
@@ -88,12 +89,12 @@ export default function CookieSettingsPanel({ locale, choice, saveResult, attemp
         )}
         {saveResult === "success" && (
           <nav aria-label={locale === "en" ? "Continue browsing" : "繼續瀏覽"} className="mt-3 flex flex-wrap gap-2">
-            <a href="/" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-purple-700 px-5 py-3 text-sm font-bold text-white hover:bg-purple-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">
+            <Link href="/" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-purple-700 px-5 py-3 text-sm font-bold text-white hover:bg-purple-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">
               {c.home}
-            </a>
-            <a href="/merchant/login" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-purple-300 bg-white px-5 py-3 text-sm font-bold text-purple-800 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">
+            </Link>
+            <Link href="/merchant/login" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-purple-300 bg-white px-5 py-3 text-sm font-bold text-purple-800 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">
               {c.done}
-            </a>
+            </Link>
           </nav>
         )}
         {saveResult === "blocked" && attempted === "essential" && <CookieBackupNotice locale={locale} />}
