@@ -52,7 +52,7 @@ for (const [choice, analytics, expected] of [
 ]) {
   const output = await POST(request(choice, analytics));
   assert.equal(output.status, 303);
-  assert.equal(output.url, "https://www.hkfamilyfun.com/cookies#cookie-settings");
+  assert.equal(output.url, `https://www.hkfamilyfun.com/cookies?saved=${expected === "v1_analytics" ? "analytics" : "essential"}#cookie-settings`);
   assert.equal(output.cookies.written.length, 1);
   const [name, value, options] = output.cookies.written[0];
   assert.equal(name, "hkff_cookie_preferences");
