@@ -10,7 +10,7 @@ const endpoint = read("app/api/analytics/track/route.ts");
 const layout = read("app/layout.tsx");
 const proxy = read("proxy.ts");
 const policy = read("app/cookies/page.tsx");
-assert.ok(policy.includes("<CookieSettingsPanel locale={locale} choice={choice} saveResult={saveResult} />"), "Policy page must render verified persistence result");
+assert.ok(policy.includes("<CookieSettingsPanel locale={locale} choice={choice} saveResult={saveResult} attempted="), "Policy page must render verified persistence result");
 assert.ok(policy.includes('stored === (requested === "analytics" ? ANALYTICS_CONSENT : ESSENTIAL_CONSENT)'), "Server must check the choice was returned as a real cookie");
 
 assert.match(preference, /CONSENT_COOKIE = "hkff_cookie_preferences"/);
