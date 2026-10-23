@@ -11,8 +11,13 @@ export type ConsentChoice = "analytics" | "essential" | null;
 
 export function readConsent(): ConsentChoice {
   if (typeof document === "undefined") return null;
-  const raw = document.cookie.split(";").map(p => p.trim())
-    .find(p => p.startsWith(CONSENT_COOKIE + "="))?.slice(CONSENT_COOKIE.length + 1);
+  let raw: string | undefined;
+  try {
+    raw = document.cookie.split(";").map(p => p.trim())
+      .find(p => p.startsWith(CONSENT_COOKIE + "="))?.slice(CONSENT_COOKIE.length + 1);
+  } catch {
+    // Read denied by the browser; privacy-safe essential-only local fallback below.
+  }
   if (raw === ANALYTICS_CONSENT) return "analytics";
   if (raw === ESSENTIAL_CONSENT) return "essential";
   try {
@@ -38,11 +43,16 @@ export function saveConsent(choice: Exclude<ConsentChoice, null>) {
   const value = choice === "analytics" ? ANALYTICS_CONSENT : ESSENTIAL_CONSENT;
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   if (choice === "essential") clearAnalyticsIdentifiers();
-  document.cookie = CONSENT_COOKIE + "=" + value +
-    "; Path=/; Max-Age=15552000; SameSite=Lax" + secure;
-  // document.cookie can silently discard writes when browser storage is disabled.
-  // A visible error is safer than closing the notice and claiming success.
-  const cookieStored = document.cookie.split(";").some((item) => item.trim() === CONSENT_COOKIE + "=" + value);
+  let cookieStored = false;
+  try {
+    document.cookie = CONSENT_COOKIE + "=" + value +
+      "; Path=/; Max-Age=15552000; SameSite=Lax" + secure;
+    cookieStored = document.cookie.split(";").some((item) => item.trim() === CONSENT_COOKIE + "=" + value);
+  } catch {
+    // Browsers with strict storage policies may throw instead of discarding writes.
+  }
+  // Do not announce success unless either the first-party cookie or the
+  // privacy-safe essential-only fallback has really been stored.
   if (!cookieStored) {
     if (choice !== "essential" || !saveEssentialBackup()) {
       throw new Error("Browser did not store the cookie preference");
