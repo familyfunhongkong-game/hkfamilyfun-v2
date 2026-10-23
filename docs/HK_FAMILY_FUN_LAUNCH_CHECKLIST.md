@@ -1,5 +1,8 @@
 # HK Family Fun V2 — Launch Checklist
 
+> **CURRENT STATUS — 2026-10-23:** Refer first to [`LAUNCH_GATES_2026_10_23.md`](./LAUNCH_GATES_2026_10_23.md). The date-specific historical snapshot below predates the verified V2 custom-domain assignment and current event counts. Do not follow old domain-transfer or staging-only assumptions; maintenance is still enabled and final legacy/human gates remain outstanding.
+
+
 Updated: 2026-10-12 (Hong Kong time)
 
 ## Quality target
