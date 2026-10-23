@@ -4,13 +4,27 @@ export const CONSENT_VERSION = "v1";
 export const ANALYTICS_CONSENT = "v1_analytics";
 export const ESSENTIAL_CONSENT = "v1_essential";
 export const CONSENT_EVENT = "hkff:consent-changed";
+// A privacy-preserving backup stores only essential-only when browser cookies are unavailable.
+export const CONSENT_ESSENTIAL_BACKUP = "hkff_cookie_essential_backup";
 
 export type ConsentChoice = "analytics" | "essential" | null;
 
 export function readConsent(): ConsentChoice {
   if (typeof document === "undefined") return null;
-  const raw = document.cookie.split(";").map(p => p.trim())
-    .find(p => p.startsWith(CONSENT_COOKIE + "="))?.slice(CONSENT_COOKIE.length + 1);
+  let raw: string | undefined;
+  try {
+    raw = document.cookie.split(";").map(p => p.trim())
+      .find(p => p.startsWith(CONSENT_COOKIE + "="))?.slice(CONSENT_COOKIE.length + 1);
+  } catch {
+    // Read denied by the browser; privacy-safe essential-only local fallback below.
+  }
+  // Revoking analytics must take precedence, even if the browser refuses to
+  // overwrite an older analytics cookie. The client will stop analytics calls.
+  try {
+    if (window.localStorage.getItem(CONSENT_ESSENTIAL_BACKUP) === ESSENTIAL_CONSENT) return "essential";
+  } catch {
+    // Some browsers disable cookies and localStorage at the same time.
+  }
   if (raw === ANALYTICS_CONSENT) return "analytics";
   if (raw === ESSENTIAL_CONSENT) return "essential";
   return null;
@@ -30,8 +44,38 @@ export function saveConsent(choice: Exclude<ConsentChoice, null>) {
   if (typeof document === "undefined") return;
   const value = choice === "analytics" ? ANALYTICS_CONSENT : ESSENTIAL_CONSENT;
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = CONSENT_COOKIE + "=" + value +
-    "; Path=/; Max-Age=15552000; SameSite=Lax" + secure;
   if (choice === "essential") clearAnalyticsIdentifiers();
+  let cookieStored = false;
+  try {
+    document.cookie = CONSENT_COOKIE + "=" + value +
+      "; Path=/; Max-Age=15552000; SameSite=Lax" + secure;
+    cookieStored = document.cookie.split(";").some((item) => item.trim() === CONSENT_COOKIE + "=" + value);
+  } catch {
+    // Browsers with strict storage policies may throw instead of discarding writes.
+  }
+  // Do not announce success unless either the first-party cookie or the
+  // privacy-safe essential-only fallback has really been stored.
+  if (!cookieStored) {
+    if (choice !== "essential" || !saveEssentialBackup()) {
+      throw new Error("Browser did not store the cookie preference");
+    }
+  } else {
+    try { window.localStorage.removeItem(CONSENT_ESSENTIAL_BACKUP); } catch { /* optional storage */ }
+  }
   window.dispatchEvent(new Event(CONSENT_EVENT));
+}
+
+/**
+ * Essential-only fallback when the browser blocks first-party cookies.
+ * Never store "analytics" here: optional tracking stays off without a valid cookie.
+ */
+export function saveEssentialBackup(): boolean {
+  if (typeof window === "undefined") return false;
+  clearAnalyticsIdentifiers();
+  try {
+    window.localStorage.setItem(CONSENT_ESSENTIAL_BACKUP, ESSENTIAL_CONSENT);
+    return window.localStorage.getItem(CONSENT_ESSENTIAL_BACKUP) === ESSENTIAL_CONSENT;
+  } catch {
+    return false;
+  }
 }
