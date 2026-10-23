@@ -183,7 +183,7 @@ export default async function CookiesPolicyPage({ searchParams }: { searchParams
     : null;
   const choice: ConsentChoice = stored === ANALYTICS_CONSENT ? "analytics" : stored === ESSENTIAL_CONSENT ? "essential" : null;
   return <>
-    <CookieSettingsPanel locale={locale} choice={choice} saveResult={saveResult} />
+    <CookieSettingsPanel locale={locale} choice={choice} saveResult={saveResult} attempted={requested === "essential" || requested === "analytics" ? requested : null} />
     <LegalPolicyPage translations={cookieLegal} />
   </>;
 }
