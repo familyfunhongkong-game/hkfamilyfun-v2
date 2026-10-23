@@ -30,8 +30,13 @@ export function saveConsent(choice: Exclude<ConsentChoice, null>) {
   if (typeof document === "undefined") return;
   const value = choice === "analytics" ? ANALYTICS_CONSENT : ESSENTIAL_CONSENT;
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  if (choice === "essential") clearAnalyticsIdentifiers();
   document.cookie = CONSENT_COOKIE + "=" + value +
     "; Path=/; Max-Age=15552000; SameSite=Lax" + secure;
-  if (choice === "essential") clearAnalyticsIdentifiers();
+  // document.cookie can silently discard writes when browser storage is disabled.
+  // A visible error is safer than closing the notice and claiming success.
+  if (readConsent() !== choice) {
+    throw new Error("Browser did not store the cookie preference");
+  }
   window.dispatchEvent(new Event(CONSENT_EVENT));
 }
