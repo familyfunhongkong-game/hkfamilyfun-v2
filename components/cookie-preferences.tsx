@@ -26,6 +26,8 @@ type Copy = {
   analytics: string;
   analyticsDescription: string;
   active: string;
+  saveError: string;
+  trySettings: string;
 };
 
 const copy: Record<AppLocale, Copy> = {
@@ -44,6 +46,8 @@ const copy: Record<AppLocale, Copy> = {
     analytics: "流量分析（可選）",
     analyticsDescription: "使用訪客及工作階段識別碼，統計頁面、活動瀏覽及外部連結點擊。",
     active: "必需",
+    saveError: "瀏覽器未能儲存 Cookies 選擇。請開啟設定頁重試；如果網站儲存功能被封鎖，將無法記住你的選擇，流量分析亦不會啟用。",
+    trySettings: "打開 Cookies 設定頁",
   },
   "zh-Hans": {
     title: "你的 Cookies 选择",
@@ -60,6 +64,8 @@ const copy: Record<AppLocale, Copy> = {
     analytics: "流量分析（可选）",
     analyticsDescription: "使用访客和会话识别码，统计页面、活动浏览与外部链接点击。",
     active: "必需",
+    saveError: "浏览器没有保存 Cookies 选择。请打开设置页重试；如果已禁止网站存储，就无法记住选择，也不会启用流量分析。",
+    trySettings: "打开 Cookies 设置",
   },
   en: {
     title: "Your cookie choices",
@@ -76,6 +82,8 @@ const copy: Record<AppLocale, Copy> = {
     analytics: "Analytics (optional)",
     analyticsDescription: "Uses visitor and session IDs to measure page views, event views and outbound clicks.",
     active: "Required",
+    saveError: "Your browser did not store your cookie preference. Open the settings page to try again. Analytics will not be enabled without consent.",
+    trySettings: "Open Cookie settings",
   },
 };
 
@@ -86,6 +94,7 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
   const [open, setOpen] = useState(false);
   const [customizing, setCustomizing] = useState(false);
   const [analytics, setAnalytics] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const bannerRef = useRef<HTMLElement | null>(null);
   const c = copy[locale];
 
@@ -139,11 +148,17 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
   }, [open, customizing]);
 
   function apply(next: "analytics" | "essential") {
-    saveConsent(next);
-    setChoice(next);
-    setAnalytics(next === "analytics");
-    setCustomizing(false);
-    setOpen(false);
+    setSaveError(false);
+    try {
+      saveConsent(next);
+      setChoice(next);
+      setAnalytics(next === "analytics");
+      setCustomizing(false);
+      setOpen(false);
+    } catch {
+      setSaveError(true);
+      setOpen(true);
+    }
   }
 
   if (!ready || !open || pathname === "/cookies") return null;
@@ -205,6 +220,13 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
           )}
         </div>
       </div>
+
+      {saveError && (
+        <div role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-950">
+          {c.saveError}
+          <a href="/cookies#cookie-settings" className="ml-2 inline-block underline underline-offset-2">{c.trySettings}</a>
+        </div>
+      )}
 
       {customizing && (
         <div
