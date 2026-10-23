@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
-    "check:cookie-consent": "node scripts/check-cookie-consent-contract.mjs && node scripts/test-cookie-choice-route.mjs",
+    "check:cookie-consent": "node scripts/check-cookie-consent-contract.mjs && node scripts/test-cookie-choice-route.mjs && node scripts/test-cookie-persistence.mjs",
     "check:analytics-export": "node scripts/check-analytics-export-contract.mjs",
     "check:analytics-summary": "node scripts/test-analytics-summary.mjs",
     "check:admin-growth": "node scripts/test-admin-growth-dashboard.mjs",
