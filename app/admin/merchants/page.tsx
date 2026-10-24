@@ -38,6 +38,16 @@ export default function AdminMerchantsPage() {
   const [message, setMessage] = useState("");
   const [errorText, setErrorText] = useState("");
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<Status | "all">("all");
+  const [selectedMerchantId, setSelectedMerchantId] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("status");
+    if (requested === "pending" || requested === "approved" || requested === "rejected" || requested === "suspended") setStatusFilter(requested);
+    const merchantId = params.get("merchant_id");
+    if (merchantId && /^[0-9a-f-]{36}$/i.test(merchantId)) setSelectedMerchantId(merchantId);
+  }, []);
 
   async function loadMerchants() {
     if (!supabase) {
@@ -143,22 +153,15 @@ export default function AdminMerchantsPage() {
 
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    if (!keyword) return merchants;
-
     return merchants.filter((merchant) =>
-      [
-        merchant.business_name,
-        merchant.contact_name,
-        merchant.contact_email,
-        merchant.contact_phone,
-        merchant.website_url,
-        merchant.status,
-      ]
-        .map((value) => String(value || "").toLowerCase())
-        .join(" ")
-        .includes(keyword),
+      (statusFilter === "all" || merchant.status === statusFilter) &&
+      (!selectedMerchantId || merchant.id === selectedMerchantId) &&
+      (!keyword || [
+        merchant.business_name, merchant.contact_name, merchant.contact_email,
+        merchant.contact_phone, merchant.website_url, merchant.status,
+      ].map((value) => String(value || "").toLowerCase()).join(" ").includes(keyword)),
     );
-  }, [merchants, search]);
+  }, [merchants, search, statusFilter, selectedMerchantId]);
 
   const counts = useMemo(
     () => ({
