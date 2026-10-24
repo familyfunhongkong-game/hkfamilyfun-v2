@@ -20,6 +20,55 @@ type NotificationRow = {
   read_at: string | null;
 };
 
+type MerchantProfile = {
+  id: string;
+  business_name: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  website_url: string | null;
+  description: string | null;
+  status: "pending" | "approved" | "rejected" | "suspended";
+  rejection_reason: string | null;
+  terms_accepted_at: string | null;
+  privacy_accepted_at: string | null;
+  terms_version: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type EventProfile = {
+  id: string;
+  title_tc: string | null;
+  status: string;
+  venue_name: string | null;
+  address: string | null;
+  district: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  price_type: string | null;
+  price_min: number | null;
+  price_max: number | null;
+};
+
+function safeExternalUrl(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(value) ? value : "https://" + value);
+    return ["https:", "http:"].includes(url.protocol) ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function reviewStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: "待審批", approved: "已批准", rejected: "已拒絕", suspended: "已暫停",
+    submitted: "待審批", draft: "草稿", published: "已發布", archived: "已封存",
+  };
+  return labels[status] || status;
+}
+
 function formatTime(value: string) {
   try {
     return new Intl.DateTimeFormat("zh-HK", {
@@ -56,6 +105,14 @@ export default function AdminNotificationsPage() {
   const [readFilter, setReadFilter] = useState("unread");
   const [dateOrder, setDateOrder] = useState("newest");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [merchantProfiles, setMerchantProfiles] = useState<Record<string, MerchantProfile>>({});
+  const [eventProfiles, setEventProfiles] = useState<Record<string, EventProfile>>({});
+  const [profileWarning, setProfileWarning] = useState("");
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [reviewMessage, setReviewMessage] = useState("");
+
 
   const displayedRows = useMemo(() => rows
     .filter(row => {
