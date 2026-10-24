@@ -191,12 +191,20 @@ export default function AdminNotificationsPage() {
         : kindFilter === "event" ? row.kind.startsWith("event_")
         : !row.kind.startsWith("merchant_") && !row.kind.startsWith("event_"));
       const readMatches = readFilter === "all" || (readFilter === "unread" ? !row.read_at : !!row.read_at);
-      const haystack = [row.title, row.message, row.email_to, row.id, row.status_snapshot, row.email_error].join(" ").toLowerCase();
+      const merchant = row.merchant_id ? merchantProfiles[row.merchant_id] : null;
+      const event = row.event_id ? eventProfiles[row.event_id] : null;
+      const haystack = [row.title, row.message, row.email_to, row.id, row.status_snapshot, row.email_error, merchant?.business_name, merchant?.contact_name, merchant?.contact_email, merchant?.contact_phone, event?.title_tc, event?.district].join(" ").toLowerCase();
       return kindMatches && readMatches && haystack.includes(query.trim().toLowerCase());
     })
     .sort((a, b) => dateOrder === "newest"
       ? Date.parse(b.created_at) - Date.parse(a.created_at)
-      : Date.parse(a.created_at) - Date.parse(b.created_at)), [rows, query, kindFilter, readFilter, dateOrder]);
+      : Date.parse(a.created_at) - Date.parse(b.created_at))
+    // Merge repeated registration notices for the same merchant into one review card.
+    // Original records remain in Supabase and the history/read counts are unchanged.
+    .filter((row, _index, sorted) =>
+      row.kind !== "merchant_registered" || !row.merchant_id ||
+      sorted.findIndex(other => other.kind === "merchant_registered" && other.merchant_id === row.merchant_id) === _index
+    ), [rows, query, kindFilter, readFilter, dateOrder, merchantProfiles, eventProfiles]);
 
   const unreadCount = useMemo(
     () => rows.filter((row) => !row.read_at).length,
@@ -211,6 +219,15 @@ export default function AdminNotificationsPage() {
     }
 
     setLoading(true);
+    const { data: authorized, error: authError } = await supabase.rpc("is_platform_admin");
+    if (authError || authorized !== true) {
+      setRows([]);
+      setMerchantProfiles({});
+      setEventProfiles({});
+      setMessage("此頁只供 HK Family Fun 管理員使用。");
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("platform_notifications")
@@ -436,6 +453,8 @@ export default function AdminNotificationsPage() {
             {message}
           </div>
         ) : null}
+        {profileWarning ? <div role="alert" className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{profileWarning}</div> : null}
+        {reviewMessage ? <div role="status" className="mb-5 rounded-2xl border border-purple-200 bg-purple-50 p-4 text-sm font-bold text-purple-900">{reviewMessage}</div> : null}
 
         <div className="mb-5 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
           <label className="text-xs font-bold text-slate-700">搜尋通知
@@ -457,7 +476,7 @@ export default function AdminNotificationsPage() {
             </select>
           </label>
         </div>
-        <p className="mb-4 text-xs text-slate-500">顯示 {displayedRows.length} 項。按通知建立日期排序（非活動或審批截止日期）；每次最多讀取最近 100 項。</p>
+        <p className="mb-4 text-xs text-slate-500">顯示 {displayedRows.length} 張待處理卡片（最近讀取 {rows.length} 項通知）。同一商戶的重複登記通知合併顯示，審批依最新商戶狀態決定；每次最多讀取最近 100 項。</p>
         {loading ? (
           <div className="rounded-3xl border border-slate-200 bg-white p-8 text-sm font-bold text-slate-500 shadow-sm">
             正在讀取通知…
@@ -515,6 +534,21 @@ export default function AdminNotificationsPage() {
                       </p>
                     ) : null}
 
+                    {row.merchant_id && merchantProfiles[row.merchant_id] ? (
+                      <MerchantReviewCard
+                        merchant={merchantProfiles[row.merchant_id]}
+                        pendingAction={reviewingId === row.merchant_id}
+                        rejectionOpen={rejectingId === row.merchant_id}
+                        rejectionReason={rejectionReason}
+                        setRejectionReason={setRejectionReason}
+                        onRejectToggle={() => { setRejectingId(rejectingId === row.merchant_id ? null : row.merchant_id); setRejectionReason(""); }}
+                        onDecision={(decision) => void reviewMerchant(row.merchant_id!, decision)}
+                      />
+                    ) : row.merchant_id ? (
+                      <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">商戶詳細資料暫時未能讀取，請進入商戶管理頁核對。</div>
+                    ) : null}
+                    {row.event_id && eventProfiles[row.event_id] ? <EventPreviewCard event={eventProfiles[row.event_id]} /> : null}
+
                     <div className="mt-2 flex flex-wrap gap-3 text-xs font-bold text-slate-500">
                       <span>{formatTime(row.created_at)}</span>
                       {row.status_snapshot ? (
@@ -540,7 +574,7 @@ export default function AdminNotificationsPage() {
 
                     {["merchant_registered", "merchant_status_changed", "merchant_updated"].includes(row.kind) ? (
                       <Link
-                        href="/admin/merchants"
+                        href={row.merchant_id ? `/admin/merchants?merchant_id=${encodeURIComponent(row.merchant_id)}#merchant-list` : "/admin/merchants"}
                         className="rounded-full bg-slate-950 px-4 py-2 text-center text-xs font-black text-white hover:bg-slate-800"
                       >
                         查看商戶
