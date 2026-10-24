@@ -3,6 +3,7 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { createClient } from "@supabase/supabase-js";
 import { extractStructuredPageDetails, parseCurrencyPrice } from "@/lib/event-import-page-extractor";
+import { validateEventUpload } from "@/lib/event-upload-validation";
 
 export const runtime = "nodejs";
 
@@ -762,29 +763,14 @@ export async function POST(request: NextRequest) {
       }
 
       const fileName = uploaded.name || "event.pdf";
-      const isPdf =
-        uploaded.type.toLowerCase().includes("pdf") ||
-        fileName.toLowerCase().endsWith(".pdf");
-
-      if (!isPdf) {
+      // Server and client use the same byte-signature and size rules.
+      // Reject truncated '%PDF' prefixes and renamed non-PDF uploads.
+      const header = new Uint8Array(await uploaded.slice(0, 12).arrayBuffer());
+      const validation = validateEventUpload(fileName, header, uploaded.size);
+      if (validation.kind !== "pdf") {
         return NextResponse.json(
-          { ok: false, error: "文件文字抽取只支援 PDF；PNG、JPG、WEBP 圖片可於前端直接預覽及儲存為活動封面。" },
-          { status: 415 },
-        );
-      }
-
-      const pdfHeader = new Uint8Array(await uploaded.slice(0, 5).arrayBuffer());
-      if (!pdfHeader.every((value, index) => value === [37, 80, 68, 70, 45][index])) {
-        return NextResponse.json(
-          { ok: false, error: "檔案內容不是有效 PDF，請勿直接更改副檔名。" },
-          { status: 415 },
-        );
-      }
-
-      if (uploaded.size <= 0 || uploaded.size > MAX_PDF_BYTES) {
-        return NextResponse.json(
-          { ok: false, error: "PDF 必須小於 12MB。" },
-          { status: 413 },
+          { ok: false, error: validation.error || "文件文字抽取只支援真正 PDF。" },
+          { status: validation.error?.includes("12MB") ? 413 : 415 },
         );
       }
 
