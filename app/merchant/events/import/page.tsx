@@ -265,7 +265,8 @@ export default function ImportEventPage() {
       return null;
     }
 
-    if (adminRoute && adminAccess === true) {
+    // Resolve verified platform admin rights irrespective of which import URL was used.
+    if (adminAccess === true) {
       const adminActor: MerchantRecord = {
         id: "",
         business_name: "HK Family Fun",
@@ -480,7 +481,7 @@ export default function ImportEventPage() {
     const currentMerchant = merchant || (await loadMerchant());
     if (!currentMerchant) return;
 
-    const adminCreating = adminRoute && currentMerchant.id === "";
+    const adminCreating = isAdmin && currentMerchant.id === "";
 
     setSaving(true);
     setMessage("");
@@ -593,10 +594,10 @@ export default function ImportEventPage() {
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-[1400px] px-4 py-8">
           <p className="text-sm font-black text-purple-700">
-            {adminRoute ? "Admin Portal · 智能活動匯入" : "Merchant Portal · 智能網址匯入"}
+            {isAdmin || adminRoute ? "Admin Portal · 智能活動匯入" : "Merchant Portal · 智能網址匯入"}
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-            {adminRoute
+            {isAdmin || adminRoute
               ? "Admin：貼活動網址或上載圖片／PDF，建立可編輯草稿"
               : "貼活動網址或上載 PNG／JPG／WEBP／PDF，建立可編輯草稿"}
           </h1>
