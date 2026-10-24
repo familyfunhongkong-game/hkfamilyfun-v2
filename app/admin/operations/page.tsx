@@ -48,10 +48,10 @@ function MetricCard({label, metric, href, note}:{label:string; metric?:Metric; h
         </span>
       </div>
       <p className="mt-3 text-4xl font-black text-slate-950">{metric?.available ? metric.count : "—"}</p>
-      <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{note}</p>
+      <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{note}{href ? <span className="ml-1 text-purple-800">→</span> : null}</p>
     </article>
   );
-  return href ? <Link href={href}>{body}</Link> : body;
+  return href ? <Link href={href} aria-label={`管理${label}`} className="group block rounded-3xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">{body}</Link> : body;
 }
 
 function formatTime(value?: string | null) {
@@ -215,17 +215,17 @@ export default function AdminOperationsPage() {
 
         {summary ? <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard label="待審活動" metric={metrics.submittedEvents} href="/admin/events" note="商戶或匯入後等待你審批。" />
-            <MetricCard label="待審商戶" metric={metrics.pendingMerchants} href="/admin/merchants" note="新商戶等待批准。" />
+            <MetricCard label="待審活動" metric={metrics.submittedEvents} href="/admin/events?status=submitted" note="商戶或匯入後等待你審批。" />
+            <MetricCard label="待審商戶" metric={metrics.pendingMerchants} href="/admin/merchants?status=pending" note="新商戶等待批准。" />
             <MetricCard label="Data Inbox" metric={metrics.intakeAttention} href="/admin/intake" note="New + Needs Review，真正需要你處理嘅 Intake。" />
             <MetricCard label="未讀通知" metric={metrics.unreadNotifications} href="/admin/notifications" note="站內營運 queue，不依賴 email。" />
             <MetricCard label="全部活動" metric={metrics.totalEvents} href="/admin/events" note="Supabase events 主資料。" />
-            <MetricCard label="已發布活動" metric={metrics.publishedEvents} href="/events" note="公眾目前可見活動。" />
+            <MetricCard label="已發布活動" metric={metrics.publishedEvents} href="/admin/events?status=published" note="公眾目前可見活動。" />
             <MetricCard label="News 草稿" metric={metrics.contentDrafts} href="/admin/content" note="News / Feature / Guide。" />
             <MetricCard label="Active Banner" metric={metrics.activeBanners} href="/admin/promotions" note="廣告及特別宣傳位置。" />
             <MetricCard label="Social Draft" metric={metrics.socialDrafts} href="/admin/social" note="FB / IG / Threads 文案。" />
-            <MetricCard label="資料來源" metric={metrics.dataSources} note="Google Sheet / Drive / Form / Website。" />
-            <MetricCard label="Sync Runs" metric={metrics.syncRuns} note="每次同步保留 audit trail。" />
+            <MetricCard label="資料來源" metric={metrics.dataSources} href="/admin/operations#data-sources" note="Google Sheet / Drive / Form / Website。" />
+            <MetricCard label="Sync Runs" metric={metrics.syncRuns} href="/admin/operations#sync-history" note="每次同步保留 audit trail。" />
             <MetricCard label="商戶總數" metric={metrics.merchants} href="/admin/merchants" note="所有商戶帳戶。" />
           </div>
 
@@ -308,7 +308,7 @@ export default function AdminOperationsPage() {
               </section>
             </aside>
 
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <section id="data-sources" className="scroll-mt-24 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-black text-purple-700">External Sources</p>
@@ -334,6 +334,19 @@ export default function AdminOperationsPage() {
                   </article>
                 )):<div className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm font-semibold text-slate-500">套用 Data Hub migration 後會顯示已登記資料來源。</div>}
               </div>
+
+              <section id="sync-history" className="mt-7 scroll-mt-24 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-sm font-black text-slate-900">最近一次同步紀錄</h3>
+                {summary.latestSync ? (
+                  <dl className="mt-3 grid gap-3 text-xs font-semibold text-slate-700 sm:grid-cols-2">
+                    <div><dt className="text-slate-500">同步狀態</dt><dd className="mt-1">{String(summary.latestSync.status || "—")}</dd></div>
+                    <div><dt className="text-slate-500">開始時間</dt><dd className="mt-1">{formatTime(typeof summary.latestSync.started_at === "string" ? summary.latestSync.started_at : null)}</dd></div>
+                    <div><dt className="text-slate-500">已讀取行數</dt><dd className="mt-1 tabular-nums">{String(summary.latestSync.rows_read ?? "—")}</dd></div>
+                    <div><dt className="text-slate-500">錯誤數量</dt><dd className="mt-1 tabular-nums">{String(summary.latestSync.error_count ?? "—")}</dd></div>
+                  </dl>
+                ) : <p className="mt-2 text-sm text-slate-600">暫時未有可讀取的同步紀錄。</p>}
+                <p className="mt-3 text-xs text-slate-500">此區展示最近一次同步摘要；完整稽核紀錄仍保存在資料庫，未設獨立瀏覽器時不會冒稱可編輯。</p>
+              </section>
 
               <div className="mt-6 grid gap-3 md:grid-cols-3">
                 <Link href="/admin/content" className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
