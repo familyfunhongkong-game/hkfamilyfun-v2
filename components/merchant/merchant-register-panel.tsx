@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import MerchantCollectionNotice from "@/components/MerchantCollectionNotice";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { socialSignInAvailability } from "@/lib/merchant-google-provider";
 import {
@@ -23,6 +23,21 @@ export default function MerchantRegisterPanel() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [socialLoading, setSocialLoading] = useState<"google" | "facebook" | null>(null);
+  const [availableSocial, setAvailableSocial] = useState({ google: false, facebook: false });
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      socialSignInAvailability("google"),
+      socialSignInAvailability("facebook"),
+    ]).then(([google, facebook]) => {
+      if (active) setAvailableSocial({ google: google === "enabled", facebook: facebook === "enabled" });
+    }).catch(() => {
+      if (active) setAvailableSocial({ google: false, facebook: false });
+    });
+    return () => { active = false; };
+  }, []);
+
 
   const signInWithSocial = async (provider: "google" | "facebook") => {
     if (socialLoading) return;
@@ -32,11 +47,7 @@ export default function MerchantRegisterPanel() {
     try {
       const availability = await socialSignInAvailability(provider);
       if (availability !== "enabled") {
-        setErrorMessage(
-          availability === "disabled"
-            ? `${label} 登入尚未啟用，請暫時使用電郵及密碼登入。`
-            : `暫時未能核實 ${label} 登入設定，請稍後重試或使用電郵登入。`,
-        );
+        setErrorMessage(`暫時未能使用 ${label} 登入，請改用電郵登入。`);
         return;
       }
       if (!supabase) {
@@ -166,22 +177,26 @@ export default function MerchantRegisterPanel() {
             </div>
           ) : null}
 
+          {(availableSocial.google || availableSocial.facebook) && (
+          <>
           <div className="mt-6 grid gap-3">
-            <button type="button" disabled={socialLoading !== null}
+            {availableSocial.google && <button type="button" disabled={socialLoading !== null}
               onClick={() => void signInWithSocial("google")}
               className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-950 hover:bg-slate-50 disabled:opacity-60">
               <span aria-hidden="true" className="font-black text-blue-600">G</span>
               {socialLoading === "google" ? "正在連接 Google…" : "使用 Google 登入"}
-            </button>
-            <button type="button" disabled={socialLoading !== null}
+            </button>}
+            {availableSocial.facebook && <button type="button" disabled={socialLoading !== null}
               onClick={() => void signInWithSocial("facebook")}
               className="flex w-full items-center justify-center gap-3 rounded-xl bg-[#1877F2] px-4 py-3 text-sm font-bold text-white hover:bg-[#166FE5] disabled:opacity-60">
               <span aria-hidden="true" className="text-lg font-black">f</span>
               {socialLoading === "facebook" ? "正在連接 Facebook…" : "使用 Facebook 登入"}
-            </button>
+            </button>}
           </div>
           <p className="mt-3 text-center text-xs text-slate-500">首次使用 Google 或 Facebook 登入，請登入後完成商戶資料及審批申請。</p>
           <div className="my-5 flex items-center gap-3 text-xs text-slate-500"><span className="h-px flex-1 bg-slate-200" />或使用電郵建立帳戶<span className="h-px flex-1 bg-slate-200" /></div>
+          </>
+          )}
           <div className="mt-5"><MerchantCollectionNotice /></div>
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             <label className="block">
