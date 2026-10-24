@@ -768,7 +768,15 @@ export async function POST(request: NextRequest) {
 
       if (!isPdf) {
         return NextResponse.json(
-          { ok: false, error: "目前直接上載只支援 PDF 檔案。" },
+          { ok: false, error: "文件文字抽取只支援 PDF；PNG、JPG、WEBP 圖片可於前端直接預覽及儲存為活動封面。" },
+          { status: 415 },
+        );
+      }
+
+      const pdfHeader = new Uint8Array(await uploaded.slice(0, 5).arrayBuffer());
+      if (!pdfHeader.every((value, index) => value === [37, 80, 68, 70, 45][index])) {
+        return NextResponse.json(
+          { ok: false, error: "檔案內容不是有效 PDF，請勿直接更改副檔名。" },
           { status: 415 },
         );
       }
