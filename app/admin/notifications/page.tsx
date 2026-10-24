@@ -521,8 +521,13 @@ export default function AdminNotificationsPage() {
                             : "bg-slate-100 text-slate-500",
                         ].join(" ")}
                       >
-                        {row.email_sent ? "Email 已送出" : "站內通知"}
+                        {row.email_sent ? "已交電郵服務處理" : "站內通知"}
                       </span>
+                      {row.kind === "merchant_registered" && row.merchant_id && rows.filter(item => item.kind === "merchant_registered" && item.merchant_id === row.merchant_id).length > 1 ? (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-700">
+                          同商戶 {rows.filter(item => item.kind === "merchant_registered" && item.merchant_id === row.merchant_id).length} 則通知
+                        </span>
+                      ) : null}
                     </div>
 
                     <button type="button" onClick={() => setExpandedId(expandedId === row.id ? null : row.id)} aria-expanded={expandedId === row.id} className="mt-2 text-left text-sm font-black text-slate-950 hover:text-purple-700">
@@ -534,7 +539,7 @@ export default function AdminNotificationsPage() {
                       </p>
                     ) : null}
 
-                    {row.merchant_id && merchantProfiles[row.merchant_id] ? (
+                    {row.merchant_id && row.kind.startsWith("merchant_") && merchantProfiles[row.merchant_id] ? (
                       <MerchantReviewCard
                         merchant={merchantProfiles[row.merchant_id]}
                         pendingAction={reviewingId === row.merchant_id}
@@ -544,7 +549,7 @@ export default function AdminNotificationsPage() {
                         onRejectToggle={() => { setRejectingId(rejectingId === row.merchant_id ? null : row.merchant_id); setRejectionReason(""); }}
                         onDecision={(decision) => void reviewMerchant(row.merchant_id!, decision)}
                       />
-                    ) : row.merchant_id ? (
+                    ) : row.merchant_id && row.kind.startsWith("merchant_") ? (
                       <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">商戶詳細資料暫時未能讀取，請進入商戶管理頁核對。</div>
                     ) : null}
                     {row.event_id && eventProfiles[row.event_id] ? <EventPreviewCard event={eventProfiles[row.event_id]} /> : null}
