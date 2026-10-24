@@ -192,6 +192,8 @@ export default function ImportEventPage() {
   const [message, setMessage] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  // Keep the original evidence source, so PDF/image/manual records aren't mislabelled as URL imports.
+  const [sourceType, setSourceType] = useState<"url" | "pdf" | "image" | "manual">("manual");
   const imagePreview = useMemo(() => selectedImage ? URL.createObjectURL(selectedImage) : "", [selectedImage]);
   useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
 
@@ -366,6 +368,7 @@ export default function ImportEventPage() {
 
       const extracted = json.event as DraftEvent;
       applyExtractedDraft(extracted, targetUrl);
+      setSourceType("url");
 
       setMessage("已完成網址資料抽取；請檢查抽取備註，並核實活動適合親子平台、日期、分日開放時間、地點、價格及報名方式。");
     } catch (error) {
@@ -397,6 +400,7 @@ export default function ImportEventPage() {
     }
     if (pdf) { await extractFromPdf(file); return; }
     setSelectedImage(file);
+    setSourceType((previous) => previous === "url" || previous === "pdf" ? previous : "image");
     // Preserve an existing draft ID when replacing an image, so a retry never creates a duplicate event.
     setMessage("已選取活動圖片，可預覽；按「儲存草稿」才會上載。圖片文字不會自動辨識，請手動填寫或透過活動網址抽取資料。");
   }
@@ -456,6 +460,7 @@ export default function ImportEventPage() {
       }
 
       applyExtractedDraft(json.event as DraftEvent);
+      setSourceType("pdf");
       setMessage(
         "已完成 PDF 文字抽取。原 PDF 不會自動發布；請逐項核對日期、地點、收費及報名資料後再儲存草稿。",
       );
@@ -521,7 +526,7 @@ export default function ImportEventPage() {
       registration_url: draft.registration_url || draft.booking_url || draft.official_url || draft.source_url,
       booking_url: draft.booking_url || draft.registration_url || draft.official_url || draft.source_url,
       official_url: draft.official_url || draft.source_url,
-      source_type: "url",
+      source_type: sourceType,
       source_url: draft.source_url || url,
       ai_extraction_status: "not_available",
       google_map_url: draft.google_map_url,
@@ -625,7 +630,7 @@ export default function ImportEventPage() {
             <button
               type="button"
               onClick={extractFromUrl}
-              disabled={extracting}
+              disabled={extracting || saving}
               className="mt-4 w-full rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
             >
               {extracting ? "正在抽取資料..." : "抽取活動資料"}
@@ -642,12 +647,12 @@ export default function ImportEventPage() {
                 上載或拖放圖片／PDF
               </span>
               <span className="mt-1 block text-xs leading-5 text-purple-700">
-                支援 PNG、JPG/JPEG、WEBP（每張最多 8MB）或 PDF（最多 12MB）。圖片預覽後儲存為封面；PDF 可抽取文字。
+                支援 PNG、JPG/JPEG、WEBP（每張最多 8MB）或 PDF（最多 12MB）。圖片可預覽並儲存為封面；PDF 會傳送至第三方 Reader 擷取文字，請勿上載含敏感個人資料的文件。
               </span>
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp,application/pdf,.png,.jpg,.jpeg,.webp,.pdf"
-                disabled={extracting}
+                disabled={extracting || saving}
                 onChange={(event) => {
                   const file = event.target.files?.[0] || null;
                   void acceptUpload(file);
@@ -656,6 +661,17 @@ export default function ImportEventPage() {
                 className="sr-only"
               />
             </label>
+
+            {extracting ? (
+              <p role="status" aria-live="polite" className="mt-3 rounded-xl bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-900">
+                正在抽取資料，請檢查右邊的即時草稿；如來源網站封鎖讀取，系統會顯示原因。
+              </p>
+            ) : null}
+            {message ? (
+              <p role="status" aria-live="polite" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+                {message}
+              </p>
+            ) : null}
 
             <button
               type="button"
@@ -701,12 +717,6 @@ export default function ImportEventPage() {
         </div>
 
         <div className="space-y-5">
-          {message ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-              {message}
-            </div>
-          ) : null}
-
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
@@ -882,7 +892,7 @@ export default function ImportEventPage() {
                 <button
                   type="button"
                   onClick={saveDraft}
-                  disabled={saving}
+                  disabled={saving || extracting}
                   className="rounded-full bg-purple-700 px-6 py-3 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
                 >
                   {saving ? "正在儲存..." : "儲存為活動草稿"}
