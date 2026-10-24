@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { validateEventUpload } from "@/lib/event-upload-validation";
 
 type DraftEvent = {
   source_url: string;
@@ -384,21 +385,13 @@ export default function ImportEventPage() {
 
   async function acceptUpload(file: File | null) {
     if (!file) return;
-    const ext = file.name.split(".").pop()?.toLowerCase() || "";
     const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-    const pdf = ext === "pdf" && header.slice(0, 5).every((v, i) => v === [37, 80, 68, 70, 45][i]);
-    const jpg = ["jpg", "jpeg"].includes(ext) && header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
-    const png = ext === "png" && header.slice(0, 8).every((v, i) => v === [137, 80, 78, 71, 13, 10, 26, 10][i]);
-    const webp = ext === "webp" && String.fromCharCode(...header.slice(0, 4)) === "RIFF" && String.fromCharCode(...header.slice(8, 12)) === "WEBP";
-    if (!pdf && !jpg && !png && !webp) {
-      setMessage("格式不支援，或檔案內容與副檔名不符。請使用真正的 PNG、JPG/JPEG、WEBP 或 PDF。");
+    const validation = validateEventUpload(file.name, header, file.size);
+    if (validation.error) {
+      setMessage(validation.error);
       return;
     }
-    if (file.size === 0 || file.size > (pdf ? 12 : 8) * 1024 * 1024) {
-      setMessage(pdf ? "PDF 需小於 12MB。" : "圖片需小於 8MB。");
-      return;
-    }
-    if (pdf) { await extractFromPdf(file); return; }
+    if (validation.kind === "pdf") { await extractFromPdf(file); return; }
     setSelectedImage(file);
     setSourceType((previous) => previous === "url" || previous === "pdf" ? previous : "image");
     // Preserve an existing draft ID when replacing an image, so a retry never creates a duplicate event.
@@ -563,7 +556,7 @@ export default function ImportEventPage() {
       const { error: uploadError } = await client.storage.from("event-images").upload(path, selectedImage, {
         cacheControl: "3600",
         upsert: false,
-        contentType: selectedImage.type || (ext === "jpg" ? "image/jpeg" : `image/${ext}`),
+        contentType: ext === "jpg" ? "image/jpeg" : `image/${ext}`,
       });
       if (uploadError) {
         setMessage(`活動草稿已建立，但圖片未能上載：${uploadError.message}。請進入活動編輯頁重新上載。`);
