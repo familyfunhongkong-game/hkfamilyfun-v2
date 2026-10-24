@@ -81,7 +81,7 @@ for (const format of ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'
 }
 assert.ok(importPage.includes('function readyScore(draft: DraftEvent, hasLocalImage = false)'), 'missing image completeness calculation');
 assert.ok(!importPage.includes('getCtaPreview(draft) !== ""'), 'placeholder CTA must not count as completed');
-assert.ok(importPage.includes('const adminCreating = isAdmin && currentMerchant.id === "";'), 'admin should not need merchant profile to import');
+assert.ok(importPage.includes('const adminCreating = currentMerchant.id === "";'), 'Admin save must rely on the resolved actor, not stale React state');
 assert.ok(importPage.includes('setSelectedImage(file)'), 'image selection missing');
 assert.ok(importPage.includes('client.storage.from("event-images").upload('), 'image upload missing');
 assert.ok(importPage.includes('const [sourceType, setSourceType]'), 'import provenance sourceType tracking missing');
