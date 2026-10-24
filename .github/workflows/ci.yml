@@ -98,6 +98,9 @@ jobs:
       - name: Unified account and Admin entry regression
         run: node scripts/check-account-hub.mjs
 
+      - name: Merchant social login visibility safety
+        run: node scripts/check-social-provider-visibility.mjs
+
       - name: Lint
         run: npm run lint
 
