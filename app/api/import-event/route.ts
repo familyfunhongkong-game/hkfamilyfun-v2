@@ -3,11 +3,11 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { createClient } from "@supabase/supabase-js";
 import { extractStructuredPageDetails, parseCurrencyPrice } from "@/lib/event-import-page-extractor";
+import { validateEventUpload } from "@/lib/event-upload-validation";
 
 export const runtime = "nodejs";
 
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
-const MAX_PDF_BYTES = 12 * 1024 * 1024;
 
 type JsonObject = Record<string, unknown>;
 
@@ -312,6 +312,10 @@ function getMeta(html: string, names: string[]) {
   return "";
 }
 
+function isChallengeTitle(title: string) {
+  return /^(?:just a moment(?:\.\.\.)?|attention required!?|access denied!?|verify you are human|captcha|403 forbidden|502 bad gateway|operation timed out)$/i.test(title.trim());
+}
+
 function getTitle(html: string) {
   const ogTitle = getMeta(html, ["og:title", "twitter:title"]);
   if (ogTitle) return ogTitle;
@@ -412,6 +416,22 @@ function timeOnly(value: unknown) {
 }
 
 function extractDateRangeFromText(text: string) {
+  // Hong Kong event pages often omit the year on the end date.
+  const chineseRange = text.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日\s*(?:至|到|－|–|-|~)\s*(?:(\d{4})年)?\s*(\d{1,2})月\s*(\d{1,2})日/);
+  if (chineseRange) {
+    const startYear = Number(chineseRange[1]);
+    const startMonth = Number(chineseRange[2]);
+    const endMonth = Number(chineseRange[5]);
+    const explicitYear = chineseRange[4] ? Number(chineseRange[4]) : null;
+    const endYear = explicitYear ?? (endMonth < startMonth ? startYear + 1 : startYear);
+    const asDate = (year: number, month: number, day: number) =>
+      `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return {
+      start_date: asDate(startYear, startMonth, Number(chineseRange[3])),
+      end_date: asDate(endYear, endMonth, Number(chineseRange[6])),
+    };
+  }
+
   const isoRange = text.match(
     /(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2}).{0,20}?(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/
   );
@@ -446,6 +466,16 @@ function extractPrices(text: string) {
 }
 
 function extractVenueFromText(text: string) {
+  if (/中環海濱活動空間|添馬公園/.test(text)) {
+    return {
+      venue_name: "中環海濱活動空間及添馬公園",
+      address: "香港島中環海濱活動空間及添馬公園",
+      area: "香港島",
+      district: "中西區",
+      mtr_station: "中環",
+    };
+  }
+
   if (/AIRSIDE/i.test(text)) {
     return {
       venue_name: "AIRSIDE",
@@ -736,21 +766,14 @@ export async function POST(request: NextRequest) {
       }
 
       const fileName = uploaded.name || "event.pdf";
-      const isPdf =
-        uploaded.type.toLowerCase().includes("pdf") ||
-        fileName.toLowerCase().endsWith(".pdf");
-
-      if (!isPdf) {
+      // Server and client use the same byte-signature and size rules.
+      // Reject truncated '%PDF' prefixes and renamed non-PDF uploads.
+      const header = new Uint8Array(await uploaded.slice(0, 12).arrayBuffer());
+      const validation = validateEventUpload(fileName, header, uploaded.size);
+      if (validation.kind !== "pdf") {
         return NextResponse.json(
-          { ok: false, error: "目前直接上載只支援 PDF 檔案。" },
-          { status: 415 },
-        );
-      }
-
-      if (uploaded.size <= 0 || uploaded.size > MAX_PDF_BYTES) {
-        return NextResponse.json(
-          { ok: false, error: "PDF 必須小於 12MB。" },
-          { status: 413 },
+          { ok: false, error: validation.error || "文件文字抽取只支援真正 PDF。" },
+          { status: validation.error?.includes("4MB") ? 413 : 415 },
         );
       }
 
@@ -1067,8 +1090,50 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // A successful HTTP response can still be a bot challenge or a JS shell.
+    // Try the reader when important fields remain missing; never call that success.
+    if (isChallengeTitle(event.title_tc)) {
+      event = {
+        ...event,
+        title_tc: "",
+        short_description_tc: "",
+        description_tc: "",
+        cover_image_url: "",
+        gallery_image_urls: [],
+      };
+      event.extraction_notes.push("來源網站要求真人驗證，頁面不是活動內容；已改用 Reader 後備方式重試。");
+    }
+
+    if (!readerText && (!event.title_tc || !event.start_date || !event.venue_name)) {
+      try {
+        const readerHeaders: Record<string, string> = {
+          accept: "text/plain",
+          "accept-language": "zh-HK,zh;q=0.9,en;q=0.8",
+        };
+        const jinaKey = String(process.env.JINA_API_KEY || "").trim();
+        if (jinaKey) readerHeaders.authorization = `Bearer ${jinaKey}`;
+        const response = await fetch(`https://r.jina.ai/${parsedUrl.toString()}`, {
+          headers: readerHeaders,
+          cache: "no-store",
+          signal: AbortSignal.timeout(20000),
+        });
+        if (response.ok) {
+          readerText = (await response.text()).slice(0, 100000);
+          if (readerText.trim()) event.extraction_notes.push("原始網頁資料不足，已嘗試 Reader 後備文字抽取。");
+        } else {
+          event.extraction_notes.push(`Reader 後備抽取失敗：HTTP ${response.status}。`);
+        }
+      } catch {
+        event.extraction_notes.push("Reader 後備抽取連線失敗，請按原文手動填寫。");
+      }
+    }
+
     if (readerText) {
       event = applyReaderText(event, readerText);
+    }
+
+    if (!event.title_tc && !event.description_tc && !event.start_date) {
+      return NextResponse.json({ ok: false, error: "來源網頁未能提供可用活動資訊（可能阻擋機械讀取）；請使用官方 PDF 或手動輸入，原始 URL 仍可保留。" }, { status: 422 });
     }
 
     if (!event.title_tc) {

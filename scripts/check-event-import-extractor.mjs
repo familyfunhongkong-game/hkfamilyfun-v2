@@ -70,4 +70,49 @@ assert.equal(hkdPrice?.price_label, "HK$520 / 4人；額外每人 HK$140");
 assert.equal(hkdPrice?.min_price, "520");
 assert.equal(hkdPrice?.max_price, "520");
 
-console.log("Event import extractor contract passed.");
+
+import { validateEventUpload } from "../lib/event-upload-validation.js";
+import { readFileSync } from "node:fs";
+
+const importPage = readFileSync("app/merchant/events/import/page.tsx", "utf8");
+const importApi = readFileSync("app/api/import-event/route.ts", "utf8");
+for (const format of ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']) {
+  assert.ok(importPage.includes(format), `Missing accepted upload format: ${format}`);
+}
+assert.ok(importPage.includes('function readyScore(draft: DraftEvent, hasLocalImage = false)'), 'missing image completeness calculation');
+assert.ok(!importPage.includes('getCtaPreview(draft) !== ""'), 'placeholder CTA must not count as completed');
+assert.ok(importPage.includes('const adminCreating = currentMerchant.id === "";'), 'Admin save must rely on the resolved actor, not stale React state');
+assert.ok(importPage.includes('setSelectedImage(file)'), 'image selection missing');
+assert.ok(importPage.includes('client.storage.from("event-images").upload('), 'image upload missing');
+assert.ok(importPage.includes('const [sourceType, setSourceType]'), 'import provenance sourceType tracking missing');
+assert.ok(importPage.includes('source_type: sourceType'), 'stored source type must match URL, PDF or poster');
+assert.ok(importPage.includes('setSourceType("pdf")'), 'PDF must be recorded as PDF evidence');
+assert.ok(importPage.includes('setSourceType("url")'), 'URL must be recorded as URL evidence');
+assert.ok(importPage.includes('第三方 Reader'), 'PDF third-party processing disclosure missing');
+assert.ok(importPage.includes('role="status" aria-live="polite"'), 'inline import feedback is required');
+assert.ok(importPage.includes('.eq("id", savedId)'), 'retry must reuse existing draft');
+assert.ok(importPage.includes('client.storage.from("event-images").remove([path])'), 'failed image-link update must clean up orphan storage objects');
+assert.ok(importPage.includes('PDF（最多 4MB）'), 'PDF picker must respect the Vercel 4.5MB body cap');
+assert.ok(importPage.includes('response.status === 413'), 'Gateway 413 payload failures must show actionable UI messages');
+assert.ok(importPage.includes('await readImportResponse(response)'), 'HTML gateway errors must not crash JSON parsing');
+assert.ok(importApi.includes("validateEventUpload(fileName, header, uploaded.size)"), "PDF server validation must use shared utility");
+assert.ok(importPage.includes("validateEventUpload(file.name, header, file.size)"), "image picker must use shared utility");
+assert.ok(importApi.includes('const chineseRange = text.match('), 'Chinese date-range fallback missing');
+assert.ok(importApi.includes('Reader 後備抽取'), 'reader fallback missing');
+assert.ok(importApi.includes("isChallengeTitle(event.title_tc)"), "Bot challenge HTML must not be imported as an event");
+
+
+const bytes = (...values) => new Uint8Array(values);
+assert.equal(validateEventUpload("event.png", bytes(137,80,78,71,13,10,26,10), 1024).kind, "image");
+assert.equal(validateEventUpload("event.JPG", bytes(255,216,255), 1024).kind, "image");
+assert.equal(validateEventUpload("event.jpeg", bytes(255,216,255), 1024).mime, "image/jpeg");
+assert.equal(validateEventUpload("event.webp", bytes(82,73,70,70,0,0,0,0,87,69,66,80), 1024).kind, "image");
+assert.equal(validateEventUpload("event.pdf", bytes(37,80,68,70,45), 2048).kind, "pdf");
+assert.equal(validateEventUpload("event.png", bytes(137), 1).kind, null, "truncated PNG must fail");
+assert.equal(validateEventUpload("event.pdf", bytes(37), 1).kind, null, "truncated PDF must fail");
+assert.equal(validateEventUpload("event.pdf", bytes(137,80,78,71,13,10,26,10), 2048).kind, null, "renamed PNG must fail");
+assert.equal(validateEventUpload("event.png", bytes(137,80,78,71,13,10,26,10), 9 * 1024 * 1024).kind, null, "oversize images must fail");
+assert.equal(validateEventUpload("event.pdf", bytes(37,80,68,70,45), 5 * 1024 * 1024).kind, null, "oversize PDFs must fail");
+assert.equal(validateEventUpload("event.svg", bytes(60,115,118,103), 4096).kind, null, "SVG must never be treated as a safe raster image");
+
+console.log("Event import extractor and common upload contract passed.");
