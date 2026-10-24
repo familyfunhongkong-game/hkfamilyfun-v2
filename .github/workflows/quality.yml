@@ -161,6 +161,9 @@ jobs:
       - name: Event import extraction regression check
         run: npm run check:event-import
 
+      - name: Unified account and Admin entry regression
+        run: node scripts/check-account-hub.mjs
+
       - name: TypeScript check
         run: npm run type-check
 

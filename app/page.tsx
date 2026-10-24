@@ -144,7 +144,7 @@ export default async function HomePage() {
       ? {
           featuredKicker: "HK Family Fun Picks",
           featuredTitle: "Featured family events",
-          featuredEmpty: "Featured events will appear here after Admin selection.",
+          featuredEmpty: "More featured events are coming soon.",
           latestKicker: "Freshly updated",
           latestTitle: "Latest event updates",
           latestDesc:
@@ -155,7 +155,7 @@ export default async function HomePage() {
         ? {
             featuredKicker: "HK Family Fun 精选",
             featuredTitle: "精选推介活动",
-            featuredEmpty: "Admin 设定精选活动后会显示在这里。",
+            featuredEmpty: "更多精选亲子活动即将推出。",
             latestKicker: "最新更新",
             latestTitle: "最新活动",
             latestDesc: "按最近更新时间由新至旧排列，方便最快看到新活动及资料更新。",
@@ -164,7 +164,7 @@ export default async function HomePage() {
         : {
             featuredKicker: "HK Family Fun 精選",
             featuredTitle: "精選推介活動",
-            featuredEmpty: "Admin 設定精選活動後會顯示在這裡。",
+            featuredEmpty: "更多精選親子活動即將推出。",
             latestKicker: "最新更新",
             latestTitle: "最新活動",
             latestDesc: "按最近更新時間由新至舊排列，方便最快看到新活動及資料更新。",
@@ -347,13 +347,13 @@ export default async function HomePage() {
 
             <div className="mt-5 flex flex-wrap gap-3">
               <Link
-                href="/merchant/register"
+                href="/merchant/account?mode=register"
                 className="rounded-full bg-white px-5 py-3 text-sm font-black text-purple-700"
               >
                 {p.merchantRegisterFree}
               </Link>
               <Link
-                href="/merchant/login"
+                href="/merchant/account?mode=login"
                 className="rounded-full border border-white/30 px-5 py-3 text-sm font-black text-white"
               >
                 {p.merchantLogin}

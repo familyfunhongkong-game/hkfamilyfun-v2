@@ -129,11 +129,29 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
           </Link>
 
           <Link
-            href="/merchant/register"
+            href="/merchant/account?mode=register"
             className="hidden whitespace-nowrap rounded-full bg-purple-700 px-3.5 py-2 text-[13px] font-bold text-white shadow-sm hover:bg-purple-800 md:inline-flex"
           >
             {m.merchantRegister}
           </Link>
+          <details className="group relative">
+            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:border-purple-300 hover:text-purple-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700 [&::-webkit-details-marker]:hidden">
+              {locale === "en" ? "Sign in" : locale === "zh-Hans" ? "登录" : "登入"}
+              <span aria-hidden="true" className="text-slate-400">⌄</span>
+            </summary>
+            <div className="absolute right-0 top-full z-[80] mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+              <Link href="/merchant/account?mode=login" className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 hover:bg-purple-50 hover:text-purple-700">
+                {locale === "en" ? "Merchant sign in" : locale === "zh-Hans" ? "商户登录" : "商戶登入"}
+              </Link>
+              <Link href="/merchant/account?mode=register" className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 hover:bg-purple-50 hover:text-purple-700">
+                {locale === "en" ? "Free merchant registration" : locale === "zh-Hans" ? "商户免费登记" : "商戶免費登記"}
+              </Link>
+              <div className="my-1 border-t border-slate-100" />
+              <Link href="/admin/login" className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-purple-50 hover:text-purple-700">
+                {locale === "en" ? "Admin sign in" : locale === "zh-Hans" ? "管理员登录" : "管理員登入"}
+              </Link>
+            </div>
+          </details>
           <LanguageSwitcher locale={locale} label={m.language} />
         </div>
       </div>
@@ -206,11 +224,14 @@ function SiteFooter({ m, locale }: { m: ReturnType<typeof getMessages>; locale: 
             <Link href="/merchant-pricing" className="hover:text-purple-700">
               {m.merchantPlans}
             </Link>
-            <Link href="/merchant/register" className="hover:text-purple-700">
+            <Link href="/merchant/account?mode=register" className="hover:text-purple-700">
               {m.merchantRegister}
             </Link>
-            <Link href="/merchant/login" className="hover:text-purple-700">
+            <Link href="/merchant/account?mode=login" className="hover:text-purple-700">
               {m.merchantLogin}
+            </Link>
+            <Link href="/admin/login" className="hover:text-purple-700">
+              {locale === "en" ? "Admin sign in" : locale === "zh-Hans" ? "管理员登录" : "管理員登入"}
             </Link>
             <Link href="/merchant/events/import" className="hover:text-purple-700">
               {m.smartImport}
