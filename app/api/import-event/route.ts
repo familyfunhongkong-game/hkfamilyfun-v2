@@ -773,7 +773,7 @@ export async function POST(request: NextRequest) {
       if (validation.kind !== "pdf") {
         return NextResponse.json(
           { ok: false, error: validation.error || "文件文字抽取只支援真正 PDF。" },
-          { status: validation.error?.includes("12MB") ? 413 : 415 },
+          { status: validation.error?.includes("4MB") ? 413 : 415 },
         );
       }
 
