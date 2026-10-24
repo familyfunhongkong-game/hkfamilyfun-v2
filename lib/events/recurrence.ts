@@ -117,7 +117,7 @@ export function eventOccursInRange(
  * This is pure ISO calendar logic: the caller supplies "today" in Hong Kong.
  */
 export function nextEventOccurrence(event: RecurrenceLike, today: string): string | null {
-  const iso = /^\\d{4}-\\d{2}-\\d{2}$/;
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
   const start = String(event.startDate || "").slice(0, 10);
   const end = String(event.endDate || event.startDate || "").slice(0, 10);
   if (!iso.test(today) || !iso.test(start) || !iso.test(end) || start > end) return null;
