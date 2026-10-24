@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const splash = readFileSync("app/maintenance/page.tsx","utf8");
+const layout = readFileSync("app/layout.tsx","utf8");
+const destination = "https://wa.me/85257018297";
+assert.ok(splash.includes(destination), "Maintenance must provide public contact channel");
+assert.ok(layout.includes(destination), "Maintenance must use same existing official public WhatsApp number as footer");
+assert.ok(splash.includes('target="_blank"') && splash.includes('rel="noopener noreferrer"'));
+assert.ok(splash.includes("WhatsApp 留言"), "Readable text CTA is necessary on mobile");
+assert.ok(!splash.includes("mailto:info@hkfamilyfun.com"), "Do not direct visitors to a repeatedly bouncing mailbox during maintenance");
+assert.ok(splash.includes("robots: { index: false, follow: false }"), "Maintenance splash must stay out of search results");
+console.log("[maintenance-contact] PASS — public WhatsApp CTA, consistent official contact and robots noindex");
