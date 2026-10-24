@@ -70,4 +70,22 @@ assert.equal(hkdPrice?.price_label, "HK$520 / 4人；額外每人 HK$140");
 assert.equal(hkdPrice?.min_price, "520");
 assert.equal(hkdPrice?.max_price, "520");
 
-console.log("Event import extractor contract passed.");
+
+import { readFileSync } from "node:fs";
+
+const importPage = readFileSync("app/merchant/events/import/page.tsx", "utf8");
+const importApi = readFileSync("app/api/import-event/route.ts", "utf8");
+for (const format of ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']) {
+  assert.ok(importPage.includes(format), `Missing accepted upload format: ${format}`);
+}
+assert.ok(importPage.includes('function readyScore(draft: DraftEvent, hasLocalImage = false)'), 'missing image completeness calculation');
+assert.ok(!importPage.includes('getCtaPreview(draft) !== ""'), 'placeholder CTA must not count as completed');
+assert.ok(importPage.includes('const adminCreating = isAdmin && currentMerchant.id === "";'), 'admin should not need merchant profile to import');
+assert.ok(importPage.includes('setSelectedImage(file)'), 'image selection missing');
+assert.ok(importPage.includes('client.storage.from("event-images").upload('), 'image upload missing');
+assert.ok(importPage.includes('.eq("id", savedId)'), 'retry must reuse existing draft');
+assert.ok(importApi.includes('const pdfHeader = new Uint8Array'), 'server PDF magic-byte validation missing');
+assert.ok(importApi.includes('const chineseRange = text.match('), 'Chinese date-range fallback missing');
+assert.ok(importApi.includes('Reader 後備抽取'), 'reader fallback missing');
+
+console.log("Event import extractor and common upload contract passed.");
