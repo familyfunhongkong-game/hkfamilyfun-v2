@@ -312,6 +312,10 @@ function getMeta(html: string, names: string[]) {
   return "";
 }
 
+function isChallengeTitle(title: string) {
+  return /^(?:just a moment(?:\.\.\.)?|attention required!?|access denied!?|verify you are human|captcha|403 forbidden|502 bad gateway|operation timed out)$/i.test(title.trim());
+}
+
 function getTitle(html: string) {
   const ogTitle = getMeta(html, ["og:title", "twitter:title"]);
   if (ogTitle) return ogTitle;
@@ -1088,6 +1092,18 @@ export async function POST(request: NextRequest) {
 
     // A successful HTTP response can still be a bot challenge or a JS shell.
     // Try the reader when important fields remain missing; never call that success.
+    if (isChallengeTitle(event.title_tc)) {
+      event = {
+        ...event,
+        title_tc: "",
+        short_description_tc: "",
+        description_tc: "",
+        cover_image_url: "",
+        gallery_image_urls: [],
+      };
+      event.extraction_notes.push("來源網站要求真人驗證，頁面不是活動內容；已改用 Reader 後備方式重試。");
+    }
+
     if (!readerText && (!event.title_tc || !event.start_date || !event.venue_name)) {
       try {
         const readerHeaders: Record<string, string> = {
