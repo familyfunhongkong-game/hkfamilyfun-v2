@@ -3,6 +3,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import { createClient } from "@supabase/supabase-js";
+import { resolveApprovalRecipient } from "./approval-recipient.mjs";
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
@@ -954,6 +955,19 @@ async function extractEvent(url, sourceName) {
 async function sendApprovalEmail(events) {
   if (!events.length || !RESEND_API_KEY) return false;
 
+  // The public support inbox has bounced real notifications. Until its mailbox
+  // is repaired, use only the currently active Super Admin account for signed
+  // one-click review links; do not hardcode private addresses into source.
+  const approvalRecipient = await resolveApprovalRecipient(APPROVAL_EMAIL, async () => {
+    const { data, error } = await supabase
+      .from("admin_users")
+      .select("email")
+      .eq("role", "super_admin")
+      .eq("status", "active");
+    if (error) throw new Error("Unable to resolve active Admin notification recipient");
+    return (data || []).map((record) => record.email);
+  });
+
   const cards = events
     .map((event) => {
       const reviewUrl = secureReviewUrl(event.id);
@@ -1030,8 +1044,8 @@ async function sendApprovalEmail(events) {
     },
     body: JSON.stringify({
       from: "HK Family Fun <no-reply@hkfamilyfun.com>",
-      to: [APPROVAL_EMAIL],
-      reply_to: "info@hkfamilyfun.com",
+      to: [approvalRecipient],
+      reply_to: approvalRecipient,
       subject:
         "HK Family Fun：" + events.length + " 個新活動可直接 Review / Approve",
       html:
