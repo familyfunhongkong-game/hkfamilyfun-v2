@@ -96,6 +96,76 @@ function kindLabel(kind: string) {
   return kind;
 }
 
+function MerchantReviewCard({
+  merchant, pendingAction, rejectionOpen, rejectionReason, setRejectionReason,
+  onRejectToggle, onDecision,
+}: {
+  merchant: MerchantProfile;
+  pendingAction: boolean;
+  rejectionOpen: boolean;
+  rejectionReason: string;
+  setRejectionReason: (value: string) => void;
+  onRejectToggle: () => void;
+  onDecision: (status: "approved" | "rejected") => void;
+}) {
+  const canApprove = merchant.status === "pending" &&
+    Boolean(merchant.business_name.trim() && merchant.contact_name?.trim() &&
+      merchant.contact_email?.trim() && merchant.terms_accepted_at && merchant.privacy_accepted_at);
+  const website = safeExternalUrl(merchant.website_url);
+  return (
+    <section aria-label="商戶註冊審核摘要" className="mt-4 rounded-2xl border border-purple-100 bg-slate-50 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-base font-black text-slate-950">{merchant.business_name || "未填商戶名稱"}</h3>
+        <span className={`rounded-full px-3 py-1 text-xs font-bold ${merchant.status === "pending" ? "bg-amber-100 text-amber-900" : merchant.status === "approved" ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>
+          最新商戶狀態：{reviewStatusLabel(merchant.status)}
+        </span>
+      </div>
+      <dl className="mt-3 grid gap-x-5 gap-y-3 text-sm sm:grid-cols-2">
+        <div><dt className="text-xs font-semibold text-slate-500">聯絡人</dt><dd className="mt-1 break-words font-semibold text-slate-900">{merchant.contact_name || "未填"}</dd></div>
+        <div><dt className="text-xs font-semibold text-slate-500">商戶電郵</dt><dd className="mt-1 break-all text-slate-900">{merchant.contact_email ? <a className="text-purple-800 underline underline-offset-2" href={`mailto:${merchant.contact_email}`}>{merchant.contact_email}</a> : "未填"}</dd></div>
+        <div><dt className="text-xs font-semibold text-slate-500">電話</dt><dd className="mt-1 font-semibold text-slate-900">{merchant.contact_phone || "未填"}</dd></div>
+        <div><dt className="text-xs font-semibold text-slate-500">商戶網站</dt><dd className="mt-1 break-all">{website ? <a href={website} target="_blank" rel="noopener noreferrer" className="font-semibold text-purple-800 underline underline-offset-2">開啟商戶網站 ↗</a> : merchant.website_url || "未填"}</dd></div>
+        <div><dt className="text-xs font-semibold text-slate-500">登記時間</dt><dd className="mt-1 text-slate-900">{merchant.created_at ? formatTime(merchant.created_at) : "未知"}</dd></div>
+        <div><dt className="text-xs font-semibold text-slate-500">最近修改</dt><dd className="mt-1 text-slate-900">{merchant.updated_at ? formatTime(merchant.updated_at) : "未知"}</dd></div>
+      </dl>
+      {merchant.description ? <div className="mt-3"><h4 className="text-xs font-semibold text-slate-500">商戶簡介</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">{merchant.description}</p></div> : null}
+      <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
+        <span className={`rounded-full px-3 py-1 ${merchant.terms_accepted_at ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>商戶條款：{merchant.terms_accepted_at ? "已接受" : "未確認"}{merchant.terms_accepted_at && merchant.terms_version ? ` · ${merchant.terms_version}` : ""}</span>
+        <span className={`rounded-full px-3 py-1 ${merchant.privacy_accepted_at ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>私隱政策：{merchant.privacy_accepted_at ? "已接受" : "未確認"}</span>
+      </div>
+      {merchant.rejection_reason ? <p className="mt-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-800">退回原因：{merchant.rejection_reason}</p> : null}
+      {merchant.status === "pending" ? (
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          {!canApprove ? <p role="note" className="mb-3 text-xs font-semibold text-amber-800">資料或條款接受記錄未齊，暫不能批准；請到商戶管理頁核對。</p> : null}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={!canApprove || pendingAction} onClick={() => onDecision("approved")} className="min-h-11 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">批准商戶</button>
+            <button type="button" disabled={pendingAction} onClick={onRejectToggle} aria-expanded={rejectionOpen} className="min-h-11 rounded-xl border border-rose-300 bg-white px-5 py-2.5 text-sm font-bold text-rose-800 hover:bg-rose-50 disabled:opacity-40">退回修改</button>
+            <Link href={`/admin/merchants?merchant_id=${encodeURIComponent(merchant.id)}#merchant-list`} className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">完整商戶資料 ↗</Link>
+          </div>
+          {rejectionOpen ? <div className="mt-3 space-y-2">
+            <label htmlFor={`rejection-${merchant.id}`} className="block text-sm font-semibold text-slate-700">退回原因（必填，會通知商戶）</label>
+            <textarea id={`rejection-${merchant.id}`} value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} rows={3} maxLength={1000} className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm" placeholder="請說明需要補充或修正的資料…" />
+            <button type="button" onClick={() => onDecision("rejected")} disabled={pendingAction || !rejectionReason.trim()} className="min-h-11 rounded-xl bg-rose-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-40">確認退回</button>
+          </div> : null}
+        </div>
+      ) : <p className="mt-3 text-xs font-semibold text-slate-500">此商戶已非待審批狀態；通知可能是舊紀錄，毋須重覆審批。</p>}
+    </section>
+  );
+}
+
+function EventPreviewCard({ event }: { event: EventProfile }) {
+  return <section className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 p-4">
+    <div className="flex flex-wrap justify-between gap-2"><h3 className="text-base font-black text-slate-900">{event.title_tc || "未命名活動"}</h3><span className="text-xs font-bold text-sky-900">最新狀態：{reviewStatusLabel(event.status)}</span></div>
+    <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+      <div><dt className="text-xs text-slate-500">活動日期</dt><dd>{event.start_date || "待確認"}{event.end_date && event.end_date !== event.start_date ? ` 至 ${event.end_date}` : ""}</dd></div>
+      <div><dt className="text-xs text-slate-500">地點</dt><dd>{[event.venue_name, event.district, event.address].filter(Boolean).join(" · ") || "待確認"}</dd></div>
+      <div><dt className="text-xs text-slate-500">價格</dt><dd>{event.price_type === "free" ? "免費" : [event.price_min, event.price_max].filter(v => v !== null).join("–") || "請到活動資料核對"}</dd></div>
+    </dl>
+    <p className="mt-3 text-xs text-sky-900">活動發佈前仍須核實時間、價格、圖片及來源。</p>
+    <Link href={`/admin/events?search=${encodeURIComponent(event.title_tc || event.id)}`} className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-sky-800 px-4 py-2 text-xs font-bold text-white">查看及審批完整活動 →</Link>
+  </section>;
+}
+
 export default function AdminNotificationsPage() {
   const [rows, setRows] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
