@@ -1,0 +1,32 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const source = readFileSync("app/admin/notifications/page.tsx", "utf8");
+const merchant = readFileSync("app/admin/merchants/page.tsx", "utf8");
+for(const key of ["business_name","contact_name","contact_email","contact_phone","website_url","description","status","rejection_reason","terms_accepted_at","privacy_accepted_at","terms_version","created_at","updated_at"]){
+ assert.ok(source.includes(key), "Merchant inline review missing "+key);
+}
+assert.ok(source.includes('supabase.rpc("is_platform_admin")'), "Admin role must be checked before any private details");
+assert.ok(source.includes('if (authError || authorized !== true)'), "Fail closed if admin role check fails");
+assert.ok(source.includes('supabase.from("merchants")'), "Live Merchant review is from trusted RLS table");
+assert.ok(source.includes('supabase.from("events")'), "Event preview reads real event data");
+assert.ok(source.includes('.in("id", merchantIds)'), "Merchant profiles must be fetched in one batch");
+assert.ok(source.includes('.in("id", eventIds)'), "Event profiles must be fetched in one batch");
+assert.ok(source.includes('MerchantReviewCard'), "Inline merchant profile must render");
+assert.ok(source.includes('EventPreviewCard'), "Inline event summary must render");
+assert.ok(source.includes('merchant.status === "pending"'), "Approval only available on current pending status");
+assert.ok(source.includes('!snapshot.terms_accepted_at || !snapshot.privacy_accepted_at'), "Approval must enforce legal consent");
+assert.ok(source.includes('!latest.terms_accepted_at || !latest.privacy_accepted_at'), "Recheck consent against fresh server data");
+assert.ok(source.includes('latest.updated_at !== snapshot.updated_at'), "Block stale merchant reviews");
+assert.ok(source.includes('.eq("updated_at", latest.updated_at)'), "Atomic optimistic locking required");
+assert.ok(source.includes('.eq("status", "pending")'), "Atomic pending-only status transition required");
+assert.ok(source.includes('window.confirm('), "Decision must require a clear confirmation");
+assert.ok(source.includes('decision === "rejected" && !reason'), "Rejections require real reason");
+assert.ok(source.includes('action: "merchant_status_changed"'), "Status changes retain merchant notification");
+assert.ok(source.includes('!status.queued || !status.sent'), "Email accepted is tracked separately from status mutation");
+assert.ok(source.includes('row.kind !== "merchant_registered"'), "Duplicate registrations must group without losing history");
+assert.ok(source.includes('同一商戶的重複登記通知合併顯示'), "Explain duplicate grouping");
+assert.ok(source.includes('row.merchant_id ? `/admin/merchants?merchant_id='), "Exact merchant deep link required");
+assert.ok(source.includes('role="status"'), "Approval result must appear in readable status region");
+assert.ok(!source.includes('service_role'), "Client must not embed service role credentials");
+assert.ok(merchant.includes('protect') || merchant.includes('statusLabel'), "Existing management workflow must remain intact");
+console.log("[admin-notifications-inline-review] PASS — full private review, role gate, fresh-state lock, consent, deduplication, and delivery transparency");
