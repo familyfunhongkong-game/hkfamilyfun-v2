@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase/client";
 import PublicEventCard from "@/components/events/PublicEventCard";
 import type { Event } from "@/lib/types";
 import { formatEventAge } from "@/lib/events/age-display";
+import { nextEventOccurrence } from "@/lib/events/recurrence";
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
 
@@ -24,6 +25,10 @@ type FavoriteEvent = {
   merchant_name?: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  recurrence_type?: string | null;
+  recurrence_weekdays?: number[] | null;
+  recurrence_include_dates?: string[] | null;
+  recurrence_exclude_dates?: string[] | null;
   start_time?: string | null;
   end_time?: string | null;
   district?: string | null;
@@ -147,6 +152,10 @@ function toPublicEvent(event: FavoriteEvent, locale: AppLocale): Event {
     description: shortDescription,
     date: event.start_date || "",
     endDate: event.end_date || undefined,
+    recurrenceType: event.recurrence_type || undefined,
+    recurrenceWeekdays: event.recurrence_weekdays || undefined,
+    recurrenceIncludeDates: event.recurrence_include_dates || undefined,
+    recurrenceExcludeDates: event.recurrence_exclude_dates || undefined,
     time: timeText(event, locale),
     district: event.district || (locale === "en" ? "Hong Kong" : "香港"),
     mtrStation:
@@ -185,16 +194,24 @@ function hkToday() {
   }).format(new Date());
 }
 
+function nextFavoriteOpening(event: FavoriteEvent, today: string) {
+  return nextEventOccurrence({
+    startDate: event.start_date,
+    endDate: event.end_date,
+    recurrenceType: event.recurrence_type,
+    recurrenceWeekdays: event.recurrence_weekdays,
+    recurrenceIncludeDates: event.recurrence_include_dates,
+    recurrenceExcludeDates: event.recurrence_exclude_dates,
+  }, today);
+}
+
 function getEventStatus(event: FavoriteEvent, today: string) {
-  const finalDate = event.end_date || event.start_date;
-  if (!finalDate) return "unknown";
-  return finalDate.slice(0, 10) < today ? "expired" : "upcoming";
+  if (!event.start_date) return "unknown";
+  return nextFavoriteOpening(event, today) ? "upcoming" : "expired";
 }
 
 function eventSortDate(event: FavoriteEvent, today: string) {
-  const start = (event.start_date || "").slice(0, 10);
-  if (!start) return "9999-12-31";
-  return start < today && (event.end_date || "") >= today ? today : start;
+  return nextFavoriteOpening(event, today) || "9999-12-31";
 }
 
 function translate(locale: AppLocale, traditional: string, simplified: string, english: string) {
@@ -243,7 +260,7 @@ export default function FavoritesPage() {
       for (let offset = 0; offset < ids.length; offset += 100) {
         const { data, error } = await supabase
           .from("public_events_i18n")
-          .select("id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,merchant_name,start_date,end_date,start_time,end_time,district,mtr_station,cover_image_url,price_type,price_display_mode,price_label,min_price,max_price,age_min,age_max,age_groups,tags,activity_category,category,is_free,is_sen_friendly,is_indoor,registration_url,booking_url,official_url,source_url")
+          .select("id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,merchant_name,start_date,end_date,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates,start_time,end_time,district,mtr_station,cover_image_url,price_type,price_display_mode,price_label,min_price,max_price,age_min,age_max,age_groups,tags,activity_category,category,is_free,is_sen_friendly,is_indoor,registration_url,booking_url,official_url,source_url")
           .in("id", ids.slice(offset, offset + 100));
         if (ignore) return;
         if (error) {
@@ -406,7 +423,9 @@ export default function FavoritesPage() {
                       </Link>
                       <div className="min-w-0 flex-1">
                         <Link href={"/events/" + event.id} className="line-clamp-2 text-sm font-black text-slate-900 hover:text-purple-700 sm:text-base">{publicEvent.title}</Link>
-                        <p className="mt-1 line-clamp-1 text-xs font-bold text-purple-700">{event.start_date || t("日期待定", "日期待定", "Date TBC")}{event.end_date && event.end_date !== event.start_date ? " – " + event.end_date : ""} · {timeText(event, locale)}</p>
+                        <p className="mt-1 line-clamp-1 text-xs font-bold text-purple-700">{event.recurrence_type === "weekly" && nextFavoriteOpening(event, today)
+                          ? `${t("下次開放", "下次开放", "Next open")}: ${nextFavoriteOpening(event, today)}`
+                          : (event.start_date || t("日期待定", "日期待定", "Date TBC")) + (event.end_date && event.end_date !== event.start_date ? " – " + event.end_date : "")} · {timeText(event, locale)}</p>
                         <p className="mt-1 line-clamp-1 text-xs text-slate-500">{event.district || t("地區待定", "地区待定", "District TBC")} · {publicEvent.category} · {priceText(event, locale)}</p>
                         {tab === "expired" ? <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{t("已過期活動", "已过期活动", "Past event")}</span> : null}
                       </div>
