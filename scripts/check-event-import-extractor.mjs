@@ -108,7 +108,7 @@ assert.equal(validateEventUpload("event.png", bytes(137), 1).kind, null, "trunca
 assert.equal(validateEventUpload("event.pdf", bytes(37), 1).kind, null, "truncated PDF must fail");
 assert.equal(validateEventUpload("event.pdf", bytes(137,80,78,71,13,10,26,10), 2048).kind, null, "renamed PNG must fail");
 assert.equal(validateEventUpload("event.png", bytes(137,80,78,71,13,10,26,10), 9 * 1024 * 1024).kind, null, "oversize images must fail");
-assert.equal(validateEventUpload("event.pdf", bytes(37,80,68,70,45), 13 * 1024 * 1024).kind, null, "oversize PDFs must fail");
+assert.equal(validateEventUpload("event.pdf", bytes(37,80,68,70,45), 5 * 1024 * 1024).kind, null, "oversize PDFs must fail");
 assert.equal(validateEventUpload("event.svg", bytes(60,115,118,103), 4096).kind, null, "SVG must never be treated as a safe raster image");
 
 console.log("Event import extractor and common upload contract passed.");
