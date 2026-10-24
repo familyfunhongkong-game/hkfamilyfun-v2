@@ -19,6 +19,7 @@ import type { AppLocale } from "@/lib/i18n/config";
 import ResilientEventImage from "@/components/resilient-event-image";
 import { displayTag, tagTone } from "@/lib/events/tag-tone";
 import { formatEventCardDate } from "@/lib/events/card-date";
+import { formatWeeklyDays } from "@/lib/events/weekly-label";
 
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
@@ -242,6 +243,7 @@ export default function PublicEventCard({
   className = "",
 }: PublicEventCardProps) {
   const dateText = formatEventCardDate(event.date, event.endDate, locale);
+  const weeklyLabel = event.recurrenceType === "weekly" ? formatWeeklyDays(event.recurrenceWeekdays, locale) : "";
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -319,6 +321,7 @@ export default function PublicEventCard({
             <p className="mt-1 line-clamp-1 text-[11px] font-bold text-slate-500">
               {dateText} · {event.time}
             </p>
+            {weeklyLabel ? <p className="mt-1 text-[11px] font-bold text-purple-700">{weeklyLabel}</p> : null}
             <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">
               {event.district}
               {!mtrMissing ? ` · ${text(locale, "港鐵", "港铁", "MTR")} ${event.mtrStation}` : ""}
@@ -496,6 +499,10 @@ export default function PublicEventCard({
             muted={organizerMissing}
           />
         </div>
+
+        {weeklyLabel ? (
+          <p className="mt-3 inline-flex self-start rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-800">{weeklyLabel}</p>
+        ) : null}
 
         {event.tags.length ? (
           <div className="mt-4 flex flex-wrap gap-2">
