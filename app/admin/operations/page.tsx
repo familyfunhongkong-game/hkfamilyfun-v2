@@ -131,6 +131,14 @@ export default function AdminOperationsPage() {
     void loadSummary(Boolean(driveState));
   }, []);
 
+  useEffect(() => {
+    if (!summary) return;
+    const target = window.location.hash.slice(1);
+    if (target === "data-sources" || target === "sync-history") {
+      window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({block: "start"}));
+    }
+  }, [summary]);
+
   const metrics=summary?.metrics||{};
   const needsAttention=useMemo(()=>(
     (metrics.submittedEvents?.count||0)+(metrics.pendingMerchants?.count||0)+
