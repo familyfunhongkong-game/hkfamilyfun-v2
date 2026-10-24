@@ -409,8 +409,8 @@ export default function ImportEventPage() {
       return;
     }
 
-    if (file.size > 12 * 1024 * 1024) {
-      setMessage("PDF 必須小於 12MB。");
+    if (file.size > 4 * 1024 * 1024) {
+      setMessage("PDF 必須小於 4MB。");
       return;
     }
 
@@ -640,7 +640,7 @@ export default function ImportEventPage() {
                 上載或拖放圖片／PDF
               </span>
               <span className="mt-1 block text-xs leading-5 text-purple-700">
-                支援 PNG、JPG/JPEG、WEBP（每張最多 8MB）或 PDF（最多 12MB）。圖片可預覽並儲存為封面；PDF 會傳送至第三方 Reader 擷取文字，請勿上載含敏感個人資料的文件。
+                支援 PNG、JPG/JPEG、WEBP（每張最多 8MB）或 PDF（最多 4MB）。圖片可預覽並儲存為封面；PDF 會傳送至第三方 Reader 擷取文字，請勿上載含敏感個人資料的文件。
               </span>
               <input
                 type="file"
