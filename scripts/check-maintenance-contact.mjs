@@ -7,6 +7,9 @@ assert.ok(splash.includes(destination), "Maintenance must provide public contact
 assert.ok(layout.includes(destination), "Maintenance must use same existing official public WhatsApp number as footer");
 assert.ok(splash.includes('target="_blank"') && splash.includes('rel="noopener noreferrer"'));
 assert.ok(splash.includes("WhatsApp 留言"), "Readable text CTA is necessary on mobile");
-assert.ok(!splash.includes("mailto:info@hkfamilyfun.com"), "Do not direct visitors to a repeatedly bouncing mailbox during maintenance");
+assert.ok(splash.includes('href="mailto:info@hkfamilyfun.com"'), "Owner-confirmed official information inbox must be the primary contact");
+assert.ok(layout.includes("info@hkfamilyfun.com"), "Maintenance and footer must use the same official email");
+assert.ok(splash.indexOf('href="mailto:info@hkfamilyfun.com"') < splash.indexOf('href="https://wa.me/85257018297"'), "Email contact should appear before WhatsApp as secondary");
+assert.ok(splash.includes("電郵投稿"), "Merchant submission link must be clear and readable on mobile");
 assert.ok(splash.includes("robots: { index: false, follow: false }"), "Maintenance splash must stay out of search results");
-console.log("[maintenance-contact] PASS — public WhatsApp CTA, consistent official contact and robots noindex");
+console.log("[maintenance-contact] PASS — owner-confirmed email and secondary WhatsApp, consistent official contact and robots noindex");
