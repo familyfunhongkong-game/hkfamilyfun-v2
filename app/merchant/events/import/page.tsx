@@ -166,6 +166,23 @@ function getCtaPreview(draft: DraftEvent) {
   return selected?.label || "查看詳情";
 }
 
+async function readImportResponse(response: Response): Promise<{ok: boolean; error?: string; event?: DraftEvent}> {
+  try {
+    const parsed: unknown = await response.json();
+    if (parsed && typeof parsed === "object" && "ok" in parsed) {
+      return parsed as {ok: boolean; error?: string; event?: DraftEvent};
+    }
+  } catch {
+    // A Vercel/gateway error may be HTML instead of JSON.
+  }
+  return {
+    ok: false,
+    error: response.status === 413
+      ? "檔案超過伺服器可處理大小。請壓縮 PDF 至 4MB 以下，或改用公開 PDF 網址。"
+      : `活動匯入服務暫時沒有正常回應（HTTP ${response.status}），請檢查登入及稍後重試。`,
+  };
+}
+
 function readyScore(draft: DraftEvent, hasLocalImage = false) {
   const checks = [
     safeText(draft.title_tc),
@@ -359,7 +376,7 @@ export default function ImportEventPage() {
         body: JSON.stringify({ url: targetUrl }),
       });
 
-      const json = await response.json();
+      const json = await readImportResponse(response);
 
       if (!response.ok || !json.ok) {
         setMessage(json.error || `未能抽取活動資料（HTTP ${response.status}）。請確認已登入 Admin 或已批准商戶；也可手動填寫草稿。`);
@@ -445,7 +462,7 @@ export default function ImportEventPage() {
         body: formData,
       });
 
-      const json = await response.json();
+      const json = await readImportResponse(response);
 
       if (!response.ok || !json.ok) {
         setMessage(json.error || `未能讀取 PDF（HTTP ${response.status}）。目前僅支援真正 PDF，不支援 PNG/JPG 圖片直接當作 PDF。`);
