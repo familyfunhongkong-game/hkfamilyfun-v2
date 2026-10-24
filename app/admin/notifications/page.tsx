@@ -154,9 +154,32 @@ export default function AdminNotificationsPage() {
     if (error) {
       setMessage(error.message || "未能讀取通知。");
       setRows([]);
+      setMerchantProfiles({});
+      setEventProfiles({});
     } else {
-      setRows((data || []) as NotificationRow[]);
+      const notifications = (data || []) as NotificationRow[];
+      setRows(notifications);
       setMessage("");
+      setProfileWarning("");
+      const merchantIds = [...new Set(notifications.map(row => row.merchant_id).filter((id): id is string => Boolean(id)))];
+      const eventIds = [...new Set(notifications.map(row => row.event_id).filter((id): id is string => Boolean(id)))];
+      const [merchantResult, eventResult] = await Promise.all([
+        merchantIds.length
+          ? supabase.from("merchants")
+              .select("id,business_name,contact_name,contact_email,contact_phone,website_url,description,status,rejection_reason,terms_accepted_at,privacy_accepted_at,terms_version,created_at,updated_at")
+              .in("id", merchantIds)
+          : Promise.resolve({ data: [] as MerchantProfile[], error: null }),
+        eventIds.length
+          ? supabase.from("events")
+              .select("id,title_tc,status,venue_name,address,district,start_date,end_date,price_type,price_min,price_max")
+              .in("id", eventIds)
+          : Promise.resolve({ data: [] as EventProfile[], error: null }),
+      ]);
+      if (merchantResult.error || eventResult.error) {
+        setProfileWarning("部分詳細資料暫未能讀取，請到管理清單核對後再審批。");
+      }
+      setMerchantProfiles(Object.fromEntries(((merchantResult.data || []) as MerchantProfile[]).map(item => [item.id, item])));
+      setEventProfiles(Object.fromEntries(((eventResult.data || []) as EventProfile[]).map(item => [item.id, item])));
     }
 
     setLoading(false);
