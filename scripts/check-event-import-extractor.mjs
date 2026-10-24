@@ -91,6 +91,8 @@ assert.ok(importPage.includes('setSourceType("url")'), 'URL must be recorded as 
 assert.ok(importPage.includes('第三方 Reader'), 'PDF third-party processing disclosure missing');
 assert.ok(importPage.includes('role="status" aria-live="polite"'), 'inline import feedback is required');
 assert.ok(importPage.includes('.eq("id", savedId)'), 'retry must reuse existing draft');
+assert.ok(importPage.includes('client.storage.from("event-images").remove([path])'), 'failed image-link update must clean up orphan storage objects');
+assert.ok(importPage.includes('PDF（最多 4MB）'), 'PDF picker must respect the Vercel 4.5MB body cap');
 assert.ok(importApi.includes("validateEventUpload(fileName, header, uploaded.size)"), "PDF server validation must use shared utility");
 assert.ok(importPage.includes("validateEventUpload(file.name, header, file.size)"), "image picker must use shared utility");
 assert.ok(importApi.includes('const chineseRange = text.match('), 'Chinese date-range fallback missing');
