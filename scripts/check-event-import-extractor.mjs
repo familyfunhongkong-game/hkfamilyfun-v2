@@ -71,6 +71,7 @@ assert.equal(hkdPrice?.min_price, "520");
 assert.equal(hkdPrice?.max_price, "520");
 
 
+import { validateEventUpload } from "../lib/event-upload-validation.js";
 import { readFileSync } from "node:fs";
 
 const importPage = readFileSync("app/merchant/events/import/page.tsx", "utf8");
@@ -90,8 +91,23 @@ assert.ok(importPage.includes('setSourceType("url")'), 'URL must be recorded as 
 assert.ok(importPage.includes('第三方 Reader'), 'PDF third-party processing disclosure missing');
 assert.ok(importPage.includes('role="status" aria-live="polite"'), 'inline import feedback is required');
 assert.ok(importPage.includes('.eq("id", savedId)'), 'retry must reuse existing draft');
-assert.ok(importApi.includes('const pdfHeader = new Uint8Array'), 'server PDF magic-byte validation missing');
+assert.ok(importApi.includes("validateEventUpload(fileName, header, uploaded.size)"), "PDF server validation must use shared utility");
+assert.ok(importPage.includes("validateEventUpload(file.name, header, file.size)"), "image picker must use shared utility");
 assert.ok(importApi.includes('const chineseRange = text.match('), 'Chinese date-range fallback missing');
 assert.ok(importApi.includes('Reader 後備抽取'), 'reader fallback missing');
+
+
+const bytes = (...values) => new Uint8Array(values);
+assert.equal(validateEventUpload("event.png", bytes(137,80,78,71,13,10,26,10), 1024).kind, "image");
+assert.equal(validateEventUpload("event.JPG", bytes(255,216,255), 1024).kind, "image");
+assert.equal(validateEventUpload("event.jpeg", bytes(255,216,255), 1024).mime, "image/jpeg");
+assert.equal(validateEventUpload("event.webp", bytes(82,73,70,70,0,0,0,0,87,69,66,80), 1024).kind, "image");
+assert.equal(validateEventUpload("event.pdf", bytes(37,80,68,70,45), 2048).kind, "pdf");
+assert.equal(validateEventUpload("event.png", bytes(137), 1).kind, null, "truncated PNG must fail");
+assert.equal(validateEventUpload("event.pdf", bytes(37), 1).kind, null, "truncated PDF must fail");
+assert.equal(validateEventUpload("event.pdf", bytes(137,80,78,71,13,10,26,10), 2048).kind, null, "renamed PNG must fail");
+assert.equal(validateEventUpload("event.png", bytes(137,80,78,71,13,10,26,10), 9 * 1024 * 1024).kind, null, "oversize images must fail");
+assert.equal(validateEventUpload("event.pdf", bytes(37,80,68,70,45), 13 * 1024 * 1024).kind, null, "oversize PDFs must fail");
+assert.equal(validateEventUpload("event.svg", bytes(60,115,118,103), 4096).kind, null, "SVG must never be treated as a safe raster image");
 
 console.log("Event import extractor and common upload contract passed.");
