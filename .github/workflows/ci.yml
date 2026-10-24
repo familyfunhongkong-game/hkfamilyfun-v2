@@ -86,6 +86,7 @@ jobs:
           npm run check:public-formatting
           npm run check:advertising-orders
           npm run check:production-e2e
+          node scripts/check-maintenance-contact.mjs
           npm run check:production-smoke
           npm run check:migration-drift-lock
           npm run check:calendar-persona

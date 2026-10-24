@@ -32,11 +32,17 @@ export default function MaintenancePage() {
           我哋正為 HK Family Fun 更新活動資料、日曆及網站功能。
           完成測試後會盡快重新開放，感謝你耐心等候。
         </p>
-        <div className="mt-7 rounded-2xl border border-purple-100 bg-purple-50 px-5 py-4 text-sm font-bold leading-6 text-purple-900">
-          如有活動投稿或查詢，請電郵
-          <a className="ml-1 underline" href="mailto:info@hkfamilyfun.com">
-            info@hkfamilyfun.com
+        <div className="mt-7 rounded-2xl border border-purple-100 bg-purple-50 px-5 py-5 text-sm font-bold leading-6 text-purple-900">
+          <p>如有活動投稿或查詢，暫請透過官方 WhatsApp 留言，我哋會按次序回覆。</p>
+          <a
+            href="https://wa.me/85257018297"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-flex min-h-12 items-center justify-center rounded-full bg-purple-700 px-7 py-3 text-sm font-black text-white hover:bg-purple-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700"
+          >
+            WhatsApp 留言 · 5701 8297 ↗
           </a>
+          <p className="mt-3 text-xs font-medium text-slate-600">建議以文字留言，方便我哋核對活動及聯絡資料。</p>
         </div>
       </section>
     </main>
