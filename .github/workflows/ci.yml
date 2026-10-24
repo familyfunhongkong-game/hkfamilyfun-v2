@@ -30,10 +30,15 @@ jobs:
       - name: Check automation scripts
         run: |
           node --check scripts/auto-discover-events.mjs
+          node --check scripts/approval-recipient.mjs
+          node --check scripts/test-approval-recipient.mjs
           node --check scripts/migrate-legacy-familyfun.mjs
           node --check scripts/compare-legacy-hashes.mjs
           node --check scripts/recover-legacy-event-images.mjs
           node --check scripts/merchant-auth-e2e.mjs
+
+      - name: Verify Admin approval email routing and fail-closed safeguards
+        run: node scripts/test-approval-recipient.mjs
 
       - name: Enforce legacy automation review boundary
         run: |
