@@ -479,7 +479,9 @@ export default function ImportEventPage() {
     const currentMerchant = merchant || (await loadMerchant());
     if (!currentMerchant) return;
 
-    const adminCreating = isAdmin && currentMerchant.id === "";
+    // The resolved Admin actor has an empty merchant ID; do not depend on a
+    // potentially stale React isAdmin state if Save is clicked immediately.
+    const adminCreating = currentMerchant.id === "";
 
     setSaving(true);
     setMessage("");
