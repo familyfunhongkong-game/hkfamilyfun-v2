@@ -108,3 +108,54 @@ export function eventOccursInRange(
 
   return false;
 }
+
+
+/**
+ * Find the next actual bookable/displayable calendar date for a saved listing.
+ * Excluded days beat explicit inclusions; a weekly schedule may additionally
+ * include exceptional days outside its regular weekday selections.
+ * This is pure ISO calendar logic: the caller supplies "today" in Hong Kong.
+ */
+export function nextEventOccurrence(event: RecurrenceLike, today: string): string | null {
+  const iso = /^\\d{4}-\\d{2}-\\d{2}$/;
+  const start = String(event.startDate || "").slice(0, 10);
+  const end = String(event.endDate || event.startDate || "").slice(0, 10);
+  if (!iso.test(today) || !iso.test(start) || !iso.test(end) || start > end) return null;
+  let date = start > today ? start : today;
+  if (date > end) return null;
+  const excluded = new Set(
+    Array.isArray(event.recurrenceExcludeDates) ? event.recurrenceExcludeDates.map(String) : [],
+  );
+  if (String(event.recurrenceType || "none").toLowerCase() !== "weekly") {
+    // For a consecutive multi-day event, only closure dates are skipped.
+    while (date <= end && excluded.has(date)) date = addCalendarDays(date, 1);
+    return date <= end ? date : null;
+  }
+
+  const weekdays = new Set(
+    Array.isArray(event.recurrenceWeekdays)
+      ? event.recurrenceWeekdays.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+      : [],
+  );
+  const special = Array.isArray(event.recurrenceIncludeDates)
+    ? event.recurrenceIncludeDates.map(String)
+        .filter((day) => iso.test(day) && day >= date && day <= end && !excluded.has(day))
+        .sort()[0]
+    : undefined;
+
+  let regular: string | null = null;
+  if (weekdays.size) {
+    // With at least one normal opening weekday, N excluded dates can skip
+    // at most N weekly occurrences. Search no more than 7*(N+1) days.
+    const limit = Math.min(5000, 7 * (excluded.size + 1) + 7);
+    for (let checked = 0; date <= end && checked < limit; checked++) {
+      if (!excluded.has(date) && weekdays.has(calendarDayOfWeek(date))) {
+        regular = date;
+        break;
+      }
+      date = addCalendarDays(date, 1);
+    }
+  }
+  if (special && (!regular || special < regular)) return special;
+  return regular;
+}
