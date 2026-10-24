@@ -152,7 +152,7 @@ function toPublicEvent(event: FavoriteEvent, locale: AppLocale): Event {
     description: shortDescription,
     date: event.start_date || "",
     endDate: event.end_date || undefined,
-    recurrenceType: event.recurrence_type || undefined,
+    recurrenceType: event.recurrence_type === "weekly" ? "weekly" : "none",
     recurrenceWeekdays: event.recurrence_weekdays || undefined,
     recurrenceIncludeDates: event.recurrence_include_dates || undefined,
     recurrenceExcludeDates: event.recurrence_exclude_dates || undefined,
