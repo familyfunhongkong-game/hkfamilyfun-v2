@@ -83,6 +83,12 @@ assert.ok(!importPage.includes('getCtaPreview(draft) !== ""'), 'placeholder CTA 
 assert.ok(importPage.includes('const adminCreating = isAdmin && currentMerchant.id === "";'), 'admin should not need merchant profile to import');
 assert.ok(importPage.includes('setSelectedImage(file)'), 'image selection missing');
 assert.ok(importPage.includes('client.storage.from("event-images").upload('), 'image upload missing');
+assert.ok(importPage.includes('const [sourceType, setSourceType]'), 'import provenance sourceType tracking missing');
+assert.ok(importPage.includes('source_type: sourceType'), 'stored source type must match URL, PDF or poster');
+assert.ok(importPage.includes('setSourceType("pdf")'), 'PDF must be recorded as PDF evidence');
+assert.ok(importPage.includes('setSourceType("url")'), 'URL must be recorded as URL evidence');
+assert.ok(importPage.includes('第三方 Reader'), 'PDF third-party processing disclosure missing');
+assert.ok(importPage.includes('role="status" aria-live="polite"'), 'inline import feedback is required');
 assert.ok(importPage.includes('.eq("id", savedId)'), 'retry must reuse existing draft');
 assert.ok(importApi.includes('const pdfHeader = new Uint8Array'), 'server PDF magic-byte validation missing');
 assert.ok(importApi.includes('const chineseRange = text.match('), 'Chinese date-range fallback missing');
