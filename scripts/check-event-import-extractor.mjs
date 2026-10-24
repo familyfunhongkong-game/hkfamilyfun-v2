@@ -95,6 +95,7 @@ assert.ok(importApi.includes("validateEventUpload(fileName, header, uploaded.siz
 assert.ok(importPage.includes("validateEventUpload(file.name, header, file.size)"), "image picker must use shared utility");
 assert.ok(importApi.includes('const chineseRange = text.match('), 'Chinese date-range fallback missing');
 assert.ok(importApi.includes('Reader 後備抽取'), 'reader fallback missing');
+assert.ok(importApi.includes("isChallengeTitle(event.title_tc)"), "Bot challenge HTML must not be imported as an event");
 
 
 const bytes = (...values) => new Uint8Array(values);
