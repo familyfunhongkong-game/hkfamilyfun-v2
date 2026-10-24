@@ -171,7 +171,7 @@ function readyScore(draft: DraftEvent) {
     safeText(draft.start_date),
     safeText(draft.venue_name) || safeText(draft.address),
     formatPricePreview(draft) !== "收費待確認",
-    getCtaPreview(draft) !== "",
+    draft.cta_type === "none" || Boolean(safeText(draft.registration_url) || safeText(draft.booking_url) || safeText(draft.official_url) || (safeText(draft.source_url) && safeText(draft.title_tc))),
     safeText(draft.cover_image_url) || normalizeImages(draft.gallery_image_urls).length > 0,
     safeText(draft.google_map_url) || safeText(draft.google_map_embed_url),
   ];
@@ -355,7 +355,7 @@ export default function ImportEventPage() {
       const json = await response.json();
 
       if (!response.ok || !json.ok) {
-        setMessage(json.error || "未能抽取活動資料。");
+        setMessage(json.error || `未能抽取活動資料（HTTP ${response.status}）。請確認已登入 Admin 或已批准商戶；也可手動填寫草稿。`);
         setExtracting(false);
         return;
       }
@@ -363,7 +363,7 @@ export default function ImportEventPage() {
       const extracted = json.event as DraftEvent;
       applyExtractedDraft(extracted, targetUrl);
 
-      setMessage("已完成網址資料抽取。請逐項核對日期、地點、收費及報名資料後再儲存草稿。");
+      setMessage("已完成網址資料抽取；請檢查抽取備註，並核實活動適合親子平台、日期、分日開放時間、地點、價格及報名方式。");
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -425,7 +425,7 @@ export default function ImportEventPage() {
       const json = await response.json();
 
       if (!response.ok || !json.ok) {
-        setMessage(json.error || "未能讀取 PDF 活動資料。");
+        setMessage(json.error || `未能讀取 PDF（HTTP ${response.status}）。目前僅支援真正 PDF，不支援 PNG/JPG 圖片直接當作 PDF。`);
         return;
       }
 
