@@ -13,7 +13,7 @@ assert.ok(hub.includes('aria-label="商戶帳戶"'), "Unified account tabs need 
 assert.ok(hub.includes('mode === "register" ? <MerchantRegisterPanel /> : <MerchantLoginPanel />'), "Same hub must render one form at a time");
 assert.ok(hub.includes('aria-current={mode === "login"') && hub.includes('aria-current={mode === "register"'), "Active tab must be distinguishable to screen readers");
 assert.ok(hub.includes('href="/admin/login"'), "Admin sign in must remain discoverable");
-assert.ok(oldLogin.includes('redirect("/merchant/account?mode=login")'), "Legacy sign-in URL and existing bookmarks must keep working");
+assert.ok(oldLogin.includes('export { default, metadata } from "../account/page"'), "Legacy login must render same hub without stripping email confirmation code or hash");
 assert.ok(oldRegister.includes('redirect("/merchant/account?mode=register")'), "Legacy registration URL and old campaigns must keep working");
 assert.ok(login.includes('signInWithPassword('), "Email login must remain enabled");
 assert.ok(login.includes('signInWithOAuth('), "Provider authentication must remain supported");
