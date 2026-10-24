@@ -165,14 +165,14 @@ function getCtaPreview(draft: DraftEvent) {
   return selected?.label || "查看詳情";
 }
 
-function readyScore(draft: DraftEvent) {
+function readyScore(draft: DraftEvent, hasLocalImage = false) {
   const checks = [
     safeText(draft.title_tc),
     safeText(draft.start_date),
     safeText(draft.venue_name) || safeText(draft.address),
     formatPricePreview(draft) !== "收費待確認",
     draft.cta_type === "none" || Boolean(safeText(draft.registration_url) || safeText(draft.booking_url) || safeText(draft.official_url) || (safeText(draft.source_url) && safeText(draft.title_tc))),
-    safeText(draft.cover_image_url) || normalizeImages(draft.gallery_image_urls).length > 0,
+    hasLocalImage || safeText(draft.cover_image_url) || normalizeImages(draft.gallery_image_urls).length > 0,
     safeText(draft.google_map_url) || safeText(draft.google_map_embed_url),
   ];
 
@@ -191,8 +191,11 @@ export default function ImportEventPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const imagePreview = useMemo(() => selectedImage ? URL.createObjectURL(selectedImage) : "", [selectedImage]);
+  useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
 
-  const score = useMemo(() => readyScore(draft), [draft]);
+  const score = useMemo(() => readyScore(draft, Boolean(selectedImage)), [draft, selectedImage]);
 
   function applyExtractedDraft(extracted: DraftEvent, fallbackUrl = "") {
     const images = normalizeImages([
@@ -375,6 +378,28 @@ export default function ImportEventPage() {
     setExtracting(false);
   }
 
+  async function acceptUpload(file: File | null) {
+    if (!file) return;
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    const pdf = ext === "pdf" && header.slice(0, 5).every((v, i) => v === [37, 80, 68, 70, 45][i]);
+    const jpg = ["jpg", "jpeg"].includes(ext) && header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
+    const png = ext === "png" && header.slice(0, 8).every((v, i) => v === [137, 80, 78, 71, 13, 10, 26, 10][i]);
+    const webp = ext === "webp" && String.fromCharCode(...header.slice(0, 4)) === "RIFF" && String.fromCharCode(...header.slice(8, 12)) === "WEBP";
+    if (!pdf && !jpg && !png && !webp) {
+      setMessage("格式不支援，或檔案內容與副檔名不符。請使用真正的 PNG、JPG/JPEG、WEBP 或 PDF。");
+      return;
+    }
+    if (file.size === 0 || file.size > (pdf ? 12 : 8) * 1024 * 1024) {
+      setMessage(pdf ? "PDF 需小於 12MB。" : "圖片需小於 8MB。");
+      return;
+    }
+    if (pdf) { await extractFromPdf(file); return; }
+    setSelectedImage(file);
+    setSavedId(null);
+    setMessage("已選取活動圖片，可預覽；按「儲存草稿」才會上載。圖片文字不會自動辨識，請手動填寫或透過活動網址抽取資料。");
+  }
+
   async function extractFromPdf(file: File | null) {
     if (!file) return;
 
@@ -527,7 +552,34 @@ export default function ImportEventPage() {
     }
 
     setSavedId(data?.id || null);
-    setMessage("已儲存為活動草稿。你可以前往編輯頁繼續補資料，或到 Dashboard 查看。");
+    if (selectedImage && data?.id) {
+      const ext = selectedImage.name.split(".").pop()?.toLowerCase() === "jpeg" ? "jpg" : selectedImage.name.split(".").pop()?.toLowerCase();
+      const path = `${data.id}/import-${Date.now()}.${ext}`;
+      const { error: uploadError } = await client.storage.from("event-images").upload(path, selectedImage, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: selectedImage.type || (ext === "jpg" ? "image/jpeg" : `image/${ext}`),
+      });
+      if (uploadError) {
+        setMessage(`活動草稿已建立，但圖片未能上載：${uploadError.message}。請進入活動編輯頁重新上載。`);
+        setSaving(false);
+        return;
+      }
+      const { data: imageData } = client.storage.from("event-images").getPublicUrl(path);
+      const imageUrl = imageData.publicUrl;
+      const { error: updateError } = await client.from("events").update({
+        cover_image_url: imageUrl,
+        gallery_image_urls: normalizeImages([imageUrl, ...gallery]),
+      }).eq("id", data.id);
+      if (updateError) {
+        setMessage(`草稿及圖片已上載，但圖片連結更新失敗：${updateError.message}。請到編輯頁核對。`);
+        setSaving(false);
+        return;
+      }
+      updateField("cover_image_url", imageUrl);
+      setSelectedImage(null);
+    }
+    setMessage("已儲存活動草稿。你可以前往編輯頁繼續補資料，或到 Dashboard 查看。");
     setSaving(false);
   }
 
@@ -546,11 +598,11 @@ export default function ImportEventPage() {
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
             {adminRoute
-              ? "Admin：貼活動網址或上載 PDF，建立可編輯草稿"
-              : "貼活動網址或直接上載 PDF，自動建立可編輯草稿"}
+              ? "Admin：貼活動網址或上載圖片／PDF，建立可編輯草稿"
+              : "貼活動網址或上載 PNG／JPG／WEBP／PDF，建立可編輯草稿"}
           </h1>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
-            系統可讀取活動網頁的 HTML、Meta、JSON-LD，亦可直接從 PDF 抽取文字，預填活動名稱、描述、圖片、日期、地點、收費及 CTA。所有結果只會建立草稿，必須人工確認後才提交審批。
+            系統可讀取活動網頁的 HTML、Meta、JSON-LD，亦可從 PDF 抽取文字、上載圖片作活動封面，預填活動名稱、描述、圖片、日期、地點、收費及 CTA。所有結果只會建立草稿，必須人工確認後才提交審批。
           </p>
         </div>
       </section>
@@ -587,18 +639,18 @@ export default function ImportEventPage() {
 
             <label className="block cursor-pointer rounded-2xl border border-dashed border-purple-300 bg-purple-50 p-4 text-center transition hover:border-purple-500 hover:bg-purple-100">
               <span className="block text-sm font-black text-purple-900">
-                📄 直接上載 PDF
+                上載圖片或 PDF
               </span>
               <span className="mt-1 block text-xs leading-5 text-purple-700">
-                PDF 最多 12MB；只用作即時抽取文字，不會自動公開原檔。
+                支援 PNG、JPG/JPEG、WEBP（每張最多 8MB）或 PDF（最多 12MB）。圖片預覽後儲存為封面；PDF 可抽取文字。
               </span>
               <input
                 type="file"
-                accept="application/pdf,.pdf"
+                accept="image/png,image/jpeg,image/webp,application/pdf,.png,.jpg,.jpeg,.webp,.pdf"
                 disabled={extracting}
                 onChange={(event) => {
                   const file = event.target.files?.[0] || null;
-                  void extractFromPdf(file);
+                  void acceptUpload(file);
                   event.currentTarget.value = "";
                 }}
                 className="sr-only"
@@ -769,6 +821,7 @@ export default function ImportEventPage() {
               />
             ))}
 
+            {imagePreview ? <img src={imagePreview} alt="待上載活動封面預覽" className="mt-3 h-48 w-full rounded-xl object-contain" /> : null}
             {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls]).length ? (
               <div className="md:col-span-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls]).map((image) => (
