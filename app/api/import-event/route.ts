@@ -412,6 +412,22 @@ function timeOnly(value: unknown) {
 }
 
 function extractDateRangeFromText(text: string) {
+  // Hong Kong event pages often omit the year on the end date.
+  const chineseRange = text.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日\s*(?:至|到|－|–|-|~)\s*(?:(\d{4})年)?\s*(\d{1,2})月\s*(\d{1,2})日/);
+  if (chineseRange) {
+    const startYear = Number(chineseRange[1]);
+    const startMonth = Number(chineseRange[2]);
+    const endMonth = Number(chineseRange[5]);
+    const explicitYear = chineseRange[4] ? Number(chineseRange[4]) : null;
+    const endYear = explicitYear ?? (endMonth < startMonth ? startYear + 1 : startYear);
+    const asDate = (year: number, month: number, day: number) =>
+      `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return {
+      start_date: asDate(startYear, startMonth, Number(chineseRange[3])),
+      end_date: asDate(endYear, endMonth, Number(chineseRange[6])),
+    };
+  }
+
   const isoRange = text.match(
     /(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2}).{0,20}?(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/
   );
@@ -446,6 +462,16 @@ function extractPrices(text: string) {
 }
 
 function extractVenueFromText(text: string) {
+  if (/中環海濱活動空間|添馬公園/.test(text)) {
+    return {
+      venue_name: "中環海濱活動空間及添馬公園",
+      address: "香港島中環海濱活動空間及添馬公園",
+      area: "香港島",
+      district: "中西區",
+      mtr_station: "中環",
+    };
+  }
+
   if (/AIRSIDE/i.test(text)) {
     return {
       venue_name: "AIRSIDE",
@@ -1067,8 +1093,38 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // A successful HTTP response can still be a bot challenge or a JS shell.
+    // Try the reader when important fields remain missing; never call that success.
+    if (!readerText && (!event.title_tc || !event.start_date || !event.venue_name)) {
+      try {
+        const readerHeaders: Record<string, string> = {
+          accept: "text/plain",
+          "accept-language": "zh-HK,zh;q=0.9,en;q=0.8",
+        };
+        const jinaKey = String(process.env.JINA_API_KEY || "").trim();
+        if (jinaKey) readerHeaders.authorization = `Bearer ${jinaKey}`;
+        const response = await fetch(`https://r.jina.ai/${parsedUrl.toString()}`, {
+          headers: readerHeaders,
+          cache: "no-store",
+          signal: AbortSignal.timeout(20000),
+        });
+        if (response.ok) {
+          readerText = (await response.text()).slice(0, 100000);
+          if (readerText.trim()) event.extraction_notes.push("原始網頁資料不足，已嘗試 Reader 後備文字抽取。");
+        } else {
+          event.extraction_notes.push(`Reader 後備抽取失敗：HTTP ${response.status}。`);
+        }
+      } catch {
+        event.extraction_notes.push("Reader 後備抽取連線失敗，請按原文手動填寫。");
+      }
+    }
+
     if (readerText) {
       event = applyReaderText(event, readerText);
+    }
+
+    if (!event.title_tc && !event.description_tc && !event.start_date) {
+      return NextResponse.json({ ok: false, error: "來源網頁未能提供可用活動資訊（可能阻擋機械讀取）；請使用官方 PDF 或手動輸入，原始 URL 仍可保留。" }, { status: 422 });
     }
 
     if (!event.title_tc) {
