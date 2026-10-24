@@ -396,7 +396,7 @@ export default function ImportEventPage() {
     }
     if (pdf) { await extractFromPdf(file); return; }
     setSelectedImage(file);
-    setSavedId(null);
+    // Preserve an existing draft ID when replacing an image, so a retry never creates a duplicate event.
     setMessage("已選取活動圖片，可預覽；按「儲存草稿」才會上載。圖片文字不會自動辨識，請手動填寫或透過活動網址抽取資料。");
   }
 
@@ -636,9 +636,9 @@ export default function ImportEventPage() {
               <div className="h-px flex-1 bg-slate-200" />
             </div>
 
-            <label className="block cursor-pointer rounded-2xl border border-dashed border-purple-300 bg-purple-50 p-4 text-center transition hover:border-purple-500 hover:bg-purple-100">
+            <label onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!extracting && !saving) void acceptUpload(event.dataTransfer.files?.[0] || null); }} className="block cursor-pointer rounded-2xl border border-dashed border-purple-300 bg-purple-50 p-4 text-center transition hover:border-purple-500 hover:bg-purple-100">
               <span className="block text-sm font-black text-purple-900">
-                上載圖片或 PDF
+                上載或拖放圖片／PDF
               </span>
               <span className="mt-1 block text-xs leading-5 text-purple-700">
                 支援 PNG、JPG/JPEG、WEBP（每張最多 8MB）或 PDF（最多 12MB）。圖片預覽後儲存為封面；PDF 可抽取文字。
