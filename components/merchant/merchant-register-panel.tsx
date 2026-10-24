@@ -90,7 +90,7 @@ export default function MerchantRegisterPanel() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/merchant/account?mode=login`,
+        emailRedirectTo: `${window.location.origin}/merchant/login`,
         data: {
           account_type: "merchant",
           display_name: contactName,
