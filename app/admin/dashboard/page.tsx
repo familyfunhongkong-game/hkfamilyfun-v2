@@ -99,22 +99,28 @@ function Panel({ title, subtitle, children, href, id }: {
     {children}
   </section>;
 }
-function GroupBars({ rows, tone = "purple" }: {
+function GroupBars({ rows, tone = "purple", hrefForRow }: {
   rows: Count[]; tone?: "purple" | "emerald" | "sky" | "amber";
+  hrefForRow?: (label: string) => string;
 }) {
   const bars = { purple: "bg-purple-600", emerald: "bg-emerald-500", sky: "bg-sky-500", amber: "bg-amber-500" };
   const max = Math.max(1, ...rows.map(x => x.count));
   if (!rows.length) return <p className="text-sm text-slate-500">暫時沒有相關資料。</p>;
-  return <div className="space-y-4">{rows.map(x => <div key={x.label}>
-    <div className="mb-1.5 flex justify-between gap-2 text-xs">
-      <span className="min-w-0 truncate font-semibold text-slate-700" title={x.label}>{x.label}</span>
-      <strong className="tabular-nums text-slate-900">{x.count.toLocaleString()}</strong>
-    </div>
-    <div className="h-2.5 rounded-full bg-slate-100">
-      <div className={`h-2.5 rounded-full ${bars[tone]}`}
-        style={{ width: `${x.count === 0 ? 0 : Math.max(2, x.count / max * 100)}%` }} />
-    </div>
-  </div>)}</div>;
+  return <div className="space-y-4">{rows.map(x => {
+    const body = <>
+      <div className="mb-1.5 flex justify-between gap-2 text-xs">
+        <span className="min-w-0 truncate font-semibold text-slate-700" title={x.label}>{x.label}</span>
+        <strong className="tabular-nums text-slate-900">{x.count.toLocaleString()}</strong>
+      </div>
+      <div className="h-2.5 rounded-full bg-slate-100">
+        <div className={`h-2.5 rounded-full ${bars[tone]}`}
+          style={{ width: `${x.count === 0 ? 0 : Math.max(2, x.count / max * 100)}%` }} />
+      </div>
+    </>;
+    return hrefForRow
+      ? <Link key={x.label} href={hrefForRow(x.label)} aria-label={`查看${x.label}記錄`} className="block rounded-lg p-1 transition hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">{body}</Link>
+      : <div key={x.label}>{body}</div>;
+  })}</div>;
 }
 function ComparisonCard({ label, current, previous }: {label:string;current:number|null|undefined;previous:number|null|undefined}) {
   const value = typeof current==="number" ? current : null;
@@ -343,7 +349,7 @@ export default function GrowthDashboardPage() {
             <TrendBars rows={data.trend} period={data.period}/>
           </Panel></div>
           <Panel href="/admin/events" title="活動審批漏斗" subtitle="全部歷史活動狀態，包括封存及未發布">
-            <GroupBars rows={data.eventStatuses} tone="purple"/>
+            <GroupBars rows={data.eventStatuses} tone="purple" hrefForRow={(label) => `/admin/events?status=${encodeURIComponent(label)}`}/>
             <div className="mt-5 flex flex-wrap gap-2">
               <Link href="/admin/events" className="text-sm font-bold text-purple-700 hover:underline">查看所有活動 <ArrowUpRight className="inline h-4 w-4"/></Link>
             </div>
@@ -351,9 +357,9 @@ export default function GrowthDashboardPage() {
         </div>
 
         <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-4">
-          <Panel href="/admin/events?status=published" title="已發布活動類別" subtitle="類別比例以目前 Published 活動計算"><GroupBars rows={data.categories}/></Panel>
-          <Panel href="/admin/events?status=published" title="已發布活動地區" subtitle="熱門地區活動供應分布"><GroupBars rows={data.districts} tone="sky"/></Panel>
-          <Panel href="/admin/merchants" title="商戶審批分布" subtitle="Approved／Pending／Rejected／Suspended"><GroupBars rows={data.merchantStatuses} tone="amber"/></Panel>
+          <Panel href="/admin/events?status=published" title="已發布活動類別" subtitle="類別比例以目前 Published 活動計算"><GroupBars rows={data.categories} hrefForRow={(label) => `/admin/events?status=published&search=${encodeURIComponent(label)}`}/></Panel>
+          <Panel href="/admin/events?status=published" title="已發布活動地區" subtitle="熱門地區活動供應分布"><GroupBars rows={data.districts} tone="sky" hrefForRow={(label) => `/admin/events?status=published&search=${encodeURIComponent(label)}`}/></Panel>
+          <Panel href="/admin/merchants" title="商戶審批分布" subtitle="Approved／Pending／Rejected／Suspended"><GroupBars rows={data.merchantStatuses} tone="amber" hrefForRow={(label) => `/admin/merchants?status=${encodeURIComponent(label)}`}/></Panel>
           <Panel href="/admin/events?status=published" title="免費及其他活動" subtitle={`已發布活動：免費 ${data.totals.freePublished} · SEN 標籤 ${data.totals.senPublished}`}>
             <GroupBars rows={data.pricing} tone="emerald"/>
           </Panel>
