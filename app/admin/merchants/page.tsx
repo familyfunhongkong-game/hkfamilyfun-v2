@@ -38,6 +38,16 @@ export default function AdminMerchantsPage() {
   const [message, setMessage] = useState("");
   const [errorText, setErrorText] = useState("");
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<Status | "all">("all");
+  const [selectedMerchantId, setSelectedMerchantId] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("status");
+    if (requested === "pending" || requested === "approved" || requested === "rejected" || requested === "suspended") setStatusFilter(requested);
+    const merchantId = params.get("merchant_id");
+    if (merchantId && /^[0-9a-f-]{36}$/i.test(merchantId)) setSelectedMerchantId(merchantId);
+  }, []);
 
   async function loadMerchants() {
     if (!supabase) {
@@ -143,22 +153,15 @@ export default function AdminMerchantsPage() {
 
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    if (!keyword) return merchants;
-
     return merchants.filter((merchant) =>
-      [
-        merchant.business_name,
-        merchant.contact_name,
-        merchant.contact_email,
-        merchant.contact_phone,
-        merchant.website_url,
-        merchant.status,
-      ]
-        .map((value) => String(value || "").toLowerCase())
-        .join(" ")
-        .includes(keyword),
+      (statusFilter === "all" || merchant.status === statusFilter) &&
+      (!selectedMerchantId || merchant.id === selectedMerchantId) &&
+      (!keyword || [
+        merchant.business_name, merchant.contact_name, merchant.contact_email,
+        merchant.contact_phone, merchant.website_url, merchant.status,
+      ].map((value) => String(value || "").toLowerCase()).join(" ").includes(keyword)),
     );
-  }, [merchants, search]);
+  }, [merchants, search, statusFilter, selectedMerchantId]);
 
   const counts = useMemo(
     () => ({
@@ -200,28 +203,33 @@ export default function AdminMerchantsPage() {
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            {[
-              ["全部", counts.total],
-              ["待審批", counts.pending],
-              ["已批准", counts.approved],
-              ["已拒絕", counts.rejected],
-              ["已暫停", counts.suspended],
-            ].map(([label, value]) => (
-              <div
-                key={String(label)}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+            {([
+              ["all", "全部", counts.total],
+              ["pending", "待審批", counts.pending],
+              ["approved", "已批准", counts.approved],
+              ["rejected", "已拒絕", counts.rejected],
+              ["suspended", "已暫停", counts.suspended],
+            ] as const).map(([key, label, value]) => (
+              <button
+                type="button"
+                key={key}
+                aria-pressed={statusFilter === key}
+                onClick={() => { setStatusFilter(key); setSelectedMerchantId(""); }}
+                className={["rounded-2xl border px-4 py-3 text-left transition hover:border-purple-400 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700", statusFilter === key ? "border-purple-500 bg-purple-50" : "border-slate-200 bg-slate-50"].join(" ")}
               >
-                <p className="text-xs font-black text-slate-500">{label}</p>
-                <p className="mt-1 text-2xl font-black text-slate-950">
-                  {value}
-                </p>
-              </div>
+                <p className="text-xs font-black text-slate-600">{label} →</p>
+                <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
+              </button>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1400px] px-4 py-6">
+      <section id="merchant-list" className="mx-auto max-w-[1400px] scroll-mt-24 px-4 py-6">
+        {(statusFilter !== "all" || selectedMerchantId) && <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-purple-200 bg-purple-50 p-3 text-sm font-semibold text-purple-900">
+          <span>{selectedMerchantId ? "指定商戶記錄" : statusLabel[statusFilter as Status]} · {filtered.length} 項</span>
+          <button type="button" onClick={() => { setStatusFilter("all"); setSelectedMerchantId(""); }} className="rounded-lg bg-white px-3 py-2 text-purple-700 underline underline-offset-2">清除篩選</button>
+        </div>}
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}

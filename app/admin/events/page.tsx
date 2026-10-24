@@ -636,6 +636,14 @@ export default function AdminEventsPage() {
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [searchText, setSearchText] = useState("");
   const [featuredOnly, setFeaturedOnly] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("status");
+    if (status && statusFilters.some((item) => item.key === status)) setStatusFilter(status as StatusFilter);
+    const keyword = params.get("search");
+    if (keyword) setSearchText(keyword.slice(0, 150));
+  }, []);
+
 
   async function loadEvents() {
     const client = supabase;
@@ -998,7 +1006,7 @@ export default function AdminEventsPage() {
                 <button
                   key={filter.key}
                   type="button"
-                  onClick={() => setStatusFilter(filter.key)}
+                  onClick={() => { setStatusFilter(filter.key); }}
                   className={[
                     "rounded-full px-4 py-2 text-sm font-black transition",
                     statusFilter === filter.key

@@ -16,9 +16,9 @@ type Overview = {
   analytics: { available: boolean; totals?: { visitors: number } };
 };
 const metrics = [
-  { key: "accounts", title: "註冊帳戶", tone: "bg-sky-50 text-sky-800 border-sky-200" },
-  { key: "merchants", title: "商戶總數", tone: "bg-amber-50 text-amber-800 border-amber-200" },
-  { key: "events", title: "活動總數", tone: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+  { key: "accounts", title: "註冊帳戶", href: "/admin/dashboard#recent-accounts", tone: "bg-sky-50 text-sky-800 border-sky-200" },
+  { key: "merchants", title: "商戶總數", href: "/admin/merchants", tone: "bg-amber-50 text-amber-800 border-amber-200" },
+  { key: "events", title: "活動總數", href: "/admin/events", tone: "bg-emerald-50 text-emerald-800 border-emerald-200" },
 ] as const;
 
 export default function AdminGrowthSnapshot() {
@@ -59,22 +59,22 @@ export default function AdminGrowthSnapshot() {
     {error && <p className="mt-4 text-xs text-amber-800" role="status">{error}</p>}
     {!data && !error && <p className="mt-4 text-xs text-slate-500" role="status">正在讀取即時資料…</p>}
     {data && <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-      <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
+      <Link href="/admin/analytics" aria-label="查看已同意追蹤訪客及流量分析" className="group block rounded-2xl border border-purple-200 bg-purple-50 p-4 transition hover:border-purple-400 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">
         <p className="text-xs font-bold text-purple-800">已同意追蹤訪客（30 日）</p>
         <p className="mt-2 text-3xl font-black text-slate-950">
           {data.analytics.available ? data.analytics.totals?.visitors?.toLocaleString() : "—"}
         </p>
-        <p className="mt-1 text-xs text-purple-700">不等於全部訪客</p>
-      </div>
-      {metrics.map(item => <div key={item.key} className={`rounded-2xl border p-4 ${item.tone}`}>
+        <p className="mt-1 text-xs text-purple-700">不等於全部訪客 · 查看分析 →</p>
+      </Link>
+      {metrics.map(item => <Link key={item.key} href={item.href} aria-label={`查看${item.title}詳情`} className={`group block rounded-2xl border p-4 transition hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700 ${item.tone}`}>
         <p className="text-xs font-bold">{item.title}</p>
         <p className="mt-2 text-3xl font-black text-slate-950">{data.totals[item.key].toLocaleString()}</p>
         <p className="mt-1 text-xs">
-          {item.key === "merchants" ? `待審批 ${data.totals.pendingMerchants}`
-            : item.key === "events" ? `已發布 ${data.totals.publishedEvents}` : "包含商戶及管理員"}
+          {item.key === "merchants" ? `待審批 ${data.totals.pendingMerchants} · 管理 →`
+            : item.key === "events" ? `已發布 ${data.totals.publishedEvents} · 管理 →` : "包含商戶及管理員 · 查看名單 →"}
         </p>
-      </div>)}
-      <Link href="/admin/notifications" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800 hover:border-rose-400">
+      </Link>)}
+      <Link href="/admin/notifications" className="block rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800 transition hover:border-rose-400 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">
         <p className="text-xs font-bold">未讀通知</p>
         <p className="mt-2 text-3xl font-black text-slate-950">{data.totals.unreadNotifications === null ? "—" : data.totals.unreadNotifications.toLocaleString()}</p>
         <p className="mt-1 text-xs">查看待辦事項 →</p>

@@ -86,33 +86,41 @@ function StatCard({
   </div>;
   return href ? <Link href={href} className="group block transition hover:-translate-y-0.5" aria-label={title}>{inner}</Link> : inner;
 }
-function Panel({ title, subtitle, children }: {
-  title: string; subtitle?: string; children: React.ReactNode;
+function Panel({ title, subtitle, children, href, id }: {
+  title: string; subtitle?: string; children: React.ReactNode; href?: string; id?: string;
 }) {
-  return <section className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+  return <section id={id} className="min-w-0 scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
     <div className="mb-5">
-      <h2 className="text-lg font-black text-slate-950">{title}</h2>
+      <h2 className="text-lg font-black text-slate-950">
+        {href ? <Link href={href} className="inline-flex items-center gap-1 rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700 text-purple-800 hover:underline">{title}<ArrowUpRight className="h-4 w-4" aria-hidden="true"/></Link> : title}
+      </h2>
       {subtitle && <p className="mt-1 text-xs leading-5 text-slate-500">{subtitle}</p>}
     </div>
     {children}
   </section>;
 }
-function GroupBars({ rows, tone = "purple" }: {
+function GroupBars({ rows, tone = "purple", hrefForRow }: {
   rows: Count[]; tone?: "purple" | "emerald" | "sky" | "amber";
+  hrefForRow?: (label: string) => string;
 }) {
   const bars = { purple: "bg-purple-600", emerald: "bg-emerald-500", sky: "bg-sky-500", amber: "bg-amber-500" };
   const max = Math.max(1, ...rows.map(x => x.count));
   if (!rows.length) return <p className="text-sm text-slate-500">暫時沒有相關資料。</p>;
-  return <div className="space-y-4">{rows.map(x => <div key={x.label}>
-    <div className="mb-1.5 flex justify-between gap-2 text-xs">
-      <span className="min-w-0 truncate font-semibold text-slate-700" title={x.label}>{x.label}</span>
-      <strong className="tabular-nums text-slate-900">{x.count.toLocaleString()}</strong>
-    </div>
-    <div className="h-2.5 rounded-full bg-slate-100">
-      <div className={`h-2.5 rounded-full ${bars[tone]}`}
-        style={{ width: `${x.count === 0 ? 0 : Math.max(2, x.count / max * 100)}%` }} />
-    </div>
-  </div>)}</div>;
+  return <div className="space-y-4">{rows.map(x => {
+    const body = <>
+      <div className="mb-1.5 flex justify-between gap-2 text-xs">
+        <span className="min-w-0 truncate font-semibold text-slate-700" title={x.label}>{x.label}</span>
+        <strong className="tabular-nums text-slate-900">{x.count.toLocaleString()}</strong>
+      </div>
+      <div className="h-2.5 rounded-full bg-slate-100">
+        <div className={`h-2.5 rounded-full ${bars[tone]}`}
+          style={{ width: `${x.count === 0 ? 0 : Math.max(2, x.count / max * 100)}%` }} />
+      </div>
+    </>;
+    return hrefForRow
+      ? <Link key={x.label} href={hrefForRow(x.label)} aria-label={`查看${x.label}記錄`} className="block rounded-lg p-1 transition hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">{body}</Link>
+      : <div key={x.label}>{body}</div>;
+  })}</div>;
 }
 function ComparisonCard({ label, current, previous }: {label:string;current:number|null|undefined;previous:number|null|undefined}) {
   const value = typeof current==="number" ? current : null;
@@ -238,6 +246,12 @@ export default function GrowthDashboardPage() {
     }
   }, [applied]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    // The account table is rendered only after the authenticated data request.
+    if (data && window.location.hash === "#recent-accounts") {
+      window.requestAnimationFrame(() => document.getElementById("recent-accounts")?.scrollIntoView({block: "start"}));
+    }
+  }, [data]);
   const merchants = useMemo(() => data?.merchants.filter(m =>
     (merchantFilter === "all" || m.status === merchantFilter) &&
     (m.business_name + " " + (m.contact_email || "")).toLowerCase().includes(search.toLowerCase().trim())
@@ -288,13 +302,13 @@ export default function GrowthDashboardPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
             <StatCard title="已同意追蹤訪客" value={data.analytics.available ? data.analytics.totals?.visitors : null} note={`${data.period}；不等於全部訪客`} icon={ChartColumnIncreasing} tone="purple" href="/admin/analytics"/>
             <StatCard title="Page Views" value={data.analytics.available ? data.analytics.totals?.pageViews : null} note={`${data.period}；不包含未同意追蹤`} icon={Activity} tone="blue" href="/admin/analytics"/>
-            <StatCard title="全部註冊帳戶" value={data.totals.accounts} note={`一般用戶 ${data.totals.audienceAccounts} · 商戶 ${data.totals.merchantAccounts} · Admin ${data.totals.adminAccounts}`} icon={Users} tone="emerald"/>
+            <StatCard title="全部註冊帳戶" value={data.totals.accounts} note={`一般用戶 ${data.totals.audienceAccounts} · 商戶 ${data.totals.merchantAccounts} · Admin ${data.totals.adminAccounts}`} icon={Users} tone="emerald" href="/admin/dashboard#recent-accounts"/>
             <StatCard title="商戶總數" value={data.totals.merchants} note={`已批准 ${data.totals.approvedMerchants} · 待審 ${data.totals.pendingMerchants}`} icon={Store} tone="amber" href="/admin/merchants"/>
             <StatCard title="活動總數" value={data.totals.events} note={`已發布 ${data.totals.publishedEvents} · 草稿 ${data.totals.draftEvents}`} icon={CalendarDays} tone="pink" href="/admin/events"/>
-            <StatCard title="待審商戶" value={data.totals.pendingMerchants} note="需管理員批准" icon={Clock3} tone="amber" href="/admin/merchants"/>
-            <StatCard title="待審活動" value={data.totals.reviewEvents} note="已提交／需修改" icon={ShieldCheck} tone="slate" href="/admin/events"/>
-            <StatCard title="目前有效已發布活動" value={data.totals.activePublished} note="依香港今天日期及活動日期" icon={CalendarDays} tone="emerald" href="/admin/events"/>
-            <StatCard title="本月新註冊帳戶" value={data.totals.newAccountsMonth} note="按香港月份" icon={UserRoundPlus} tone="blue"/>
+            <StatCard title="待審商戶" value={data.totals.pendingMerchants} note="需管理員批准" icon={Clock3} tone="amber" href="/admin/merchants?status=pending"/>
+            <StatCard title="待審活動" value={data.totals.reviewEvents} note="已提交／需修改" icon={ShieldCheck} tone="slate" href="/admin/events?status=submitted"/>
+            <StatCard title="目前有效已發布活動" value={data.totals.activePublished} note="依香港今天日期及活動日期" icon={CalendarDays} tone="emerald" href="/admin/events?status=published"/>
+            <StatCard title="本月新註冊帳戶" value={data.totals.newAccountsMonth} note="按香港月份" icon={UserRoundPlus} tone="blue" href="/admin/dashboard#recent-accounts"/>
             <StatCard title="未讀 Admin 通知" value={data.totals.unreadNotifications} note="待處理訊息" icon={Activity} tone="pink" href="/admin/notifications"/>
           </div>
         </section>
@@ -331,11 +345,11 @@ export default function GrowthDashboardPage() {
           <p className="mt-3 text-xs text-slate-500">目前顯示：{data.period}。流量及增長趨勢按此範圍；歷史總數與目前狀態不受期間篩選。</p>
         </section>
         <div className="grid gap-5 lg:grid-cols-3">
-          <div className="lg:col-span-2"><Panel title={`增長趨勢 · ${data.period}`} subtitle="香港日曆日；可切換流量／註冊／商戶／新增活動">
+          <div className="lg:col-span-2"><Panel href="/admin/analytics" title={`增長趨勢 · ${data.period}`} subtitle="香港日曆日；可切換流量／註冊／商戶／新增活動">
             <TrendBars rows={data.trend} period={data.period}/>
           </Panel></div>
-          <Panel title="活動審批漏斗" subtitle="全部歷史活動狀態，包括封存及未發布">
-            <GroupBars rows={data.eventStatuses} tone="purple"/>
+          <Panel href="/admin/events" title="活動審批漏斗" subtitle="全部歷史活動狀態，包括封存及未發布">
+            <GroupBars rows={data.eventStatuses} tone="purple" hrefForRow={(label) => `/admin/events?status=${encodeURIComponent(label)}`}/>
             <div className="mt-5 flex flex-wrap gap-2">
               <Link href="/admin/events" className="text-sm font-bold text-purple-700 hover:underline">查看所有活動 <ArrowUpRight className="inline h-4 w-4"/></Link>
             </div>
@@ -343,16 +357,16 @@ export default function GrowthDashboardPage() {
         </div>
 
         <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-4">
-          <Panel title="已發布活動類別" subtitle="類別比例以目前 Published 活動計算"><GroupBars rows={data.categories}/></Panel>
-          <Panel title="已發布活動地區" subtitle="熱門地區活動供應分布"><GroupBars rows={data.districts} tone="sky"/></Panel>
-          <Panel title="商戶審批分布" subtitle="Approved／Pending／Rejected／Suspended"><GroupBars rows={data.merchantStatuses} tone="amber"/></Panel>
-          <Panel title="免費及其他活動" subtitle={`已發布活動：免費 ${data.totals.freePublished} · SEN 標籤 ${data.totals.senPublished}`}>
+          <Panel href="/admin/events?status=published" title="已發布活動類別" subtitle="類別比例以目前 Published 活動計算"><GroupBars rows={data.categories} hrefForRow={(label) => `/admin/events?status=published&search=${encodeURIComponent(label)}`}/></Panel>
+          <Panel href="/admin/events?status=published" title="已發布活動地區" subtitle="熱門地區活動供應分布"><GroupBars rows={data.districts} tone="sky" hrefForRow={(label) => `/admin/events?status=published&search=${encodeURIComponent(label)}`}/></Panel>
+          <Panel href="/admin/merchants" title="商戶審批分布" subtitle="Approved／Pending／Rejected／Suspended"><GroupBars rows={data.merchantStatuses} tone="amber" hrefForRow={(label) => `/admin/merchants?status=${encodeURIComponent(label)}`}/></Panel>
+          <Panel href="/admin/events?status=published" title="免費及其他活動" subtitle={`已發布活動：免費 ${data.totals.freePublished} · SEN 標籤 ${data.totals.senPublished}`}>
             <GroupBars rows={data.pricing} tone="emerald"/>
           </Panel>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-2">
-          <Panel title="最新商戶名單" subtitle="顯示最近 25 個商戶；全部名單及審批請到商戶中心">
+          <Panel href="/admin/merchants" title="最新商戶名單" subtitle="顯示最近 25 個商戶；全部名單及審批請到商戶中心">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row">
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="搜尋商戶名稱或電郵" aria-label="搜尋商戶"
@@ -367,7 +381,7 @@ export default function GrowthDashboardPage() {
             <div className="overflow-x-auto"><table className="w-full min-w-[450px] text-left text-xs">
               <thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">商戶</th><th className="p-3">狀態</th><th className="p-3 text-right">活動數</th><th className="p-3">註冊日期</th></tr></thead>
               <tbody>{merchants.map(m => <tr className="border-t border-slate-100" key={m.id}>
-                <td className="max-w-[200px] px-3 py-3"><p className="truncate font-bold text-slate-900" title={m.business_name}>{m.business_name}</p><p className="truncate text-slate-500">{m.contact_email || "沒有電郵"}</p></td>
+                <td className="max-w-[200px] px-3 py-3"><Link href={`/admin/merchants?merchant_id=${encodeURIComponent(m.id)}#merchant-list`} className="block truncate font-bold text-purple-800 hover:underline focus-visible:outline-2" title={`管理商戶：${m.business_name}`}>{m.business_name}</Link><p className="truncate text-slate-500">{m.contact_email || "沒有電郵"}</p></td>
                 <td className="px-3 py-3"><Status value={m.status}/></td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums">{m.events}</td>
                 <td className="px-3 py-3 whitespace-nowrap text-slate-600">{shortDate(m.created_at)}</td>
@@ -375,7 +389,7 @@ export default function GrowthDashboardPage() {
             </table></div>
             <Link href="/admin/merchants" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-purple-700 hover:underline">進入商戶審批及完整名單 <ArrowUpRight className="h-4 w-4"/></Link>
           </Panel>
-          <Panel title="最新註冊帳戶" subtitle="Auth 實際帳戶；同一人多個 Google／Facebook 身分不會重複計算">
+          <Panel id="recent-accounts" title="最新註冊帳戶" subtitle="Auth 實際帳戶；同一人多個 Google／Facebook 身分不會重複計算">
             <div className="overflow-x-auto"><table className="w-full min-w-[420px] text-left text-xs">
               <thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">帳戶電郵</th><th className="p-3">身份分類</th><th className="p-3">建立日期</th></tr></thead>
               <tbody>{data.recentAccounts.map(a => <tr key={a.id} className="border-t border-slate-100">
@@ -384,12 +398,16 @@ export default function GrowthDashboardPage() {
                 <td className="whitespace-nowrap px-3 py-3 text-slate-600">{shortDate(a.created_at)}</td>
               </tr>)}{!data.recentAccounts.length && <tr><td colSpan={3} className="p-5 text-slate-500">尚未有註冊紀錄。</td></tr>}</tbody>
             </table></div>
-            <p className="mt-4 text-xs leading-5 text-slate-500">一般用戶 = 非 Admin、非現有商戶負責人的認證帳戶；不代表已購買活動或已訂閱會員。</p>
+            <p className="mt-4 text-xs leading-5 text-slate-500">此處只顯示最新帳戶紀錄；一般用戶目前沒有後台修改功能。商戶資料請到商戶中心，Admin 角色請由 Super Admin 管理。</p>
+            <div className="mt-3 flex flex-wrap gap-3 text-xs font-bold">
+              <Link href="/admin/merchants" className="text-purple-800 underline underline-offset-2">管理商戶 →</Link>
+              <Link href="/admin/users" className="text-purple-800 underline underline-offset-2">Admin Users（需 Super Admin）→</Link>
+            </div>
           </Panel>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-2">
-          <Panel title="最新活動建立紀錄" subtitle="了解新建活動及草稿；完整資料請進入活動審批">
+          <Panel href="/admin/events" title="最新活動建立紀錄" subtitle="了解新建活動及草稿；完整資料請進入活動審批">
             <div className="overflow-x-auto"><table className="w-full min-w-[460px] text-left text-xs">
               <thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">活動</th><th className="p-3">分類</th><th className="p-3">狀態</th><th className="p-3">建立</th></tr></thead>
               <tbody>{data.recentEvents.map(e => <tr key={e.id} className="border-t border-slate-100">
@@ -400,7 +418,7 @@ export default function GrowthDashboardPage() {
               </tr>)}</tbody>
             </table></div>
           </Panel>
-          <Panel title="流量來源及熱門頁面" subtitle="僅反映已同意追蹤的訪客，非網站全部人流">
+          <Panel href="/admin/analytics" title="流量來源及熱門頁面" subtitle="僅反映已同意追蹤的訪客，非網站全部人流">
             {data.analytics.available ? <div className="grid gap-6 sm:grid-cols-2">
               <div><h3 className="mb-3 text-sm font-black text-slate-800">熱門頁面</h3>
                 <GroupBars rows={(data.analytics.topPages || []).slice(0, 7).map(p => ({label:p.path,count:p.views}))} tone="purple"/>
