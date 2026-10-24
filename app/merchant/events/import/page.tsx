@@ -570,7 +570,9 @@ export default function ImportEventPage() {
         gallery_image_urls: normalizeImages([imageUrl, ...gallery]),
       }).eq("id", data.id);
       if (updateError) {
-        setMessage(`草稿及圖片已上載，但圖片連結更新失敗：${updateError.message}。請到編輯頁核對。`);
+        // The DB row never references this new object, so avoid leaving an orphan.
+        const { error: cleanupError } = await client.storage.from("event-images").remove([path]);
+        setMessage(`草稿已儲存，但圖片連結更新失敗：${updateError.message}。${cleanupError ? " 暫未能清理未引用圖片，請聯絡管理員。" : " 已清理該次上載，可重新按儲存。"}`);
         setSaving(false);
         return;
       }
