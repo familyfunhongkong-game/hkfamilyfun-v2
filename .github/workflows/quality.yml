@@ -80,6 +80,9 @@ jobs:
       - name: Admin Analytics summary correctness and permissions
         run: npm run check:analytics-summary
 
+      - name: Verify inline notification review and safety
+        run: node scripts/check-notification-inline-review.mjs
+
       - name: Verify Admin KPI and table navigation
         run: node scripts/test-admin-dashboard-navigation.mjs
 
