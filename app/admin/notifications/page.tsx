@@ -207,6 +207,86 @@ export default function AdminNotificationsPage() {
     );
   }
 
+  async function reviewMerchant(merchantId: string, decision: "approved" | "rejected") {
+    if (!supabase || reviewingId) return;
+    const snapshot = merchantProfiles[merchantId];
+    if (!snapshot || snapshot.status !== "pending") {
+      setReviewMessage("商戶不是待審批狀態，請重新整理最新資料。");
+      return;
+    }
+    if (decision === "approved" && (!snapshot.terms_accepted_at || !snapshot.privacy_accepted_at)) {
+      setReviewMessage("缺少商戶條款或私隱接受紀錄，不能批准。");
+      return;
+    }
+    const reason = rejectionReason.trim();
+    if (decision === "rejected" && !reason) {
+      setReviewMessage("請先輸入拒絕原因，方便商戶修改資料。");
+      return;
+    }
+    if (!window.confirm(decision === "approved"
+      ? `確認批准「${snapshot.business_name}」成為 HK Family Fun 商戶？`
+      : `確認退回「${snapshot.business_name}」的商戶申請？`)) return;
+
+    setReviewingId(merchantId);
+    setReviewMessage("");
+    try {
+      const { data: fresh, error: lookupError } = await supabase.from("merchants")
+        .select("id,business_name,contact_name,contact_email,contact_phone,website_url,description,status,rejection_reason,terms_accepted_at,privacy_accepted_at,terms_version,created_at,updated_at")
+        .eq("id", merchantId).maybeSingle();
+      if (lookupError || !fresh) throw new Error("最新商戶資料無法取得，審批已停止。");
+      const latest = fresh as MerchantProfile;
+      if (latest.status !== "pending" || latest.updated_at !== snapshot.updated_at) {
+        setMerchantProfiles(previous => ({ ...previous, [merchantId]: latest }));
+        throw new Error("商戶資料已變更，請核對最新內容後重新按審批。");
+      }
+      if (decision === "approved" && (!latest.terms_accepted_at || !latest.privacy_accepted_at)) {
+        throw new Error("最新商戶資料缺少條款接受紀錄，不能批准。");
+      }
+      const { data: changed, error: updateError } = await supabase.from("merchants")
+        .update({
+          status: decision,
+          rejection_reason: decision === "rejected" ? reason : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", merchantId)
+        .eq("status", "pending")
+        .eq("updated_at", latest.updated_at)
+        .select("id,business_name,contact_name,contact_email,contact_phone,website_url,description,status,rejection_reason,terms_accepted_at,privacy_accepted_at,terms_version,created_at,updated_at")
+        .maybeSingle();
+      if (updateError) throw new Error("審批未儲存：" + updateError.message);
+      if (!changed) throw new Error("商戶狀態已由其他管理員修改，請重新整理。");
+      const updated = changed as MerchantProfile;
+      setMerchantProfiles(previous => ({ ...previous, [merchantId]: updated }));
+      setRejectingId(null);
+      setRejectionReason("");
+      setReviewMessage(`「${updated.business_name}」已${decision === "approved" ? "批准" : "退回"}。商戶狀態已儲存。`);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (accessToken) {
+        try {
+          const result = await fetch("/api/merchant-notifications", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+            body: JSON.stringify({ action: "merchant_status_changed", merchant_id: merchantId, status: decision }),
+          });
+          const status = await result.json();
+          if (!result.ok || !status.queued || !status.sent) {
+            setReviewMessage(`「${updated.business_name}」狀態已儲存；商戶電郵通知尚未確認送達，請檢查通知記錄。`);
+          }
+        } catch {
+          setReviewMessage(`「${updated.business_name}」狀態已儲存，但電郵通知暫時失敗，請稍後檢查。`);
+        }
+      } else {
+        setReviewMessage(`「${updated.business_name}」狀態已儲存；登入狀態需更新後才能發送商戶通知。`);
+      }
+    } catch (error) {
+      setReviewMessage(error instanceof Error ? error.message : "操作未完成，請重試。");
+    } finally {
+      setReviewingId(null);
+    }
+  }
+
   async function markAllRead() {
     if (!supabase || unreadCount === 0) return;
 
