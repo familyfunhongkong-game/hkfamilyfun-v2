@@ -95,6 +95,9 @@ jobs:
           npm run check:event-mobile-content
           npm run check:event-import
 
+      - name: Verify Admin KPI and table navigation
+        run: node scripts/test-admin-dashboard-navigation.mjs
+
       - name: Unified account and Admin entry regression
         run: node scripts/check-account-hub.mjs
 
