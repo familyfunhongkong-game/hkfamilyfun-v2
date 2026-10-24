@@ -7,6 +7,14 @@
 
 This is a *current operational snapshot*. The 2026-10-10/12 facts in `CUTOVER_RUNBOOK.md` and `HK_FAMILY_FUN_LAUNCH_CHECKLIST.md` remain historical, not authoritative for today's domain ownership or counts.
 
+## 2026-10-24 contact correction — owner confirmation
+
+The owner explicitly confirms that **`info@hkfamilyfun.com` works for normal inbound email**. Do **not** label this company mailbox generally broken or list a full IONOS mailbox outage as a confirmed launch blocker. The official address is restored as the primary public maintenance/contact method, with the already-public WhatsApp number offered second.
+
+**Separate, still-verifiable historical observation:** Resend showed `bounced` statuses for transactional *Admin approval notification* messages addressed to `info@hkfamilyfun.com` from **2026-10-07 through 2026-10-18**. This does not establish that unrelated senders cannot reach the mailbox today. Do not overwrite the owner's direct receipt observation with stale Resend history.
+
+The sensitive event-approval notification route currently uses the designated active Admin mailbox as a delivery safety fallback. Keep this separate from public customer enquiries until one fresh Resend-to-info delivery and actual inbox receipt are both verified. Do not automatically expose an Admin-only approval link to a general customer support recipient. The missing fresh transactional-delivery verification is a **notification-path test**, not a blanket claim that the public info mailbox is faulty.
+
 ## Verified, evidence-backed facts
 
 | Area | Confirmed observation |
