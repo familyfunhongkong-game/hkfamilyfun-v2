@@ -240,6 +240,12 @@ export default function GrowthDashboardPage() {
     }
   }, [applied]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    // The account table is rendered only after the authenticated data request.
+    if (data && window.location.hash === "#recent-accounts") {
+      window.requestAnimationFrame(() => document.getElementById("recent-accounts")?.scrollIntoView({block: "start"}));
+    }
+  }, [data]);
   const merchants = useMemo(() => data?.merchants.filter(m =>
     (merchantFilter === "all" || m.status === merchantFilter) &&
     (m.business_name + " " + (m.contact_email || "")).toLowerCase().includes(search.toLowerCase().trim())
@@ -369,7 +375,7 @@ export default function GrowthDashboardPage() {
             <div className="overflow-x-auto"><table className="w-full min-w-[450px] text-left text-xs">
               <thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">商戶</th><th className="p-3">狀態</th><th className="p-3 text-right">活動數</th><th className="p-3">註冊日期</th></tr></thead>
               <tbody>{merchants.map(m => <tr className="border-t border-slate-100" key={m.id}>
-                <td className="max-w-[200px] px-3 py-3"><Link href={`/admin/merchants?merchant_id=${encodeURIComponent(m.id)}`} className="block truncate font-bold text-purple-800 hover:underline focus-visible:outline-2" title={`管理商戶：${m.business_name}`}>{m.business_name}</Link><p className="truncate text-slate-500">{m.contact_email || "沒有電郵"}</p></td>
+                <td className="max-w-[200px] px-3 py-3"><Link href={`/admin/merchants?merchant_id=${encodeURIComponent(m.id)}#merchant-list`} className="block truncate font-bold text-purple-800 hover:underline focus-visible:outline-2" title={`管理商戶：${m.business_name}`}>{m.business_name}</Link><p className="truncate text-slate-500">{m.contact_email || "沒有電郵"}</p></td>
                 <td className="px-3 py-3"><Status value={m.status}/></td>
                 <td className="px-3 py-3 text-right font-bold tabular-nums">{m.events}</td>
                 <td className="px-3 py-3 whitespace-nowrap text-slate-600">{shortDate(m.created_at)}</td>
