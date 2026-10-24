@@ -8,7 +8,6 @@ import { validateEventUpload } from "@/lib/event-upload-validation";
 export const runtime = "nodejs";
 
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
-const MAX_PDF_BYTES = 12 * 1024 * 1024;
 
 type JsonObject = Record<string, unknown>;
 
