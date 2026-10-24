@@ -539,11 +539,10 @@ export default function ImportEventPage() {
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await client
-      .from("events")
-      .insert(insertPayload)
-      .select("id")
-      .single();
+    const writeQuery = savedId
+      ? client.from("events").update(insertPayload).eq("id", savedId)
+      : client.from("events").insert(insertPayload);
+    const { data, error } = await writeQuery.select("id").single();
 
     if (error) {
       setMessage(`儲存草稿失敗：${error.message}`);
