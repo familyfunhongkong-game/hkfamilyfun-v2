@@ -76,6 +76,7 @@ import { readFileSync } from "node:fs";
 
 const importPage = readFileSync("app/merchant/events/import/page.tsx", "utf8");
 const importApi = readFileSync("app/api/import-event/route.ts", "utf8");
+const eventEditor = readFileSync("app/merchant/events/[id]/edit/page.tsx", "utf8");
 for (const format of ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']) {
   assert.ok(importPage.includes(format), `Missing accepted upload format: ${format}`);
 }
@@ -95,6 +96,15 @@ assert.ok(importPage.includes('client.storage.from("event-images").remove([path]
 assert.ok(importPage.includes('PDF（最多 4MB）'), 'PDF picker must respect the Vercel 4.5MB body cap');
 assert.ok(importPage.includes('response.status === 413'), 'Gateway 413 payload failures must show actionable UI messages');
 assert.ok(importPage.includes('await readImportResponse(response)'), 'HTML gateway errors must not crash JSON parsing');
+assert.ok(importPage.includes('const saveInFlight = useRef(false)'), 'rapid Save clicks must be locked');
+assert.ok(importPage.includes('saveInFlight.current = true'), 'save lock must be held');
+assert.ok(importPage.includes('saveInFlight.current = false'), 'save lock must be cleared');
+assert.ok(importPage.includes('savedIdRef.current = data?.id || null'), 'saved draft ID must persist across repeated Save');
+assert.ok(!importPage.includes('setSavedId(null)'), 'URL or PDF re-extraction must not orphan existing draft');
+assert.ok(eventEditor.includes('validateEventUpload(file.name, signature, file.size)'), 'event editor must validate actual upload bytes');
+assert.ok(eventEditor.includes('remove(uploadedPaths)'), 'partially failed gallery batch must be cleaned up');
+assert.ok(eventEditor.includes('accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"'), 'event editor must not accept arbitrary SVG/GIF files');
+
 assert.ok(importApi.includes("validateEventUpload(fileName, header, uploaded.size)"), "PDF server validation must use shared utility");
 assert.ok(importPage.includes("validateEventUpload(file.name, header, file.size)"), "image picker must use shared utility");
 assert.ok(importApi.includes('const chineseRange = text.match('), 'Chinese date-range fallback missing');
