@@ -767,14 +767,6 @@ function formFromEvent(event: EventRecord): FormState {
   };
 }
 
-function sanitizeFileName(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9.-]/g, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 90);
-}
-
 function ownedEventStoragePath(url: string, eventId: string) {
   const marker = "/storage/v1/object/public/event-images/";
   const index = url.indexOf(marker);
