@@ -616,6 +616,19 @@ export default function ImportEventPage() {
     }
   }
 
+  function startNextEvent() {
+    if (saving || extracting || saveInFlight.current) return;
+    if (!window.confirm("上一個活動草稿已儲存。建立下一個活動會清空目前畫面尚未儲存的修改，確定繼續？")) return;
+    savedIdRef.current = null;
+    setSavedId(null);
+    setDraft({ ...emptyDraft, gallery_image_urls: [...emptyDraft.gallery_image_urls] });
+    setUrl("");
+    setSelectedImage(null);
+    setSourceType("manual");
+    setMessage("已開啟新的空白活動；上一個活動草稿仍保留於 Dashboard / Admin 活動中心。");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   useEffect(() => {
     void loadMerchant();
     // Role/account detection is intentionally run once per route.
@@ -895,6 +908,14 @@ export default function ImportEventPage() {
               <div className="flex flex-wrap gap-2">
                 {savedId ? (
                   <>
+                    <button
+                      type="button"
+                      onClick={startNextEvent}
+                      disabled={saving || extracting}
+                      className="rounded-full border border-emerald-300 bg-emerald-50 px-5 py-3 text-sm font-black text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+                    >
+                      ＋ 建立下一個活動
+                    </button>
                     <Link
                       href={isAdmin ? `/admin/events/${savedId}/edit` : `/merchant/events/${savedId}/edit`}
                       className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
