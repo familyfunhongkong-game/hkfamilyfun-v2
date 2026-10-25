@@ -4,7 +4,7 @@ import { isIP } from "node:net";
 import { createClient } from "@supabase/supabase-js";
 import { extractStructuredPageDetails, parseCurrencyPrice } from "@/lib/event-import-page-extractor";
 import { validateEventUpload } from "@/lib/event-upload-validation";
-import { extractChineseEventDateRange } from "@/lib/event-import-date-range";
+import { extractChineseEventDateRange, hasChineseEventDateRange, validEventDate } from "@/lib/event-import-date-range";
 
 export const runtime = "nodejs";
 
@@ -392,16 +392,11 @@ function dateOnly(value: unknown) {
   const text = String(value || "").trim();
   if (!text) return "";
 
-  const iso = text.match(/\d{4}-\d{2}-\d{2}/);
-  if (iso) return iso[0];
+  const iso = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return validEventDate(Number(iso[1]), Number(iso[2]), Number(iso[3]));
 
   const slash = text.match(/(\d{4})[/.年-](\d{1,2})[/.月-](\d{1,2})/);
-  if (slash) {
-    const y = slash[1];
-    const m = slash[2].padStart(2, "0");
-    const d = slash[3].padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }
+  if (slash) return validEventDate(Number(slash[1]), Number(slash[2]), Number(slash[3]));
 
   return "";
 }
@@ -417,36 +412,34 @@ function timeOnly(value: unknown) {
 }
 
 function extractDateRangeFromText(text: string) {
-  const chineseRange = extractChineseEventDateRange(text);
-  if (chineseRange) return chineseRange;
+  const empty = { start_date: "", end_date: "" };
+  // A malformed range must not silently become a single valid day.
+  if (hasChineseEventDateRange(text)) {
+    return extractChineseEventDateRange(text) || empty;
+  }
 
   const isoRange = text.match(
-    /(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2}).{0,20}?(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/
+    /(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2}).{0,20}?(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/,
   );
-
   if (isoRange) {
-    return {
-      start_date: `${isoRange[1]}-${isoRange[2].padStart(2, "0")}-${isoRange[3].padStart(2, "0")}`,
-      end_date: `${isoRange[4]}-${isoRange[5].padStart(2, "0")}-${isoRange[6].padStart(2, "0")}`,
-    };
+    const start_date = validEventDate(Number(isoRange[1]), Number(isoRange[2]), Number(isoRange[3]));
+    const end_date = validEventDate(Number(isoRange[4]), Number(isoRange[5]), Number(isoRange[6]));
+    return start_date && end_date && start_date <= end_date
+      ? { start_date, end_date } : empty;
   }
 
   const compactRange = text.match(
-    /(\d{2})[./-](\d{2})[./-](\d{4}).{0,20}?(\d{2})[./-](\d{2})[./-](\d{4})/
+    /(\d{2})[./-](\d{2})[./-](\d{4}).{0,20}?(\d{2})[./-](\d{2})[./-](\d{4})/,
   );
-
   if (compactRange) {
-    return {
-      start_date: `${compactRange[3]}-${compactRange[2]}-${compactRange[1]}`,
-      end_date: `${compactRange[6]}-${compactRange[5]}-${compactRange[4]}`,
-    };
+    const start_date = validEventDate(Number(compactRange[3]), Number(compactRange[2]), Number(compactRange[1]));
+    const end_date = validEventDate(Number(compactRange[6]), Number(compactRange[5]), Number(compactRange[4]));
+    return start_date && end_date && start_date <= end_date
+      ? { start_date, end_date } : empty;
   }
 
   const oneDate = dateOnly(text);
-  return {
-    start_date: oneDate,
-    end_date: oneDate,
-  };
+  return { start_date: oneDate, end_date: oneDate };
 }
 
 function extractPrices(text: string) {
