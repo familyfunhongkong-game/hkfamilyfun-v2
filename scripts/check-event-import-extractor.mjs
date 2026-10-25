@@ -91,7 +91,7 @@ assert.ok(importPage.includes('setSourceType("pdf")'), 'PDF must be recorded as 
 assert.ok(importPage.includes('setSourceType("url")'), 'URL must be recorded as URL evidence');
 assert.ok(importPage.includes('第三方 Reader'), 'PDF third-party processing disclosure missing');
 assert.ok(importPage.includes('role="status" aria-live="polite"'), 'inline import feedback is required');
-assert.ok(importPage.includes('.eq("id", savedId)'), 'retry must reuse existing draft');
+assert.ok(importPage.includes('.eq("id", savedIdRef.current)'), 'retry must reuse the current saved draft ID');
 assert.ok(importPage.includes('client.storage.from("event-images").remove([path])'), 'failed image-link update must clean up orphan storage objects');
 assert.ok(importPage.includes('PDF（最多 4MB）'), 'PDF picker must respect the Vercel 4.5MB body cap');
 assert.ok(importPage.includes('response.status === 413'), 'Gateway 413 payload failures must show actionable UI messages');
