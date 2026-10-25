@@ -20,7 +20,7 @@ export function classifyEventAvailability(
   event: SmartExpiryEvent,
   today = hongKongToday(),
 ): "available" | "expired" | "needs_review" {
-  const datePattern = /^\\d{4}-\\d{2}-\\d{2}$/;
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
   const start = String(event.start_date || "").slice(0, 10);
   const end = String(event.end_date || event.start_date || "").slice(0, 10);
   if (!datePattern.test(today) || !datePattern.test(start) || !datePattern.test(end) || end < start) {
