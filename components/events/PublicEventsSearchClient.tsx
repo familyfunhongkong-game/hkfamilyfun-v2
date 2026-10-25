@@ -21,6 +21,7 @@ import {
   normalizeEventTags,
 } from "@/lib/events/display-normalization";
 import type { EventRecord } from "@/lib/events/public-event-records";
+import { classifyEventAvailability } from "@/lib/events/smart-expiry";
 import { displayTag, tagTone } from "@/lib/events/tag-tone";
 
 type GalleryImage = {
@@ -433,9 +434,10 @@ function normalizedStatus(event: EventRecord): string {
 }
 
 function canShowPublic(event: EventRecord): boolean {
-  // Supabase public_events 已經按 Asia/Hong_Kong 過濾過期活動。
-  // 前端不可再用訪客裝置本地日期判斷，否則海外用戶會早一日／遲一日。
-  return normalizedStatus(event) === "published";
+  // Use the Hong Kong calendar and the same recurrence policy as server
+  // discovery. Do not mutate editorial status for expired records.
+  return normalizedStatus(event) === "published" &&
+    classifyEventAvailability(event) !== "expired";
 }
 
 function isFreeEvent(event: EventRecord): boolean {
