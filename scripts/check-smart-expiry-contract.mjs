@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 const cron = readFileSync("app/api/cron/archive-expired-events/route.ts", "utf8");
 const helper = readFileSync("lib/events/smart-expiry.ts", "utf8");
 const events = readFileSync("lib/supabase/events.ts", "utf8");
+const search = readFileSync("components/events/PublicEventsSearchClient.tsx", "utf8");
 
 assert.ok(cron.includes('policy: "smart-expiry-read-only"'));
 assert.ok(!cron.includes('.update('), "Cron must not mutate event rows");
@@ -13,4 +14,5 @@ assert.ok(helper.includes("nextEventOccurrence("), "Availability must consider r
 assert.ok(helper.includes('"needs_review"'), "Invalid dates require review");
 assert.ok(events.includes('classifyEventAvailability(event) === "expired"'));
 assert.ok(events.includes('if (isInternalTestEvent(event)) return null;'), "Published historical details must remain accessible");
+assert.ok(search.includes('classifyEventAvailability(event) !== "expired"'), "Public search must exclude expired occurrences");
 console.log("[smart-expiry] static safety contract PASS");
