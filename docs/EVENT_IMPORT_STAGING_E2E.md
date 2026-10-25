@@ -13,7 +13,7 @@
 
 1. Provision or identify a **separate Supabase project** owned by Rebuild HK Family Fun. Check plan limits and any recurring costs before creating it. Apply schema changes only through the approved migration process; never export/copy personal customer records into test data.
 2. Create a dedicated Vercel Preview (or staging project) bound to this **different** Supabase URL and publishable key. Check its deployed environment and verify the project ref is not `uiyrbqqvgnfhfdhedmav`. Ensure no production service-role key or production email recipient is available in the staging environment.
-3. In GitHub, set **staging-only** Action secrets (ideally under an Environment with access controls):
+3. In GitHub, create or configure the **staging** Environment and put these Action secrets **in that Environment**. The workflow explicitly uses `environment: staging`:
    - `E2E_SUPABASE_URL`
    - `E2E_SUPABASE_PUBLISHABLE_KEY`
    - `E2E_SUPABASE_SERVICE_ROLE_KEY`
