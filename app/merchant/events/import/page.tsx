@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
@@ -209,6 +209,8 @@ export default function ImportEventPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
+  const savedIdRef = useRef<string | null>(null);
+  const saveInFlight = useRef(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   // Keep the original evidence source, so PDF/image/manual records aren't mislabelled as URL imports.
   const [sourceType, setSourceType] = useState<"url" | "pdf" | "image" | "manual">("manual");
@@ -347,7 +349,7 @@ export default function ImportEventPage() {
 
     setExtracting(true);
     setMessage("");
-    setSavedId(null);
+    // Keep the existing draft ID so a new extraction updates it instead of creating duplicates.
 
     try {
       if (!supabase) {
@@ -433,7 +435,7 @@ export default function ImportEventPage() {
 
     setExtracting(true);
     setMessage("");
-    setSavedId(null);
+    // Keep the existing draft ID so a new extraction updates it instead of creating duplicates.
 
     try {
       if (!supabase) {
@@ -486,6 +488,12 @@ export default function ImportEventPage() {
   }
 
   async function saveDraft() {
+    // Synchronous lock protects against double clicks before React rerenders.
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
+    setSaving(true);
+
+    try {
     const client = supabase;
 
     if (!client) {
@@ -557,8 +565,8 @@ export default function ImportEventPage() {
       updated_at: new Date().toISOString(),
     };
 
-    const writeQuery = savedId
-      ? client.from("events").update(insertPayload).eq("id", savedId)
+    const writeQuery = savedIdRef.current
+      ? client.from("events").update(insertPayload).eq("id", savedIdRef.current).eq("status", "draft")
       : client.from("events").insert(insertPayload);
     const { data, error } = await writeQuery.select("id").single();
 
@@ -568,6 +576,7 @@ export default function ImportEventPage() {
       return;
     }
 
+    savedIdRef.current = data?.id || null;
     setSavedId(data?.id || null);
     if (selectedImage && data?.id) {
       const ext = selectedImage.name.split(".").pop()?.toLowerCase() === "jpeg" ? "jpg" : selectedImage.name.split(".").pop()?.toLowerCase();
@@ -599,7 +608,12 @@ export default function ImportEventPage() {
       setSelectedImage(null);
     }
     setMessage("已儲存活動草稿。你可以前往編輯頁繼續補資料，或到 Dashboard 查看。");
-    setSaving(false);
+    } catch (error) {
+      setMessage(error instanceof Error ? `儲存失敗：${error.message}` : "儲存草稿時發生未知錯誤，請再試。");
+    } finally {
+      saveInFlight.current = false;
+      setSaving(false);
+    }
   }
 
   useEffect(() => {
