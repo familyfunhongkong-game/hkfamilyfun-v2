@@ -98,6 +98,11 @@ assert.ok(importPage.includes('PDF（最多 4MB）'), 'PDF picker must respect t
 assert.ok(importPage.includes('response.status === 413'), 'Gateway 413 payload failures must show actionable UI messages');
 assert.ok(importPage.includes('await readImportResponse(response)'), 'HTML gateway errors must not crash JSON parsing');
 assert.ok(importPage.includes('const saveInFlight = useRef(false)'), 'rapid Save clicks must be locked');
+assert.ok(importPage.includes('function startNextEvent()'), 'staff must be able to start the next event without leaving the import page');
+assert.ok(importPage.includes('savedIdRef.current = null;'), 'New Event must clear the previously saved draft reference');
+assert.ok(importPage.includes('setSelectedImage(null);'), 'New Event must discard the old pending poster');
+assert.ok(importPage.includes('setSourceType("manual");'), 'New Event must reset provenance');
+assert.ok(importPage.includes('＋ 建立下一個活動'), 'New Event control must be visible after a successful save');
 assert.ok(importPage.includes('saveInFlight.current = true'), 'save lock must be held');
 assert.ok(importPage.includes('saveInFlight.current = false'), 'save lock must be cleared');
 assert.ok(importPage.includes('savedIdRef.current = data?.id || null'), 'saved draft ID must persist across repeated Save');
