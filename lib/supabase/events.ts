@@ -2,7 +2,7 @@ import type { Event, PriceType } from "@/lib/types";
 import { supabase } from "@/lib/supabase/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import { formatEventAge } from "@/lib/events/age-display";
-import { isExplicitlyExpiredEvent } from "@/lib/events/visibility";
+import { classifyEventAvailability } from "@/lib/events/smart-expiry";
 import {
   formatEventCategory,
   normalizeEventTags,
@@ -99,16 +99,7 @@ function isInternalTestEvent(event: DatabaseEvent) {
 }
 
 function isExpiredEvent(event: DatabaseEvent) {
-  if (!parseCalendarDate(event.end_date)) return false;
-
-  const todayText = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Hong_Kong",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-
-  return isExplicitlyExpiredEvent(event.end_date, todayText);
+  return classifyEventAvailability(event) === "expired";
 }
 
 function formatTime(
@@ -337,7 +328,7 @@ export async function getPublishedEventById(
   if (!data) return null;
 
   const event = data as DatabaseEvent;
-  if (isInternalTestEvent(event) || isExpiredEvent(event)) return null;
+  // Historical published details remain reachable through saved links.\n  if (isInternalTestEvent(event)) return null;
 
   return mapDatabaseEvent(event, locale);
 }
