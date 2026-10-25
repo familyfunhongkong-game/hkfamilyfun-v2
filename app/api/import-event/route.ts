@@ -4,6 +4,7 @@ import { isIP } from "node:net";
 import { createClient } from "@supabase/supabase-js";
 import { extractStructuredPageDetails, parseCurrencyPrice } from "@/lib/event-import-page-extractor";
 import { validateEventUpload } from "@/lib/event-upload-validation";
+import { extractChineseEventDateRange } from "@/lib/event-import-date-range";
 
 export const runtime = "nodejs";
 
@@ -416,21 +417,8 @@ function timeOnly(value: unknown) {
 }
 
 function extractDateRangeFromText(text: string) {
-  // Hong Kong event pages often omit the year on the end date.
-  const chineseRange = text.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日\s*(?:至|到|－|–|-|~)\s*(?:(\d{4})年)?\s*(\d{1,2})月\s*(\d{1,2})日/);
-  if (chineseRange) {
-    const startYear = Number(chineseRange[1]);
-    const startMonth = Number(chineseRange[2]);
-    const endMonth = Number(chineseRange[5]);
-    const explicitYear = chineseRange[4] ? Number(chineseRange[4]) : null;
-    const endYear = explicitYear ?? (endMonth < startMonth ? startYear + 1 : startYear);
-    const asDate = (year: number, month: number, day: number) =>
-      `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return {
-      start_date: asDate(startYear, startMonth, Number(chineseRange[3])),
-      end_date: asDate(endYear, endMonth, Number(chineseRange[6])),
-    };
-  }
+  const chineseRange = extractChineseEventDateRange(text);
+  if (chineseRange) return chineseRange;
 
   const isoRange = text.match(
     /(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2}).{0,20}?(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/
