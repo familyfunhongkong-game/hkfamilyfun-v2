@@ -72,6 +72,7 @@ assert.equal(hkdPrice?.max_price, "520");
 
 
 import { validateEventUpload } from "../lib/event-upload-validation.js";
+import { extractChineseEventDateRange } from "../lib/event-import-date-range.js";
 import { readFileSync } from "node:fs";
 
 const importPage = readFileSync("app/merchant/events/import/page.tsx", "utf8");
@@ -107,7 +108,7 @@ assert.ok(eventEditor.includes('accept="image/png,image/jpeg,image/webp,.png,.jp
 
 assert.ok(importApi.includes("validateEventUpload(fileName, header, uploaded.size)"), "PDF server validation must use shared utility");
 assert.ok(importPage.includes("validateEventUpload(file.name, header, file.size)"), "image picker must use shared utility");
-assert.ok(importApi.includes('const chineseRange = text.match('), 'Chinese date-range fallback missing');
+assert.ok(importApi.includes('extractChineseEventDateRange(text)'), 'Chinese date-range extraction must use shared parser');
 assert.ok(importApi.includes('Reader 後備抽取'), 'reader fallback missing');
 assert.ok(importApi.includes("isChallengeTitle(event.title_tc)"), "Bot challenge HTML must not be imported as an event");
 
@@ -124,5 +125,24 @@ assert.equal(validateEventUpload("event.pdf", bytes(137,80,78,71,13,10,26,10), 2
 assert.equal(validateEventUpload("event.png", bytes(137,80,78,71,13,10,26,10), 9 * 1024 * 1024).kind, null, "oversize images must fail");
 assert.equal(validateEventUpload("event.pdf", bytes(37,80,68,70,45), 5 * 1024 * 1024).kind, null, "oversize PDFs must fail");
 assert.equal(validateEventUpload("event.svg", bytes(60,115,118,103), 4096).kind, null, "SVG must never be treated as a safe raster image");
+
+// Real festival format and edge cases: no impossible dates or reversed periods.
+assert.deepEqual(
+  extractChineseEventDateRange("2026年10月29日至11月1日"),
+  { start_date: "2026-10-29", end_date: "2026-11-01" },
+);
+assert.deepEqual(
+  extractChineseEventDateRange("2026年12月31日至1月2日"),
+  { start_date: "2026-12-31", end_date: "2027-01-02" },
+);
+assert.deepEqual(
+  extractChineseEventDateRange("2028年2月28日至2月29日"),
+  { start_date: "2028-02-28", end_date: "2028-02-29" },
+);
+assert.equal(extractChineseEventDateRange("2027年2月28日至2月29日"), null);
+assert.equal(extractChineseEventDateRange("2026年13月4日至13月5日"), null);
+assert.equal(extractChineseEventDateRange("2026年10月29日至10月28日"), null);
+assert.equal(extractChineseEventDateRange("2026年10月29日至2025年11月1日"), null);
+assert.equal(extractChineseEventDateRange("non-event prose"), null);
 
 console.log("Event import extractor and common upload contract passed.");
