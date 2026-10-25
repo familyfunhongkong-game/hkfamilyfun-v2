@@ -106,7 +106,15 @@ assert.ok(importPage.includes('＋ 建立下一個活動'), 'New Event control m
 assert.ok(importPage.includes('saveInFlight.current = true'), 'save lock must be held');
 assert.ok(importPage.includes('saveInFlight.current = false'), 'save lock must be cleared');
 assert.ok(importPage.includes('savedIdRef.current = data?.id || null'), 'saved draft ID must persist across repeated Save');
-assert.ok(!importPage.includes('setSavedId(null)'), 'URL or PDF re-extraction must not orphan existing draft');
+assert.equal(
+  importPage.split("setSavedId(null)").length - 1,
+  1,
+  "Only explicit New Event action may reset the saved draft ID",
+);
+assert.ok(
+  importPage.indexOf("setSavedId(null)") > importPage.indexOf("function startNextEvent()"),
+  "The only draft reset must belong to the explicit New Event action",
+);
 assert.ok(eventEditor.includes('validateEventUpload(file.name, signature, file.size)'), 'event editor must validate actual upload bytes');
 assert.ok(eventEditor.includes('remove(uploadedPaths)'), 'partially failed gallery batch must be cleaned up');
 assert.ok(eventEditor.includes('accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"'), 'event editor must not accept arbitrary SVG/GIF files');
