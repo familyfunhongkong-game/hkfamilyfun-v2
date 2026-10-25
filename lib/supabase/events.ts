@@ -77,21 +77,6 @@ function formatDate(date: string | null, locale: AppLocale) {
   return "日期待定";
 }
 
-function parseCalendarDate(value: string | null) {
-  if (!value) return null;
-
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) return null;
-
-  const date = new Date(
-    Number(match[1]),
-    Number(match[2]) - 1,
-    Number(match[3]),
-  );
-  date.setHours(0, 0, 0, 0);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
 function isInternalTestEvent(event: DatabaseEvent) {
   const title = String(event.title_tc || "").trim().toUpperCase();
   const venue = String(event.venue_name || "").trim().toUpperCase();
