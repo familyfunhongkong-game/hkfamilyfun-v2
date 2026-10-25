@@ -105,7 +105,9 @@ jobs:
         run: node scripts/check-account-hub.mjs
 
       - name: Merchant social login visibility safety
-        run: node scripts/check-social-provider-visibility.mjs
+        run: |
+          node scripts/check-social-provider-visibility.mjs
+          node scripts/check-facebook-login-release-gate.mjs
 
       - name: Lint
         run: npm run lint
