@@ -45,6 +45,9 @@ for (const key of [
     fail("staging-only E2E configuration missing: " + key);
   }
 }
+if (!/^[ \\t]+environment:[ \\t]*staging[ \\t]*$/m.test(workflow)) {
+  fail("mutable Merchant Auth E2E must require the staging GitHub Environment");
+}
 if (workflow.includes("secrets.SUPABASE_SERVICE_ROLE_KEY")) {
   fail("manual workflow must never inherit the live service-role secret");
 }
