@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { evaluateEventReadiness } from "@/lib/events/readiness";
+import { validateEventUpload } from "@/lib/event-upload-validation";
 
 type EventRecord = {
   id: string;
@@ -811,10 +812,6 @@ function coverCropStyle(form: FormState) {
   };
 }
 
-function isImageFile(file: File) {
-  return file.type.startsWith("image/");
-}
-
 export default function MerchantEventEditPage() {
   const params = useParams();
   const eventId = String(params?.id || "");
@@ -1248,47 +1245,52 @@ export default function MerchantEventEditPage() {
       return;
     }
 
-    const validFiles = selectedFiles.filter(isImageFile);
-    const invalidCount = selectedFiles.length - validFiles.length;
+    const checkedFiles = await Promise.all(
+      selectedFiles.map(async (file) => {
+        const signature = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+        return { file, validation: validateEventUpload(file.name, signature, file.size) };
+      }),
+    );
+    const validFiles = checkedFiles.filter((item) => item.validation.kind === "image");
+    const invalidCount = checkedFiles.length - validFiles.length;
 
     if (!validFiles.length) {
-      setMessage("請上載圖片檔案，例如 JPG、PNG 或 WebP。");
+      setMessage("沒有有效活動圖片；只接受 PNG、JPG/JPEG、WEBP，每張最多 8MB。PDF 請到活動匯入頁抽取文字。");
       return;
     }
 
     const allowedFiles = validFiles.slice(0, remainingSlots);
     const skippedByLimit = validFiles.length - allowedFiles.length;
-    const oversized = allowedFiles.filter((file) => file.size > 8 * 1024 * 1024);
-
-    if (oversized.length) {
-      setMessage("有圖片超過 8MB，請壓縮後再上載。");
-      return;
-    }
 
     setUploading(true);
     setMessage("");
 
     const uploadedUrls: string[] = [];
 
-    for (const [index, file] of allowedFiles.entries()) {
-      const extension = file.name.split(".").pop() || "jpg";
-      const safeName = sanitizeFileName(file.name || `image.${extension}`);
-      const path = `${eventId}/${Date.now()}-${index}-${safeName}`;
-
+    const uploadedPaths: string[] = [];
+    for (const item of allowedFiles) {
+      const { file, validation } = item;
+      // Do not trust the original filename or MIME type for public Storage paths.
+      const path = `${eventId}/${crypto.randomUUID()}.${validation.extension}`;
       const { error } = await client.storage.from(STORAGE_BUCKET).upload(path, file, {
         cacheControl: "3600",
-        upsert: true,
-        contentType: file.type,
+        upsert: false,
+        contentType: validation.mime,
       });
 
       if (error) {
+        // Avoid leaving half-uploaded galleries if a later image fails.
+        const cleanup = uploadedPaths.length
+          ? await client.storage.from(STORAGE_BUCKET).remove(uploadedPaths)
+          : null;
         setMessage(
-          `圖片上載失敗：${error.message}。請確認 Supabase Storage 已建立 public bucket：${STORAGE_BUCKET}`
+          `圖片上載失敗：${error.message}。${cleanup?.error ? "部分暫存圖片清理失敗，請聯絡 Admin。" : "本批次已取消，沒有修改活動圖片清單。"}`,
         );
         setUploading(false);
         return;
       }
 
+      uploadedPaths.push(path);
       const { data } = client.storage.from(STORAGE_BUCKET).getPublicUrl(path);
       uploadedUrls.push(data.publicUrl);
     }
@@ -2176,7 +2178,7 @@ export default function MerchantEventEditPage() {
                     {uploading ? "上載中..." : "選擇圖片"}
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
                       multiple
                       disabled={remainingSlots === 0 || uploading}
                       className="hidden"
@@ -2189,7 +2191,7 @@ export default function MerchantEventEditPage() {
                   <p className="font-black">圖片規則</p>
                   <p>
                     第一張 = 封面；其餘 = Gallery。拖拉圖片可改排序。系統會自動去重。
-                    建議 JPG / PNG / WebP，單張 8MB 以下。
+                    支援 JPG / JPEG / PNG / WebP，單張最多 8MB；系統會檢查實際檔案格式。PDF 請用智能活動匯入。
                   </p>
                 </div>
               </div>
