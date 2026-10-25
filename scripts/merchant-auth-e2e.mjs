@@ -6,10 +6,10 @@ import { createClient } from "@supabase/supabase-js";
 // Intentionally fail closed: this script creates users/events, submits for
 // moderation and briefly publishes a test event. It must NEVER target live data.
 const PROD_PROJECT_REF = "uiyrbqqvgnfhfdhedmav";
-const url = String(process.env.E2E_SUPABASE_URL || "").trim().replace(/\\/$/, "");
+const url = String(process.env.E2E_SUPABASE_URL || "").trim().replace(/[/]$/, "");
 const publishableKey = String(process.env.E2E_SUPABASE_PUBLISHABLE_KEY || "").trim();
 const serviceKey = String(process.env.E2E_SUPABASE_SERVICE_ROLE_KEY || "").trim();
-const siteUrl = String(process.env.E2E_SITE_URL || "").trim().replace(/\\/$/, "");
+const siteUrl = String(process.env.E2E_SITE_URL || "").trim().replace(/[/]$/, "");
 const requireNotification = process.env.REQUIRE_NOTIFICATION === "true";
 
 if (!url || !publishableKey || !serviceKey || !siteUrl) {
