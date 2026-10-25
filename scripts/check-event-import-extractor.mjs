@@ -72,7 +72,7 @@ assert.equal(hkdPrice?.max_price, "520");
 
 
 import { validateEventUpload } from "../lib/event-upload-validation.js";
-import { extractChineseEventDateRange } from "../lib/event-import-date-range.js";
+import { extractChineseEventDateRange, hasChineseEventDateRange, validEventDate } from "../lib/event-import-date-range.js";
 import { readFileSync } from "node:fs";
 
 const importPage = readFileSync("app/merchant/events/import/page.tsx", "utf8");
@@ -109,6 +109,9 @@ assert.ok(eventEditor.includes('accept="image/png,image/jpeg,image/webp,.png,.jp
 assert.ok(importApi.includes("validateEventUpload(fileName, header, uploaded.size)"), "PDF server validation must use shared utility");
 assert.ok(importPage.includes("validateEventUpload(file.name, header, file.size)"), "image picker must use shared utility");
 assert.ok(importApi.includes('extractChineseEventDateRange(text)'), 'Chinese date-range extraction must use shared parser');
+assert.ok(importApi.includes('hasChineseEventDateRange(text)'), 'malformed date range must not fall back to its starting date');
+assert.ok(importApi.includes('validEventDate(Number(isoRange[1])'), 'ISO date range must have calendar validity checks');
+assert.ok(importApi.includes('validEventDate(Number(compactRange[3])'), 'DD/MM/YYYY date range must have calendar validity checks');
 assert.ok(importApi.includes('Reader 後備抽取'), 'reader fallback missing');
 assert.ok(importApi.includes("isChallengeTitle(event.title_tc)"), "Bot challenge HTML must not be imported as an event");
 
@@ -144,5 +147,10 @@ assert.equal(extractChineseEventDateRange("2026年13月4日至13月5日"), null)
 assert.equal(extractChineseEventDateRange("2026年10月29日至10月28日"), null);
 assert.equal(extractChineseEventDateRange("2026年10月29日至2025年11月1日"), null);
 assert.equal(extractChineseEventDateRange("non-event prose"), null);
+assert.equal(hasChineseEventDateRange("2027年2月28日至2月29日"), true);
+assert.equal(validEventDate(2026, 2, 29), "");
+assert.equal(validEventDate(2028, 2, 29), "2028-02-29");
+assert.equal(validEventDate(2026, 13, 10), "");
+assert.equal(validEventDate(2026, 11, 31), "");
 
 console.log("Event import extractor and common upload contract passed.");
