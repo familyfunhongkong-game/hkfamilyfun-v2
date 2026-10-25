@@ -15,13 +15,16 @@ export default function MerchantLoginPanel() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [socialLoading, setSocialLoading] = useState<"google" | "facebook" | null>(null);
+  // Supabase can report Facebook enabled while the Meta app is still unpublished.
+  // Keep Facebook hidden until its external publishing and real-user login are verified.
+  const facebookLive = process.env.NEXT_PUBLIC_FACEBOOK_LOGIN_LIVE === "true";
   const [availableSocial, setAvailableSocial] = useState({ google: false, facebook: false });
 
   useEffect(() => {
     let active = true;
     void Promise.all([
       socialSignInAvailability("google"),
-      socialSignInAvailability("facebook"),
+      facebookLive ? socialSignInAvailability("facebook") : Promise.resolve("disabled" as const),
     ]).then(([google, facebook]) => {
       if (active) setAvailableSocial({ google: google === "enabled", facebook: facebook === "enabled" });
     }).catch(() => {
@@ -38,7 +41,7 @@ export default function MerchantLoginPanel() {
     setSocialLoading(provider);
     try {
       const availability = await socialSignInAvailability(provider);
-      if (availability !== "enabled") {
+      if ((provider === "facebook" && !facebookLive) || availability !== "enabled") {
         setErrorMessage(`暫時未能使用 ${label} 登入，請改用電郵登入。`);
         return;
       }
