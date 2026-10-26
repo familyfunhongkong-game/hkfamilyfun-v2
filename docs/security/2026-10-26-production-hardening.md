@@ -16,6 +16,14 @@ Maintenance: **not disabled**; production Vercel `MAINTENANCE_MODE=true` indepen
    - Staging tested normal merchant profile UPDATE still works while merchant self-approval is blocked by existing `protect_merchant_review_fields` trigger. Test rolled back.
    - Production cross-table grants audit: 0 remaining grants of these three privileges to `anon` or `authenticated`.
 
+
+3. Production migration `20261026015725` / `restrict_anonymous_event_select_to_public_view_columns`.
+   - Found 24 published events with non-null `ai_extracted_json` and `admin_review_note`, and confirmed anonymous broad SELECT access to all 167 base event columns before patch (potential data exposure; no evidence of actual exfiltration).
+   - Removed base table-wide `anon` SELECT and granted only 135 projected public-view columns plus `hidden_pending_confirmation`.
+   - Staging and production checked anonymous `public_events_i18n` view access stays functional.
+   - Production role-impersonation assertions verified anonymous queries of `admin_review_note`, `ai_extracted_json`, and `rejection_reason` fail with insufficient privilege.
+   - **High priority remaining:** `authenticated` users currently retain broad published event SELECT and may read internal fields; resolving this safely requires a schema/API redesign separating internal per-event data from public event data, because merchants/admins need private columns.
+
 ## Remaining security work — not a security certification
 
 - Do not unblock `npm run db:push`. GitHub issue #52 documents existing migration-history drift. This PR records already-applied production versions; reconcile history via supported Supabase CLI procedures and review.
