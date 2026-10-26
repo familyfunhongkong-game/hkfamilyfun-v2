@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { evaluateEventReadiness } from "@/lib/events/readiness";
+import { suggestEventCopy, type SummaryStyle } from "@/lib/events/summary-suggestion";
 
 type EventRecord = {
   id: string;
@@ -824,6 +825,10 @@ export default function MerchantEventEditPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [step, setStep] = useState(0);
+  const [summaryStyle, setSummaryStyle] = useState<SummaryStyle>("points");
+  const [summaryEmoji, setSummaryEmoji] = useState(true);
+  const [summaryLimit, setSummaryLimit] = useState(100);
+  const [summaryPreview, setSummaryPreview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -1948,6 +1953,41 @@ export default function MerchantEventEditPage() {
                   Google Event rich result 主要依賴活動名稱、日期及真實地址；年齡屬 HK Family Fun
                   平台完整度欄位，方便家長篩選。
                 </p>
+              </div>
+              <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-4 space-y-3">
+                <div>
+                  <p className="font-extrabold text-slate-900">活動簡介｜一鍵整理（免 API 費）</p>
+                  <p className="text-xs text-slate-600 mt-1">只從下方「詳細介紹」提取原文句子，不會創作未經核實的活動賣點。先預覽，再自行套用；不會自動發布。</p>
+                </div>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <label htmlFor="summary-style" className="text-xs font-bold">格式</label>
+                  <select id="summary-style" value={summaryStyle} onChange={(e) => setSummaryStyle(e.target.value as SummaryStyle)} className="rounded-lg border border-slate-300 bg-white p-2 text-sm">
+                    <option value="points">短句＋Emoji 重點</option>
+                    <option value="story">敘述式</option>
+                    <option value="simple">精簡資訊式</option>
+                  </select>
+                  <label className="text-xs font-bold flex gap-1 items-center">
+                    <input type="checkbox" checked={summaryEmoji} onChange={e => setSummaryEmoji(e.target.checked)} /> Emoji
+                  </label>
+                  <label htmlFor="summary-limit" className="text-xs font-bold">長度</label>
+                  <select id="summary-limit" value={summaryLimit} onChange={e => setSummaryLimit(Number(e.target.value))} className="rounded-lg border border-slate-300 bg-white p-2 text-sm">
+                    <option value={70}>最多 70 字</option><option value={100}>最多 100 字</option>
+                  </select>
+                </div>
+                <button type="button" disabled={!editable} onClick={() => setSummaryPreview(true)} className="rounded-xl bg-purple-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">產生預覽</button>
+                {summaryPreview ? (() => {
+                  const suggestion = suggestEventCopy(form.description_tc, summaryStyle, summaryEmoji, summaryLimit);
+                  return <div className="rounded-xl border border-purple-200 bg-white p-3 space-y-2">
+                    <p className="text-xs font-bold">建議短簡介</p>
+                    <p className="whitespace-pre-line text-sm">{suggestion.summary || "沒有可用內容"}</p>
+                    {suggestion.highlights ? <><p className="text-xs font-bold">建議亮點（如原文有其他重點）</p><p className="whitespace-pre-line text-sm">{suggestion.highlights}</p></> : null}
+                    <p className="text-xs text-amber-800">{suggestion.warning}</p>
+                    <button type="button" disabled={!editable || !suggestion.summary} onClick={() => {
+                      setForm(previous => ({ ...previous, short_description_tc: suggestion.summary, highlights: suggestion.highlights || previous.highlights }));
+                      setSummaryPreview(false);
+                    }} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">套用至草稿（不發布）</button>
+                  </div>;
+                })() : null}
               </div>
               <Textarea
                 label="短簡介（繁中）"
