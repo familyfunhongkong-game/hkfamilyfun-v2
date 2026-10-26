@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ParentFacebookLogin from "@/components/auth/parent-facebook-login";
 
 export default function LoginPage() {
   return (
@@ -9,6 +10,7 @@ export default function LoginPage() {
         <p className="mt-3 text-sm leading-7 text-slate-600">
           家長瀏覽及搜尋活動目前毋須登入。商戶／活動主辦方請使用 Merchant Portal。
         </p>
+        <ParentFacebookLogin />
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href="/merchant/login"
