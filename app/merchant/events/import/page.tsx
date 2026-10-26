@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { validateEventUpload } from "@/lib/event-upload-validation";
 
 type DraftEvent = {
   source_url: string;
@@ -165,14 +166,31 @@ function getCtaPreview(draft: DraftEvent) {
   return selected?.label || "查看詳情";
 }
 
-function readyScore(draft: DraftEvent) {
+async function readImportResponse(response: Response): Promise<{ok: boolean; error?: string; event?: DraftEvent}> {
+  try {
+    const parsed: unknown = await response.json();
+    if (parsed && typeof parsed === "object" && "ok" in parsed) {
+      return parsed as {ok: boolean; error?: string; event?: DraftEvent};
+    }
+  } catch {
+    // A Vercel/gateway error may be HTML instead of JSON.
+  }
+  return {
+    ok: false,
+    error: response.status === 413
+      ? "檔案超過伺服器可處理大小。請壓縮 PDF 至 4MB 以下，或改用公開 PDF 網址。"
+      : `活動匯入服務暫時沒有正常回應（HTTP ${response.status}），請檢查登入及稍後重試。`,
+  };
+}
+
+function readyScore(draft: DraftEvent, hasLocalImage = false) {
   const checks = [
     safeText(draft.title_tc),
     safeText(draft.start_date),
     safeText(draft.venue_name) || safeText(draft.address),
     formatPricePreview(draft) !== "收費待確認",
-    getCtaPreview(draft) !== "",
-    safeText(draft.cover_image_url) || normalizeImages(draft.gallery_image_urls).length > 0,
+    draft.cta_type === "none" || Boolean(safeText(draft.registration_url) || safeText(draft.booking_url) || safeText(draft.official_url) || (safeText(draft.source_url) && safeText(draft.title_tc))),
+    hasLocalImage || safeText(draft.cover_image_url) || normalizeImages(draft.gallery_image_urls).length > 0,
     safeText(draft.google_map_url) || safeText(draft.google_map_embed_url),
   ];
 
@@ -191,8 +209,15 @@ export default function ImportEventPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
+  const savedIdRef = useRef<string | null>(null);
+  const saveInFlight = useRef(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  // Keep the original evidence source, so PDF/image/manual records aren't mislabelled as URL imports.
+  const [sourceType, setSourceType] = useState<"url" | "pdf" | "image" | "manual">("manual");
+  const imagePreview = useMemo(() => selectedImage ? URL.createObjectURL(selectedImage) : "", [selectedImage]);
+  useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
 
-  const score = useMemo(() => readyScore(draft), [draft]);
+  const score = useMemo(() => readyScore(draft, Boolean(selectedImage)), [draft, selectedImage]);
 
   function applyExtractedDraft(extracted: DraftEvent, fallbackUrl = "") {
     const images = normalizeImages([
@@ -262,7 +287,8 @@ export default function ImportEventPage() {
       return null;
     }
 
-    if (adminRoute && adminAccess === true) {
+    // Resolve verified platform admin rights irrespective of which import URL was used.
+    if (adminAccess === true) {
       const adminActor: MerchantRecord = {
         id: "",
         business_name: "HK Family Fun",
@@ -323,7 +349,7 @@ export default function ImportEventPage() {
 
     setExtracting(true);
     setMessage("");
-    setSavedId(null);
+    // Keep the existing draft ID so a new extraction updates it instead of creating duplicates.
 
     try {
       if (!supabase) {
@@ -352,18 +378,19 @@ export default function ImportEventPage() {
         body: JSON.stringify({ url: targetUrl }),
       });
 
-      const json = await response.json();
+      const json = await readImportResponse(response);
 
       if (!response.ok || !json.ok) {
-        setMessage(json.error || "未能抽取活動資料。");
+        setMessage(json.error || `未能抽取活動資料（HTTP ${response.status}）。請確認已登入 Admin 或已批准商戶；也可手動填寫草稿。`);
         setExtracting(false);
         return;
       }
 
       const extracted = json.event as DraftEvent;
       applyExtractedDraft(extracted, targetUrl);
+      setSourceType("url");
 
-      setMessage("已完成網址資料抽取。請逐項核對日期、地點、收費及報名資料後再儲存草稿。");
+      setMessage("已完成網址資料抽取；請檢查抽取備註，並核實活動適合親子平台、日期、分日開放時間、地點、價格及報名方式。");
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -373,6 +400,21 @@ export default function ImportEventPage() {
     }
 
     setExtracting(false);
+  }
+
+  async function acceptUpload(file: File | null) {
+    if (!file) return;
+    const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    const validation = validateEventUpload(file.name, header, file.size);
+    if (validation.error) {
+      setMessage(validation.error);
+      return;
+    }
+    if (validation.kind === "pdf") { await extractFromPdf(file); return; }
+    setSelectedImage(file);
+    setSourceType((previous) => previous === "url" || previous === "pdf" ? previous : "image");
+    // Preserve an existing draft ID when replacing an image, so a retry never creates a duplicate event.
+    setMessage("已選取活動圖片，可預覽；按「儲存草稿」才會上載。圖片文字不會自動辨識，請手動填寫或透過活動網址抽取資料。");
   }
 
   async function extractFromPdf(file: File | null) {
@@ -386,14 +428,14 @@ export default function ImportEventPage() {
       return;
     }
 
-    if (file.size > 12 * 1024 * 1024) {
-      setMessage("PDF 必須小於 12MB。");
+    if (file.size > 4 * 1024 * 1024) {
+      setMessage("PDF 必須小於 4MB。");
       return;
     }
 
     setExtracting(true);
     setMessage("");
-    setSavedId(null);
+    // Keep the existing draft ID so a new extraction updates it instead of creating duplicates.
 
     try {
       if (!supabase) {
@@ -422,14 +464,15 @@ export default function ImportEventPage() {
         body: formData,
       });
 
-      const json = await response.json();
+      const json = await readImportResponse(response);
 
       if (!response.ok || !json.ok) {
-        setMessage(json.error || "未能讀取 PDF 活動資料。");
+        setMessage(json.error || `未能讀取 PDF（HTTP ${response.status}）。目前僅支援真正 PDF，不支援 PNG/JPG 圖片直接當作 PDF。`);
         return;
       }
 
       applyExtractedDraft(json.event as DraftEvent);
+      setSourceType("pdf");
       setMessage(
         "已完成 PDF 文字抽取。原 PDF 不會自動發布；請逐項核對日期、地點、收費及報名資料後再儲存草稿。",
       );
@@ -445,6 +488,12 @@ export default function ImportEventPage() {
   }
 
   async function saveDraft() {
+    // Synchronous lock protects against double clicks before React rerenders.
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
+    setSaving(true);
+
+    try {
     const client = supabase;
 
     if (!client) {
@@ -455,7 +504,9 @@ export default function ImportEventPage() {
     const currentMerchant = merchant || (await loadMerchant());
     if (!currentMerchant) return;
 
-    const adminCreating = adminRoute && currentMerchant.id === "";
+    // The resolved Admin actor has an empty merchant ID; do not depend on a
+    // potentially stale React isAdmin state if Save is clicked immediately.
+    const adminCreating = currentMerchant.id === "";
 
     setSaving(true);
     setMessage("");
@@ -495,7 +546,7 @@ export default function ImportEventPage() {
       registration_url: draft.registration_url || draft.booking_url || draft.official_url || draft.source_url,
       booking_url: draft.booking_url || draft.registration_url || draft.official_url || draft.source_url,
       official_url: draft.official_url || draft.source_url,
-      source_type: "url",
+      source_type: sourceType,
       source_url: draft.source_url || url,
       ai_extraction_status: "not_available",
       google_map_url: draft.google_map_url,
@@ -514,11 +565,10 @@ export default function ImportEventPage() {
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await client
-      .from("events")
-      .insert(insertPayload)
-      .select("id")
-      .single();
+    const writeQuery = savedIdRef.current
+      ? client.from("events").update(insertPayload).eq("id", savedIdRef.current).eq("status", "draft")
+      : client.from("events").insert(insertPayload);
+    const { data, error } = await writeQuery.select("id").single();
 
     if (error) {
       setMessage(`儲存草稿失敗：${error.message}`);
@@ -526,9 +576,57 @@ export default function ImportEventPage() {
       return;
     }
 
+    savedIdRef.current = data?.id || null;
     setSavedId(data?.id || null);
-    setMessage("已儲存為活動草稿。你可以前往編輯頁繼續補資料，或到 Dashboard 查看。");
-    setSaving(false);
+    if (selectedImage && data?.id) {
+      const ext = selectedImage.name.split(".").pop()?.toLowerCase() === "jpeg" ? "jpg" : selectedImage.name.split(".").pop()?.toLowerCase();
+      const path = `${data.id}/import-${Date.now()}.${ext}`;
+      const { error: uploadError } = await client.storage.from("event-images").upload(path, selectedImage, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: ext === "jpg" ? "image/jpeg" : `image/${ext}`,
+      });
+      if (uploadError) {
+        setMessage(`活動草稿已建立，但圖片未能上載：${uploadError.message}。請進入活動編輯頁重新上載。`);
+        setSaving(false);
+        return;
+      }
+      const { data: imageData } = client.storage.from("event-images").getPublicUrl(path);
+      const imageUrl = imageData.publicUrl;
+      const { error: updateError } = await client.from("events").update({
+        cover_image_url: imageUrl,
+        gallery_image_urls: normalizeImages([imageUrl, ...gallery]),
+      }).eq("id", data.id);
+      if (updateError) {
+        // The DB row never references this new object, so avoid leaving an orphan.
+        const { error: cleanupError } = await client.storage.from("event-images").remove([path]);
+        setMessage(`草稿已儲存，但圖片連結更新失敗：${updateError.message}。${cleanupError ? " 暫未能清理未引用圖片，請聯絡管理員。" : " 已清理該次上載，可重新按儲存。"}`);
+        setSaving(false);
+        return;
+      }
+      updateField("cover_image_url", imageUrl);
+      setSelectedImage(null);
+    }
+    setMessage("已儲存活動草稿。你可以前往編輯頁繼續補資料，或到 Dashboard 查看。");
+    } catch (error) {
+      setMessage(error instanceof Error ? `儲存失敗：${error.message}` : "儲存草稿時發生未知錯誤，請再試。");
+    } finally {
+      saveInFlight.current = false;
+      setSaving(false);
+    }
+  }
+
+  function startNextEvent() {
+    if (saving || extracting || saveInFlight.current) return;
+    if (!window.confirm("上一個活動草稿已儲存。建立下一個活動會清空目前畫面尚未儲存的修改，確定繼續？")) return;
+    savedIdRef.current = null;
+    setSavedId(null);
+    setDraft({ ...emptyDraft, gallery_image_urls: [...emptyDraft.gallery_image_urls] });
+    setUrl("");
+    setSelectedImage(null);
+    setSourceType("manual");
+    setMessage("已開啟新的空白活動；上一個活動草稿仍保留於 Dashboard / Admin 活動中心。");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   useEffect(() => {
@@ -542,15 +640,15 @@ export default function ImportEventPage() {
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-[1400px] px-4 py-8">
           <p className="text-sm font-black text-purple-700">
-            {adminRoute ? "Admin Portal · 智能活動匯入" : "Merchant Portal · 智能網址匯入"}
+            {isAdmin || adminRoute ? "Admin Portal · 智能活動匯入" : "Merchant Portal · 智能網址匯入"}
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-            {adminRoute
-              ? "Admin：貼活動網址或上載 PDF，建立可編輯草稿"
-              : "貼活動網址或直接上載 PDF，自動建立可編輯草稿"}
+            {isAdmin || adminRoute
+              ? "Admin：貼活動網址或上載圖片／PDF，建立可編輯草稿"
+              : "貼活動網址或上載 PNG／JPG／WEBP／PDF，建立可編輯草稿"}
           </h1>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">
-            系統可讀取活動網頁的 HTML、Meta、JSON-LD，亦可直接從 PDF 抽取文字，預填活動名稱、描述、圖片、日期、地點、收費及 CTA。所有結果只會建立草稿，必須人工確認後才提交審批。
+            系統可讀取活動網頁的 HTML、Meta、JSON-LD，亦可從 PDF 抽取文字、上載圖片作活動封面，預填活動名稱、描述、圖片、日期、地點、收費及 CTA。所有結果只會建立草稿，必須人工確認後才提交審批。
           </p>
         </div>
       </section>
@@ -573,7 +671,7 @@ export default function ImportEventPage() {
             <button
               type="button"
               onClick={extractFromUrl}
-              disabled={extracting}
+              disabled={extracting || saving}
               className="mt-4 w-full rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
             >
               {extracting ? "正在抽取資料..." : "抽取活動資料"}
@@ -585,25 +683,36 @@ export default function ImportEventPage() {
               <div className="h-px flex-1 bg-slate-200" />
             </div>
 
-            <label className="block cursor-pointer rounded-2xl border border-dashed border-purple-300 bg-purple-50 p-4 text-center transition hover:border-purple-500 hover:bg-purple-100">
+            <label onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!extracting && !saving) void acceptUpload(event.dataTransfer.files?.[0] || null); }} className="block cursor-pointer rounded-2xl border border-dashed border-purple-300 bg-purple-50 p-4 text-center transition hover:border-purple-500 hover:bg-purple-100">
               <span className="block text-sm font-black text-purple-900">
-                📄 直接上載 PDF
+                上載或拖放圖片／PDF
               </span>
               <span className="mt-1 block text-xs leading-5 text-purple-700">
-                PDF 最多 12MB；只用作即時抽取文字，不會自動公開原檔。
+                支援 PNG、JPG/JPEG、WEBP（每張最多 8MB）或 PDF（最多 4MB）。圖片可預覽並儲存為封面；PDF 會傳送至第三方 Reader 擷取文字，請勿上載含敏感個人資料的文件。
               </span>
               <input
                 type="file"
-                accept="application/pdf,.pdf"
-                disabled={extracting}
+                accept="image/png,image/jpeg,image/webp,application/pdf,.png,.jpg,.jpeg,.webp,.pdf"
+                disabled={extracting || saving}
                 onChange={(event) => {
                   const file = event.target.files?.[0] || null;
-                  void extractFromPdf(file);
+                  void acceptUpload(file);
                   event.currentTarget.value = "";
                 }}
                 className="sr-only"
               />
             </label>
+
+            {extracting ? (
+              <p role="status" aria-live="polite" className="mt-3 rounded-xl bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-900">
+                正在抽取資料，請檢查右邊的即時草稿；如來源網站封鎖讀取，系統會顯示原因。
+              </p>
+            ) : null}
+            {message ? (
+              <p role="status" aria-live="polite" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+                {message}
+              </p>
+            ) : null}
 
             <button
               type="button"
@@ -649,12 +758,6 @@ export default function ImportEventPage() {
         </div>
 
         <div className="space-y-5">
-          {message ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-              {message}
-            </div>
-          ) : null}
-
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
@@ -769,6 +872,7 @@ export default function ImportEventPage() {
               />
             ))}
 
+            {imagePreview ? <img src={imagePreview} alt="待上載活動封面預覽" className="mt-3 h-48 w-full rounded-xl object-contain" /> : null}
             {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls]).length ? (
               <div className="md:col-span-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {normalizeImages([draft.cover_image_url, ...draft.gallery_image_urls]).map((image) => (
@@ -804,6 +908,14 @@ export default function ImportEventPage() {
               <div className="flex flex-wrap gap-2">
                 {savedId ? (
                   <>
+                    <button
+                      type="button"
+                      onClick={startNextEvent}
+                      disabled={saving || extracting}
+                      className="rounded-full border border-emerald-300 bg-emerald-50 px-5 py-3 text-sm font-black text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+                    >
+                      ＋ 建立下一個活動
+                    </button>
                     <Link
                       href={isAdmin ? `/admin/events/${savedId}/edit` : `/merchant/events/${savedId}/edit`}
                       className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
@@ -829,7 +941,7 @@ export default function ImportEventPage() {
                 <button
                   type="button"
                   onClick={saveDraft}
-                  disabled={saving}
+                  disabled={saving || extracting}
                   className="rounded-full bg-purple-700 px-6 py-3 text-sm font-black text-white hover:bg-purple-800 disabled:bg-slate-300"
                 >
                   {saving ? "正在儲存..." : "儲存為活動草稿"}

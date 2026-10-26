@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 
 const workflow = await readFile(".github/workflows/merchant-auth-e2e.yml", "utf8");
 const script = await readFile("scripts/merchant-auth-e2e.mjs", "utf8");
@@ -32,6 +33,54 @@ for (const signal of [
     fail("cleanup contract missing: " + signal);
   }
 }
+
+// Fail-closed staging E2E: no credentials for live Supabase may enter this script.
+for (const key of [
+  "E2E_SUPABASE_URL",
+  "E2E_SUPABASE_PUBLISHABLE_KEY",
+  "E2E_SUPABASE_SERVICE_ROLE_KEY",
+  "E2E_SITE_URL",
+]) {
+  if (!workflow.includes("secrets." + key) || !script.includes("process.env." + key)) {
+    fail("staging-only E2E configuration missing: " + key);
+  }
+}
+if (!/^\s+environment:\s*staging\s*$/m.test(workflow)) {
+  fail("mutable Merchant Auth E2E must require the staging GitHub Environment");
+}
+if (workflow.includes("secrets.SUPABASE_SERVICE_ROLE_KEY")) {
+  fail("manual workflow must never inherit the live service-role secret");
+}
+if (!script.includes("stagingProjectRef === PROD_PROJECT_REF")) {
+  fail("E2E script must explicitly reject the live Supabase project");
+}
+
+function expectRefusal(name, env, errorPattern) {
+  const run = spawnSync(process.execPath, ["scripts/merchant-auth-e2e.mjs"], {
+    encoding: "utf8",
+    timeout: 10000,
+    env: {
+      ...process.env,
+      E2E_SUPABASE_URL: env.E2E_SUPABASE_URL || "",
+      E2E_SUPABASE_PUBLISHABLE_KEY: "test-not-real",
+      E2E_SUPABASE_SERVICE_ROLE_KEY: "test-not-real",
+      E2E_SITE_URL: env.E2E_SITE_URL || "",
+      REQUIRE_NOTIFICATION: "false",
+    },
+  });
+  if (run.status === 0 || !errorPattern.test(run.stderr || "")) {
+    fail("staging safety must refuse " + name);
+  }
+}
+expectRefusal("missing configuration", {}, /Isolated E2E staging configuration is missing/);
+expectRefusal("live Supabase project", {
+  E2E_SUPABASE_URL: "https://uiyrbqqvgnfhfdhedmav.supabase.co",
+  E2E_SITE_URL: "https://staging-example.vercel.app",
+}, /E2E refused: use an independent HTTPS Supabase staging project/);
+expectRefusal("production website", {
+  E2E_SUPABASE_URL: "https://test-project.supabase.co",
+  E2E_SITE_URL: "https://hkfamilyfun.com",
+}, /E2E refused: site URL must point to a dedicated staging deployment/);
 
 const notificationDelete = script.indexOf(
   'admin.from("platform_notifications").delete().eq("event_id", eventId)',

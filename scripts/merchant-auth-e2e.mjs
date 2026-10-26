@@ -3,14 +3,48 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-const url = "https://uiyrbqqvgnfhfdhedmav.supabase.co";
-const publishableKey =
-  "sb_publishable_w2KLFSsWv5uKFEmUC4ABLA_DvHEAhdX";
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const siteUrl = process.env.SITE_URL || "https://hkfamilyfun-v2.vercel.app";
+// Intentionally fail closed: this script creates users/events, submits for
+// moderation and briefly publishes a test event. It must NEVER target live data.
+const PROD_PROJECT_REF = "uiyrbqqvgnfhfdhedmav";
+const url = String(process.env.E2E_SUPABASE_URL || "").trim().replace(/[/]$/, "");
+const publishableKey = String(process.env.E2E_SUPABASE_PUBLISHABLE_KEY || "").trim();
+const serviceKey = String(process.env.E2E_SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const siteUrl = String(process.env.E2E_SITE_URL || "").trim().replace(/[/]$/, "");
 const requireNotification = process.env.REQUIRE_NOTIFICATION === "true";
 
-if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
+if (!url || !publishableKey || !serviceKey || !siteUrl) {
+  throw new Error(
+    "Isolated E2E staging configuration is missing. Set E2E_SUPABASE_URL, E2E_SUPABASE_PUBLISHABLE_KEY, E2E_SUPABASE_SERVICE_ROLE_KEY and E2E_SITE_URL. Production credentials are forbidden.",
+  );
+}
+
+let stagingSupabaseUrl;
+let stagingSiteUrl;
+try {
+  stagingSupabaseUrl = new URL(url);
+  stagingSiteUrl = new URL(siteUrl);
+} catch {
+  throw new Error("Invalid E2E Supabase or staging site URL.");
+}
+
+const stagingProjectRef = stagingSupabaseUrl.hostname.split(".")[0];
+if (
+  stagingSupabaseUrl.protocol !== "https:" ||
+  !stagingSupabaseUrl.hostname.endsWith(".supabase.co") ||
+  stagingProjectRef === PROD_PROJECT_REF
+) {
+  throw new Error("E2E refused: use an independent HTTPS Supabase staging project, never the live HK Family Fun project.");
+}
+
+if (
+  stagingSiteUrl.protocol !== "https:" ||
+  stagingSiteUrl.hostname === "hkfamilyfun.com" ||
+  stagingSiteUrl.hostname.endsWith(".hkfamilyfun.com") ||
+  stagingSiteUrl.hostname === "hkfamilyfun-v2.vercel.app"
+) {
+  throw new Error("E2E refused: site URL must point to a dedicated staging deployment, never HK Family Fun production.");
+}
+
 
 const admin = createClient(url, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },

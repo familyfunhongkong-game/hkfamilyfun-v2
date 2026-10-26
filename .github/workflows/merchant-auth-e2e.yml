@@ -1,7 +1,7 @@
 name: Merchant Auth E2E
 
 # This workflow creates and deletes real Auth / merchant / event rows.
-# Keep it manual until HK Family Fun has a dedicated Supabase test project.
+# Keep manual and fail-closed: it requires a DEDICATED staging Supabase project.
 on:
   workflow_dispatch:
 
@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   e2e:
+    environment: staging
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -25,6 +26,9 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Run authenticated merchant workflow E2E
         env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
+          E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_SITE_URL: ${{ secrets.E2E_SITE_URL }}
           REQUIRE_NOTIFICATION: "false"
         run: node scripts/merchant-auth-e2e.mjs
