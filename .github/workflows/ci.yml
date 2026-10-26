@@ -71,6 +71,9 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
+      - name: Verify smart expiry cron cannot archive or modify event rows
+        run: node scripts/check-safe-expiry-cron.mjs
+
       - name: Run product and persona contract checks
         run: |
           npm run check:cookie-consent
