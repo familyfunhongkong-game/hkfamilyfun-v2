@@ -98,6 +98,9 @@ jobs:
       - name: Commerce model copy check
         run: npm run check:commerce-copy
 
+      - name: Verify smart expiry cron cannot archive or modify event rows
+        run: node scripts/check-safe-expiry-cron.mjs
+
       - name: Event card completeness check
         run: npm run check:event-cards
 
