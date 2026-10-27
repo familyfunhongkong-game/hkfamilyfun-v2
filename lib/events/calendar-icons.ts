@@ -7,175 +7,233 @@ export const CALENDAR_EVENT_ICONS = [
     "id": "arts_crafts",
     "label": "藝術及手作",
     "emoji": "🎨",
-    "color": "#A855F7"
+    "color": "#A855F7",
+    "zhHans": "艺术及手作",
+    "en": "Arts & Crafts"
   },
   {
     "id": "stem",
     "label": "科學及 STEM",
     "emoji": "🔬",
-    "color": "#2563EB"
+    "color": "#2563EB",
+    "zhHans": "科学及 STEM",
+    "en": "Science & STEM"
   },
   {
     "id": "reading",
     "label": "閱讀及故事",
     "emoji": "📚",
-    "color": "#0D9488"
+    "color": "#0D9488",
+    "zhHans": "阅读及故事",
+    "en": "Reading & Stories"
   },
   {
     "id": "music",
     "label": "音樂及唱遊",
     "emoji": "🎵",
-    "color": "#D946EF"
+    "color": "#D946EF",
+    "zhHans": "音乐及唱游",
+    "en": "Music & Singing"
   },
   {
     "id": "performance",
     "label": "戲劇及表演",
     "emoji": "🎭",
-    "color": "#DB2777"
+    "color": "#DB2777",
+    "zhHans": "戏剧及表演",
+    "en": "Theatre & Performances"
   },
   {
     "id": "sports",
     "label": "運動及體能",
     "emoji": "⚽",
-    "color": "#EA580C"
+    "color": "#EA580C",
+    "zhHans": "运动及体能",
+    "en": "Sports & Fitness"
   },
   {
     "id": "outdoors",
     "label": "戶外及行山",
     "emoji": "🥾",
-    "color": "#15803D"
+    "color": "#15803D",
+    "zhHans": "户外及行山",
+    "en": "Outdoors & Hiking"
   },
   {
     "id": "nature",
     "label": "自然及生態",
     "emoji": "🌿",
-    "color": "#16A34A"
+    "color": "#16A34A",
+    "zhHans": "自然及生态",
+    "en": "Nature & Ecology"
   },
   {
     "id": "farm_animals",
     "label": "農莊及動物",
     "emoji": "🐑",
-    "color": "#65A30D"
+    "color": "#65A30D",
+    "zhHans": "农庄及动物",
+    "en": "Farms & Animals"
   },
   {
     "id": "museum",
     "label": "博物館及展覽",
     "emoji": "🏛️",
-    "color": "#64748B"
+    "color": "#64748B",
+    "zhHans": "博物馆及展览",
+    "en": "Museums & Exhibitions"
   },
   {
     "id": "theme_park",
     "label": "主題樂園",
     "emoji": "🎡",
-    "color": "#E11D48"
+    "color": "#E11D48",
+    "zhHans": "主题乐园",
+    "en": "Theme Parks"
   },
   {
     "id": "indoor_play",
     "label": "室內遊樂",
     "emoji": "🧸",
-    "color": "#F97316"
+    "color": "#F97316",
+    "zhHans": "室内游乐",
+    "en": "Indoor Play"
   },
   {
     "id": "water",
     "label": "游泳及水上活動",
     "emoji": "🏊",
-    "color": "#0284C7"
+    "color": "#0284C7",
+    "zhHans": "游泳及水上活动",
+    "en": "Water Activities"
   },
   {
     "id": "food_cooking",
     "label": "烹飪及飲食",
     "emoji": "👩‍🍳",
-    "color": "#CA8A04"
+    "color": "#CA8A04",
+    "zhHans": "烹饪及饮食",
+    "en": "Cooking & Food"
   },
   {
     "id": "festival",
     "label": "節日及嘉年華",
     "emoji": "🎪",
-    "color": "#DC2626"
+    "color": "#DC2626",
+    "zhHans": "节日及嘉年华",
+    "en": "Festivals & Carnivals"
   },
   {
     "id": "holiday",
     "label": "節慶限定",
     "emoji": "🎃",
-    "color": "#C2410C"
+    "color": "#C2410C",
+    "zhHans": "节庆限定",
+    "en": "Seasonal Holidays"
   },
   {
     "id": "parent_workshop",
     "label": "家長講座及工作坊",
     "emoji": "👨‍👩‍👧",
-    "color": "#7C3AED"
+    "color": "#7C3AED",
+    "zhHans": "家长讲座及工作坊",
+    "en": "Parent Workshops"
   },
   {
     "id": "baby_toddler",
     "label": "嬰幼兒活動",
     "emoji": "👶",
-    "color": "#DB2777"
+    "color": "#DB2777",
+    "zhHans": "婴幼儿活动",
+    "en": "Baby & Toddler"
   },
   {
     "id": "sen_friendly",
     "label": "SEN 共融活動",
     "emoji": "🧩",
-    "color": "#0F766E"
+    "color": "#0F766E",
+    "zhHans": "SEN 共融活动",
+    "en": "SEN Inclusive"
   },
   {
     "id": "community",
     "label": "社區及義工",
     "emoji": "🤝",
-    "color": "#0891B2"
+    "color": "#0891B2",
+    "zhHans": "社区及义工",
+    "en": "Community & Volunteering"
   },
   {
     "id": "charity",
     "label": "慈善及公益",
     "emoji": "💝",
-    "color": "#BE185D"
+    "color": "#BE185D",
+    "zhHans": "慈善及公益",
+    "en": "Charity"
   },
   {
     "id": "tourism",
     "label": "旅遊及本地文化",
     "emoji": "🗺️",
-    "color": "#4F46E5"
+    "color": "#4F46E5",
+    "zhHans": "旅游及本地文化",
+    "en": "Travel & Culture"
   },
   {
     "id": "education",
     "label": "學習及教育",
     "emoji": "✏️",
-    "color": "#2563EB"
+    "color": "#2563EB",
+    "zhHans": "学习及教育",
+    "en": "Learning & Education"
   },
   {
     "id": "technology",
     "label": "科技及數碼",
     "emoji": "🤖",
-    "color": "#475569"
+    "color": "#475569",
+    "zhHans": "科技及数码",
+    "en": "Technology"
   },
   {
     "id": "market",
     "label": "市集及購物",
     "emoji": "🛍️",
-    "color": "#C026D3"
+    "color": "#C026D3",
+    "zhHans": "市集及购物",
+    "en": "Markets & Shopping"
   },
   {
     "id": "transport",
     "label": "交通及交通工具",
     "emoji": "🚂",
-    "color": "#B45309"
+    "color": "#B45309",
+    "zhHans": "交通及交通工具",
+    "en": "Transport"
   },
   {
     "id": "cinema",
     "label": "電影及放映",
     "emoji": "🎬",
-    "color": "#334155"
+    "color": "#334155",
+    "zhHans": "电影及放映",
+    "en": "Cinema"
   },
   {
     "id": "family_day",
     "label": "家庭同樂日",
     "emoji": "🎈",
-    "color": "#E11D48"
+    "color": "#E11D48",
+    "zhHans": "家庭同乐日",
+    "en": "Family Fun Day"
   },
   {
     "id": "other",
     "label": "其他活動",
     "emoji": "📅",
-    "color": "#64748B"
+    "color": "#64748B",
+    "zhHans": "其他活动",
+    "en": "Other"
   }
 ] as const;
 
@@ -258,9 +316,10 @@ function normalize(value: unknown): string {
 export function getCalendarEventIcon(input: { category?: unknown; title?: unknown }): CalendarEventIcon {
   const category = normalize(input.category);
   const mapped = byId.get(category) || byId.get(ALIASES[category] || "");
-  if (mapped) return mapped;
+  const generic = !category || ["family", "kids", "parent_child", "親子活動", "亲子活动", "family activity"].includes(category);
+  if (mapped && !generic) return mapped;
   // Only fall back to title hints for generic or missing legacy categories.
-  if (!category || ["family", "kids", "parent_child", "親子活動", "亲子活动", "family activity"].includes(category)) {
+  if (generic) {
     const title = normalize(input.title);
     const hints: Array<[RegExp, CalendarIconId]> = [
       [/故事|繪本|绘本|閱讀|阅读|story|book/, "reading"],
@@ -282,7 +341,7 @@ export function getCalendarEventIcon(input: { category?: unknown; title?: unknow
     const hint = hints.find(([pattern]) => pattern.test(title));
     if (hint) return byId.get(hint[1])!;
   }
-  return byId.get("other")!;
+  return mapped || byId.get("other")!;
 }
 
 export function getCalendarThumbnailUrl(value: unknown): string | null {
