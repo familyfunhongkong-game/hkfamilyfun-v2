@@ -222,14 +222,14 @@ export default async function CalendarPage({
 
                     {dayEvents.length ? (
                       <>
-                        <div className="mt-1 flex flex-wrap items-center gap-1 sm:hidden">
-                          {dayEvents.slice(0, 2).map((event) => (
+                        <div className="mt-1 flex flex-col items-start gap-0.5 sm:hidden">
+                          {dayEvents.slice(0, 1).map((event) => (
                             <CalendarEventIcon key={event.id} event={event} />
                           ))}
-                          {dayEvents.length > 2 ? (
+                          {dayEvents.length > 1 ? (
                             <Link
                               href={`/events?date=${date}`}
-                              aria-label={`${date}: ${dayEvents.length - 2} more events`}
+                              aria-label={`${date}: ${dayEvents.length - 1} more events`}
                               className="text-[10px] font-black text-purple-700 underline-offset-2 hover:underline"
                             >
                               +{dayEvents.length - 2}
