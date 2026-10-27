@@ -17,6 +17,7 @@ function importPureTs(path) {
     Number,
     String,
     require: (name) => {
+      if (name === "@/lib/events/calendar-icons") return importPureTs("lib/events/calendar-icons.ts");
       if (name === "@/lib/i18n/config") return {
         uiText: (locale, tc, sc, en) => locale === "en" ? en : locale === "zh-Hans" ? sc : tc,
       };

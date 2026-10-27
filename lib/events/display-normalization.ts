@@ -1,4 +1,5 @@
 import { uiText, type AppLocale } from "@/lib/i18n/config";
+import { CALENDAR_EVENT_ICONS } from "@/lib/events/calendar-icons";
 
 function plainText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -61,6 +62,11 @@ export function formatEventCategory(
 ): string {
   const raw = plainText(value) || "親子活動";
   const normalized = raw.toLowerCase();
+  // New stable icon category IDs are stored on the same activity_category field.
+  // Keep old free-form categories working without a data migration.
+  const stableCategory = CALENDAR_EVENT_ICONS.find((icon) => icon.id === normalized);
+  if (stableCategory) return uiText(locale, stableCategory.label, stableCategory.zhHans, stableCategory.en);
+
 
   const labels: Record<string, [string, string, string]> = {
     kids: ["親子活動", "亲子活动", "Family Activity"],

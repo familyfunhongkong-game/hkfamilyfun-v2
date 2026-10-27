@@ -84,6 +84,7 @@ jobs:
           npm run check:event-seo
           npm run check:event-data
           npm run check:event-calendar
+          npm run check:calendar-icons
           npm run check:events-ssr
           npm run check:event-display
           npm run check:public-formatting
