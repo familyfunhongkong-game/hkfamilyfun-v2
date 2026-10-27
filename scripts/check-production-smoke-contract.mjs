@@ -12,6 +12,8 @@ const requiredSignals = [
   'production-index',
   'Check protected APIs reject anonymous writes',
   'Capture mobile and desktop visual regression screenshots',
+  'item.context === "Vercel – hkfamilyfun-v2"',
+  'item.context === "Vercel"',
 ];
 
 let failed = false;
