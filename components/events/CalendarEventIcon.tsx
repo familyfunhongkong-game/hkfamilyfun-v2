@@ -20,10 +20,10 @@ export default function CalendarEventIcon({ event }: { event: Event }) {
       className="inline-flex shrink-0 rounded-lg outline-offset-2 transition-transform hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-600"
     >
       <span
-        className="relative inline-flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg ring-1 ring-slate-200 sm:h-8 sm:w-8"
+        className="relative inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-lg ring-1 ring-slate-200 sm:h-8 sm:w-8"
         style={{ backgroundColor: `${icon.color}1A` }}
       >
-        <span aria-hidden="true" className="text-base leading-none sm:text-lg">{icon.emoji}</span>
+        <span aria-hidden="true" className="text-sm leading-none sm:text-lg">{icon.emoji}</span>
         {showImage && thumbnail ? (
           <img
             src={thumbnail}
