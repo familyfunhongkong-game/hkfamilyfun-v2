@@ -22,8 +22,10 @@ jobs:
         run: node --check scripts/send-daily-pending-notice.mjs
       - name: Send daily pending notice digest
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # Public Supabase project URL is not a secret; avoid depending on an unset GH secret.
+          SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          DIGEST_FROM_EMAIL: ${{ secrets.DIGEST_FROM_EMAIL }}
+          # Existing verified sender identity; matches delivered HKFF transactional mail.
+          DIGEST_FROM_EMAIL: "HK Family Fun <no-reply@hkfamilyfun.com>"
         run: node scripts/send-daily-pending-notice.mjs
