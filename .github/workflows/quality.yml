@@ -131,6 +131,9 @@ jobs:
       - name: Event calendar timezone check
         run: npm run check:event-calendar
 
+      - name: Calendar icon catalogue and interaction regression check
+        run: npm run check:calendar-icons
+
       - name: Events server preload check
         run: npm run check:events-ssr
 
