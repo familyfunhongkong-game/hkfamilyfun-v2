@@ -37,9 +37,9 @@ assert.equal(getCalendarThumbnailUrl("javascript:alert(1)"), null);
 
 for (const signal of [
   "CalendarEventIcon",
-  "dayEvents.slice(0, 2)",
+  "dayEvents.slice(0, 1)",
   "dayEvents.slice(0, 3)",
-  "dayEvents.length - 2",
+  "dayEvents.length - 1",
   "dayEvents.length - 3",
   "eventOccursOn(",
   "getHongKongPublicHoliday(",
