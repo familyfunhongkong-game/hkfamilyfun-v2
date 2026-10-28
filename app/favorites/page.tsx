@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import { getExtraPublicMessages } from "@/lib/i18n/public-extra-messages";
-import { supabase } from "@/lib/supabase/client";
+import { publicSupabase as supabase } from "@/lib/supabase/public-client";
 import PublicEventCard from "@/components/events/PublicEventCard";
 import type { Event } from "@/lib/types";
 import { formatEventAge } from "@/lib/events/age-display";
