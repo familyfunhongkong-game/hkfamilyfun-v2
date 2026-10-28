@@ -209,6 +209,7 @@ function nextFavoriteOpening(event: FavoriteEvent, today: string) {
 }
 
 function getEventStatus(event: FavoriteEvent, today: string) {
+  if (event.archived) return "expired";
   if (!event.start_date) return "unknown";
   return nextFavoriteOpening(event, today) ? "upcoming" : "expired";
 }
@@ -396,7 +397,7 @@ export default function FavoritesPage() {
               </div>
               <div className="flex rounded-xl border border-slate-200 bg-white p-1" aria-label={t("顯示方式", "显示方式", "Layout")}>
                 <button type="button" aria-pressed={layout === "list"} onClick={() => setLayout("list")} className={layout === "list" ? "rounded-lg bg-purple-100 px-3 py-2 text-xs font-bold text-purple-800" : "px-3 py-2 text-xs font-semibold text-slate-600"}>{t("列表", "列表", "List")}</button>
-                <button type="button" aria-pressed={layout === "grid"} onClick={() => setLayout("grid")} className={layout === "grid" ? "rounded-lg bg-purple-100 px-3 py-2 text-xs font-bold text-purple-800" : "px-3 py-2 text-xs font-semibold text-slate-600"}>{t("圖片", "图片", "Cards")}</button>
+                <button type="button" disabled={tab === "expired"} aria-pressed={layout === "grid" && tab !== "expired"} onClick={() => setLayout("grid")} className={layout === "grid" ? "rounded-lg bg-purple-100 px-3 py-2 text-xs font-bold text-purple-800" : "px-3 py-2 text-xs font-semibold text-slate-600"}>{t("圖片", "图片", "Cards")}</button>
               </div>
             </div>
             <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
