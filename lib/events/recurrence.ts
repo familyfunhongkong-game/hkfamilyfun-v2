@@ -110,7 +110,7 @@ export function eventOccursInRange(
  * This is pure ISO calendar logic: the caller supplies "today" in Hong Kong.
  */
 export function nextEventOccurrence(event: RecurrenceLike, today: string): string | null {
-  const iso = /^\\d{4}-\\d{2}-\\d{2}$/;
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
   const start = String(event.startDate || "").slice(0, 10);
   const weekly = String(event.recurrenceType || "none").toLowerCase() === "weekly";
   // A weekly listing with no end date is ongoing; a one-off listing is not.
