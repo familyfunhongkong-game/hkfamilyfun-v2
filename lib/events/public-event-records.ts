@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase/client";
+import { publicSupabase as supabase } from "@/lib/supabase/public-client";
 
 export type JsonValue =
   | string
