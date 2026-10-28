@@ -12,9 +12,11 @@ import { formatEventAge } from "@/lib/events/age-display";
 import { nextEventOccurrence } from "@/lib/events/recurrence";
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
+const EVENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type FavoriteEvent = {
   id: string;
+  archived?: boolean;
   title_tc?: string | null;
   title_sc?: string | null;
   title_en?: string | null;
@@ -65,7 +67,7 @@ function readFavoriteIds(): string[] {
       new Set(
         parsed
           .map((item) => String(item || "").trim())
-          .filter(Boolean),
+          .filter((id) => EVENT_ID_PATTERN.test(id)),
       ),
     );
   } catch {
@@ -189,9 +191,11 @@ function toPublicEvent(event: FavoriteEvent, locale: AppLocale): Event {
 
 
 function hkToday() {
-  return new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date());
+  }).formatToParts(new Date());
+  const value = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
 function nextFavoriteOpening(event: FavoriteEvent, today: string) {
@@ -206,6 +210,7 @@ function nextFavoriteOpening(event: FavoriteEvent, today: string) {
 }
 
 function getEventStatus(event: FavoriteEvent, today: string) {
+  if (event.archived) return "expired";
   if (!event.start_date) return "unknown";
   return nextFavoriteOpening(event, today) ? "upcoming" : "expired";
 }
@@ -232,6 +237,8 @@ export default function FavoritesPage() {
   const [layout, setLayout] = useState<"list" | "grid">("list");
   const [visibleCount, setVisibleCount] = useState(20);
   const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [expandedPastId, setExpandedPastId] = useState<string | null>(null);
+  const [reloadSignal, setReloadSignal] = useState(0);
   const today = hkToday();
   const m = getExtraPublicMessages(locale).favorites;
   const t = (tc: string, sc: string, en: string) => translate(locale, tc, sc, en);
@@ -243,6 +250,8 @@ export default function FavoritesPage() {
     setLocale(activeLocale);
 
     async function loadFavorites() {
+      setLoading(true);
+      setErrorText("");
       const ids = readFavoriteIds();
       setSavedIds(ids);
       if (!ids.length) {
@@ -270,14 +279,44 @@ export default function FavoritesPage() {
         }
         collected.push(...((data || []) as FavoriteEvent[]));
       }
+      // The public view hides expired listings. Fetch ONLY previously published,
+      // genuinely expired archived records for IDs already in this browser's list.
+      const found = new Set(collected.map((event) => event.id));
+      const missingIds = ids.filter((id) => !found.has(id));
+      let archiveUnavailable = false;
+      for (let offset = 0; offset < missingIds.length; offset += 100) {
+        try {
+          const response = await fetch("/api/saved-events", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+            body: JSON.stringify({ ids: missingIds.slice(offset, offset + 100) }),
+          });
+          if (!response.ok) throw new Error("Archive lookup failed");
+          const payload = (await response.json()) as { events?: FavoriteEvent[] };
+          if (ignore) return;
+          collected.push(...(payload.events || []));
+        } catch {
+          archiveUnavailable = true;
+          break;
+        }
+      }
       if (!ignore) {
         setEvents(collected);
+        if (archiveUnavailable) setErrorText(
+          activeLocale === "en" ? "Some saved past events are temporarily unavailable." :
+          activeLocale === "zh-Hans" ? "部分已保存的过往活动暂时无法显示。" :
+          "部分已收藏的過往活動暫時無法顯示。"
+        );
         setLoading(false);
       }
     }
 
     void loadFavorites();
-    const syncIds = () => setSavedIds(readFavoriteIds());
+    const syncIds = () => {
+      setSavedIds(readFavoriteIds());
+      setReloadSignal((count) => count + 1);
+    };
     window.addEventListener("storage", syncIds);
     window.addEventListener("hkff:favorites-changed", syncIds);
     return () => {
@@ -285,7 +324,7 @@ export default function FavoritesPage() {
       window.removeEventListener("storage", syncIds);
       window.removeEventListener("hkff:favorites-changed", syncIds);
     };
-  }, []);
+  }, [reloadSignal]);
 
   function removeFavorite(id: string) {
     const nextIds = readFavoriteIds().filter((item) => item !== id);
@@ -365,7 +404,7 @@ export default function FavoritesPage() {
               </div>
               <div className="flex rounded-xl border border-slate-200 bg-white p-1" aria-label={t("顯示方式", "显示方式", "Layout")}>
                 <button type="button" aria-pressed={layout === "list"} onClick={() => setLayout("list")} className={layout === "list" ? "rounded-lg bg-purple-100 px-3 py-2 text-xs font-bold text-purple-800" : "px-3 py-2 text-xs font-semibold text-slate-600"}>{t("列表", "列表", "List")}</button>
-                <button type="button" aria-pressed={layout === "grid"} onClick={() => setLayout("grid")} className={layout === "grid" ? "rounded-lg bg-purple-100 px-3 py-2 text-xs font-bold text-purple-800" : "px-3 py-2 text-xs font-semibold text-slate-600"}>{t("圖片", "图片", "Cards")}</button>
+                <button type="button" disabled={tab === "expired"} aria-pressed={layout === "grid" && tab !== "expired"} onClick={() => setLayout("grid")} className={layout === "grid" ? "rounded-lg bg-purple-100 px-3 py-2 text-xs font-bold text-purple-800" : "px-3 py-2 text-xs font-semibold text-slate-600"}>{t("圖片", "图片", "Cards")}</button>
               </div>
             </div>
             <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -401,7 +440,7 @@ export default function FavoritesPage() {
             </div>
             {!filtered.length ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm font-semibold text-slate-500">{t("暫時沒有符合條件的收藏活動。", "暂无符合条件的收藏活动。", "No saved events match these filters.")}</div>
-            ) : layout === "grid" ? (
+            ) : layout === "grid" && tab !== "expired" ? (
               <div className="grid items-stretch gap-5 md:grid-cols-2">
                 {displayed.map((event) => (
                   <div key={event.id} className="relative">
@@ -417,12 +456,16 @@ export default function FavoritesPage() {
                 {displayed.map((event) => {
                   const publicEvent = toPublicEvent(event, locale);
                   return (
-                    <article key={event.id} className="flex items-center gap-3 border-b border-slate-100 p-3 last:border-0 sm:gap-4 sm:p-4">
-                      <Link href={"/events/" + event.id} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-purple-50 sm:h-24 sm:w-28">
-                        {event.cover_image_url ? <img src={event.cover_image_url} alt="" loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-center text-xs font-bold text-purple-500">{t("親子活動", "亲子活动", "Family fun")}</div>}
-                      </Link>
+                    <article key={event.id} className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-3 last:border-0 sm:gap-4 sm:p-4">
+                      {event.archived ? (
+                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-purple-50 sm:h-24 sm:w-28">{event.cover_image_url ? <img src={event.cover_image_url} alt="" loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-center text-xs font-bold text-purple-500">{t("親子活動", "亲子活动", "Family fun")}</div>}</div>
+                      ) : (
+                        <Link href={"/events/" + event.id} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-purple-50 sm:h-24 sm:w-28">{event.cover_image_url ? <img src={event.cover_image_url} alt="" loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-center text-xs font-bold text-purple-500">{t("親子活動", "亲子活动", "Family fun")}</div>}</Link>
+                      )}
                       <div className="min-w-0 flex-1">
-                        <Link href={"/events/" + event.id} className="line-clamp-2 text-sm font-black text-slate-900 hover:text-purple-700 sm:text-base">{publicEvent.title}</Link>
+                        {event.archived ? (
+                          <button type="button" onClick={() => setExpandedPastId((value) => value === event.id ? null : event.id)} className="line-clamp-2 text-left text-sm font-black text-slate-900 hover:text-purple-700 sm:text-base" aria-expanded={expandedPastId === event.id}>{publicEvent.title}</button>
+                        ) : <Link href={"/events/" + event.id} className="line-clamp-2 text-sm font-black text-slate-900 hover:text-purple-700 sm:text-base">{publicEvent.title}</Link>}
                         <p className="mt-1 line-clamp-1 text-xs font-bold text-purple-700">{event.recurrence_type === "weekly" && nextFavoriteOpening(event, today)
                           ? `${t("下次開放", "下次开放", "Next open")}: ${nextFavoriteOpening(event, today)}`
                           : (event.start_date || t("日期待定", "日期待定", "Date TBC")) + (event.end_date && event.end_date !== event.start_date ? " – " + event.end_date : "")} · {timeText(event, locale)}</p>
@@ -430,9 +473,18 @@ export default function FavoritesPage() {
                         {tab === "expired" ? <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{t("已過期活動", "已过期活动", "Past event")}</span> : null}
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-2">
-                        <Link href={"/events/" + event.id} className="rounded-lg bg-purple-700 px-3 py-2 text-xs font-bold text-white">{t("詳情", "详情", "Details")}</Link>
+                        {event.archived ? (
+                          <button type="button" onClick={() => setExpandedPastId((value) => value === event.id ? null : event.id)} aria-expanded={expandedPastId === event.id} className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-white">{t("歷史資料", "历史资料", "Past details")}</button>
+                        ) : <Link href={"/events/" + event.id} className="rounded-lg bg-purple-700 px-3 py-2 text-xs font-bold text-white">{t("詳情", "详情", "Details")}</Link>}
                         <button type="button" onClick={() => removeFavorite(event.id)} aria-label={t("取消收藏", "取消收藏", "Remove saved event")} className="rounded-lg border border-rose-100 px-2 py-1.5 text-xs font-bold text-rose-700">{t("移除", "移除", "Remove")}</button>
                       </div>
+                      {event.archived && expandedPastId === event.id ? (
+                        <div className="basis-full rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+                          <p className="font-bold">{t("已完結活動記錄（不能再預約）", "已结束活动记录（无法再预约）", "Historical listing — no longer bookable")}</p>
+                          <p className="mt-1">{event.short_description_tc || event.short_description_en || event.short_description_sc || t("詳情以活動當時資料為準。", "详情以活动当时资料为准。", "Details reflect the original listing.")}</p>
+                          <p className="mt-1">{event.organizer_name || event.merchant_name || ""} · {event.district || ""} · {event.end_date || event.start_date || ""}</p>
+                        </div>
+                      ) : null}
                     </article>
                   );
                 })}
