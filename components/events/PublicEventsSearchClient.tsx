@@ -3,7 +3,7 @@
 import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase/client";
+import { publicSupabase as supabase } from "@/lib/supabase/public-client";
 import ResilientEventImage from "@/components/resilient-event-image";
 import ClientPromotionSlot from "@/components/client-promotion-slot";
 import { getClientLocale } from "@/lib/i18n/client";
