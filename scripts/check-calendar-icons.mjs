@@ -37,14 +37,25 @@ assert.equal(getCalendarThumbnailUrl("javascript:alert(1)"), null);
 
 for (const signal of [
   "CalendarEventIcon",
-  "dayEvents.slice(0, 1)",
-  "dayEvents.slice(0, 3)",
-  "dayEvents.length - 1",
-  "dayEvents.length - 3",
+  "const MOBILE_DAY_ICON_LIMIT = 1;",
+  "const DESKTOP_DAY_ICON_LIMIT = 3;",
+  "dayEvents.slice(0, MOBILE_DAY_ICON_LIMIT)",
+  "dayEvents.slice(0, DESKTOP_DAY_ICON_LIMIT)",
+  "dayEvents.length > MOBILE_DAY_ICON_LIMIT",
+  "dayEvents.length > DESKTOP_DAY_ICON_LIMIT",
+  "dayEvents.length - MOBILE_DAY_ICON_LIMIT",
+  "dayEvents.length - DESKTOP_DAY_ICON_LIMIT",
   "eventOccursOn(",
   "getHongKongPublicHoliday(",
   'href={`/events?date=${date}`}',
 ]) assert.ok(calendarSource.includes(signal), `Calendar missing: ${signal}`);
+assert.ok(!calendarSource.includes("dayEvents.length - 2"), "Do not render zero or negative +N badges");
+for (const count of [0, 1, 2, 3, 4, 10]) {
+  const mobileOverflow = count > 1 ? count - 1 : 0;
+  const desktopOverflow = count > 3 ? count - 3 : 0;
+  assert.ok(mobileOverflow >= 0 && desktopOverflow >= 0);
+  if (count === 2) assert.equal(mobileOverflow, 1, "Two events must show +1 on mobile");
+}
 for (const signal of [
   'href={`/events/${encodeURIComponent(event.id)}`}',
   "getCalendarThumbnailUrl(event.image)",
