@@ -31,13 +31,14 @@ export async function POST(request: NextRequest) {
   const admin = serviceClient();
   if (!admin) return NextResponse.json({ error: "Service unavailable" }, { status: 503, headers });
 
-  // Only records explicitly archived AFTER having been publicly published.
+  // Smart expiry is read-only: both archived and still-published past events
+  // require historical lookup AFTER having been publicly published.
   // Editorial withdrawals, rejected records, drafts and future-dated archives
   // must never reappear merely because a browser knows their UUID.
   const { data, error } = await admin.from("events")
     .select(publicFields + ",published_at")
     .in("id", [...new Set(ids)])
-    .eq("status", "archived")
+    .in("status", ["archived", "published"])
     .not("published_at", "is", null)
     .or("hidden_pending_confirmation.is.null,hidden_pending_confirmation.eq.false");
   if (error) {
@@ -52,6 +53,8 @@ export async function POST(request: NextRequest) {
   const rows = (data || []) as unknown as ArchiveRow[];
   const events = rows
     .filter((event) => {
+      // A weekly recurring event without an end date is ongoing.
+      if (event.recurrence_type === "weekly" && !event.end_date) return false;
       const lastDate = String(event.end_date || event.start_date || "").slice(0, 10);
       return /^\d{4}-\d{2}-\d{2}$/.test(lastDate) && lastDate < today;
     })
