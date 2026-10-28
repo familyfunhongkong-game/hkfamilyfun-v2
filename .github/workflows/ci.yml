@@ -99,6 +99,7 @@ jobs:
           npm run check:approval-workflow
           npm run check:event-mobile-content
           npm run check:event-import
+          node scripts/check-claim-photos-privacy.mjs
 
       - name: Verify inline notification review and safety
         run: node scripts/check-notification-inline-review.mjs
