@@ -12,6 +12,8 @@ const publicReaders = [
   "app/events/[id]/page.tsx",
   "app/favorites/page.tsx",
   "components/events/PublicEventsSearchClient.tsx",
+  "app/planner/page.tsx",
+  "app/events/map/page.tsx",
 ];
 for (const path of publicReaders) {
   const source = await readFile(path, "utf8");
