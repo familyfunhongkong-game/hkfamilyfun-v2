@@ -4,9 +4,13 @@ import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import { eventOccursOn, eventOccursInRange } from "@/lib/events/recurrence";
 import PublicEventCard from "@/components/events/PublicEventCard";
+import CalendarEventIcon from "@/components/events/CalendarEventIcon";
 import { getHongKongPublicHoliday, getHongKongPublicHolidayName } from "@/lib/hk-public-holidays";
 
 export const dynamic = "force-dynamic";
+
+const MOBILE_DAY_ICON_LIMIT = 1;
+const DESKTOP_DAY_ICON_LIMIT = 3;
 
 function hkToday() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -185,11 +189,10 @@ export default async function CalendarPage({
                   : "";
 
                 return (
-                  <Link
+                  <div
                     key={day}
-                    href={`/events?date=${date}`}
                     className={[
-                      "min-h-[58px] border-b border-r border-slate-100 p-1.5 text-left hover:bg-purple-50 sm:min-h-[82px] sm:p-2",
+                      "min-h-[74px] border-b border-r border-slate-100 p-1 text-left hover:bg-purple-50 sm:min-h-[96px] sm:p-2",
                       isToday
                         ? "bg-blue-50"
                         : isRedDay
@@ -197,9 +200,11 @@ export default async function CalendarPage({
                           : "bg-white",
                     ].join(" ")}
                   >
-                    <span
+                    <Link
+                      href={`/events?date=${date}`}
+                      aria-label={`${date} — ${dayEvents.length} ${p.eventsUnit}`}
                       className={[
-                        "inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-black",
+                        "inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-600",
                         isToday
                           ? isRedDay
                             ? "bg-blue-600 text-white ring-2 ring-rose-400"
@@ -210,7 +215,7 @@ export default async function CalendarPage({
                       ].join(" ")}
                     >
                       {day}
-                    </span>
+                    </Link>
 
                     {holiday ? (
                       <p className="mt-1 hidden line-clamp-2 text-[10px] font-black leading-4 text-rose-600 sm:block">
@@ -220,26 +225,39 @@ export default async function CalendarPage({
 
                     {dayEvents.length ? (
                       <>
-                        <div className="mt-1.5 flex items-center gap-1 sm:hidden">
-                          <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                          <span className="text-[9px] font-black text-purple-700">
-                            {dayEvents.length}
-                          </span>
-                        </div>
-                        <div className="mt-2 hidden space-y-1 sm:block">
-                          <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                          <p className="line-clamp-2 text-[11px] font-bold leading-4 text-slate-600">
-                            {dayEvents[0].title}
-                          </p>
-                          {dayEvents.length > 1 ? (
-                            <p className="text-[10px] font-black text-purple-700">
-                              +{dayEvents.length - 1}
-                            </p>
+                        <div className="mt-1 flex flex-col items-start gap-0.5 sm:hidden">
+                          {dayEvents.slice(0, MOBILE_DAY_ICON_LIMIT).map((event) => (
+                            <CalendarEventIcon key={event.id} event={event} />
+                          ))}
+                          {dayEvents.length > MOBILE_DAY_ICON_LIMIT ? (
+                            <Link
+                              href={`/events?date=${date}`}
+                              aria-label={`${date}: ${dayEvents.length - MOBILE_DAY_ICON_LIMIT} more events`}
+                              className="text-[10px] font-black text-purple-700 underline-offset-2 hover:underline"
+                            >
+                              +{dayEvents.length - MOBILE_DAY_ICON_LIMIT}
+                            </Link>
                           ) : null}
+                        </div>
+                        <div className="mt-2 hidden sm:block">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {dayEvents.slice(0, DESKTOP_DAY_ICON_LIMIT).map((event) => (
+                              <CalendarEventIcon key={event.id} event={event} />
+                            ))}
+                            {dayEvents.length > DESKTOP_DAY_ICON_LIMIT ? (
+                              <Link
+                                href={`/events?date=${date}`}
+                                aria-label={`${date}: ${dayEvents.length - DESKTOP_DAY_ICON_LIMIT} more events`}
+                                className="text-[10px] font-black text-purple-700 underline-offset-2 hover:underline"
+                              >
+                                +{dayEvents.length - DESKTOP_DAY_ICON_LIMIT}
+                              </Link>
+                            ) : null}
+                          </div>
                         </div>
                       </>
                     ) : null}
-                  </Link>
+                  </div>
                 );
               },
             )}
@@ -281,12 +299,12 @@ export default async function CalendarPage({
                   : "紅色日期 = 香港公眾假期／星期日"}
             </span>
             <span className="inline-flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-purple-500" />
+              <span aria-hidden="true" className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-purple-100 text-sm">🎨</span>
               {locale === "en"
-                ? "Purple dot = published event"
+                ? "Event thumbnails = published events (tap for details)"
                 : locale === "zh-Hans"
-                  ? "紫色点 = 已发布活动"
-                  : "紫色點 = 已發布活動"}
+                  ? "活动图示 = 已发布活动（点击查看详情）"
+                  : "活動圖示 = 已發布活動（點擊查看詳情）"}
             </span>
           </div>
         </div>

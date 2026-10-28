@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 
 const sources = {
   sharedCard: await readFile("components/events/PublicEventCard.tsx", "utf8"),
+  cardDate: await readFile("lib/events/card-date.ts", "utf8"),
   publicMapper: await readFile("lib/supabase/events.ts", "utf8"),
   eventSearch: await readFile("components/events/PublicEventsSearchClient.tsx", "utf8"),
   eventDetail: await readFile("app/events/[id]/page.tsx", "utf8"),
@@ -18,10 +19,14 @@ function requireSignals(label, source, signals) {
   }
 }
 
-requireSignals("shared card calendar-date parser", sources.sharedCard, [
-  "function parseCalendarDate",
-  'value.match(/^(\\d{4})-(\\d{2})-(\\d{2})/)',
-  "new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))",
+requireSignals("shared card date formatting", sources.sharedCard, [
+  "formatEventCardDate(event.date, event.endDate, locale)",
+]);
+requireSignals("shared date parser", sources.cardDate, [
+  "function parseISODate",
+  "Date.UTC(year, month - 1, day)",
+  "getUTCFullYear()",
+  'timeZone: "UTC"',
 ]);
 
 requireSignals("public mapper calendar-date parser", sources.publicMapper, [

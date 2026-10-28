@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "香港親子活動免費刊登及廣告推廣｜商戶方案",
+  description: "HK Family Fun 商戶可免費刊登親子活動，另可查詢首頁 Banner、活動 Featured 及贊助內容推廣服務。",
+  alternates: { canonical: "/merchant-pricing" },
+};
 
 const freeIncluded = [
   "Merchant Portal 自行建立及修改活動",

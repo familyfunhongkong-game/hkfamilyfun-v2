@@ -21,7 +21,7 @@ import {
   TrainFront,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { publicSupabase as supabase } from "@/lib/supabase/public-client";
 import ResilientEventImage from "@/components/resilient-event-image";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
@@ -441,10 +441,10 @@ function formatTimeRange(event: EventRecord, locale: AppLocale): string {
   const start = normalizeTime(event.start_time);
   const end = normalizeTime(event.end_time);
 
-  if (!start && !end) return uiText(locale, "時間待定", "时间待定", "Time TBC");
+  if (!start && !end) return uiText(locale, "請參閱官網最新時間", "请参阅官网最新时间", "Check official website for latest hours");
   if (start && end) return `${start} - ${end}`;
 
-  return start || end || uiText(locale, "時間待定", "时间待定", "Time TBC");
+  return start || end || uiText(locale, "請參閱官網最新時間", "请参阅官网最新时间", "Check official website for latest hours");
 }
 
 function formatPrice(event: EventRecord, locale: AppLocale): string {
@@ -1664,6 +1664,7 @@ export default function PublicEventDetailPage() {
             </div>
           </div>
 
+          <Link href={`/merchant/claim-event/${encodeURIComponent(eventId)}`} className="mb-3 inline-flex w-full items-center justify-center rounded-2xl border border-purple-200 bg-purple-50 px-5 py-3 text-sm font-bold text-purple-800 hover:bg-purple-100">{uiText(locale, "主辦單位認領此活動／補充圖片", "主办单位认领此活动／补充图片", "Organizer: claim event or add images")}</Link>
           <Link
             href="/events"
             className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-4 text-sm font-black text-slate-700 transition hover:border-purple-300 hover:text-purple-700"

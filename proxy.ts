@@ -15,6 +15,7 @@ const PUBLIC_LEGAL_PATHS = new Set([
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const isReviewLink = pathname === "/event-review" || pathname.startsWith("/event-review/");
   const isPrivatePortal =
     pathname === "/admin" ||
     pathname.startsWith("/admin/") ||
@@ -22,8 +23,9 @@ export function proxy(request: NextRequest) {
     pathname.startsWith("/merchant/");
 
   const withPrivatePortalHeaders = (response: NextResponse) => {
-    if (isPrivatePortal) {
-      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    if (isPrivatePortal || isReviewLink) {
+      response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+      if (isReviewLink) response.headers.set("Referrer-Policy", "no-referrer");
     }
     return response;
   };
@@ -42,6 +44,7 @@ export function proxy(request: NextRequest) {
 
   if (
     pathname === "/maintenance" ||
+    pathname.startsWith("/event-review/") ||
     PUBLIC_LEGAL_PATHS.has(pathname.endsWith("/") ? pathname.slice(0, -1) : pathname) ||
     INTERNAL_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/")) ||
     PUBLIC_ASSET_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"))

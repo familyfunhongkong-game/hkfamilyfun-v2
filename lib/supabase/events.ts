@@ -1,5 +1,5 @@
 import type { Event, PriceType } from "@/lib/types";
-import { supabase } from "@/lib/supabase/client";
+import { publicSupabase as supabase } from "@/lib/supabase/public-client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import { formatEventAge } from "@/lib/events/age-display";
 import { isExplicitlyExpiredEvent } from "@/lib/events/visibility";

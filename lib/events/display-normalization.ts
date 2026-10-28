@@ -1,4 +1,5 @@
 import { uiText, type AppLocale } from "@/lib/i18n/config";
+import { CALENDAR_EVENT_ICONS } from "@/lib/events/calendar-icons";
 
 function plainText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -61,6 +62,11 @@ export function formatEventCategory(
 ): string {
   const raw = plainText(value) || "親子活動";
   const normalized = raw.toLowerCase();
+  // New stable icon category IDs are stored on the same activity_category field.
+  // Keep old free-form categories working without a data migration.
+  const stableCategory = CALENDAR_EVENT_ICONS.find((icon) => icon.id === normalized);
+  if (stableCategory) return uiText(locale, stableCategory.label, stableCategory.zhHans, stableCategory.en);
+
 
   const labels: Record<string, [string, string, string]> = {
     kids: ["親子活動", "亲子活动", "Family Activity"],
@@ -73,6 +79,12 @@ export function formatEventCategory(
     market: ["市集", "市集", "Market"],
     "市集": ["市集", "市集", "Market"],
     exhibition: ["展覽", "展览", "Exhibition"],
+    family_exhibition: ["親子展覽", "亲子展览", "Family Exhibition"],
+    family_entertainment: ["親子娛樂", "亲子娱乐", "Family Entertainment"],
+    cultural_event: ["文化活動", "文化活动", "Cultural Event"],
+    digital_art: ["數碼藝術", "数码艺术", "Digital Art"],
+    fair: ["嘉年華", "嘉年华", "Fair"],
+    light_show: ["光影匯演", "光影汇演", "Light Show"],
     "展覽": ["展覽", "展览", "Exhibition"],
     "展览": ["展覽", "展览", "Exhibition"],
     festival: ["節慶活動", "节庆活动", "Festival"],

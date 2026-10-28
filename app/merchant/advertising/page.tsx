@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { HK_FAMILY_FUN_BUSINESS_MODEL } from "@/lib/business-model";
 import MerchantAdvertisingEnquiryForm from "@/components/merchant-advertising-enquiry-form";
+
+export const metadata: Metadata = {
+  title: "親子活動廣告查詢｜Banner、Featured、Sponsored",
+  description: "向香港親子家庭推廣活動：查詢 HK Family Fun 首頁 Banner、搜尋 Featured 及 Sponsored Content 廣告方案。",
+  alternates: { canonical: "/merchant/advertising" },
+};
 
 const packages = [
   {

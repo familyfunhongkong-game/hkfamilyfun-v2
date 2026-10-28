@@ -113,10 +113,6 @@ export default function AdminLoginPage() {
             使用已授權 Admin 帳戶的電郵及密碼登入。
           </p>
 
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs font-semibold leading-6 text-slate-600">
-            此 Admin Portal 採用電郵 + 密碼登入，毋須 QR Code 或雙重認證。
-          </div>
-
           {errorMessage ? (
             <div
               role="alert"
@@ -168,9 +164,7 @@ export default function AdminLoginPage() {
                 >
                   忘記密碼？
                 </Link>
-                <span className="text-xs font-semibold text-slate-400">
-                  Password only
-                </span>
+
               </div>
 
               <button

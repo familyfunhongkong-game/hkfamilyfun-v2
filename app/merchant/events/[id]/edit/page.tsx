@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { evaluateEventReadiness } from "@/lib/events/readiness";
+import { CALENDAR_EVENT_ICONS, getCalendarEventIcon } from "@/lib/events/calendar-icons";
 
 type EventRecord = {
   id: string;
@@ -1457,8 +1458,8 @@ export default function MerchantEventEditPage() {
         form.recurrence_type === "weekly" ? form.recurrence_weekdays : [],
       recurrence_include_dates:
         form.recurrence_type === "weekly" ? parseDateList(form.recurrence_include_dates) : [],
-      recurrence_exclude_dates:
-        form.recurrence_type === "weekly" ? parseDateList(form.recurrence_exclude_dates) : [],
+      // Closure dates apply to weekly AND consecutive-day events.
+      recurrence_exclude_dates: parseDateList(form.recurrence_exclude_dates),
       recurrence_note:
         form.recurrence_type === "weekly" ? form.recurrence_note.trim() || null : null,
 
@@ -1863,6 +1864,41 @@ export default function MerchantEventEditPage() {
                 value={form.activity_category}
                 onChange={(value) => updateField("activity_category", value)}
               />
+              <div className="md:col-span-2 rounded-2xl border border-purple-100 bg-purple-50/70 p-4">
+                <label htmlFor="hkff-category-icon" className="block text-sm font-black text-purple-950">
+                  Calendar Icon · 快速選擇分類
+                </label>
+                <p className="mt-1 text-xs leading-5 text-purple-800">
+                  可直接選擇統一圖示分類，亦可保留上方原有文字分類。正式日曆優先顯示已審批活動封面縮圖；未有圖片時自動使用此分類圖示。
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <select
+                    id="hkff-category-icon"
+                    value={CALENDAR_EVENT_ICONS.some((icon) => icon.id === form.activity_category) ? form.activity_category : ""}
+                    disabled={!editable}
+                    onChange={(event) => {
+                      if (event.target.value) updateField("activity_category", event.target.value);
+                    }}
+                    className="min-w-0 flex-1 rounded-xl border border-purple-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-700 disabled:opacity-50"
+                  >
+                    <option value="">保留原有分類／自訂文字</option>
+                    {CALENDAR_EVENT_ICONS.map((icon) => (
+                      <option key={icon.id} value={icon.id}>
+                        {icon.emoji} {icon.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl ring-1 ring-purple-100"
+                    style={{ backgroundColor: `${getCalendarEventIcon({ category: form.activity_category, title: form.title_tc }).color}1A` }}
+                    role="img"
+                    aria-label={getCalendarEventIcon({ category: form.activity_category, title: form.title_tc }).label}
+                    title={getCalendarEventIcon({ category: form.activity_category, title: form.title_tc }).label}
+                  >
+                    {getCalendarEventIcon({ category: form.activity_category, title: form.title_tc }).emoji}
+                  </div>
+                </div>
+              </div>
               <Input
                 label="主辦方"
                 value={form.organizer_name}
@@ -2064,7 +2100,22 @@ export default function MerchantEventEditPage() {
                     />
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="md:col-span-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-bold text-amber-950">
+                    連續日期活動：休館／取消日期（如適用）
+                  </p>
+                  <p className="mt-1 mb-3 text-xs leading-5 text-amber-900">
+                    如果活動期間有個別日期不開放，請填入 YYYY-MM-DD，以逗號分隔。這些日期不會出現在「今日活動」及日曆。
+                  </p>
+                  <Input
+                    label="休館／取消日期（可選）"
+                    value={form.recurrence_exclude_dates}
+                    onChange={(value) => updateField("recurrence_exclude_dates", value)}
+                    placeholder="2026-10-19, 2026-10-20"
+                  />
+                </div>
+              )}
               <Input
                 label="開始時間"
                 type="time"

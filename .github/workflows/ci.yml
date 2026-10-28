@@ -30,10 +30,15 @@ jobs:
       - name: Check automation scripts
         run: |
           node --check scripts/auto-discover-events.mjs
+          node --check scripts/approval-recipient.mjs
+          node --check scripts/test-approval-recipient.mjs
           node --check scripts/migrate-legacy-familyfun.mjs
           node --check scripts/compare-legacy-hashes.mjs
           node --check scripts/recover-legacy-event-images.mjs
           node --check scripts/merchant-auth-e2e.mjs
+
+      - name: Verify Admin approval email routing and fail-closed safeguards
+        run: node scripts/test-approval-recipient.mjs
 
       - name: Enforce legacy automation review boundary
         run: |
@@ -66,18 +71,27 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
+      - name: Verify smart expiry cron cannot archive or modify event rows
+        run: node scripts/check-safe-expiry-cron.mjs
+
       - name: Run product and persona contract checks
         run: |
+          npm run check:cookie-consent
           npm run check:commerce-copy
           npm run check:event-cards
+          npm run check:home-card-readability
           npm run check:event-detail
           npm run check:event-seo
           npm run check:event-data
           npm run check:event-calendar
+          npm run check:calendar-icons
           npm run check:events-ssr
           npm run check:event-display
+          npm run check:public-formatting
+          npm run check:public-event-auth-isolation
           npm run check:advertising-orders
           npm run check:production-e2e
+          node scripts/check-maintenance-contact.mjs
           npm run check:production-smoke
           npm run check:migration-drift-lock
           npm run check:calendar-persona
@@ -85,6 +99,21 @@ jobs:
           npm run check:approval-workflow
           npm run check:event-mobile-content
           npm run check:event-import
+          node scripts/check-claim-photos-privacy.mjs
+
+      - name: Verify inline notification review and safety
+        run: node scripts/check-notification-inline-review.mjs
+
+      - name: Verify Admin KPI and table navigation
+        run: node scripts/test-admin-dashboard-navigation.mjs
+
+      - name: Unified account and Admin entry regression
+        run: node scripts/check-account-hub.mjs
+
+      - name: Merchant social login visibility safety
+        run: |
+          node scripts/check-social-provider-visibility.mjs
+          node scripts/check-facebook-login-release-gate.mjs
 
       - name: Lint
         run: npm run lint

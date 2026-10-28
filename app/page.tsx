@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import type { Event } from "@/lib/types";
 import { getPublishedEvents } from "@/lib/supabase/events";
@@ -5,10 +6,17 @@ import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import PromotionSlot from "@/components/promotion-slot";
 import PublicEventCard from "@/components/events/PublicEventCard";
+import FeaturedEditorialCard from "@/components/events/FeaturedEditorialCard";
 import {
   getActivePromotionBanners,
   type PublicPromotionBanner,
 } from "@/lib/content/public";
+
+export const metadata: Metadata = {
+  title: "香港親子活動、週末好去處及免費活動",
+  description: "香港親子活動一站搜尋：今日活動、週末好去處、免費兒童工作坊、SEN 友善活動，按日期、地區、年齡及收費搵活動。",
+  alternates: { canonical: "/" },
+};
 
 export const dynamic = "force-dynamic";
 
@@ -38,17 +46,17 @@ export default async function HomePage() {
 
   const featuredGridClass =
     featuredEvents.length <= 1
-      ? "grid gap-5 md:max-w-3xl"
+      ? "grid max-w-[540px] gap-5"
       : featuredEvents.length === 2
         ? "grid gap-5 md:grid-cols-2"
         : featuredEvents.length === 3
           ? "grid gap-5 md:grid-cols-2 xl:grid-cols-3"
-          : "grid gap-5 md:grid-cols-2 xl:grid-cols-4";
+          : "grid gap-5 md:grid-cols-2 xl:grid-cols-3";
 
   const featuredIds = new Set(featuredEvents.map((event) => event.id));
   const latestUpdated = latestSorted
     .filter((event) => !featuredIds.has(event.id))
-    .slice(0, 16);
+    .slice(0, 12);
 
   const quickActions = [
     {
@@ -136,7 +144,7 @@ export default async function HomePage() {
       ? {
           featuredKicker: "HK Family Fun Picks",
           featuredTitle: "Featured family events",
-          featuredEmpty: "Featured events will appear here after Admin selection.",
+          featuredEmpty: "More featured events are coming soon.",
           latestKicker: "Freshly updated",
           latestTitle: "Latest event updates",
           latestDesc:
@@ -147,7 +155,7 @@ export default async function HomePage() {
         ? {
             featuredKicker: "HK Family Fun 精选",
             featuredTitle: "精选推介活动",
-            featuredEmpty: "Admin 设定精选活动后会显示在这里。",
+            featuredEmpty: "更多精选亲子活动即将推出。",
             latestKicker: "最新更新",
             latestTitle: "最新活动",
             latestDesc: "按最近更新时间由新至旧排列，方便最快看到新活动及资料更新。",
@@ -156,7 +164,7 @@ export default async function HomePage() {
         : {
             featuredKicker: "HK Family Fun 精選",
             featuredTitle: "精選推介活動",
-            featuredEmpty: "Admin 設定精選活動後會顯示在這裡。",
+            featuredEmpty: "更多精選親子活動即將推出。",
             latestKicker: "最新更新",
             latestTitle: "最新活動",
             latestDesc: "按最近更新時間由新至舊排列，方便最快看到新活動及資料更新。",
@@ -192,12 +200,7 @@ export default async function HomePage() {
         {featuredEvents.length ? (
           <div className={featuredGridClass}>
             {featuredEvents.map((event) => (
-              <PublicEventCard
-                key={event.id}
-                event={event}
-                locale={locale}
-                featured
-              />
+              <FeaturedEditorialCard key={event.id} event={event} locale={locale} />
             ))}
           </div>
         ) : (
@@ -231,7 +234,7 @@ export default async function HomePage() {
           </div>
 
           {latestUpdated.length ? (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {latestUpdated.map((event) => (
                 <PublicEventCard key={event.id} event={event} locale={locale} />
               ))}
@@ -344,13 +347,13 @@ export default async function HomePage() {
 
             <div className="mt-5 flex flex-wrap gap-3">
               <Link
-                href="/merchant/register"
+                href="/merchant/account?mode=register"
                 className="rounded-full bg-white px-5 py-3 text-sm font-black text-purple-700"
               >
                 {p.merchantRegisterFree}
               </Link>
               <Link
-                href="/merchant/login"
+                href="/merchant/account?mode=login"
                 className="rounded-full border border-white/30 px-5 py-3 text-sm font-black text-white"
               >
                 {p.merchantLogin}

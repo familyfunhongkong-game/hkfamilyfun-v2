@@ -18,6 +18,8 @@ import type { Event } from "@/lib/types";
 import type { AppLocale } from "@/lib/i18n/config";
 import ResilientEventImage from "@/components/resilient-event-image";
 import { displayTag, tagTone } from "@/lib/events/tag-tone";
+import { formatEventCardDate } from "@/lib/events/card-date";
+import { formatWeeklyDays } from "@/lib/events/weekly-label";
 
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
@@ -166,31 +168,6 @@ function text(
   return zhHant;
 }
 
-function parseCalendarDate(value?: string) {
-  if (!value) return null;
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) return null;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatCardDate(event: Event, locale: AppLocale) {
-  const start = parseCalendarDate(event.date);
-  const end = parseCalendarDate(event.endDate);
-
-  if (!start) return text(locale, "日期待定", "日期待定", "Date TBC");
-
-  const formatter = new Intl.DateTimeFormat(
-    locale === "en" ? "en-HK" : locale === "zh-Hans" ? "zh-CN" : "zh-HK",
-    { month: "short", day: "numeric", weekday: "short" },
-  );
-
-  const startText = formatter.format(start);
-  if (!end || event.endDate === event.date) return startText;
-
-  return `${startText} – ${formatter.format(end)}`;
-}
-
 function isPlaceholder(value: string | undefined) {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) return true;
@@ -243,11 +220,11 @@ function InfoLine({
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+        <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-400">
           {label}
         </p>
         <p
-          className={`mt-0.5 line-clamp-1 text-xs font-extrabold ${
+          className={`mt-0.5 line-clamp-2 break-words text-[13px] font-bold leading-5 ${
             muted ? "text-slate-400" : "text-slate-700"
           }`}
         >
@@ -265,7 +242,8 @@ export default function PublicEventCard({
   compact = false,
   className = "",
 }: PublicEventCardProps) {
-  const dateText = formatCardDate(event, locale);
+  const dateText = formatEventCardDate(event.date, event.endDate, locale);
+  const weeklyLabel = event.recurrenceType === "weekly" ? formatWeeklyDays(event.recurrenceWeekdays, locale) : "";
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -343,6 +321,7 @@ export default function PublicEventCard({
             <p className="mt-1 line-clamp-1 text-[11px] font-bold text-slate-500">
               {dateText} · {event.time}
             </p>
+            {weeklyLabel ? <p className="mt-1 text-[11px] font-bold text-purple-700">{weeklyLabel}</p> : null}
             <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">
               {event.district}
               {!mtrMissing ? ` · ${text(locale, "港鐵", "港铁", "MTR")} ${event.mtrStation}` : ""}
@@ -412,7 +391,7 @@ export default function PublicEventCard({
       <Link
         href={`/events/${event.id}`}
         className={`relative block overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50 ${
-          featured ? "aspect-[16/10]" : "aspect-[4/3]"
+          featured ? "aspect-[16/10]" : "aspect-[5/4]"
         }`}
       >
         <ResilientEventImage
@@ -420,7 +399,7 @@ export default function PublicEventCard({
           alt={event.title}
           loading="lazy"
           compactFallback
-          className="h-full w-full object-cover transition-transform duration-500"
+          className="h-full w-full object-contain transition-transform duration-500"
           style={coverCropStyle(event)}
         />
 
@@ -459,7 +438,7 @@ export default function PublicEventCard({
       <div className={`flex flex-1 flex-col ${featured ? "p-5 sm:p-6" : "p-5"}`}>
         <Link href={`/events/${event.id}`}>
           <h3
-            className={`line-clamp-2 min-h-[3.25rem] font-black leading-snug text-slate-950 transition group-hover:text-purple-800 ${
+            className={`line-clamp-3 min-h-[3.25rem] font-black leading-snug text-slate-950 transition group-hover:text-purple-800 ${
               featured ? "text-xl sm:text-2xl" : "text-lg"
             }`}
           >
@@ -468,12 +447,12 @@ export default function PublicEventCard({
         </Link>
 
         {event.shortDescription ? (
-          <p className="mt-2 line-clamp-2 min-h-[2.75rem] text-sm font-medium leading-6 text-slate-600">
+          <p className="mt-2 line-clamp-3 min-h-[2.75rem] text-sm font-medium leading-6 text-slate-600">
             {event.shortDescription}
           </p>
         ) : null}
 
-        <div className="mt-4 grid gap-x-4 gap-y-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100 sm:grid-cols-2">
+        <div className="mt-4 grid gap-x-5 gap-y-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100 sm:grid-cols-2">
           <InfoLine
             icon={<CalendarDays size={15} />}
             label={text(locale, "日期", "日期", "Date")}
@@ -520,6 +499,10 @@ export default function PublicEventCard({
             muted={organizerMissing}
           />
         </div>
+
+        {weeklyLabel ? (
+          <p className="mt-3 inline-flex self-start rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-800">{weeklyLabel}</p>
+        ) : null}
 
         {event.tags.length ? (
           <div className="mt-4 flex flex-wrap gap-2">

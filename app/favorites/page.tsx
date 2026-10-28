@@ -5,10 +5,11 @@ import { useEffect, useState } from "react";
 import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import { getExtraPublicMessages } from "@/lib/i18n/public-extra-messages";
+import { publicSupabase as supabase } from "@/lib/supabase/public-client";
 import PublicEventCard from "@/components/events/PublicEventCard";
 import type { Event } from "@/lib/types";
 import { formatEventAge } from "@/lib/events/age-display";
-import { addCalendarDays, eventOccursOn } from "@/lib/events/recurrence";
+import { nextEventOccurrence } from "@/lib/events/recurrence";
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
 
@@ -151,6 +152,10 @@ function toPublicEvent(event: FavoriteEvent, locale: AppLocale): Event {
     description: shortDescription,
     date: event.start_date || "",
     endDate: event.end_date || undefined,
+    recurrenceType: event.recurrence_type === "weekly" ? "weekly" : "none",
+    recurrenceWeekdays: event.recurrence_weekdays || undefined,
+    recurrenceIncludeDates: event.recurrence_include_dates || undefined,
+    recurrenceExcludeDates: event.recurrence_exclude_dates || undefined,
     time: timeText(event, locale),
     district: event.district || (locale === "en" ? "Hong Kong" : "香港"),
     mtrStation:
@@ -187,41 +192,28 @@ function hkToday() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(new Date());
-  const field = (type: string) => parts.find((part) => part.type === type)?.value || "";
-  return field("year") + "-" + field("month") + "-" + field("day");
+  const value = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
-function nextOccurrence(event: FavoriteEvent, today: string) {
-  const start = (event.start_date || "").slice(0, 10);
-  const isWeekly = event.recurrence_type === "weekly";
-  const end = (event.end_date || (isWeekly ? addCalendarDays(today, 7) : start)).slice(0, 10);
-  if (!start || !end || end < today) return null;
-  const from = start > today ? start : today;
-  if (!isWeekly) return from;
-  // Any weekly schedule with a valid weekday has its next occurrence within
-  // seven days. An absent end date means open-ended, not "already expired".
-  let date = from;
-  for (let step = 0; step < 8 && date <= end; step++) {
-    if (eventOccursOn({
-      startDate: start,
-      endDate: end,
-      recurrenceType: "weekly",
-      recurrenceWeekdays: event.recurrence_weekdays,
-      recurrenceIncludeDates: event.recurrence_include_dates,
-      recurrenceExcludeDates: event.recurrence_exclude_dates,
-    }, date)) return date;
-    date = addCalendarDays(date, 1);
-  }
-  return null;
+function nextFavoriteOpening(event: FavoriteEvent, today: string) {
+  return nextEventOccurrence({
+    startDate: event.start_date,
+    endDate: event.end_date,
+    recurrenceType: event.recurrence_type,
+    recurrenceWeekdays: event.recurrence_weekdays,
+    recurrenceIncludeDates: event.recurrence_include_dates,
+    recurrenceExcludeDates: event.recurrence_exclude_dates,
+  }, today);
 }
 
 function getEventStatus(event: FavoriteEvent, today: string) {
   if (!event.start_date) return "unknown";
-  return nextOccurrence(event, today) ? "upcoming" : "expired";
+  return nextFavoriteOpening(event, today) ? "upcoming" : "expired";
 }
 
 function eventSortDate(event: FavoriteEvent, today: string) {
-  return nextOccurrence(event, today) || "9999-12-31";
+  return nextFavoriteOpening(event, today) || "9999-12-31";
 }
 
 function translate(locale: AppLocale, traditional: string, simplified: string, english: string) {
@@ -241,7 +233,6 @@ export default function FavoritesPage() {
   const [sort, setSort] = useState<"soonest" | "latest" | "saved">("soonest");
   const [layout, setLayout] = useState<"list" | "grid">("list");
   const [visibleCount, setVisibleCount] = useState(20);
-  const [expandedPastId, setExpandedPastId] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const today = hkToday();
   const m = getExtraPublicMessages(locale).favorites;
@@ -261,28 +252,30 @@ export default function FavoritesPage() {
         setLoading(false);
         return;
       }
-      try {
-        const collected: FavoriteEvent[] = [];
-        for (let offset = 0; offset < ids.length; offset += 100) {
-          const response = await fetch("/api/saved-events", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ids: ids.slice(offset, offset + 100) }),
-            cache: "no-store",
-          });
-          if (!response.ok) throw new Error(activeMessages.loadFailed);
-          const payload = (await response.json()) as { events?: FavoriteEvent[] };
-          if (ignore) return;
-          collected.push(...(payload.events || []));
-        }
-        if (!ignore) {
-          setEvents(collected);
-          setErrorText("");
-        }
-      } catch {
-        if (!ignore) setErrorText(activeMessages.loadFailed);
+      if (!supabase) {
+        setErrorText(activeMessages.dbUnavailable);
+        setLoading(false);
+        return;
       }
-      if (!ignore) setLoading(false);
+      // Keep the existing public view and its row-level visibility restrictions.
+      const collected: FavoriteEvent[] = [];
+      for (let offset = 0; offset < ids.length; offset += 100) {
+        const { data, error } = await supabase
+          .from("public_events_i18n")
+          .select("id,title_tc,title_sc,title_en,short_description_tc,short_description_sc,short_description_en,organizer_name,merchant_name,start_date,end_date,recurrence_type,recurrence_weekdays,recurrence_include_dates,recurrence_exclude_dates,start_time,end_time,district,mtr_station,cover_image_url,price_type,price_display_mode,price_label,min_price,max_price,age_min,age_max,age_groups,tags,activity_category,category,is_free,is_sen_friendly,is_indoor,registration_url,booking_url,official_url,source_url")
+          .in("id", ids.slice(offset, offset + 100));
+        if (ignore) return;
+        if (error) {
+          setErrorText(error.message || activeMessages.loadFailed);
+          setLoading(false);
+          return;
+        }
+        collected.push(...((data || []) as FavoriteEvent[]));
+      }
+      if (!ignore) {
+        setEvents(collected);
+        setLoading(false);
+      }
     }
 
     void loadFavorites();
@@ -367,7 +360,7 @@ export default function FavoritesPage() {
                   className={tab === "upcoming" ? "rounded-full bg-purple-700 px-4 py-2.5 text-sm font-black text-white" : "rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600"}>
                   {t("即將舉行", "即将举行", "Upcoming")} ({upcomingCount})
                 </button>
-                <button type="button" role="tab" aria-selected={tab === "expired"} onClick={() => { setTab("expired"); setLayout("list"); setVisibleCount(20); }}
+                <button type="button" role="tab" aria-selected={tab === "expired"} onClick={() => { setTab("expired"); setVisibleCount(20); }}
                   className={tab === "expired" ? "rounded-full bg-purple-700 px-4 py-2.5 text-sm font-black text-white" : "rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600"}>
                   {t("已過期", "已过期", "Past events")} ({expiredCount})
                 </button>
@@ -410,7 +403,7 @@ export default function FavoritesPage() {
             </div>
             {!filtered.length ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm font-semibold text-slate-500">{t("暫時沒有符合條件的收藏活動。", "暂无符合条件的收藏活动。", "No saved events match these filters.")}</div>
-            ) : layout === "grid" && tab !== "expired" ? (
+            ) : layout === "grid" ? (
               <div className="grid items-stretch gap-5 md:grid-cols-2">
                 {displayed.map((event) => (
                   <div key={event.id} className="relative">
@@ -426,32 +419,22 @@ export default function FavoritesPage() {
                 {displayed.map((event) => {
                   const publicEvent = toPublicEvent(event, locale);
                   return (
-                    <article key={event.id} className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-3 last:border-0 sm:gap-4 sm:p-4">
-                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-purple-50 sm:h-24 sm:w-28">
+                    <article key={event.id} className="flex items-center gap-3 border-b border-slate-100 p-3 last:border-0 sm:gap-4 sm:p-4">
+                      <Link href={"/events/" + event.id} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-purple-50 sm:h-24 sm:w-28">
                         {event.cover_image_url ? <img src={event.cover_image_url} alt="" loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-center text-xs font-bold text-purple-500">{t("親子活動", "亲子活动", "Family fun")}</div>}
-                      </div>
+                      </Link>
                       <div className="min-w-0 flex-1">
-                        <div className="line-clamp-2 text-sm font-black text-slate-900 sm:text-base">{publicEvent.title}</div>
-                        <p className="mt-1 line-clamp-1 text-xs font-bold text-purple-700">{tab === "upcoming" ? (nextOccurrence(event, today) || event.start_date || t("日期待定", "日期待定", "Date TBC")) : (event.end_date || event.start_date || t("日期待定", "日期待定", "Date TBC"))} · {timeText(event, locale)}</p>
+                        <Link href={"/events/" + event.id} className="line-clamp-2 text-sm font-black text-slate-900 hover:text-purple-700 sm:text-base">{publicEvent.title}</Link>
+                        <p className="mt-1 line-clamp-1 text-xs font-bold text-purple-700">{event.recurrence_type === "weekly" && nextFavoriteOpening(event, today)
+                          ? `${t("下次開放", "下次开放", "Next open")}: ${nextFavoriteOpening(event, today)}`
+                          : (event.start_date || t("日期待定", "日期待定", "Date TBC")) + (event.end_date && event.end_date !== event.start_date ? " – " + event.end_date : "")} · {timeText(event, locale)}</p>
                         <p className="mt-1 line-clamp-1 text-xs text-slate-500">{event.district || t("地區待定", "地区待定", "District TBC")} · {publicEvent.category} · {priceText(event, locale)}</p>
                         {tab === "expired" ? <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{t("已過期活動", "已过期活动", "Past event")}</span> : null}
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-2">
-                        {tab === "expired" ? (
-                          <button type="button" onClick={() => setExpandedPastId(expandedPastId === event.id ? null : event.id)} aria-expanded={expandedPastId === event.id} className="rounded-lg bg-purple-700 px-3 py-2 text-xs font-bold text-white">{expandedPastId === event.id ? t("收起", "收起", "Close") : t("詳情", "详情", "Details")}</button>
-                        ) : (
-                          <Link href={"/events/" + event.id} className="rounded-lg bg-purple-700 px-3 py-2 text-xs font-bold text-white">{t("詳情", "详情", "Details")}</Link>
-                        )}
+                        <Link href={"/events/" + event.id} className="rounded-lg bg-purple-700 px-3 py-2 text-xs font-bold text-white">{t("詳情", "详情", "Details")}</Link>
                         <button type="button" onClick={() => removeFavorite(event.id)} aria-label={t("取消收藏", "取消收藏", "Remove saved event")} className="rounded-lg border border-rose-100 px-2 py-1.5 text-xs font-bold text-rose-700">{t("移除", "移除", "Remove")}</button>
                       </div>
-                      {tab === "expired" && expandedPastId === event.id ? (
-                        <div className="w-full rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-                          <p className="font-bold">{event.organizer_name || event.merchant_name || t("主辦方待定", "主办方待定", "Organizer TBC")}</p>
-                          <p className="mt-2 whitespace-pre-wrap">{publicEvent.shortDescription || t("原有活動介紹暫未提供。", "原有活动介绍暂未提供。", "Original description unavailable.")}</p>
-                          {publicEvent.officialLink ? <a href={publicEvent.officialLink} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex font-bold text-purple-700 underline">{t("原主辦方資料", "原主办方资料", "Original organizer link")}</a> : null}
-                          <p className="mt-3 text-xs text-slate-500">{t("此活動已過期，資料只供歷史參考。", "此活动已过期，资料仅供历史参考。", "This event has ended. Information is historical.")}</p>
-                        </div>
-                      ) : null}
                     </article>
                   );
                 })}

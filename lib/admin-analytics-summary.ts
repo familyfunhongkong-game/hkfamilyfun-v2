@@ -57,13 +57,15 @@ function increase(map: Map<string, number>, key: string, value = 1) {
 export async function getSiteAnalyticsSummary(
   client: SupabaseClient,
   startIso: string,
+  endExclusiveIso?: string,
 ) {
   const rows: RawAnalytics[] = [];
   for (let offset = 0; offset <= ANALYTICS_REPORT_LIMIT; offset += PAGE_SIZE) {
-    const { data, error } = await client.from("site_analytics_events")
+    let query = client.from("site_analytics_events")
       .select("visitor_id,session_id,event_type,page_path,event_id,occurred_at,referrer_hostname,device_type")
-      .gte("occurred_at", startIso)
-      .order("occurred_at", { ascending: true })
+      .gte("occurred_at", startIso);
+    if (endExclusiveIso) query = query.lt("occurred_at", endExclusiveIso);
+    const { data, error } = await query.order("occurred_at", { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1);
     if (error) throw error;
     const batch = (data || []) as RawAnalytics[];

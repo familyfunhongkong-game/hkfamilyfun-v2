@@ -1,0 +1,31 @@
+name: HK Family Fun Daily Pending Notice
+on:
+  schedule:
+    # 09:00 Hong Kong time (UTC+8)
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hkfamilyfun-daily-pending-notice
+  cancel-in-progress: false
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate notification script syntax
+        run: node --check scripts/send-daily-pending-notice.mjs
+      - name: Send daily pending notice digest
+        env:
+          # Public Supabase project URL is not a secret; avoid depending on an unset GH secret.
+          SUPABASE_URL: https://uiyrbqqvgnfhfdhedmav.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          # Existing verified sender identity; matches delivered HKFF transactional mail.
+          DIGEST_FROM_EMAIL: "HK Family Fun <no-reply@hkfamilyfun.com>"
+        run: node scripts/send-daily-pending-notice.mjs

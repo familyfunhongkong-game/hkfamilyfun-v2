@@ -1,0 +1,29 @@
+name: Live Cookie Consent POST Smoke
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "app/api/privacy/cookie-choice/route.ts"
+      - "app/cookies/page.tsx"
+      - "components/cookie-settings-panel.tsx"
+      - "scripts/live-cookie-choice-smoke.mjs"
+      - ".github/workflows/live-cookie-consent.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cookie-consent-http:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Exercise live public consent endpoint without credentials
+        run: node scripts/live-cookie-choice-smoke.mjs

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { AppLocale } from "@/lib/i18n/config";
 import {
   clearAnalyticsIdentifiers,
@@ -25,6 +26,12 @@ type Copy = {
   analytics: string;
   analyticsDescription: string;
   active: string;
+  saveError: string;
+  trySettings: string;
+  savedEssential: string;
+  savedAnalytics: string;
+  continueBrowsing: string;
+  changeChoice: string;
 };
 
 const copy: Record<AppLocale, Copy> = {
@@ -43,6 +50,12 @@ const copy: Record<AppLocale, Copy> = {
     analytics: "流量分析（可選）",
     analyticsDescription: "使用訪客及工作階段識別碼，統計頁面、活動瀏覽及外部連結點擊。",
     active: "必需",
+    saveError: "瀏覽器未能儲存 Cookies 選擇。請開啟設定頁重試；如果網站儲存功能被封鎖，將無法記住你的選擇，流量分析亦不會啟用。",
+    trySettings: "打開 Cookies 設定頁",
+    savedEssential: "已成功儲存：只使用必要 Cookies。流量分析不會啟用。",
+    savedAnalytics: "已成功儲存：允許流量分析。",
+    continueBrowsing: "關閉並繼續",
+    changeChoice: "修改 Cookies 選擇",
   },
   "zh-Hans": {
     title: "你的 Cookies 选择",
@@ -59,6 +72,12 @@ const copy: Record<AppLocale, Copy> = {
     analytics: "流量分析（可选）",
     analyticsDescription: "使用访客和会话识别码，统计页面、活动浏览与外部链接点击。",
     active: "必需",
+    saveError: "浏览器没有保存 Cookies 选择。请打开设置页重试；如果已禁止网站存储，就无法记住选择，也不会启用流量分析。",
+    trySettings: "打开 Cookies 设置",
+    savedEssential: "已成功保存：仅使用必要 Cookies，不会启用流量分析。",
+    savedAnalytics: "已成功保存：允许流量分析。",
+    continueBrowsing: "关闭并继续",
+    changeChoice: "修改 Cookies 选择",
   },
   en: {
     title: "Your cookie choices",
@@ -75,15 +94,24 @@ const copy: Record<AppLocale, Copy> = {
     analytics: "Analytics (optional)",
     analyticsDescription: "Uses visitor and session IDs to measure page views, event views and outbound clicks.",
     active: "Required",
+    saveError: "Your browser did not store your cookie preference. Open the settings page to try again. Analytics will not be enabled without consent.",
+    trySettings: "Open Cookie settings",
+    savedEssential: "Saved: Essential cookies only. Analytics stays off.",
+    savedAnalytics: "Saved: Analytics permitted.",
+    continueBrowsing: "Close and continue",
+    changeChoice: "Change cookie choice",
   },
 };
 
 export default function CookiePreferences({ locale }: { locale: AppLocale }) {
+  const pathname = usePathname();
   const [choice, setChoice] = useState<ConsentChoice>(null);
   const [ready, setReady] = useState(false);
   const [open, setOpen] = useState(false);
   const [customizing, setCustomizing] = useState(false);
   const [analytics, setAnalytics] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [confirmed, setConfirmed] = useState<"analytics" | "essential" | null>(null);
   const bannerRef = useRef<HTMLElement | null>(null);
   const c = copy[locale];
 
@@ -99,6 +127,8 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
     function openPreferences() {
       const previous = readConsent();
       setChoice(previous);
+      setConfirmed(null);
+      setSaveError(false);
       setAnalytics(previous === "analytics");
       setCustomizing(true);
       setOpen(true);
@@ -137,14 +167,24 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
   }, [open, customizing]);
 
   function apply(next: "analytics" | "essential") {
-    saveConsent(next);
-    setChoice(next);
-    setAnalytics(next === "analytics");
-    setCustomizing(false);
-    setOpen(false);
+    setSaveError(false);
+    try {
+      saveConsent(next);
+      // Never dismiss the dialog before reading back the persisted choice.
+      if (readConsent() !== next) throw new Error("Consent preference did not persist");
+      setChoice(next);
+      setAnalytics(next === "analytics");
+      setCustomizing(false);
+      setConfirmed(next);
+      setOpen(true);
+    } catch {
+      setConfirmed(null);
+      setSaveError(true);
+      setOpen(true);
+    }
   }
 
-  if (!ready || !open) return null;
+  if (!ready || !open || pathname === "/cookies") return null;
 
   const buttonBase = "min-h-11 rounded-xl border px-3 py-2.5 text-center text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700 sm:text-sm";
   const neutralButton = buttonBase + " border-slate-300 bg-white text-slate-900 hover:bg-slate-100";
@@ -157,6 +197,24 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
       aria-label={c.title}
       className="fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[90] mx-auto max-w-6xl rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-[0_10px_45px_rgba(15,23,42,0.2)] sm:inset-x-5 sm:p-5 lg:bottom-5"
     >
+      {confirmed ? (
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center" data-testid="cookie-save-confirmation">
+          <p role="status" aria-live="polite" className="text-sm font-bold leading-6 text-emerald-800">
+            {confirmed === "essential" ? c.savedEssential : c.savedAnalytics}
+          </p>
+          <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto">
+            <button type="button" onClick={() => { setConfirmed(null); setCustomizing(true); }}
+              className="min-h-11 rounded-xl border border-purple-300 bg-white px-4 py-2 text-sm font-bold text-purple-800 hover:bg-purple-50">
+              {c.changeChoice}
+            </button>
+            <button type="button" onClick={() => { setOpen(false); setConfirmed(null); }}
+              className="min-h-11 rounded-xl bg-purple-700 px-5 py-2 text-sm font-bold text-white hover:bg-purple-800" data-testid="cookie-confirm-close">
+              {c.continueBrowsing}
+            </button>
+          </div>
+        </div>
+      ) : (
+      <>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-7">
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
@@ -204,6 +262,13 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
         </div>
       </div>
 
+      {saveError && (
+        <div role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-950">
+          {c.saveError}
+          <a href="/cookies#cookie-settings" className="ml-2 inline-block underline underline-offset-2">{c.trySettings}</a>
+        </div>
+      )}
+
       {customizing && (
         <div
           id="hkff-cookie-category-settings"
@@ -233,6 +298,8 @@ export default function CookiePreferences({ locale }: { locale: AppLocale }) {
           </div>
         </div>
       )}
+      </>
+      )}
     </section>
   );
 }
@@ -242,12 +309,11 @@ export function CookieSettingsButton({ locale }: { locale: AppLocale }) {
   const label =
     locale === "en" ? "Cookie settings" : locale === "zh-Hans" ? "Cookies 设置" : "Cookies 設定";
   return (
-    <button
-      type="button"
-      className="hover:text-purple-700 focus-visible:underline"
-      onClick={() => window.dispatchEvent(new Event("hkff:open-cookie-settings"))}
+    <a
+      href="/cookies#cookie-settings"
+      className="relative z-[1] inline-flex min-h-10 cursor-pointer items-center rounded-md px-2 py-1 text-left font-semibold text-slate-600 hover:bg-purple-50 hover:text-purple-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700"
     >
       {label}
-    </button>
+    </a>
   );
 }

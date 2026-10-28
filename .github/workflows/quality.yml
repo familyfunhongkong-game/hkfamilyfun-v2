@@ -80,6 +80,12 @@ jobs:
       - name: Admin Analytics summary correctness and permissions
         run: npm run check:analytics-summary
 
+      - name: Verify inline notification review and safety
+        run: node scripts/check-notification-inline-review.mjs
+
+      - name: Verify Admin KPI and table navigation
+        run: node scripts/test-admin-dashboard-navigation.mjs
+
       - name: Admin Growth Dashboard accuracy and permissions
         run: npm run check:admin-growth
 
@@ -92,8 +98,23 @@ jobs:
       - name: Commerce model copy check
         run: npm run check:commerce-copy
 
+      - name: Verify smart expiry cron cannot archive or modify event rows
+        run: node scripts/check-safe-expiry-cron.mjs
+
       - name: Event card completeness check
         run: npm run check:event-cards
+
+      - name: Recurring event closures and exceptions regression check
+        run: node scripts/test-recurrence-cancellation.mjs
+
+      - name: Saved Events search, filters and archive regression check
+        run: node scripts/check-saved-events.mjs
+
+      - name: Test next available saved-event occurrences
+        run: node scripts/test-saved-occurrence.mjs
+
+      - name: Different weekday opening hours and closure regression check
+        run: node scripts/test-weekly-opening-hours-core.mjs
 
       - name: Today chronological timetable and mobile compact layout check
         run: npm run check:today-timeline
@@ -109,6 +130,9 @@ jobs:
 
       - name: Event calendar timezone check
         run: npm run check:event-calendar
+
+      - name: Calendar icon catalogue and interaction regression check
+        run: npm run check:calendar-icons
 
       - name: Events server preload check
         run: npm run check:events-ssr
@@ -146,8 +170,17 @@ jobs:
       - name: Mobile event content regression check
         run: npm run check:event-mobile-content
 
+      - name: Public catalogue never inherits signed-in sessions
+        run: npm run check:public-event-auth-isolation
+
       - name: Event import extraction regression check
         run: npm run check:event-import
+
+      - name: Unified account and Admin entry regression
+        run: node scripts/check-account-hub.mjs
+
+      - name: Claimant pending-image privacy fallback
+        run: node scripts/check-claim-photos-privacy.mjs
 
       - name: TypeScript check
         run: npm run type-check

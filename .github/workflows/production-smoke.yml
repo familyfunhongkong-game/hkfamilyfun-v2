@@ -98,9 +98,14 @@ jobs:
 
             vercel_state="$(node -e '
               const body = JSON.parse(process.argv[1]);
-              const hit = (body.statuses || []).find(
-                (item) => item.context === "Vercel"
-              );
+              const statuses = body.statuses || [];
+              // Prefer the actual V2 Production project: newer Vercel statuses
+              // use scoped context names, not only the historic "Vercel".
+              // Never allow a successful staging build to open a prod gate.
+              const hit =
+                statuses.find((item) => item.context === "Vercel – hkfamilyfun-v2") ||
+                statuses.find((item) => item.context === "Vercel - hkfamilyfun-v2") ||
+                statuses.find((item) => item.context === "Vercel");
               process.stdout.write(hit?.state || "");
             ' "$status_json")"
 

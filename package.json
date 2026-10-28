@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
-    "check:cookie-consent": "node scripts/check-cookie-consent-contract.mjs",
+    "check:cookie-consent": "node scripts/check-cookie-consent-contract.mjs && node scripts/test-cookie-choice-route.mjs && node scripts/test-cookie-persistence.mjs",
     "check:analytics-export": "node scripts/check-analytics-export-contract.mjs",
     "check:analytics-summary": "node scripts/test-analytics-summary.mjs",
     "check:admin-growth": "node scripts/test-admin-growth-dashboard.mjs",
@@ -40,7 +40,11 @@
     "check:merchant-preview": "node scripts/check-merchant-preview-contract.mjs",
     "check:approval-workflow": "node scripts/check-approval-workflow-contract.mjs",
     "check:event-mobile-content": "node scripts/check-event-mobile-content.mjs",
-    "check:event-import": "node scripts/check-event-import-extractor.mjs"
+    "check:event-import": "node scripts/check-event-import-extractor.mjs",
+    "check:home-card-readability": "node scripts/check-home-card-readability.mjs",
+    "check:public-formatting": "node scripts/test-public-formatting.mjs",
+    "check:calendar-icons": "node scripts/check-calendar-icons.mjs",
+    "check:public-event-auth-isolation": "node scripts/check-public-event-auth-isolation.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
@@ -54,7 +58,7 @@
     "date-fns": "^3.3.1",
     "leaflet": "^1.9.4",
     "lucide-react": "1.48.0",
-    "next": "16.3.8",
+    "next": "16.4.2",
     "openai": "^6.46.0",
     "react": "19.2.0",
     "react-calendar": "6.0.1",
@@ -64,7 +68,7 @@
     "react-leaflet": "5.0.0",
     "tailwind-merge": "^2.2.2",
     "typescript": "^5.4.4",
-    "zod": "^3.22.4",
+    "zod": "4.6.7",
     "zustand": "^4.4.7"
   },
   "devDependencies": {

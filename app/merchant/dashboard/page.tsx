@@ -918,6 +918,7 @@ export default function MerchantDashboardPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
+              <Link href="/merchant/claim-photos" className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-5 py-2 text-sm font-bold text-fuchsia-800 hover:bg-fuchsia-100">認領活動・上載圖片</Link>
               <button
                 type="button"
                 onClick={loadDashboard}
