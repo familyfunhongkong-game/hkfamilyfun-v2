@@ -18,12 +18,12 @@ const get = async (table, query) => {
 };
 const [merchants, events, unread] = await Promise.all([
   get("merchants", "status=eq.pending&select=id,business_name,created_at&order=created_at.asc&limit=1000"),
-  get("events", "status=in.(submitted,approved)&select=id,title,title_tc,created_at,status,start_date&order=created_at.asc&limit=1000"),
+  get("events", "status=in.(submitted,approved)&select=id,title,title_tc,created_at,status,start_date,end_date&order=created_at.asc&limit=1000"),
   get("platform_notifications", "recipient_scope=eq.admin&read_at=is.null&select=id,kind,title,created_at&order=created_at.asc&limit=1000")
 ]);
 const entries = [
   ...merchants.map(x => ({id:x.id, type:"商戶待審批", title:x.business_name || "未命名商戶", at:x.created_at, href:"/admin/merchants"})),
-  ...events.map(x => ({id:x.id,type:x.status==="submitted"?"活動待審批":"已批准待發布",title:x.title_tc || x.title || "未命名活動",at:x.created_at,href:"/admin/events/" + encodeURIComponent(x.id),start:x.start_date}))
+  ...events.filter(x => x.status === "submitted" || !((x.end_date || x.start_date) && (x.end_date || x.start_date) < today)).map(x => ({id:x.id,type:x.status==="submitted"?"活動待審批":"已批准待發布",title:x.title_tc || x.title || "未命名活動",at:x.created_at,href:"/admin/events/" + encodeURIComponent(x.id),start:x.start_date}))
 ].sort((a,b) => Date.parse(a.at) - Date.parse(b.at));
 const age = (date) => Number.isFinite(Date.parse(date)) ? Math.max(0,Math.floor((todayStart-Date.parse(date))/day)) : null;
 const items = entries.slice(0,100).map(x => {
