@@ -27,7 +27,7 @@ assert.ok(source.includes("formatToParts(new Date())"), "Hong Kong date must not
 
 const api = readFileSync("app/api/saved-events/route.ts", "utf8");
 for (const required of [
-  "serviceClient()", 'eq("status", "archived")', 'not("published_at", "is", null)',
+  "serviceClient()", 'in("status", ["archived", "published"])', 'not("published_at", "is", null)',
   "hidden_pending_confirmation", "lastDate < today", "ids.length > 100",
   "private, no-store", "archived: true",
 ]) {
@@ -37,3 +37,5 @@ assert.ok(!api.includes('select("*")'), "Archive API must not expose internal co
 assert.ok(source.includes('fetch("/api/saved-events"'), "Missing safe archive lookup");
 assert.ok(source.includes('event.archived ? ('), "Expired history must render without dead detail links");
 assert.ok(source.includes('if (event.archived) return "expired"'), "Archived listings must be past events");
+
+assert.ok(api.includes('event.recurrence_type === "weekly" && !event.end_date'), "Open-ended weekly records must not be mislabeled past");
