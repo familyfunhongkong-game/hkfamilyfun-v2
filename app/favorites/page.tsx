@@ -12,6 +12,7 @@ import { formatEventAge } from "@/lib/events/age-display";
 import { nextEventOccurrence } from "@/lib/events/recurrence";
 
 const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
+const EVENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type FavoriteEvent = {
   id: string;
@@ -66,7 +67,7 @@ function readFavoriteIds(): string[] {
       new Set(
         parsed
           .map((item) => String(item || "").trim())
-          .filter(Boolean),
+          .filter((id) => EVENT_ID_PATTERN.test(id)),
       ),
     );
   } catch {
@@ -237,6 +238,7 @@ export default function FavoritesPage() {
   const [visibleCount, setVisibleCount] = useState(20);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [expandedPastId, setExpandedPastId] = useState<string | null>(null);
+  const [reloadSignal, setReloadSignal] = useState(0);
   const today = hkToday();
   const m = getExtraPublicMessages(locale).favorites;
   const t = (tc: string, sc: string, en: string) => translate(locale, tc, sc, en);
@@ -248,6 +250,8 @@ export default function FavoritesPage() {
     setLocale(activeLocale);
 
     async function loadFavorites() {
+      setLoading(true);
+      setErrorText("");
       const ids = readFavoriteIds();
       setSavedIds(ids);
       if (!ids.length) {
@@ -309,7 +313,10 @@ export default function FavoritesPage() {
     }
 
     void loadFavorites();
-    const syncIds = () => setSavedIds(readFavoriteIds());
+    const syncIds = () => {
+      setSavedIds(readFavoriteIds());
+      setReloadSignal((count) => count + 1);
+    };
     window.addEventListener("storage", syncIds);
     window.addEventListener("hkff:favorites-changed", syncIds);
     return () => {
@@ -317,7 +324,7 @@ export default function FavoritesPage() {
       window.removeEventListener("storage", syncIds);
       window.removeEventListener("hkff:favorites-changed", syncIds);
     };
-  }, []);
+  }, [reloadSignal]);
 
   function removeFavorite(id: string) {
     const nextIds = readFavoriteIds().filter((item) => item !== id);
