@@ -46,7 +46,11 @@ export async function POST(request: NextRequest) {
   }
 
   const today = hongKongToday();
-  const events = (data || [])
+  // The select column list is intentionally assembled from a fixed allowlist.
+  // Supabase cannot infer a row type for this dynamic string at compile time.
+  type ArchiveRow = { id: string; start_date: string | null; end_date: string | null; published_at: string | null } & Record<string, unknown>;
+  const rows = (data || []) as unknown as ArchiveRow[];
+  const events = rows
     .filter((event) => {
       const lastDate = String(event.end_date || event.start_date || "").slice(0, 10);
       return /^\d{4}-\d{2}-\d{2}$/.test(lastDate) && lastDate < today;
