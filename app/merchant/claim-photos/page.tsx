@@ -4,7 +4,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 type Claim={id:string;event_id:string;organization_name:string;status:string};
 type Proposal={id:string;claim_id:string;event_id:string;image_url:string;status:string;created_at:string};
-export default function ClaimPhotosPage(){
+function ClaimPhotosEnabledPage(){
  const [claims,setClaims]=useState<Claim[]>([]);
  const [proposals,setProposals]=useState<Proposal[]>([]);
  const [active,setActive]=useState("");
@@ -79,4 +79,37 @@ export default function ClaimPhotosPage(){
   <h2 className="mt-8 text-lg font-bold">提交紀錄</h2>
   <div className="mt-3 space-y-2">{proposals.map(p=><div key={p.id} className="rounded-xl border bg-white p-3 text-sm"><span className="font-bold">{p.status==="pending"?"待審核":p.status==="approved"?"已批准":"已拒絕"}</span> · <Link href={`/events/${p.event_id}`} className="text-purple-700 underline">查看活動</Link></div>)}</div>
  </div></main>
+}
+
+// Explicit privacy freeze: this claimant-only upload currently uses public URLs.
+// Do not re-enable until private storage, authorized signed preview URLs and
+// Admin-reviewed publication to the public event-images bucket are implemented.
+const CLAIM_PHOTO_UPLOADS_PRIVATE_REVIEW_READY = false;
+
+export default function ClaimPhotosPage() {
+  if (!CLAIM_PHOTO_UPLOADS_PRIVATE_REVIEW_READY) {
+    return (
+      <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900">
+        <div className="mx-auto max-w-3xl">
+          <Link href="/merchant/dashboard" className="font-bold text-purple-700">← 商戶後台</Link>
+          <section className="mt-5 rounded-3xl border border-purple-200 bg-white p-7 shadow-sm">
+            <h1 className="text-2xl font-black">活動認領・圖片補充申請</h1>
+            <p className="mt-3 text-sm leading-7 text-slate-700">
+              為保護未審核圖片及商戶資料，認領活動的補充海報暫時改用官方電郵核對，網上圖片上傳功能暫停。
+              這不影響一般商戶在活動編輯器上載自己的活動圖片。
+            </p>
+            <p className="mt-3 text-sm leading-7 text-slate-700">
+              請提供活動名稱、活動頁面、官方來源、圖片，以及你有權使用圖片的說明。
+              HK Family Fun 一般會於 5 個工作天內完成初步審核。
+            </p>
+            <a href="mailto:info@hkfamilyfun.com?subject=HK%20Family%20Fun%20%E6%B4%BB%E5%8B%95%E5%9C%96%E7%89%87%E6%9B%B4%E6%96%B0%E7%94%B3%E8%AB%8B" className="mt-5 inline-flex rounded-xl bg-purple-700 px-5 py-3 font-bold text-white hover:bg-purple-800">
+              電郵申請圖片更新
+            </a>
+            <p className="mt-3 text-xs text-slate-500">未獲 HK Family Fun 批准的圖片不會在活動頁公開。</p>
+          </section>
+        </div>
+      </main>
+    );
+  }
+  return <ClaimPhotosEnabledPage />;
 }
