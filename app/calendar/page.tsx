@@ -9,6 +9,9 @@ import { getHongKongPublicHoliday, getHongKongPublicHolidayName } from "@/lib/hk
 
 export const dynamic = "force-dynamic";
 
+const MOBILE_DAY_ICON_LIMIT = 1;
+const DESKTOP_DAY_ICON_LIMIT = 3;
+
 function hkToday() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Hong_Kong",
@@ -223,31 +226,31 @@ export default async function CalendarPage({
                     {dayEvents.length ? (
                       <>
                         <div className="mt-1 flex flex-col items-start gap-0.5 sm:hidden">
-                          {dayEvents.slice(0, 1).map((event) => (
+                          {dayEvents.slice(0, MOBILE_DAY_ICON_LIMIT).map((event) => (
                             <CalendarEventIcon key={event.id} event={event} />
                           ))}
-                          {dayEvents.length > 1 ? (
+                          {dayEvents.length > MOBILE_DAY_ICON_LIMIT ? (
                             <Link
                               href={`/events?date=${date}`}
-                              aria-label={`${date}: ${dayEvents.length - 1} more events`}
+                              aria-label={`${date}: ${dayEvents.length - MOBILE_DAY_ICON_LIMIT} more events`}
                               className="text-[10px] font-black text-purple-700 underline-offset-2 hover:underline"
                             >
-                              +{dayEvents.length - 2}
+                              +{dayEvents.length - MOBILE_DAY_ICON_LIMIT}
                             </Link>
                           ) : null}
                         </div>
                         <div className="mt-2 hidden sm:block">
                           <div className="flex flex-wrap items-center gap-1">
-                            {dayEvents.slice(0, 3).map((event) => (
+                            {dayEvents.slice(0, DESKTOP_DAY_ICON_LIMIT).map((event) => (
                               <CalendarEventIcon key={event.id} event={event} />
                             ))}
-                            {dayEvents.length > 3 ? (
+                            {dayEvents.length > DESKTOP_DAY_ICON_LIMIT ? (
                               <Link
                                 href={`/events?date=${date}`}
-                                aria-label={`${date}: ${dayEvents.length - 3} more events`}
+                                aria-label={`${date}: ${dayEvents.length - DESKTOP_DAY_ICON_LIMIT} more events`}
                                 className="text-[10px] font-black text-purple-700 underline-offset-2 hover:underline"
                               >
-                                +{dayEvents.length - 3}
+                                +{dayEvents.length - DESKTOP_DAY_ICON_LIMIT}
                               </Link>
                             ) : null}
                           </div>
