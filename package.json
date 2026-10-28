@@ -43,7 +43,8 @@
     "check:event-import": "node scripts/check-event-import-extractor.mjs",
     "check:home-card-readability": "node scripts/check-home-card-readability.mjs",
     "check:public-formatting": "node scripts/test-public-formatting.mjs",
-    "check:calendar-icons": "node scripts/check-calendar-icons.mjs"
+    "check:calendar-icons": "node scripts/check-calendar-icons.mjs",
+    "check:public-event-auth-isolation": "node scripts/check-public-event-auth-isolation.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
