@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+const claimant = await readFile("app/merchant/claim-photos/page.tsx", "utf8");
+assert.ok(claimant.includes("const CLAIM_PHOTO_UPLOADS_PRIVATE_REVIEW_READY = false;"), "unreviewed uploads must be off");
+assert.ok(claimant.includes("mailto:info@hkfamilyfun.com"), "merchant must have an accessible alternative");
+assert.ok(claimant.includes("ClaimPhotosEnabledPage"), "existing functionality retained for later signed URL implementation");
+const sql = await readFile("docs/CLAIM_IMAGE_BUCKET_PRIVACY_2026_10_28.md", "utf8");
+assert.ok(sql.includes("event-claim-images"));
+assert.ok(sql.includes("public=false"));
+console.log("[claim-photos-privacy] PASS: pending claim uploads frozen with email review alternative.");
