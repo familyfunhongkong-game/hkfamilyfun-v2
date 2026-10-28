@@ -170,6 +170,9 @@ jobs:
       - name: Mobile event content regression check
         run: npm run check:event-mobile-content
 
+      - name: Public catalogue never inherits signed-in sessions
+        run: npm run check:public-event-auth-isolation
+
       - name: Event import extraction regression check
         run: npm run check:event-import
 
