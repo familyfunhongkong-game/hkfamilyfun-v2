@@ -740,18 +740,18 @@ export default function AdminEventsPage() {
     if (nextStatus === "approved") {
       payload.approved_at = now;
       payload.rejection_reason = null;
-      payload.admin_review_note = "Admin 已批准活動，等待正式發布。";
+      
     }
 
     if (nextStatus === "published") {
       payload.published_at = now;
       payload.rejection_reason = null;
-      payload.admin_review_note = "Admin 已正式發布活動。";
+      
     }
 
     if (nextStatus === "rejected") {
       payload.rejection_reason = "Admin 已拒絕，請商戶修改資料後再提交。";
-      payload.admin_review_note = payload.rejection_reason;
+      
     }
 
     const { data, error } = await client
