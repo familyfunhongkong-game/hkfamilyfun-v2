@@ -745,11 +745,10 @@ export default function AdminEventReviewPage() {
 
     const currentEvent = data as EventRecord;
     setEvent(currentEvent);
-    setAdminNote(
-      safeText(
-        currentEvent.admin_review_note || currentEvent.rejection_reason,
-      ),
-    );
+    const { data: reviewRows, error: reviewError } = await client.rpc("admin_get_event_review", { p_event_id: eventId });
+    if (reviewError) { setErrorText(reviewError.message || "讀取管理員備註失敗。"); }
+    const privateNote = Array.isArray(reviewRows) ? reviewRows[0]?.admin_review_note : null;
+    setAdminNote(safeText(privateNote || currentEvent.rejection_reason));
     setSelectedImageIndex(0);
     setLoading(false);
   }
@@ -887,7 +886,6 @@ export default function AdminEventReviewPage() {
 
     const payload: Record<string, unknown> = {
       status: nextStatus,
-      admin_review_note: adminNote || null,
       reviewed_at: now,
       updated_at: now,
     };
@@ -923,9 +921,13 @@ export default function AdminEventReviewPage() {
 
     const updated = data as EventRecord;
     setEvent(updated);
-    setAdminNote(
-      safeText(updated.admin_review_note || updated.rejection_reason),
-    );
+    const { data: authData } = await client.auth.getUser();
+    if (!authData.user) { setErrorText("管理員登入已失效，無法儲存私人審批備註。"); setSaving(false); return; }
+    const { error: noteError } = await client.rpc("admin_set_event_review", {
+      p_event_id: event.id, p_note: adminNote || null, p_ai: null, p_reviewed_by: authData.user.id,
+    });
+    if (noteError) { setErrorText("活動狀態已更新，但私人備註未儲存：" + noteError.message); setSaving(false); return; }
+    setAdminNote(safeText(adminNote || updated.rejection_reason));
     setSaving(false);
 
     if (nextStatus === "approved") setMessage("活動已批准，等待正式發布。");
