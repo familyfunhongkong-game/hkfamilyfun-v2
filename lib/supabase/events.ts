@@ -2,7 +2,7 @@ import type { Event, PriceType } from "@/lib/types";
 import { publicSupabase as supabase } from "@/lib/supabase/public-client";
 import { localizedText, type AppLocale } from "@/lib/i18n/config";
 import { formatEventAge } from "@/lib/events/age-display";
-import { isExplicitlyExpiredEvent } from "@/lib/events/visibility";
+import { classifyEventAvailability } from "@/lib/events/smart-expiry";
 import {
   formatEventCategory,
   normalizeEventTags,
@@ -77,21 +77,6 @@ function formatDate(date: string | null, locale: AppLocale) {
   return "日期待定";
 }
 
-function parseCalendarDate(value: string | null) {
-  if (!value) return null;
-
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) return null;
-
-  const date = new Date(
-    Number(match[1]),
-    Number(match[2]) - 1,
-    Number(match[3]),
-  );
-  date.setHours(0, 0, 0, 0);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
 function isInternalTestEvent(event: DatabaseEvent) {
   const title = String(event.title_tc || "").trim().toUpperCase();
   const venue = String(event.venue_name || "").trim().toUpperCase();
@@ -99,16 +84,7 @@ function isInternalTestEvent(event: DatabaseEvent) {
 }
 
 function isExpiredEvent(event: DatabaseEvent) {
-  if (!parseCalendarDate(event.end_date)) return false;
-
-  const todayText = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Hong_Kong",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-
-  return isExplicitlyExpiredEvent(event.end_date, todayText);
+  return classifyEventAvailability(event) === "expired";
 }
 
 function formatTime(
@@ -337,7 +313,7 @@ export async function getPublishedEventById(
   if (!data) return null;
 
   const event = data as DatabaseEvent;
-  if (isInternalTestEvent(event) || isExpiredEvent(event)) return null;
+  // Historical published details remain reachable through saved links.\n  if (isInternalTestEvent(event)) return null;
 
   return mapDatabaseEvent(event, locale);
 }
