@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 
 export default function AdminForgotPasswordPage() {
@@ -10,8 +10,14 @@ export default function AdminForgotPasswordPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isStaging = typeof window !== "undefined" &&
-    window.location.hostname.startsWith("hkfamilyfun-staging");
+  const [isStaging, setIsStaging] = useState(false);
+
+  useEffect(() => {
+    setIsStaging(
+      window.location.hostname.startsWith("hkfamilyfun-staging") ||
+      (process.env.NEXT_PUBLIC_SITE_URL || "").includes("hkfamilyfun-staging"),
+    );
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
