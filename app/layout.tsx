@@ -140,6 +140,11 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
               <span aria-hidden="true" className="text-slate-400">⌄</span>
             </summary>
             <div className="absolute right-0 top-full z-[80] mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+              {process.env.NEXT_PUBLIC_FACEBOOK_LOGIN_LIVE === "true" && (
+                <Link href="/login" className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 hover:bg-purple-50 hover:text-purple-700">
+                  {locale === "en" ? "Parent sign in" : locale === "zh-Hans" ? "家长登录" : "家長登入"}
+                </Link>
+              )}
               <Link href="/merchant/account?mode=login" className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 hover:bg-purple-50 hover:text-purple-700">
                 {locale === "en" ? "Merchant sign in" : locale === "zh-Hans" ? "商户登录" : "商戶登入"}
               </Link>
