@@ -147,12 +147,21 @@ requireSignals("open-ended event visibility", files.visibility, [
   "Asia/Hong_Kong",
 ]);
 
-requireSignals("open-ended public data", files.publicEvents, [
+// Smart-expiry has replaced brittle day parsing in the public catalogue.
+ // When an event has no valid future occurrence, it cannot be Active;
+ // open-ended future dates and recurring schedules are evaluated by the
+ // shared recurrence helper, not by fabricating an end date.
+requireSignals("next-occurrence public visibility", files.publicEvents, [
   "isInternalTestEvent",
-  "function parseCalendarDate",
-  "parseCalendarDate(event.end_date)",
-  "isExpiredEvent(event)",
-  "isExplicitlyExpiredEvent(event.end_date, todayText)",
+  "isActivePublicEvent(event)",
+  'from "@/lib/events/visibility"',
+  '.eq("status", "published")',
+]);
+requireSignals("next-occurrence visibility", files.visibility, [
+  "nextPublicEventDate",
+  "nextEventOccurrence",
+  "isActivePublicEvent",
+  "Asia/Hong_Kong",
 ]);
 
 requireSignals("open-ended launch health", files.systemHealth, [
