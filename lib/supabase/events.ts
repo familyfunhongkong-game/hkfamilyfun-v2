@@ -87,8 +87,14 @@ function formatTime(
   startTime: string | null,
   endTime: string | null,
   locale: AppLocale,
+  recurrenceNote?: string | null,
 ) {
   if (!startTime) {
+    if (/圖書館開放時間|Library Opening Hours/i.test(recurrenceNote || "")) {
+      return locale === "en" ? "Library opening hours (varies by day)" :
+        locale === "zh-Hans" ? "按图书馆开放时间（每天不同）" :
+        "按圖書館開放時間（每日不同）";
+    }
     if (locale === "en") return "Time TBC";
     if (locale === "zh-Hans") return "时间待定";
     return "時間待定";
@@ -214,7 +220,7 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
       ? event.recurrence_exclude_dates.map(String)
       : [],
     recurrenceNote: event.recurrence_note || undefined,
-    time: formatTime(event.start_time, event.end_time, locale),
+    time: formatTime(event.start_time, event.end_time, locale, event.recurrence_note),
     district: localizeDistrict(event.district, locale),
     venue: localizedText(locale, {
       tc: event.venue_name,
