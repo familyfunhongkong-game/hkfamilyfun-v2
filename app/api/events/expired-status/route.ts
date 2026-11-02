@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ended: false }, { status: 503, headers });
   }
   const isPublishedHistory = data?.published_at &&
-    (data.status === "published" || data.status === "archived") &&
+    data.status === "published" &&
     data.hidden_pending_confirmation !== true;
   const end = String(data?.end_date || data?.start_date || "").slice(0, 10);
   const ended = Boolean(isPublishedHistory && /^\d{4}-\d{2}-\d{2}$/.test(end) && end < hongKongToday());
