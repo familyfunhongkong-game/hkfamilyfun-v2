@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { AppLocale } from "@/lib/i18n/config";
 import type { ConsentChoice } from "@/lib/privacy/cookie-consent";
 import CookieBackupNotice from "@/components/cookie-backup-notice";
+import CookieAutoSaveToggle from "@/components/cookie-auto-save-toggle";
 
 const words = {
   "zh-Hant": {
@@ -112,7 +113,7 @@ export default function CookieSettingsPanel({ locale, choice, saveResult, attemp
                 <span className="block font-bold text-slate-950">{c.optional}</span>
                 <span className="mt-1 block text-sm leading-6 text-slate-600">{c.optionalAbout}</span>
               </span>
-              <input name="analytics" value="yes" type="checkbox" defaultChecked={choice === "analytics"}
+              <CookieAutoSaveToggle name="analytics" value="yes" defaultChecked={choice === "analytics"}
                 aria-label={c.optional} className="mt-1 h-5 w-5 shrink-0 accent-purple-700" />
             </label>
           </div>
@@ -130,6 +131,7 @@ export default function CookieSettingsPanel({ locale, choice, saveResult, attemp
               {c.save}
             </button>
           </div>
+          <p className="mt-3 text-xs font-bold leading-6 text-emerald-700">{locale === "en" ? "Changing the checkbox automatically saves your preference — no extra click." : locale === "zh-Hans" ? "切换选项后自动保存，无需再次点击保存。" : "剔選或取消剔選後自動儲存，毋須再按儲存。"}</p>
           <p className="mt-3 text-xs leading-6 text-slate-500">{c.note}</p>
         </form>
       </div>
