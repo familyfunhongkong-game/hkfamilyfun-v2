@@ -27,7 +27,7 @@ assert.ok(source.includes("formatToParts(new Date())"), "Hong Kong date must not
 
 const api = readFileSync("app/api/saved-events/route.ts", "utf8");
 for (const required of [
-  "serviceClient()", 'in("status", ["archived", "published"])', 'not("published_at", "is", null)',
+  "serviceClient()", 'eq("status", "published")', 'not("published_at", "is", null)',
   "hidden_pending_confirmation", "lastDate < today", "ids.length > 100",
   "private, no-store", "archived: true",
 ]) {
