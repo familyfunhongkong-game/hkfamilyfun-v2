@@ -33,10 +33,10 @@ for (const signal of requiredSharedSignals) {
 
 // Card hero and content must be separate siblings, never overlapping layers.
 const compactBegin = sharedCard.indexOf("if (compact) {");
-const fullBegin = sharedCard.indexOf("\\n  return (\\n    <article", compactBegin);
+const fullBegin = sharedCard.indexOf("\n  return (\n    <article", compactBegin);
 const compactMarkup = sharedCard.slice(compactBegin, fullBegin);
 const fullMarkup = sharedCard.slice(fullBegin);
-const fullHeroEnd = fullMarkup.indexOf('      </Link>\\n\\n      <div className={`flex flex-1 flex-col');
+const fullHeroEnd = fullMarkup.indexOf('      </Link>\n\n      <div className={`flex flex-1 flex-col');
 if (compactBegin < 0 || fullBegin < 0 || fullHeroEnd < 0) {
   console.error("[event-card] missing independent image hero and content regions");
   failed = true;
