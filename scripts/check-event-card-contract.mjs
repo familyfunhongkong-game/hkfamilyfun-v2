@@ -31,6 +31,52 @@ for (const signal of requiredSharedSignals) {
   }
 }
 
+// Card hero and content must be separate siblings, never overlapping layers.
+const compactBegin = sharedCard.indexOf("if (compact) {");
+const fullBegin = sharedCard.indexOf("\\n  return (\\n    <article", compactBegin);
+const compactMarkup = sharedCard.slice(compactBegin, fullBegin);
+const fullMarkup = sharedCard.slice(fullBegin);
+const fullHeroEnd = fullMarkup.indexOf('      </Link>\\n\\n      <div className={`flex flex-1 flex-col');
+if (compactBegin < 0 || fullBegin < 0 || fullHeroEnd < 0) {
+  console.error("[event-card] missing independent image hero and content regions");
+  failed = true;
+} else {
+  const hero = fullMarkup.slice(0, fullHeroEnd);
+  const content = fullMarkup.slice(fullHeroEnd);
+  const requirements = [
+    ["hero has fixed aspect ratio", 'aspect-[5/4]'],
+    ["hero is clipped independently", 'relative isolate block w-full shrink-0 overflow-hidden'],
+    ["responsive image fills hero background", 'h-full w-full object-cover'],
+    ["overlay badges are positioned above the photo", 'absolute inset-x-3 top-3 z-20'],
+    ["overlay badges cannot block image click", 'pointer-events-none'],
+    ["featured badge is on the cover", '精選推介'],
+    ["category is on the cover", '{category}'],
+    ["free/price is on the cover", '{price}'],
+  ];
+  for (const [label, token] of requirements) {
+    if (!hero.includes(token)) {
+      console.error("[event-card] missing: " + label);
+      failed = true;
+    }
+  }
+  for (const token of ["<h3", "<InfoLine", "toggleFavorite", "addToCalendar"]) {
+    if (!content.includes(token)) {
+      console.error("[event-card] content area missing: " + token);
+      failed = true;
+    }
+  }
+  if (hero.includes("📍 {event.district}") || content.includes("absolute bottom-3")) {
+    console.error("[event-card] old overlapping district/metadata badge returned");
+    failed = true;
+  }
+  if (!compactMarkup.includes('relative isolate block aspect-square overflow-hidden') ||
+      !compactMarkup.includes("absolute inset-x-1.5 top-1.5 z-20") ||
+      !compactMarkup.includes("{price}")) {
+    console.error("[event-card] compact thumbnail should also put badges above the photo");
+    failed = true;
+  }
+}
+
 const sharedRoutes = ["app/page.tsx", "app/favorites/page.tsx"];
 for (const file of sharedRoutes) {
   const source = await readFile(file, "utf8");
