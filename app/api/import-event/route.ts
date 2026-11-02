@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { createClient } from "@supabase/supabase-js";
-import { extractStructuredPageDetails, parseCurrencyPrice } from "@/lib/event-import-page-extractor";
+import { discoverEventImage, suggestAiCoverPrompt, extractStructuredPageDetails, parseCurrencyPrice } from "@/lib/event-import-page-extractor";
 
 export const runtime = "nodejs";
 
@@ -200,6 +200,9 @@ type ExtractedEvent = {
   google_map_embed_url: string;
   cover_image_url: string;
   gallery_image_urls: string[];
+  image_source_status: "official_candidate" | "ai_needed";
+  image_source_url: string;
+  ai_image_prompt: string;
   organizer_name: string;
   tags: string;
   highlights: string;
@@ -240,6 +243,9 @@ function emptyEvent(url: string): ExtractedEvent {
     google_map_embed_url: "",
     cover_image_url: "",
     gallery_image_urls: [],
+    image_source_status: "ai_needed",
+    image_source_url: "",
+    ai_image_prompt: "",
     organizer_name: "",
     tags: "",
     highlights: "",
@@ -328,14 +334,26 @@ function getDescription(html: string) {
   ]);
 }
 
-function getImage(html: string, baseUrl: string) {
-  const image = getMeta(html, [
-    "og:image",
-    "twitter:image",
-    "twitter:image:src",
-  ]);
-
-  return image ? absoluteUrl(image, baseUrl) : "";
+// Every source image candidate is checked after metadata and Event JSON-LD
+// have been read; never trust a sitewide og:image without contextual checks.
+async function checkOfficialImageMime(url: string): Promise<boolean> {
+  try {
+    const { response } = await fetchPublicUrl(new URL(url), {
+      headers: {
+        "user-agent": "HKFamilyFunBot/1.0 (+https://www.hkfamilyfun.com)",
+        accept: "image/jpeg,image/png,image/webp,image/gif",
+      },
+      timeoutMs: 6500,
+    });
+    const mime = (response.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    const size = Number(response.headers.get("content-length") || 0);
+    await response.body?.cancel();
+    return response.ok &&
+      ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mime) &&
+      (size === 0 || size >= 2500 && size <= 12 * 1024 * 1024);
+  } catch {
+    return false;
+  }
 }
 
 function extractJsonLd(html: string) {
@@ -960,7 +978,6 @@ export async function POST(request: NextRequest) {
     if (html) {
       const title = getTitle(html);
       const description = getDescription(html);
-      const image = getImage(html, resolvedSourceUrl);
       const pageText = cleanText(html).slice(0, 20000);
 
       const jsonLdItems = extractJsonLd(html);
@@ -971,11 +988,30 @@ export async function POST(request: NextRequest) {
         title_tc: title,
         short_description_tc: description.slice(0, 160),
         description_tc: description,
-        cover_image_url: image,
-        gallery_image_urls: image ? [image] : [],
+        cover_image_url: "",
+        gallery_image_urls: [],
       };
 
       event = applyJsonLd(event, jsonLdEvent, resolvedSourceUrl);
+      // Find images on this exact official event URL BEFORE preparing any
+      // theme-specific AI artwork. Avoid HKPL fa-eye.svg, generic category
+      // banners and global logos. Check MIME and external URL safety before
+      // surfacing an image even as a human-review candidate.
+      const imageDiscovery = discoverEventImage(html, resolvedSourceUrl, event.title_tc);
+      const checkedImages: string[] = [];
+      for (const candidate of imageDiscovery.candidates.slice(0, 3)) {
+        if (await checkOfficialImageMime(candidate.url)) checkedImages.push(candidate.url);
+      }
+      const verifiedCover = checkedImages[0] || "";
+      event.cover_image_url = verifiedCover;
+      event.gallery_image_urls = checkedImages;
+      event.image_source_url = verifiedCover;
+      event.image_source_status = verifiedCover ? "official_candidate" : "ai_needed";
+      event.ai_image_prompt = verifiedCover ? "" :
+        suggestAiCoverPrompt(event.title_tc, event.short_description_tc || event.description_tc);
+      event.extraction_notes.push(verifiedCover
+        ? "已先搜尋原活動網址，找到可讀取的官方來源圖片候選；必須檢查授權、圖片與活動是否相符，確認後才發布。"
+        : "已先搜尋原活動網址，但找不到通過圖片類型及活動關聯檢查的專屬圖片。請按 AI 示意圖建議製作，標示「AI 示意圖」並上載供 Admin 審核，絕不可用網站 Logo／眼睛 Icon／通用分類圖冒充活動圖片。");
 
       const dateRange = extractDateRangeFromText(pageText);
       if (!event.start_date) event.start_date = dateRange.start_date;
@@ -1079,8 +1115,10 @@ export async function POST(request: NextRequest) {
       event.extraction_notes.push("未能穩定抽取活動日期，請商戶手動確認。");
     }
 
-    if (!event.cover_image_url) {
-      event.extraction_notes.push("未能抽取 og:image，請商戶手動貼圖片 URL 或稍後上載圖片。");
+    if (!event.cover_image_url && !event.ai_image_prompt) {
+      event.image_source_status = "ai_needed";
+      event.ai_image_prompt = suggestAiCoverPrompt(event.title_tc, event.description_tc);
+      event.extraction_notes.push("來源網站未能讀取或未找到合適活動圖片；請先人工核對官方活動 URL，再建立標註 AI 示意圖的原創封面供審批。");
     }
 
     event.extraction_notes.push(
