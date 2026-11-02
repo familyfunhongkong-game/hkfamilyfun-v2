@@ -287,7 +287,7 @@ export default function PublicEventCard({
               alt={event.title}
               loading="lazy"
               compactFallback
-              className="absolute inset-0 h-full w-full object-cover"
+              className="h-full w-full object-cover"
               style={coverCropStyle(event)}
             />
             <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16 bg-gradient-to-t from-slate-950/45 to-transparent" />
@@ -388,7 +388,7 @@ export default function PublicEventCard({
           alt={event.title}
           loading="lazy"
           compactFallback
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          className="h-full w-full object-cover"
           style={coverCropStyle(event)}
         />
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-slate-950/45 to-transparent" />
