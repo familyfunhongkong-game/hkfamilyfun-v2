@@ -22,6 +22,7 @@ import {
 } from "@/lib/events/display-normalization";
 import type { EventRecord } from "@/lib/events/public-event-records";
 import { displayTag, tagTone } from "@/lib/events/tag-tone";
+import { isActivePublicEvent, nextPublicEventDate } from "@/lib/events/visibility";
 
 type GalleryImage = {
   url: string;
@@ -435,7 +436,7 @@ function normalizedStatus(event: EventRecord): string {
 function canShowPublic(event: EventRecord): boolean {
   // Supabase public_events 已經按 Asia/Hong_Kong 過濾過期活動。
   // 前端不可再用訪客裝置本地日期判斷，否則海外用戶會早一日／遲一日。
-  return normalizedStatus(event) === "published";
+  return normalizedStatus(event) === "published" && isActivePublicEvent(event);
 }
 
 function isFreeEvent(event: EventRecord): boolean {
@@ -1310,7 +1311,8 @@ export default function PublicEventsSearchClient({
   const filteredEvents = useMemo(() => {
     const text = keyword.trim().toLowerCase();
 
-    let next = [...events];
+    const today = getHongKongToday();
+    let next = events.filter((event) => isActivePublicEvent(event, today));
 
     if (text) {
       next = next.filter((event) => {
@@ -1421,24 +1423,24 @@ export default function PublicEventsSearchClient({
 
         if (scoreDiff !== 0) return scoreDiff;
 
-        const aDate = parseDateOnly(a.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
-        const bDate = parseDateOnly(b.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const aDate = parseDateOnly(nextPublicEventDate(a, today))?.getTime() || Number.MAX_SAFE_INTEGER;
+        const bDate = parseDateOnly(nextPublicEventDate(b, today))?.getTime() || Number.MAX_SAFE_INTEGER;
         return aDate - bDate;
       });
     }
 
     if (sortMode === "date_asc") {
       next.sort((a, b) => {
-        const aTime = parseDateOnly(a.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
-        const bTime = parseDateOnly(b.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const aTime = parseDateOnly(nextPublicEventDate(a, today))?.getTime() || Number.MAX_SAFE_INTEGER;
+        const bTime = parseDateOnly(nextPublicEventDate(b, today))?.getTime() || Number.MAX_SAFE_INTEGER;
         return aTime - bTime;
       });
     }
 
     if (sortMode === "date_desc") {
       next.sort((a, b) => {
-        const aTime = parseDateOnly(a.start_date)?.getTime() || 0;
-        const bTime = parseDateOnly(b.start_date)?.getTime() || 0;
+        const aTime = parseDateOnly(nextPublicEventDate(a, today))?.getTime() || 0;
+        const bTime = parseDateOnly(nextPublicEventDate(b, today))?.getTime() || 0;
         return bTime - aTime;
       });
     }
