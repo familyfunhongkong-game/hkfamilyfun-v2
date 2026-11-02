@@ -31,18 +31,19 @@ for (const signal of requiredSharedSignals) {
   }
 }
 
-const sharedRoutes = [
-  "app/page.tsx",
-  "app/calendar/page.tsx",
-  "app/favorites/page.tsx",
-];
-
+const sharedRoutes = ["app/page.tsx", "app/favorites/page.tsx"];
 for (const file of sharedRoutes) {
   const source = await readFile(file, "utf8");
   if (!source.includes("PublicEventCard")) {
     console.error(`[event-card] ${file} no longer uses PublicEventCard`);
     failed = true;
   }
+}
+const calendar = await readFile("app/calendar/page.tsx", "utf8");
+if (!calendar.includes("ResilientEventImage") || !calendar.includes("recentlyPublished.map(") ||
+    calendar.includes("<PublicEventCard")) {
+  console.error("[event-card] calendar should render compact selected-day rows instead of full cards");
+  failed = true;
 }
 
 // /today is deliberately a separate compact time-ordered list, not a
