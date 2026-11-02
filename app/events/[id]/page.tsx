@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Baby,
-  Building2,
   CalendarDays,
   Clock3,
   ExternalLink,
@@ -18,7 +17,6 @@ import {
   Share2,
   Sparkles,
   Ticket,
-  TrainFront,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { publicSupabase as supabase } from "@/lib/supabase/public-client";
@@ -1103,11 +1101,6 @@ export default function PublicEventDetailPage() {
   const timeDisplay = formatTimeRange(event, locale);
   const isSenFriendly = Boolean(event.is_sen_friendly);
   const isIndoor = Boolean(event.is_indoor);
-
-  const merchantName = safeText(
-    event.organizer_name || event.merchant_name,
-    uiText(locale, "主辦方待定", "主办方待定", "Organizer TBC"),
-  );
 
   const officialUrl = getOfficialWebsiteUrl(event);
   const actionUrl = getPrimaryActionUrl(event);
