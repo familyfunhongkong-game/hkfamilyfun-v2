@@ -27,6 +27,7 @@ import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 import { getEventDetailMessages } from "@/lib/i18n/event-page-messages";
 import { formatEventAge } from "@/lib/events/age-display";
+import { isActivePublicEvent } from "@/lib/events/visibility";
 import {
   formatEventCategory,
   normalizeEventTags,
@@ -1099,6 +1100,7 @@ export default function PublicEventDetailPage() {
   const categoryLabel = getCategoryLabel(event, locale);
   const priceDisplay = formatPrice(event, locale);
   const ageDisplay = formatAgeRange(event, locale);
+  const eventHasFutureOccurrence = isActivePublicEvent(event);
   const dateDisplay = formatDateRange(event, locale);
   const timeDisplay = formatTimeRange(event, locale);
   const isSenFriendly = Boolean(event.is_sen_friendly);
@@ -1266,6 +1268,12 @@ export default function PublicEventDetailPage() {
               <h1 className="mt-4 text-3xl font-black leading-tight tracking-tight text-slate-950 lg:text-[2.15rem]">
                 {title}
               </h1>
+              {!eventHasFutureOccurrence ? (
+                <div role="status" className="mt-4 rounded-2xl border border-slate-300 bg-slate-100 p-4 text-sm font-bold text-slate-800">
+                  <span className="block text-base font-black">{uiText(locale, "已結束／已過期", "已结束／已过期", "Event ended")}</span>
+                  <span className="mt-1 block text-xs font-semibold">{uiText(locale, "活動目前沒有任何未來有效場次，已停止報名。以下僅供查閱歷史資訊。", "活动目前没有任何未来有效场次，已停止报名。以下仅供查阅历史信息。", "No future valid sessions. Booking is unavailable; details are for reference only.")}</span>
+                </div>
+              ) : null}
 
               <p className="mt-3 text-sm font-medium leading-7 text-slate-600">
                 {shortDescription}
@@ -1317,7 +1325,7 @@ export default function PublicEventDetailPage() {
                 </div>
               </div>
 
-              {actionUrl ? (
+              {eventHasFutureOccurrence && actionUrl ? (
                 <a
                   href={actionUrl}
                   target="_blank"
@@ -1625,7 +1633,7 @@ export default function PublicEventDetailPage() {
               <Badge tone="amber">{priceDisplay}</Badge>
             </div>
 
-            {actionUrl ? (
+            {eventHasFutureOccurrence && actionUrl ? (
               <a
                 href={actionUrl}
                 target="_blank"
@@ -1700,7 +1708,7 @@ export default function PublicEventDetailPage() {
             <Share2 size={18} />
           </button>
 
-          {actionUrl ? (
+          {eventHasFutureOccurrence && actionUrl ? (
             <a
               href={actionUrl}
               target="_blank"
