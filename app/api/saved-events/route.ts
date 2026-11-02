@@ -31,14 +31,13 @@ export async function POST(request: NextRequest) {
   const admin = serviceClient();
   if (!admin) return NextResponse.json({ error: "Service unavailable" }, { status: 503, headers });
 
-  // Smart expiry is read-only: both archived and still-published past events
-  // require historical lookup AFTER having been publicly published.
-  // Editorial withdrawals, rejected records, drafts and future-dated archives
-  // must never reappear merely because a browser knows their UUID.
+  // Only still-published events may be exposed to anonymous users. An archived
+  // activity might have been withdrawn for safety, privacy or moderation;
+  // published_at alone cannot prove that its details remain authorized for public view.
   const { data, error } = await admin.from("events")
     .select(publicFields + ",published_at")
     .in("id", [...new Set(ids)])
-    .in("status", ["archived", "published"])
+    .eq("status", "published")
     .not("published_at", "is", null)
     .or("hidden_pending_confirmation.is.null,hidden_pending_confirmation.eq.false");
   if (error) {
