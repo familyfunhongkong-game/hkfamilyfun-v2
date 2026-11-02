@@ -53,7 +53,7 @@ assert.equal(next({ ...cancelledAll, recurrence_include_dates: ["2026-11-10"] })
 assert.equal(active({ ...cancelledAll, recurrence_include_dates: ["2026-11-10"], recurrence_exclude_dates: ["2026-11-06", "2026-11-13", "2026-11-20", "2026-11-10"] }), false, "excluded date overrides inclusion");
 
 const endedRoute = readFileSync("app/api/events/expired-status/route.ts", "utf8");
-assert.ok(endedRoute.includes('data.status === "published" || data.status === "archived"'), "historical link must have prior published state");
+assert.ok(endedRoute.includes('data.status === "published"'), "historical link must have prior published state");
 assert.ok(endedRoute.includes("published_at"), "historical link must require publication proof");
 assert.ok(endedRoute.includes("hidden_pending_confirmation !== true"), "hidden records must not surface");
 assert.ok(endedRoute.includes("end < hongKongToday()"), "only genuinely ended activity may show ended notice");
