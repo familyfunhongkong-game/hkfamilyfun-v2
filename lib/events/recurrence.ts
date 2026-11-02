@@ -37,7 +37,7 @@ export function addCalendarDays(dateText: string, days: number) {
 
 export function eventOccursOn(event: RecurrenceLike, targetDate: string) {
   const start = String(event.startDate || "").trim();
-  const end = String(event.endDate || event.startDate || "").trim();
+  const end = String(event.endDate || (String(event.recurrenceType || "").toLowerCase() === "weekly" ? "9999-12-31" : event.startDate) || "").trim();
 
   if (!start || !end || targetDate < start || targetDate > end) return false;
 
@@ -76,7 +76,7 @@ export function eventOccursInRange(
   rangeEnd: string,
 ) {
   const start = String(event.startDate || "").trim();
-  const end = String(event.endDate || event.startDate || "").trim();
+  const end = String(event.endDate || (String(event.recurrenceType || "").toLowerCase() === "weekly" ? "9999-12-31" : event.startDate) || "").trim();
 
   if (!start || !end || start > rangeEnd || end < rangeStart) return false;
 
@@ -98,15 +98,8 @@ export function eventOccursInRange(
     return false;
   }
 
-  let current = start > rangeStart ? start : rangeStart;
-  const last = end < rangeEnd ? end : rangeEnd;
-
-  for (let guard = 0; current <= last && guard < 370; guard += 1) {
-    if (eventOccursOn(event, current)) return true;
-    current = addCalendarDays(current, 1);
-  }
-
-  return false;
+  const next = nextEventOccurrence(event, rangeStart);
+  return Boolean(next && next <= rangeEnd);
 }
 
 
@@ -119,19 +112,20 @@ export function eventOccursInRange(
 export function nextEventOccurrence(event: RecurrenceLike, today: string): string | null {
   const iso = /^\d{4}-\d{2}-\d{2}$/;
   const start = String(event.startDate || "").slice(0, 10);
-  const end = String(event.endDate || event.startDate || "").slice(0, 10);
+  const weekly = String(event.recurrenceType || "none").toLowerCase() === "weekly";
+  // A weekly listing with no end date is ongoing; a one-off listing is not.
+  const end = String(event.endDate || (weekly ? "9999-12-31" : event.startDate) || "").slice(0, 10);
   if (!iso.test(today) || !iso.test(start) || !iso.test(end) || start > end) return null;
-  let date = start > today ? start : today;
-  if (date > end) return null;
+  const first = start > today ? start : today;
+  if (first > end) return null;
   const excluded = new Set(
     Array.isArray(event.recurrenceExcludeDates) ? event.recurrenceExcludeDates.map(String) : [],
   );
-  if (String(event.recurrenceType || "none").toLowerCase() !== "weekly") {
-    // For a consecutive multi-day event, only closure dates are skipped.
-    while (date <= end && excluded.has(date)) date = addCalendarDays(date, 1);
-    return date <= end ? date : null;
+  if (!weekly) {
+    let day = first;
+    while (day <= end && excluded.has(day)) day = addCalendarDays(day, 1);
+    return day <= end ? day : null;
   }
-
   const weekdays = new Set(
     Array.isArray(event.recurrenceWeekdays)
       ? event.recurrenceWeekdays.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
@@ -139,21 +133,25 @@ export function nextEventOccurrence(event: RecurrenceLike, today: string): strin
   );
   const special = Array.isArray(event.recurrenceIncludeDates)
     ? event.recurrenceIncludeDates.map(String)
-        .filter((day) => iso.test(day) && day >= date && day <= end && !excluded.has(day))
+        .filter((day) => iso.test(day) && day >= first && day <= end && !excluded.has(day))
         .sort()[0]
     : undefined;
 
   let regular: string | null = null;
   if (weekdays.size) {
-    // With at least one normal opening weekday, N excluded dates can skip
-    // at most N weekly occurrences. Search no more than 7*(N+1) days.
-    const limit = Math.min(5000, 7 * (excluded.size + 1) + 7);
-    for (let checked = 0; date <= end && checked < limit; checked++) {
-      if (!excluded.has(date) && weekdays.has(calendarDayOfWeek(date))) {
-        regular = date;
+    let candidate = first;
+    // Every skipped regular occurrence must occur on an explicitly excluded
+    // date. There cannot be more skipped occurrences than excluded dates.
+    for (let tries = 0; tries <= excluded.size; tries++) {
+      const weekday = calendarDayOfWeek(candidate);
+      const offset = Math.min(...[...weekdays].map((day) => (day - weekday + 7) % 7));
+      candidate = addCalendarDays(candidate, offset);
+      if (candidate > end) break;
+      if (!excluded.has(candidate)) {
+        regular = candidate;
         break;
       }
-      date = addCalendarDays(date, 1);
+      candidate = addCalendarDays(candidate, 1);
     }
   }
   if (special && (!regular || special < regular)) return special;

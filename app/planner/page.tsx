@@ -336,6 +336,8 @@ export default function PlannerPage() {
   const [locale, setLocale] = useState<AppLocale>("zh-Hant");
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [query, setQuery] = useState("");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [searchSubmitted, setSearchSubmitted] = useState(false);
   const [date, setDate] = useState(hkToday());
   const [budget, setBudget] = useState("any");
   const [timeOfDay, setTimeOfDay] = useState("any");
@@ -510,7 +512,7 @@ export default function PlannerPage() {
     recognition.maxAlternatives = 1;
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
       const transcript = event.results?.[0]?.[0]?.transcript || "";
-      if (transcript) setQuery(transcript);
+      if (transcript) { setSearchDraft(transcript); setQuery(transcript); setSearchSubmitted(true); }
     };
     recognition.onerror = () => {
       setMessage(m.voiceFailed);
@@ -550,7 +552,7 @@ export default function PlannerPage() {
 
       <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="grid gap-4 lg:grid-cols-[180px_1fr_auto]">
+          <div className="grid gap-4 lg:grid-cols-[180px_1fr_auto_auto]">
             <label>
               <span className="text-xs font-black text-slate-600">
                 {m.dateLabel}
@@ -568,13 +570,22 @@ export default function PlannerPage() {
                 {m.playLabel}
               </span>
               <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                value={searchDraft}
+                onChange={(event) => { setSearchDraft(event.target.value); setSearchSubmitted(false); }}
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setQuery(searchDraft.trim()); setSearchSubmitted(true); document.getElementById("planner-results")?.scrollIntoView({ behavior: "smooth", block: "start" }); } }}
                 placeholder={m.placeholder}
                 className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-3"
               />
             </label>
 
+            <button
+              type="button"
+              onClick={() => { setQuery(searchDraft.trim()); setSearchSubmitted(true); document.getElementById("planner-results")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+              aria-label={locale === "en" ? "Search activities" : locale === "zh-Hans" ? "搜索活动" : "搜尋活動"}
+              className="self-end rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-black text-white transition hover:bg-emerald-700"
+            >
+              🔎 {locale === "en" ? "Search" : locale === "zh-Hans" ? "搜索" : "搜尋"}
+            </button>
             <button
               type="button"
               onClick={startVoice}
@@ -639,10 +650,11 @@ export default function PlannerPage() {
           ) : null}
         </div>
 
-        <div className="mt-7 flex items-end justify-between gap-4">
+        <div id="planner-results" className="mt-7 flex scroll-mt-24 items-end justify-between gap-4">
           <div>
             <p className="text-sm font-black text-purple-700">{date}</p>
             <h2 className="mt-1 text-2xl font-black">{m.suggestions}</h2>
+            {searchSubmitted ? <p role="status" className="mt-1 text-xs font-bold text-emerald-700">{locale === "en" ? "Search results updated" : locale === "zh-Hans" ? "搜索结果已更新" : "搜尋結果已更新"}</p> : null}
             {calendarConnected && busyPeriods.length ? (
               <p className="mt-1 text-xs font-bold text-blue-700">
                 {m.avoidedBusy(busyPeriods.length)}

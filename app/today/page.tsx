@@ -5,6 +5,7 @@ import { getPublishedEvents } from "@/lib/supabase/events";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import { eventOccursOn } from "@/lib/events/recurrence";
+import { cheungChauLibraryHours, isCheungChauLibraryDisplay } from "@/lib/events/hkpl-opening-hours";
 import { groupTodaySchedule, TODAY_PERIODS, type TodayPeriod } from "@/lib/events/today-schedule";
 import TodayScheduleRow from "@/components/events/TodayScheduleRow";
 import type { AppLocale } from "@/lib/i18n/config";
@@ -72,7 +73,14 @@ export default async function TodayPage() {
       today,
     ),
   );
-  const schedule = groupTodaySchedule(todayEvents);
+  const scheduledEvents = todayEvents.flatMap((event) => {
+    if (!isCheungChauLibraryDisplay(event)) return [event];
+    const hours = cheungChauLibraryHours(today);
+    // Library closure is authoritative even if the source import still
+    // represents the month as one continuous date range.
+    return hours ? [{ ...event, time: `${hours.start} - ${hours.end}` }] : [];
+  });
+  const schedule = groupTodaySchedule(scheduledEvents);
   const activePeriods = TODAY_PERIODS.filter(period => schedule[period].length > 0);
 
   const displayDate = new Intl.DateTimeFormat(
@@ -91,7 +99,7 @@ export default async function TodayPage() {
               <p className="mt-2 text-sm font-medium text-white/90">{displayDate}</p>
             </div>
             <div className="shrink-0 rounded-2xl border border-white/25 bg-white/15 px-4 py-3 text-center">
-              <p className="text-2xl font-black tabular-nums sm:text-3xl">{todayEvents.length}</p>
+              <p className="text-2xl font-black tabular-nums sm:text-3xl">{scheduledEvents.length}</p>
               <p className="text-[11px] font-semibold text-white/90">{p.todayCount}</p>
             </div>
           </div>

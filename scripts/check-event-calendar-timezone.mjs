@@ -4,6 +4,8 @@ const sources = {
   sharedCard: await readFile("components/events/PublicEventCard.tsx", "utf8"),
   cardDate: await readFile("lib/events/card-date.ts", "utf8"),
   publicMapper: await readFile("lib/supabase/events.ts", "utf8"),
+  eventVisibility: await readFile("lib/events/visibility.ts", "utf8"),
+  recurrence: await readFile("lib/events/recurrence.ts", "utf8"),
   eventSearch: await readFile("components/events/PublicEventsSearchClient.tsx", "utf8"),
   eventDetail: await readFile("app/events/[id]/page.tsx", "utf8"),
 };
@@ -29,11 +31,22 @@ requireSignals("shared date parser", sources.cardDate, [
   'timeZone: "UTC"',
 ]);
 
-requireSignals("public mapper calendar-date parser", sources.publicMapper, [
-  "function parseCalendarDate",
-  'value.match(/^(\\d{4})-(\\d{2})-(\\d{2})/)',
-  "timeZone: \"Asia/Hong_Kong\"",
+// The public catalogue now delegates to the shared recurrence-aware
+// visibility helper instead of parsing and comparing event dates locally.
+requireSignals("public mapper delegates calendar visibility", sources.publicMapper, [
+  'isActivePublicEvent(event)',
+  'from "@/lib/events/visibility"',
   "startTime.slice(0, 5)",
+]);
+requireSignals("HK calendar day for visibility", sources.eventVisibility, [
+  "hongKongToday",
+  'timeZone: "Asia/Hong_Kong"',
+  "nextEventOccurrence",
+]);
+requireSignals("calendar-date recurrence", sources.recurrence, [
+  "eventOccursOn",
+  "startDate",
+  "endDate",
 ]);
 
 for (const [label, source] of [
