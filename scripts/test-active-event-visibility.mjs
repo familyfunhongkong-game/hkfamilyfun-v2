@@ -59,6 +59,10 @@ assert.ok(endedRoute.includes("hidden_pending_confirmation !== true"), "hidden r
 assert.ok(endedRoute.includes("end < hongKongToday()"), "only genuinely ended activity may show ended notice");
 assert.ok(!endedRoute.includes('select("*")'), "no private event data in historical status API");
 
+const admin = readFileSync("app/admin/events/page.tsx", "utf8");
+assert.ok(admin.includes('已結束／已過期'), "Admin must show time-expired badge independently of editorial status");
+assert.ok(admin.includes("const isEnded = Boolean(event.start_date) && !hasFutureSession"), "Admin must detect expired sessions");
+assert.ok(admin.includes("ready && !isEnded"), "expired listings must not be marked ready to publish");
 const files = {
   server: readFileSync("lib/supabase/events.ts", "utf8"),
   preload: readFileSync("lib/events/public-event-records.ts", "utf8"),
