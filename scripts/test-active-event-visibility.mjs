@@ -52,6 +52,13 @@ assert.equal(active(cancelledAll), false, "all remaining weekly slots cancelled"
 assert.equal(next({ ...cancelledAll, recurrence_include_dates: ["2026-11-10"] }), "2026-11-10", "special valid date restores activity");
 assert.equal(active({ ...cancelledAll, recurrence_include_dates: ["2026-11-10"], recurrence_exclude_dates: ["2026-11-06", "2026-11-13", "2026-11-20", "2026-11-10"] }), false, "excluded date overrides inclusion");
 
+const endedRoute = readFileSync("app/api/events/expired-status/route.ts", "utf8");
+assert.ok(endedRoute.includes('data.status === "published" || data.status === "archived"'), "historical link must have prior published state");
+assert.ok(endedRoute.includes("published_at"), "historical link must require publication proof");
+assert.ok(endedRoute.includes("hidden_pending_confirmation !== true"), "hidden records must not surface");
+assert.ok(endedRoute.includes("end < hongKongToday()"), "only genuinely ended activity may show ended notice");
+assert.ok(!endedRoute.includes('select("*")'), "no private event data in historical status API");
+
 const files = {
   server: readFileSync("lib/supabase/events.ts", "utf8"),
   preload: readFileSync("lib/events/public-event-records.ts", "utf8"),
@@ -63,6 +70,7 @@ assert.ok(files.server.includes("isActivePublicEvent(event)"), "home, calendar a
 assert.ok(files.preload.includes("isActivePublicEvent(event)"), "server preloaded search must be active-only");
 assert.ok(files.browser.includes("events.filter((event) => isActivePublicEvent(event, today))"), "browser search must recheck dates");
 assert.ok(files.browser.includes("nextPublicEventDate(a, today)"), "date sorting must consider next occurrence");
+assert.ok(files.detail.includes("/api/events/expired-status?id="), "expired deep links must show safe ended notice");
 assert.ok(files.detail.includes("已結束／已過期"), "detail must label inactive events");
 assert.equal((files.detail.match(/eventHasFutureOccurrence && actionUrl/g) || []).length, 3, "all three booking entry points must be disabled");
 assert.ok(!files.cron.includes(".update("), "smart expiry cron must not mutate editorial status");
