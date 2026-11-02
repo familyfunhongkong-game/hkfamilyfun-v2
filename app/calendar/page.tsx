@@ -51,7 +51,7 @@ export default async function CalendarPage({
   const monthEnd = `${selectedMonth}-${String(daysInMonth).padStart(2, "0")}`;
   const today = hkToday();
   const requestedDay = resolvedSearchParams.day;
-  const selectedDay = requestedDay && /^\\d{4}-\\d{2}-\\d{2}$/.test(requestedDay) && requestedDay.startsWith(selectedMonth + "-") && Number(requestedDay.slice(-2)) >= 1 && Number(requestedDay.slice(-2)) <= daysInMonth ? requestedDay : (today.startsWith(selectedMonth + "-") ? today : monthStart);
+  const selectedDay = requestedDay && /^\d{4}-\d{2}-\d{2}$/.test(requestedDay) && requestedDay.startsWith(selectedMonth + "-") && Number(requestedDay.slice(-2)) >= 1 && Number(requestedDay.slice(-2)) <= daysInMonth ? requestedDay : (today.startsWith(selectedMonth + "-") ? today : monthStart);
   const monthHolidays = Array.from({ length: daysInMonth }, (_, index) => {
     const day = index + 1;
     const date = `${selectedMonth}-${String(day).padStart(2, "0")}`;
