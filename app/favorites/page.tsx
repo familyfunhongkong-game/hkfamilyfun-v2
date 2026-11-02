@@ -335,8 +335,13 @@ export default function FavoritesPage() {
   }
 
   const activeEvents = events.filter((event) => savedIds.includes(event.id));
+  const availableIds = new Set(activeEvents.map((event) => event.id));
+  // Unknown or editorially withdrawn activities must NOT be fetched with a service
+  // account just to fill the saved list. Keep the bookmark ID and offer removal.
+  const unavailableIds = savedIds.filter((id) => !availableIds.has(id));
   const upcomingCount = activeEvents.filter((event) => getEventStatus(event, today) !== "expired").length;
   const expiredCount = activeEvents.length - upcomingCount;
+  const pastOrUnavailableCount = expiredCount + unavailableIds.length;
   const districts = Array.from(new Set(activeEvents.map((event) => event.district || "").filter(Boolean))).sort();
   const categories = Array.from(new Set(activeEvents.map((event) => event.activity_category || event.category || "").filter(Boolean))).sort();
   const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -380,7 +385,7 @@ export default function FavoritesPage() {
       <section className="mx-auto max-w-6xl px-4 py-7 sm:px-6 lg:px-8">
         {errorText ? <div role="alert" className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-800">{errorText}</div> : null}
         {loading ? <div className="rounded-2xl bg-white p-10 text-center font-bold text-slate-500">{m.loading}</div> : null}
-        {!loading && !activeEvents.length ? (
+        {!loading && !savedIds.length ? (
           <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center">
             <div className="text-4xl text-rose-500">♡</div>
             <h2 className="mt-4 text-2xl font-black">{m.emptyTitle}</h2>
@@ -389,7 +394,7 @@ export default function FavoritesPage() {
           </div>
         ) : null}
 
-        {!loading && activeEvents.length ? (
+        {!loading && savedIds.length ? (
           <>
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div className="flex gap-2" role="tablist" aria-label={t("收藏分類", "收藏分类", "Saved event status")}>
@@ -399,7 +404,7 @@ export default function FavoritesPage() {
                 </button>
                 <button type="button" role="tab" aria-selected={tab === "expired"} onClick={() => { setTab("expired"); setVisibleCount(20); }}
                   className={tab === "expired" ? "rounded-full bg-purple-700 px-4 py-2.5 text-sm font-black text-white" : "rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600"}>
-                  {t("已過期", "已过期", "Past events")} ({expiredCount})
+                  {t("已過期／無法查看", "已过期／无法查看", "Past / unavailable")} ({pastOrUnavailableCount})
                 </button>
               </div>
               <div className="flex rounded-xl border border-slate-200 bg-white p-1" aria-label={t("顯示方式", "显示方式", "Layout")}>
@@ -407,6 +412,20 @@ export default function FavoritesPage() {
                 <button type="button" disabled={tab === "expired"} aria-pressed={layout === "grid" && tab !== "expired"} onClick={() => setLayout("grid")} className={layout === "grid" ? "rounded-lg bg-purple-100 px-3 py-2 text-xs font-bold text-purple-800" : "px-3 py-2 text-xs font-semibold text-slate-600"}>{t("圖片", "图片", "Cards")}</button>
               </div>
             </div>
+            {tab === "expired" && unavailableIds.length > 0 ? (
+              <section aria-label={t("已下架或無法查閱的收藏", "已下架或无法查阅的收藏", "Unavailable saved events")} className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <p className="font-black">{t("有收藏活動目前無法查閱", "有收藏活动目前无法查阅", "Some saved activities are unavailable")}</p>
+                <p className="mt-1 text-xs">{t("活動可能已下架、撤回或暫時無法讀取。為保護私隱，網站不顯示未經授權的活動內容。收藏紀錄仍會保留。", "活动可能已下架、撤回或暂时无法读取。为保护隐私，网站不显示未经授权的内容。收藏记录仍会保留。", "A listing may be withdrawn or temporarily unavailable. Its details are hidden for privacy; your bookmark is retained.")}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold">{t("無法查看", "无法查看", "Unavailable")}: {unavailableIds.length}</span>
+                  {unavailableIds.map((id, index) => (
+                    <button key={id} type="button" onClick={() => removeFavorite(id)} className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-rose-700" aria-label={t("移除無法查閱的收藏", "移除无法查阅的收藏", "Remove unavailable saved event") + " " + (index + 1)}>
+                      {t("移除收藏", "移除收藏", "Remove")} #{index + 1}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
             <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <label htmlFor="saved-event-search" className="mb-2 block text-sm font-black text-slate-800">{t("搜尋收藏活動", "搜索收藏活动", "Search saved events")}</label>
               <input id="saved-event-search" type="search" value={query} onChange={(e) => { setQuery(e.target.value); setVisibleCount(20); }}
