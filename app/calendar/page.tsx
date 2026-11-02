@@ -4,6 +4,7 @@ import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import { eventOccursOn, eventOccursInRange } from "@/lib/events/recurrence";
 import ResilientEventImage from "@/components/resilient-event-image";
+import { cheungChauLibraryHours, isCheungChauLibraryDisplay } from "@/lib/events/hkpl-opening-hours";
 import { getHongKongPublicHoliday, getHongKongPublicHolidayName } from "@/lib/hk-public-holidays";
 
 export const dynamic = "force-dynamic";
@@ -123,6 +124,13 @@ export default async function CalendarPage({
     return eventTimeSortValue(a.time) - eventTimeSortValue(b.time) || a.title.localeCompare(b.title, "zh-HK");
   });
   const tr = (tc: string, sc: string, en: string) => locale === "en" ? en : locale === "zh-Hans" ? sc : tc;
+  const selectedTime = (event: (typeof events)[number]) => {
+    if (isCheungChauLibraryDisplay(event)) {
+      const hours = cheungChauLibraryHours(selectedDay);
+      return hours ? `${hours.start}–${hours.end}` : tr("該日休館", "该日休馆", "Library closed");
+    }
+    return event.time || tr("時間待主辦方確認", "时间待主办方确认", "Time not confirmed");
+  };
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -301,7 +309,7 @@ export default async function CalendarPage({
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="line-clamp-2 text-sm font-black text-slate-900 group-hover:text-purple-700 sm:text-base">{event.title}</h3>
-                      <p className="mt-1 text-xs text-slate-600">{event.time || tr("時間待主辦方確認", "时间待主办方确认", "Time not confirmed")} · {event.district || tr("地區待確認", "地区待确认", "District TBC")}</p>
+                      <p className="mt-1 text-xs text-slate-600">{selectedTime(event)} · {event.district || tr("地區待確認", "地区待确认", "District TBC")}</p>
                       <p className="mt-1 line-clamp-1 text-xs text-slate-500">{event.venue || event.organizer || ""}</p>
                     </div>
                     <span className="shrink-0 text-xs font-black text-purple-700">{tr("詳情 ›", "详情 ›", "Details ›")}</span>
