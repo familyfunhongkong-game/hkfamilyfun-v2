@@ -79,9 +79,14 @@ if (compactBegin < 0 || fullBegin < 0 || fullHeroEnd < 0) {
 
 const sharedRoutes = [
   "app/page.tsx",
-  "app/calendar/page.tsx",
   "app/favorites/page.tsx",
 ];
+
+const calendarPage = await readFile("app/calendar/page.tsx", "utf8");
+if (!calendarPage.includes("ResilientEventImage") || !calendarPage.includes("recentlyPublished.map(") || calendarPage.includes("<PublicEventCard")) {
+  console.error("[event-card] calendar must use concise selected-day rows, not oversized cards");
+  failed = true;
+}
 
 for (const file of sharedRoutes) {
   const source = await readFile(file, "utf8");
