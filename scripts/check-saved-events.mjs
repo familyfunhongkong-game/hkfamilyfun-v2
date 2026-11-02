@@ -39,3 +39,8 @@ assert.ok(source.includes('event.archived ? ('), "Expired history must render wi
 assert.ok(source.includes('if (event.archived) return "expired"'), "Archived listings must be past events");
 
 assert.ok(api.includes('event.recurrence_type === "weekly" && !event.end_date'), "Open-ended weekly records must not be mislabeled past");
+
+assert.ok(!api.includes('.in("status", ["archived", "published"])'), "Never re-expose editorially archived event details");
+assert.ok(source.includes("unavailableIds"), "Saved bookmarks must survive an event being withdrawn");
+assert.ok(source.includes("為保護私隱"), "Show privacy-preserving unavailable message");
+assert.ok(source.includes("removeFavorite(id)"), "User can remove an unavailable bookmark");
