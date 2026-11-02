@@ -650,10 +650,11 @@ export default function PlannerPage() {
           ) : null}
         </div>
 
-        <div className="mt-7 flex items-end justify-between gap-4">
+        <div id="planner-results" className="mt-7 flex scroll-mt-24 items-end justify-between gap-4">
           <div>
             <p className="text-sm font-black text-purple-700">{date}</p>
             <h2 className="mt-1 text-2xl font-black">{m.suggestions}</h2>
+            {searchSubmitted ? <p role="status" className="mt-1 text-xs font-bold text-emerald-700">{locale === "en" ? "Search results updated" : locale === "zh-Hans" ? "搜索结果已更新" : "搜尋結果已更新"}</p> : null}
             {calendarConnected && busyPeriods.length ? (
               <p className="mt-1 text-xs font-bold text-blue-700">
                 {m.avoidedBusy(busyPeriods.length)}
