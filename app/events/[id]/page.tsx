@@ -1569,101 +1569,10 @@ export default function PublicEventDetailPage() {
           </SectionCard>
         </section>
 
-        <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-2">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-purple-50 text-purple-700">
-                <Sparkles size={17} />
-              </span>
-              <h3 className="text-sm font-black text-slate-950">{m.quickFacts}</h3>
-            </div>
-
-            <div className="mt-4 space-y-2">
-              <InfoPill
-                label={m.category}
-                value={categoryLabel}
-                icon={<Sparkles size={16} />}
-              />
-              <InfoPill
-                label={m.date}
-                value={dateDisplay}
-                icon={<CalendarDays size={16} />}
-              />
-              <InfoPill
-                label={m.time}
-                value={timeDisplay}
-                icon={<Clock3 size={16} />}
-              />
-              <InfoPill
-                label={m.price}
-                value={priceDisplay}
-                icon={<Ticket size={16} />}
-              />
-              <InfoPill
-                label={uiText(locale, "適合年齡", "适合年龄", "Age")}
-                value={ageDisplay}
-                icon={<Baby size={16} />}
-              />
-              <InfoPill
-                label={m.mtr}
-                value={mtr || m.mtrTbc}
-                icon={<TrainFront size={16} />}
-                muted={!mtr}
-              />
-              <InfoPill
-                label={m.organizer}
-                value={merchantName}
-                icon={<Building2 size={16} />}
-              />
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {isSenFriendly ? <Badge tone="rose">SEN 友善</Badge> : null}
-              {isIndoor ? (
-                <Badge tone="slate">{uiText(locale, "室內", "室内", "Indoor")}</Badge>
-              ) : null}
-              <Badge tone="amber">{priceDisplay}</Badge>
-            </div>
-
-            {actionUrl ? (
-              <a
-                href={actionUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-purple-700 px-5 py-4 text-sm font-black text-white transition hover:bg-purple-800"
-              >
-                {actionLabel}
-                <ExternalLink size={15} />
-              </a>
-            ) : null}
-          </div>
-
-          <div className="rounded-3xl border border-purple-100 bg-purple-50 p-5">
-            <h3 className="text-sm font-black text-purple-950">{m.shareReminder}</h3>
-            <p className="mt-3 text-xs font-bold leading-6 text-purple-800">
-              {m.shareReminderDesc}
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => shareEvent(title, shortDescription)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-black text-purple-700 ring-1 ring-purple-100"
-              >
-                <Share2 size={14} />
-                {copiedShare ? m.linkCopied : m.share}
-              </button>
-              <button
-                type="button"
-                onClick={toggleFavorite}
-                aria-pressed={isFavorite}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-black text-rose-700 ring-1 ring-purple-100"
-              >
-                <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
-                {isFavorite ? m.saved : m.save}
-              </button>
-            </div>
-          </div>
-
+        <aside className="space-y-3 lg:self-start">
+          <p className="rounded-2xl bg-slate-100 px-4 py-3 text-xs font-semibold text-slate-600">
+            {uiText(locale, "活動詳情及主要操作已集中在頁首。", "活动详情及主要操作已集中在页首。", "Event details and actions are available above.")}
+          </p>
           <Link href={`/merchant/claim-event/${encodeURIComponent(eventId)}`} className="mb-3 inline-flex w-full items-center justify-center rounded-2xl border border-purple-200 bg-purple-50 px-5 py-3 text-sm font-bold text-purple-800 hover:bg-purple-100">{uiText(locale, "主辦單位認領此活動／補充圖片", "主办单位认领此活动／补充图片", "Organizer: claim event or add images")}</Link>
           <Link
             href="/events"
