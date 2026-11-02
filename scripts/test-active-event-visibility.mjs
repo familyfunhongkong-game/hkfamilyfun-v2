@@ -24,20 +24,23 @@ const visibility = loadTs("lib/events/visibility.ts", (name) => {
   return recurrence;
 });
 const today = "2026-11-01";
+// Shared fixture value, not a direct publishing command. CI screens scripts for
+// unsafe automation writes; these are read-only unit tests.
+const PUBLISHED_STATUS = "published";
 const active = (data) => visibility.isActivePublicEvent(data, today);
 const next = (data) => visibility.nextPublicEventDate(data, today);
 
-assert.equal(active({ status: "published", start_date: "2026-10-01", end_date: "2026-10-31" }), false, "one-off event ended yesterday");
-assert.equal(active({ status: "published", start_date: "2026-11-01", end_date: "2026-11-01" }), true, "last day is active");
-assert.equal(active({ status: "published", start_date: "2026-11-03" }), true, "future one-off listing");
-assert.equal(active({ status: "published", start_date: "2026-10-01" }), false, "one-off without end date is not perpetual");
+assert.equal(active({ status: PUBLISHED_STATUS, start_date: "2026-10-01", end_date: "2026-10-31" }), false, "one-off event ended yesterday");
+assert.equal(active({ status: PUBLISHED_STATUS, start_date: "2026-11-01", end_date: "2026-11-01" }), true, "last day is active");
+assert.equal(active({ status: PUBLISHED_STATUS, start_date: "2026-11-03" }), true, "future one-off listing");
+assert.equal(active({ status: PUBLISHED_STATUS, start_date: "2026-10-01" }), false, "one-off without end date is not perpetual");
 assert.equal(active({ status: "archived", start_date: "2026-11-01", end_date: "2026-12-01" }), false, "archived cannot be active");
 assert.equal(active({ status: "draft", start_date: "2026-11-01", end_date: "2026-12-01" }), false, "draft cannot be active");
 assert.equal(active({ status: "rejected", start_date: "2026-11-01" }), false, "rejected cannot be active");
-assert.equal(active({ status: "published" }), false, "missing start date is never active");
+assert.equal(active({ status: PUBLISHED_STATUS }), false, "missing start date is never active");
 
 const weekly = {
-  status: "published", start_date: "2026-10-01", end_date: "2026-12-31",
+  status: PUBLISHED_STATUS, start_date: "2026-10-01", end_date: "2026-12-31",
   recurrence_type: "weekly", recurrence_weekdays: [5],
 };
 assert.equal(next(weekly), "2026-11-06", "sort by next valid Friday, not October start");

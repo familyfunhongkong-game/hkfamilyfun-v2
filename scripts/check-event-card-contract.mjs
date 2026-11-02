@@ -101,7 +101,8 @@ for (const file of sharedRoutes) {
 const today = await readFile("app/today/page.tsx", "utf8");
 const todayRow = await readFile("components/events/TodayScheduleRow.tsx", "utf8");
 for (const signal of [
-  "groupTodaySchedule(todayEvents)",
+  "groupTodaySchedule(scheduledEvents)",
+  "cheungChauLibraryHours(today)",
   "eventOccursOn(",
   "Asia/Hong_Kong",
   "<TodayScheduleRow",
