@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "next dev -p 3001",
+    "prebuild": "node scripts/check-event-card-contract.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
