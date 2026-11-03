@@ -152,7 +152,7 @@ requireSignals("open-ended public data", files.publicEvents, [
   "function parseCalendarDate",
   "parseCalendarDate(event.end_date)",
   "isExpiredEvent(event)",
-  "isExplicitlyExpiredEvent(event.end_date, todayText)",
+  "isActivePublicEvent(event)",
 ]);
 
 requireSignals("open-ended launch health", files.systemHealth, [
