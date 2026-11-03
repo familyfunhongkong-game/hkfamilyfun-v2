@@ -35,4 +35,13 @@ assert.ok(qa.includes("checkedSource[event.id] === true"),"Do not provide one-cl
 assert.ok(qa.includes('AI 示意圖'),"AI images must have explicit disclosure");
 assert.ok(qa.includes("編輯／上載封面"),"Image QA must link to existing authorized image uploader");
 assert.ok(!qa.includes('.update(') && !qa.includes('.insert('),"Image QA dashboard must be read-only");
+assert.ok(qa.includes('onClick={() => void inspectOfficialSource(event)}'),"Admin queue must actually scan the provided official event URL");
+assert.ok(qa.includes('fetch("/api/import-event"'),"Image scan must reuse authenticated, DNS-guarded source importer");
+assert.ok(qa.includes('Authorization: "Bearer " + session.session.access_token'),"Source scanning requires logged-in user");
+assert.ok(qa.includes('result.event?.image_source_status === "official_candidate"'),"Queue must show validated official image candidate");
+assert.ok(qa.includes("saveApprovedCandidate(event)"),"Queue must support saving approved source artwork");
+assert.ok(qa.includes('allowedPicture[event.id] !== true'),"Operator must confirm image usage rights");
+assert.ok(qa.includes('.eq("status", "draft")'),"Image candidates must update drafts only");
+assert.ok(qa.includes('admin_review_note: [event.admin_review_note, marker]'),"Image candidate provenance must be auditable");
+assert.ok(!qa.includes('status: "published"') && !qa.includes('published_at:'),"Image queue may never publish an event");
 console.log("[source-first-event-images] PASS: source priority, HKPL icon rejection, AI disclosure, draft moderation and SSRF safety");
