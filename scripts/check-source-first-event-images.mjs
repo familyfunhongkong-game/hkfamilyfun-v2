@@ -23,4 +23,16 @@ assert.ok(route.includes('image_source_status = verifiedCover ? "official_candid
 assert.ok(page.includes("複製 AI 示意圖 Prompt"),"Admin must see AI fallback prompt");
 assert.ok(page.includes('"[IMAGE REVIEW]'),"Provenance must persist in draft notes");
 assert.ok(page.includes('status: "draft"'),"Never auto-publish an imported event");
+const qa = readFileSync("app/admin/events/image-qa/page.tsx","utf8");
+const home = readFileSync("app/admin/page.tsx","utf8");
+assert.ok(home.includes('href: "/admin/events/image-qa"'),"Admin must link the image QA worklist");
+assert.ok(qa.includes('client.rpc("is_platform_admin")'),"Image QA requires server-side enforced Admin role gate");
+assert.ok(qa.includes('auth.getUser()'),"Image QA requires valid authenticated user");
+assert.ok(qa.includes('.in("status", ["draft", "submitted", "approved"])'),"Image QA only handles unpublished drafts");
+assert.ok(qa.includes("hasEventSource(event.source_url)"),"Require event-specific source before recommending AI");
+assert.ok(qa.includes("我已核對官方活動詳情頁"),"Operator must explicitly verify original event images");
+assert.ok(qa.includes("checkedSource[event.id] === true"),"Do not provide one-click AI before human source check");
+assert.ok(qa.includes('AI 示意圖'),"AI images must have explicit disclosure");
+assert.ok(qa.includes("編輯／上載封面"),"Image QA must link to existing authorized image uploader");
+assert.ok(!qa.includes('.update(') && !qa.includes('.insert('),"Image QA dashboard must be read-only");
 console.log("[source-first-event-images] PASS: source priority, HKPL icon rejection, AI disclosure, draft moderation and SSRF safety");
