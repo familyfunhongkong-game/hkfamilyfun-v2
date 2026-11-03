@@ -14,7 +14,9 @@ type ImageQueueEvent = {
   cover_image_url: string | null;
   description_tc: string | null;
   updated_at: string | null;
+  admin_review_note: string | null;
 };
+type ScanResult = { status: "official_candidate" | "ai_needed"; url: string; prompt: string; notes: string[] };
 type Filter = "all" | "library" | "source-needed";
 const badCover = (src?: string | null) =>
   !src?.trim() || /(?:fa-eye\.svg|favicon|logo\.|placeholder|no-image)/i.test(src);
@@ -61,6 +63,9 @@ export default function AdminEventImageQaPage() {
   const [includeEnded, setIncludeEnded] = useState(false);
   const [checkedSource, setCheckedSource] = useState<Record<string, boolean>>({});
   const [notice, setNotice] = useState("");
+  const [checkingId, setCheckingId] = useState("");
+  const [scans, setScans] = useState<Record<string, ScanResult>>({});
+  const [allowedPicture, setAllowedPicture] = useState<Record<string, boolean>>({});
   const today = todayInHongKong();
 
   const load = useCallback(async () => {
@@ -77,7 +82,7 @@ export default function AdminEventImageQaPage() {
       return;
     }
     const { data, error } = await client.from("events")
-      .select("id,title_tc,status,start_date,end_date,source_url,cover_image_url,description_tc,updated_at")
+      .select("id,title_tc,status,start_date,end_date,source_url,cover_image_url,description_tc,updated_at,admin_review_note")
       .in("status", ["draft", "submitted", "approved"])
       .order("start_date", { ascending: true })
       .limit(400);
@@ -93,6 +98,83 @@ export default function AdminEventImageQaPage() {
     if (filter === "source-needed" && hasEventSource(event.source_url)) return false;
     return !query.trim() || (event.title_tc || "").toLowerCase().includes(query.trim().toLowerCase());
   }), [all, filter, includeEnded, query, today]);
+
+
+  async function inspectOfficialSource(event: ImageQueueEvent) {
+    const source = safeSource(event.source_url);
+    if (!hasEventSource(source) || !supabase) {
+      setNotice("請先補齊官方活動詳情網址，唔好只用機構首頁。");
+      return;
+    }
+    setCheckingId(event.id);
+    setNotice("");
+    try {
+      const { data: session, error: authError } = await supabase.auth.getSession();
+      if (authError || !session.session?.access_token) throw new Error("請重新登入 Admin。");
+      const response = await fetch("/api/import-event", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + session.session.access_token,
+        },
+        body: JSON.stringify({ url: source }),
+      });
+      const result: {
+        ok?: boolean;
+        error?: string;
+        event?: {
+          image_source_status?: string;
+          image_source_url?: string;
+          ai_image_prompt?: string;
+          extraction_notes?: string[];
+        };
+      } = await response.json();
+      if (!response.ok || !result.ok || !result.event) throw new Error(result.error || "官方圖片搜尋失敗。");
+      const url = safeSource(result.event.image_source_url);
+      setScans((prev) => ({
+        ...prev, [event.id]: {
+          status: result.event?.image_source_status === "official_candidate" && url ? "official_candidate" : "ai_needed",
+          url,
+          prompt: result.event?.ai_image_prompt || promptFor(event),
+          notes: result.event?.extraction_notes || [],
+        },
+      }));
+      setAllowedPicture((prev) => ({ ...prev, [event.id]: false }));
+      setCheckedSource((prev) => ({ ...prev, [event.id]: false }));
+      setNotice(url ? "已從官方活動頁發現圖片候選，請檢查畫面及使用權限。" :
+        "已掃描活動來源，未找到通過驗證的專屬圖片；請人工再核對一次。");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "官方圖片搜尋無法完成。");
+    } finally { setCheckingId(""); }
+  }
+
+  async function saveApprovedCandidate(event: ImageQueueEvent) {
+    const found = scans[event.id];
+    if (!supabase || !found?.url || found.status !== "official_candidate" ||
+        allowedPicture[event.id] !== true || event.status !== "draft") {
+      setNotice("必須先檢查官方圖片、確認使用權限，而且活動仍為草稿。");
+      return;
+    }
+    setCheckingId(event.id);
+    try {
+      const { data: rights, error: roleError } = await supabase.rpc("is_platform_admin");
+      if (roleError || rights !== true) throw new Error("管理員權限驗證失敗。");
+      const marker = "[IMAGE QA] " + new Date().toISOString() +
+        " Operator reviewed official event image relevance/permission from " +
+        (event.source_url || "") + "; candidate: " + found.url +
+        ". Stored on DRAFT only; publishing is a separate approval step.";
+      const { data, error } = await supabase.from("events").update({
+        cover_image_url: found.url,
+        admin_review_note: [event.admin_review_note, marker].filter(Boolean).join("\n"),
+        updated_at: new Date().toISOString(),
+      }).eq("id", event.id).eq("status", "draft").select("id").maybeSingle();
+      if (error || !data) throw new Error(error?.message || "草稿狀態已改變，未能儲存圖片。");
+      setAll((prev) => prev.filter((item) => item.id !== event.id));
+      setNotice("官方圖片候選已加入活動草稿並留下審核紀錄；未發布。");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "無法儲存官方圖片候選。");
+    } finally { setCheckingId(""); }
+  }
 
   const needExactSource = all.filter((event) => !hasEventSource(event.source_url)).length;
   const library = all.filter((event) => /hkpl\.gov\.hk/i.test(event.source_url || "")).length;
@@ -155,6 +237,12 @@ export default function AdminEventImageQaPage() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     {source ? <a href={source} target="_blank" rel="noopener noreferrer"
                       className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold">查看原活動網址 ↗</a> : null}
+                    {specific ? (
+                      <button type="button" disabled={checkingId === event.id} onClick={() => void inspectOfficialSource(event)}
+                        className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white disabled:opacity-60">
+                        {checkingId === event.id ? "正在掃描…" : "搜尋原活動圖片"}
+                      </button>
+                    ) : null}
                     <Link href={`/admin/events/${event.id}/edit`}
                       className="rounded-xl bg-purple-700 px-3 py-2 text-xs font-bold text-white">
                       編輯／上載封面
@@ -164,6 +252,28 @@ export default function AdminEventImageQaPage() {
                       審批資料
                     </Link>
                   </div>
+                  {scans[event.id]?.status === "official_candidate" ? (
+                    <section className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm">
+                      <p className="font-black text-emerald-900">已發現官方活動圖片候選（未經授權核實）</p>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={scans[event.id].url} alt={event.title_tc || "待核對的活動圖片"}
+                        className="mt-3 h-40 w-full rounded-xl bg-white object-contain sm:w-72" />
+                      <a href={scans[event.id].url} target="_blank" rel="noopener noreferrer"
+                        className="mt-2 block break-all text-xs font-bold text-emerald-800 underline">
+                        查看來源圖片 ↗
+                      </a>
+                      <label className="mt-3 flex items-start gap-2 text-xs font-bold text-emerald-900">
+                        <input type="checkbox" checked={allowedPicture[event.id] === true}
+                          onChange={(e) => setAllowedPicture((prev) => ({ ...prev, [event.id]: e.target.checked }))}/>
+                        我確認圖片屬於呢個活動，而且擁有使用許可／符合來源授權要求
+                      </label>
+                      <button type="button" disabled={!allowedPicture[event.id] || checkingId === event.id || event.status !== "draft"}
+                        onClick={() => void saveApprovedCandidate(event)}
+                        className="mt-3 rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white disabled:opacity-50">
+                        保存圖片到 Draft（不發布）
+                      </button>
+                    </section>
+                  ) : null}
                   {specific ? (
                     <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm">
                       <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
@@ -171,14 +281,14 @@ export default function AdminEventImageQaPage() {
                           setCheckedSource((prev) => ({ ...prev, [event.id]: e.target.checked }))} />
                         我已核對官方活動詳情頁，確定沒有適用、獲授權的活動專屬圖片
                       </label>
-                      {checked ? (
+                      {checked && scans[event.id]?.status === "ai_needed" ? (
                         <button type="button" onClick={async () => {
-                          try { await navigator.clipboard.writeText(promptFor(event)); setNotice("已複製 AI 示意圖 Prompt；請生成後上載，並交 Admin 審批。"); }
+                          try { await navigator.clipboard.writeText(scans[event.id]?.prompt || promptFor(event)); setNotice("已複製 AI 示意圖 Prompt；請生成後上載，並交 Admin 審批。"); }
                           catch { setNotice("無法複製；請檢查瀏覽器剪貼簿權限。"); }
                         }} className="mt-3 rounded-xl border border-amber-300 bg-amber-100 px-3 py-2 text-xs font-black text-amber-900">
                           複製活動專用 AI 圖片 Prompt（含 AI 示意圖標籤）
                         </button>
-                      ) : <p className="mt-2 text-xs text-slate-500">尚未確認來源前，不提供一鍵 AI 封面操作。</p>}
+                      ) : <p className="mt-2 text-xs text-slate-500">系統掃描及人工確認來源後，先可使用 AI 封面 Prompt。</p>}
                     </div>
                   ) : (
                     <p className="mt-3 text-xs font-bold text-rose-700">
