@@ -34,7 +34,9 @@ assert.ok(qa.includes("我已核對官方活動詳情頁"),"Operator must explic
 assert.ok(qa.includes("checkedSource[event.id] === true"),"Do not provide one-click AI before human source check");
 assert.ok(qa.includes('AI 示意圖'),"AI images must have explicit disclosure");
 assert.ok(qa.includes("編輯／上載封面"),"Image QA must link to existing authorized image uploader");
-assert.ok(!qa.includes('.update(') && !qa.includes('.insert('),"Image QA dashboard must be read-only");
+assert.ok(!qa.includes('.insert('),"Image QA must not create new event records");
+assert.ok(qa.includes('.eq("status", "draft")'),"Image QA may only write a cover to a draft");
+assert.ok(!qa.includes('status: "published"') && !qa.includes("published_at:"),"Image QA must never publish an event");
 assert.ok(qa.includes('onClick={() => void inspectOfficialSource(event)}'),"Admin queue must actually scan the provided official event URL");
 assert.ok(qa.includes('fetch("/api/import-event"'),"Image scan must reuse authenticated, DNS-guarded source importer");
 assert.ok(qa.includes('Authorization: "Bearer " + session.session.access_token'),"Source scanning requires logged-in user");
