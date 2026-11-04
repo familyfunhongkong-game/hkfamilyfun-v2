@@ -1,6 +1,12 @@
 import { readFile } from "node:fs/promises";
 
 const sharedCard = await readFile("components/events/PublicEventCard.tsx", "utf8");
+const cloudModule = await readFile("lib/favorites/cloud-sync.ts", "utf8");
+if (!cloudModule.includes('hkff_favorite_event_ids') || !sharedCard.includes('changeSavedEvent(event.id')) {
+  console.error("[event-card] Cloud migration must retain guest favorites and persistent per-user saved events");
+  process.exit(1);
+}
+
 
 const requiredSharedSignals = [
   "event.ageRange",
@@ -19,7 +25,6 @@ const requiredSharedSignals = [
   "toggleFavorite",
   "addToCalendar",
   "CalendarPlus",
-  "hkff_favorite_event_ids",
 ];
 
 let failed = false;
