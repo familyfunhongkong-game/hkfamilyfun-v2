@@ -12,6 +12,48 @@ import { formatEventAge } from "@/lib/events/age-display";
 import { nextEventOccurrence } from "@/lib/events/recurrence";
 import { changeSavedEvent, readSavedIds, SAVED_CHANGED, synchronizeCloudFavorites } from "@/lib/favorites/cloud-sync";
 
+type FavoriteEvent = {
+  id: string;
+  archived?: boolean;
+  title_tc?: string | null;
+  title_sc?: string | null;
+  title_en?: string | null;
+  short_description_tc?: string | null;
+  short_description_sc?: string | null;
+  short_description_en?: string | null;
+  organizer_name?: string | null;
+  merchant_name?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  recurrence_type?: string | null;
+  recurrence_weekdays?: number[] | null;
+  recurrence_include_dates?: string[] | null;
+  recurrence_exclude_dates?: string[] | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  district?: string | null;
+  mtr_station?: string | null;
+  cover_image_url?: string | null;
+  price_type?: "free" | "paid" | "mixed" | null;
+  price_display_mode?: string | null;
+  price_label?: string | null;
+  min_price?: number | string | null;
+  max_price?: number | string | null;
+  age_min?: number | null;
+  age_max?: number | null;
+  age_groups?: unknown;
+  tags?: unknown;
+  activity_category?: string | null;
+  category?: string | null;
+  is_free?: boolean | null;
+  is_sen_friendly?: boolean | null;
+  is_indoor?: boolean | null;
+  registration_url?: string | null;
+  booking_url?: string | null;
+  official_url?: string | null;
+  source_url?: string | null;
+};
+
 const readFavoriteIds = readSavedIds;
 
 function normalizeTags(value: unknown) {
