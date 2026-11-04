@@ -16,7 +16,6 @@ type CommunityPost = {
   source_url: string | null; created_at: string;
 };
 const textInput = "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-purple-500";
-const baseUrl = "https://hkfamilyfun-v2.vercel.app";
 
 function validExternalUrl(value: string) {
   if (!value.trim()) return true;
@@ -41,6 +40,10 @@ export default function CommunityTipsFeed() {
   const [authorId,setAuthorId] = useState<string | null>(null);
   const [form,setForm] = useState({display_name:"",title:"",body:"",district:"",category:"親子工作坊",event_date:"",source_url:""});
   const [saving,setSaving] = useState(false);
+  const [photos,setPhotos] = useState<File[]>([]);
+  const [likes,setLikes] = useState<Record<string,boolean>>({});
+  const [photoUrls,setPhotoUrls] = useState<Record<string,string[]>>({});
+  const [likeBusy,setLikeBusy] = useState("");
   const [notice,setNotice] = useState("");
   const [error,setError] = useState("");
 
@@ -78,6 +81,42 @@ export default function CommunityTipsFeed() {
   },[district,category,keyword,page]);
 
   const shown = useMemo(() => posts,[posts]);
+  useEffect(() => {
+    const client=supabase;
+    if (!client || !shown.length) return;
+    let active=true;
+    const ids=shown.map(post=>post.id);
+    async function loadPhotosAndLikes(){
+      const [{data:ownLikes},{data:photoRows}]=await Promise.all([
+        client.from("community_tip_likes").select("post_id").in("post_id",ids),
+        client.from("community_tip_photos").select("post_id,image_position").in("post_id",ids),
+      ]);
+      if(!active)return;
+      const nextLikes:Record<string,boolean>={};
+      const nextPhotos:Record<string,string[]>={};
+      for (const row of ownLikes||[])nextLikes[row.post_id]=true;
+      for (const row of photoRows||[]) {
+        (nextPhotos[row.post_id] ||= []).push("/api/community/photo?post="+encodeURIComponent(row.post_id)+"&position="+row.image_position);
+      }
+      setLikes(nextLikes);setPhotoUrls(nextPhotos);
+    }
+    void loadPhotosAndLikes();
+    return ()=>{active=false;};
+  },[shown,authorId]);
+
+  async function toggleLike(postId:string){
+    if(!supabase || likeBusy)return;
+    const {data:{user}}=await supabase.auth.getUser();
+    if(!user){setError("請先登入免費會員再讚好。");return;}
+    setLikeBusy(postId);
+    const liked=!!likes[postId];
+    const {error:likeError}=liked
+      ? await supabase.from("community_tip_likes").delete().eq("post_id",postId).eq("user_id",user.id)
+      : await supabase.from("community_tip_likes").insert({post_id:postId,user_id:user.id});
+    if(likeError)setError("讚好未能儲存，請再試。");
+    else setLikes(prev=>({...prev,[postId]:!liked}));
+    setLikeBusy("");
+  }
 
   useEffect(()=>{
     if(!supabase||!authorId){setMine([]);return;}
@@ -101,15 +140,35 @@ export default function CommunityTipsFeed() {
     if (form.title.length>120 || form.body.length>3000 || form.display_name.length>50) {
       setError("文字超出長度限制（標題120字、內容3000字）。");return;
     }
+    if(photos.length>4 || photos.some(file=>file.size===0 || file.size>3*1024*1024 ||
+      !["image/jpeg","image/png","image/webp"].includes(file.type))){
+      setError("最多上載四張 JPG、PNG 或 WebP 圖片，每張 3MB 以下。");return;
+    }
     setSaving(true);
-    const {error: insertError}=await supabase.from("community_tips").insert({
+    const {data:created,error: insertError}=await supabase.from("community_tips").insert({
       author_id:user.id,display_name:form.display_name.trim(),title:form.title.trim(),body:form.body.trim(),
       district:form.district,category:form.category,event_date:form.event_date||null,
       source_url:form.source_url.trim()||null,status:"pending",
-    });
+    }).select("id").single();
+    if(insertError || !created){setSaving(false);setError("投稿未能送出，請稍後再試。");return;}
+    let failed=0;
+    for(const [index,file] of photos.entries()){
+      const ext=file.type==="image/jpeg"?"jpg":file.type==="image/png"?"png":"webp";
+      const path=user.id+"/"+created.id+"/"+index+"-"+crypto.randomUUID()+"."+ext;
+      const {error:uploadError}=await supabase.storage.from("community-tip-images").upload(path,file,
+        {upsert:false,contentType:file.type,cacheControl:"3600"});
+      if(uploadError){failed++;continue;}
+      const {error:metadataError}=await supabase.from("community_tip_photos").insert({
+        post_id:created.id,image_position:index,author_id:user.id,storage_path:path,
+      });
+      if(metadataError){
+        failed++;
+        await supabase.storage.from("community-tip-images").remove([path]);
+      }
+    }
     setSaving(false);
-    if (insertError) { setError("投稿未能送出，請稍後再試。");return; }
-    setNotice("已收到投稿！內容會經審核後公開。");
+    setPhotos([]);
+    setNotice(failed ? "投稿已送審，但 "+failed+" 張圖片上載失敗。請通知管理員。" : "投稿及圖片已送交審批，未批准前不會公開。");
     setForm({display_name:"",title:"",body:"",district:"",category:"親子工作坊",event_date:"",source_url:""});
     setComposerOpen(false);
   }
@@ -140,6 +199,18 @@ export default function CommunityTipsFeed() {
               <label className="text-sm font-bold text-slate-700">活動日期（如適用）<input aria-label="活動日期" className={textInput+" mt-1"} type="date" value={form.event_date} onChange={e=>setForm({...form,event_date:e.target.value})}/></label>
               <label className="text-sm font-bold text-slate-700">活動／報名連結（如有）<input aria-label="活動連結" className={textInput+" mt-1"} type="url" placeholder="https://..." value={form.source_url} onChange={e=>setForm({...form,source_url:e.target.value})} maxLength={500}/></label>
             </div>
+            <label className="block text-sm font-bold">活動相片（最多四張，每張不超過 3MB）
+              <input className={textInput+" mt-1"} type="file" accept="image/jpeg,image/png,image/webp" multiple
+                onChange={(event)=>{
+                  const files=Array.from(event.target.files||[]);
+                  if(files.length>4 || files.some(file=>file.size===0 || file.size>3*1024*1024 ||
+                    !["image/jpeg","image/png","image/webp"].includes(file.type))){
+                    setError("最多四張 JPG／PNG／WebP，每張不超過 3 MB。");setPhotos([]);event.target.value="";return;
+                  }
+                  setPhotos(files);setError("");
+                }} />
+              <span className="mt-2 block text-xs text-slate-500">已選 {photos.length} 張；圖片會先儲存在私人空間，Admin 審批後才公開。</span>
+            </label>
             <p className="text-xs leading-6 text-slate-600">請勿公開小朋友姓名、相片、聯絡電話等私人資料。投稿不代表活動已獲平台核實。商業廣告或不相關內容可被拒絕。</p>
             {error && <p role="alert" className="text-sm font-bold text-red-700">{error}</p>}
             <button disabled={saving} className="w-fit rounded-full bg-purple-700 px-6 py-3 text-sm font-black text-white disabled:opacity-50">{saving?"提交中...":"提交審核"}</button>
@@ -164,9 +235,23 @@ export default function CommunityTipsFeed() {
             <h4 className="mt-3 text-lg font-black text-slate-950">{post.title}</h4>
             <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-slate-700">{post.body}</p>
             <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold"><span className="rounded-full bg-purple-50 px-3 py-1 text-purple-700">{post.category}</span>{post.event_date&&<span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{post.event_date}</span>}</div>
+            {(photoUrls[post.id]||[]).length>0 ? (
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {(photoUrls[post.id]||[]).slice(0,4).map((src,index)=>(
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={src} src={src} loading="lazy" alt={post.title+" 活動照片 "+(index+1)}
+                    className="aspect-square w-full rounded-xl bg-slate-100 object-cover"/>
+                ))}
+              </div>
+            ):null}
             <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
               {post.source_url && <a className="font-bold text-blue-700 underline underline-offset-2" target="_blank" rel="noopener noreferrer nofollow ugc" href={post.source_url}>查看活動來源 ↗</a>}
-              <button type="button" className="text-slate-600 underline underline-offset-2" onClick={()=>navigator.clipboard?.writeText(baseUrl+"/tips")}>分享交流區</button>
+              <button type="button" disabled={likeBusy===post.id} aria-pressed={!!likes[post.id]}
+                onClick={()=>void toggleLike(post.id)}
+                className="rounded-xl bg-rose-50 px-3 py-2 font-bold text-rose-700 disabled:opacity-50">
+                {likes[post.id]?"♥ 已讚好":"♡ 讚好"}
+              </button>
+              <button type="button" className="text-slate-600 underline underline-offset-2" onClick={()=>navigator.clipboard?.writeText(window.location.origin+"/tips")}>分享交流區</button>
               <a className="text-slate-600 underline underline-offset-2" href={`mailto:info@hkfamilyfun.com?subject=${encodeURIComponent("舉報社區帖文 "+post.id)}`}>舉報</a>
             </div>
             <CommunityReplies postId={post.id}/>
