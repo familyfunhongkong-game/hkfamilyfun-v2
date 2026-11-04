@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const source = readFileSync("app/favorites/page.tsx", "utf8");
+const savedModule = readFileSync("lib/favorites/cloud-sync.ts", "utf8");
+assert.ok(savedModule.includes('hkff_favorite_event_ids'), "Shared cloud module must preserve existing guest bookmarks");
+assert.ok(source.includes('synchronizeCloudFavorites()'), "Saved page must hydrate member cloud bookmarks");
+assert.ok(source.includes('changeSavedEvent(id, false)'), "Removing a bookmark must update private cloud");
 for (const feature of [
-  "hkff_favorite_event_ids",
   "readFavoriteIds()",
   "getEventStatus(event, today)",
   "Asia/Hong_Kong",
