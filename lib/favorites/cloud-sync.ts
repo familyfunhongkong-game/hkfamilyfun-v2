@@ -99,6 +99,7 @@ export async function changeSavedEvent(eventId: string, save: boolean): Promise<
     publishSavedIds(next);
     return { ok: true };
   }
+  const changeGeneration = sessionGeneration;
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError) return { ok: false, error: "登入驗證失敗，請稍後再試" };
   // Wait for initial guest import/cloud fetch before applying any new save.
@@ -111,6 +112,7 @@ export async function changeSavedEvent(eventId: string, save: boolean): Promise<
   const previous = readSavedIds();
   const next = save ? Array.from(new Set([...previous, eventId])) : previous.filter((id) => id !== eventId);
   if (next.length > MAX_IDS) return { ok: false, error: "收藏上限為 500 項" };
+  if (changeGeneration !== sessionGeneration) return { ok: false, error: "會員已登出，請重試" };
   publishSavedIds(next);
   if (!user) return { ok: true };
   const result = save
@@ -118,9 +120,12 @@ export async function changeSavedEvent(eventId: string, save: boolean): Promise<
         { user_id: user.id, event_id: eventId }, { onConflict: "user_id,event_id", ignoreDuplicates: true })
     : await supabase.from("user_saved_events").delete().eq("user_id", user.id).eq("event_id", eventId);
   if (result.error) {
-    publishSavedIds(previous);
-    return { ok: false, error: "雲端收藏未能儲存，已回復原有狀態" };
+    // A failed save from an old signed-out session must never restore that
+    // account's local favorites on a shared device.
+    if (changeGeneration === sessionGeneration) publishSavedIds(previous);
+    return { ok: false, error: "雲端收藏未能儲存，請重新整理後重試" };
   }
+  if (changeGeneration !== sessionGeneration) return { ok: false, error: "會員已登出，請重試" };
   return { ok: true };
 }
 
