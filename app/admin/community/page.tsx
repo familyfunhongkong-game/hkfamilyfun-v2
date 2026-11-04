@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import AdminCommunityPhotoReview from "@/components/community/AdminCommunityPhotoReview";
 
 type Tip = {id:string;display_name:string;title:string;body:string;district:string;category:string;event_date:string|null;source_url:string|null;status:"pending"|"approved"|"rejected";created_at:string;reviewed_at:string|null};
 type Filter = "pending"|"approved"|"rejected"|"all";
@@ -13,6 +14,8 @@ export default function AdminCommunityPage(){
   const [busy,setBusy]=useState<string|null>(null);
   const [loading,setLoading]=useState(true);
   const [message,setMessage]=useState("");
+  const [photoReady,setPhotoReady]=useState<Record<string,boolean>>({});
+  const [reviewConfirmed,setReviewConfirmed]=useState<Record<string,boolean>>({});
   const load=useCallback(async()=>{
     if(!supabase){setMessage("無法連接資料庫。");setLoading(false);return;}
     setLoading(true);
@@ -26,6 +29,10 @@ export default function AdminCommunityPage(){
   useEffect(()=>{void load();},[load]);
   async function review(row:Tip,status:"approved"|"rejected"){
     if(!supabase)return;
+    if(status==="approved" && (!photoReady[row.id] || !reviewConfirmed[row.id])){
+      setMessage("請先確認所有圖片可以預覽，並勾選已核實內容及個人資料。");
+      return;
+    }
     if(!window.confirm(status==="approved"?"確認公開呢則社區投稿？此動作不會建立正式活動。":"確認拒絕呢則投稿？"))return;
     setBusy(row.id);setMessage("");
     const {data:{user},error:authError}=await supabase.auth.getUser();
@@ -45,6 +52,16 @@ export default function AdminCommunityPage(){
       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500"><span className="font-black text-slate-800">{row.display_name}</span><span>· {row.district}</span><span>· {row.category}</span><span>· {new Date(row.created_at).toLocaleString("zh-HK",{timeZone:"Asia/Hong_Kong"})}</span><span className="rounded-full bg-slate-100 px-2 py-1">{tags[row.status]}</span></div>
       <h2 className="mt-3 text-lg font-black">{row.title}</h2><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-slate-700">{row.body}</p>
       <div className="mt-3 flex flex-wrap gap-3 text-sm">{row.event_date&&<span>日期：{row.event_date}</span>}{row.source_url&&<a href={row.source_url} target="_blank" rel="noopener noreferrer nofollow ugc" className="font-bold text-blue-700 underline">查看原始連結 ↗</a>}</div>
+      {row.status==="pending" ? (
+        <>
+          <AdminCommunityPhotoReview postId={row.id} onReady={(id,ready)=>setPhotoReady((current)=>current[id]===ready?current:{...current,[id]:ready})}/>
+          <label className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-900">
+            <input type="checkbox" checked={reviewConfirmed[row.id]===true}
+              onChange={(event)=>setReviewConfirmed((current)=>({...current,[row.id]:event.target.checked}))}/>
+            我已檢查活動資料、所有上載圖片、版權授權及兒童個人資料；確認適合公開。
+          </label>
+        </>
+      ):null}
       {row.status==="pending"&&<div className="mt-5 flex flex-wrap gap-3"><button disabled={busy===row.id} type="button" onClick={()=>void review(row,"approved")} className="rounded-full bg-emerald-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">批准社區公開</button><button disabled={busy===row.id} type="button" onClick={()=>void review(row,"rejected")} className="rounded-full border border-rose-300 px-5 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">拒絕</button></div>}
     </article>)}</div>}
   </div></main>;
