@@ -46,7 +46,8 @@ jobs:
           const fs = require("node:fs");
           const path = require("node:path");
 
-          const allowed = new Set(["merchant-auth-e2e.mjs"]);
+          const allowed = new Set(["merchant-auth-e2e.mjs", "test-active-event-visibility.mjs"]);
+          // The second exception is an assertion-only regression fixture; never exempt runtime automation.
           const offenders = [];
 
           for (const name of fs.readdirSync("scripts")) {
