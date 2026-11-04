@@ -16,6 +16,35 @@ type CommunityPost = {
   source_url: string | null; created_at: string;
 };
 const textInput = "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-purple-500";
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const photoRightsVersion = "2026-11";
+
+/** Re-encode photos in the browser: resize large files and remove embedded
+ * EXIF (including possible location metadata) before private upload.
+ * If re-encoding fails, do not fall back to the unprocessed photo.
+ */
+async function prepareCommunityPhoto(file: File): Promise<File> {
+  if (typeof createImageBitmap !== "function") throw new Error("瀏覽器不支援相片私隱處理，請更新瀏覽器。");
+  const bitmap = await createImageBitmap(file);
+  try {
+    if (!bitmap.width || !bitmap.height) throw new Error("圖片無法解碼。");
+    const scale = Math.min(1, 1800 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("無法安全處理圖片。");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
+    if (!blob || blob.size === 0 || blob.size > 3 * 1024 * 1024)
+      throw new Error("處理後圖片超出 3MB 上限，請選擇較細圖片。");
+    return new File([blob], "community-photo.jpg", { type: "image/jpeg" });
+  } finally {
+    bitmap.close();
+  }
+}
 
 function validExternalUrl(value: string) {
   if (!value.trim()) return true;
@@ -41,12 +70,19 @@ export default function CommunityTipsFeed() {
   const [form,setForm] = useState({display_name:"",title:"",body:"",district:"",category:"親子工作坊",event_date:"",source_url:""});
   const [saving,setSaving] = useState(false);
   const [photos,setPhotos] = useState<File[]>([]);
+  const [photoRights,setPhotoRights] = useState(false);
+  const [sharedPostId,setSharedPostId] = useState<string | null>(null);
   const [likes,setLikes] = useState<Record<string,boolean>>({});
   const [likeCounts,setLikeCounts] = useState<Record<string,number>>({});
   const [photoUrls,setPhotoUrls] = useState<Record<string,string[]>>({});
   const [likeBusy,setLikeBusy] = useState("");
   const [notice,setNotice] = useState("");
   const [error,setError] = useState("");
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("post");
+    if (id && uuidPattern.test(id)) setSharedPostId(id);
+  }, []);
 
   useEffect(() => {
     if (!supabase) { setLoading(false); setLoadError("社區服務暫時未設定，請稍後再試。"); return; }
@@ -66,20 +102,21 @@ export default function CommunityTipsFeed() {
         .select("id,author_id,display_name,title,body,district,category,event_date,source_url,created_at")
         .eq("status","approved").order("created_at",{ascending:false})
         .range(page*pageSize,(page+1)*pageSize);
-      if(district) request=request.eq("district",district);
-      if(category) request=request.eq("category",category);
+      if(sharedPostId) request=request.eq("id",sharedPostId);
+      if(!sharedPostId && district) request=request.eq("district",district);
+      if(!sharedPostId && category) request=request.eq("category",category);
       // Escape characters with special meaning in PostgreSQL LIKE patterns.
       const search=keyword.trim().replace(/[\\%_]/g, c=>"\\"+c).replace(/[(),.]/g," ");
-      if(search) request=request.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
+      if(!sharedPostId && search) request=request.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
       const {data,error:queryError}=await request;
       if(!active)return;
       setPosts(((data??[]) as CommunityPost[]).slice(0,pageSize));
-      setHasMore((data??[]).length>pageSize);
+      setHasMore(!sharedPostId && (data??[]).length>pageSize);
       setLoadError(queryError?"社區資料暫時無法讀取，請稍後再試。":"");
       setLoading(false);
     },250);
     return ()=>{active=false;clearTimeout(timer);};
-  },[district,category,keyword,page]);
+  },[district,category,keyword,page,sharedPostId]);
 
   const shown = useMemo(() => posts,[posts]);
   useEffect(() => {
@@ -110,7 +147,25 @@ export default function CommunityTipsFeed() {
     return ()=>{active=false;};
   },[shown,authorId]);
 
-  async function toggleLike(postId:string){
+  async function sharePost(post: CommunityPost) {
+    const url = new URL("/tips", window.location.origin);
+    url.searchParams.set("post", post.id);
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({ title: post.title, url: url.href });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url.href);
+        setNotice("已複製指定報料分享連結，朋友打開可直接看到該帖文。");
+      } else {
+        setError("無法自動複製。請使用瀏覽器分享功能。");
+      }
+    } catch (failure) {
+      if (failure instanceof DOMException && failure.name === "AbortError") return;
+      setError("暫時無法分享，請稍後再試。");
+    }
+  }
+
+    async function toggleLike(postId:string){
     if(!supabase || likeBusy)return;
     const {data:{user}}=await supabase.auth.getUser();
     if(!user){setError("請先登入免費會員再讚好。");return;}
@@ -149,6 +204,10 @@ export default function CommunityTipsFeed() {
     if (form.title.length>120 || form.body.length>3000 || form.display_name.length>50) {
       setError("文字超出長度限制（標題120字、內容3000字）。");return;
     }
+    if(photos.length>0 && !photoRights){
+      setError("上載相片前，請確認圖片使用權及可識別人士嘅必要同意。");
+      return;
+    }
     if(photos.length>4 || photos.some(file=>file.size===0 || file.size>3*1024*1024 ||
       !["image/jpeg","image/png","image/webp"].includes(file.type))){
       setError("最多上載四張 JPG、PNG 或 WebP 圖片，每張 3MB 以下。");return;
@@ -158,14 +217,18 @@ export default function CommunityTipsFeed() {
       author_id:user.id,display_name:form.display_name.trim(),title:form.title.trim(),body:form.body.trim(),
       district:form.district,category:form.category,event_date:form.event_date||null,
       source_url:form.source_url.trim()||null,status:"pending",
+      image_rights_acknowledged_at:photos.length>0 && photoRights ? new Date().toISOString() : null,
+      image_rights_version:photos.length>0 && photoRights ? photoRightsVersion : null,
     }).select("id").single();
     if(insertError || !created){setSaving(false);setError("投稿未能送出，請稍後再試。");return;}
     let failed=0;
     for(const [index,file] of photos.entries()){
-      const ext=file.type==="image/jpeg"?"jpg":file.type==="image/png"?"png":"webp";
-      const path=user.id+"/"+created.id+"/"+index+"-"+crypto.randomUUID()+"."+ext;
-      const {error:uploadError}=await supabase.storage.from("community-tip-images").upload(path,file,
-        {upsert:false,contentType:file.type,cacheControl:"3600"});
+      let prepared: File;
+      try { prepared = await prepareCommunityPhoto(file); }
+      catch { failed++; continue; }
+      const path=user.id+"/"+created.id+"/"+index+"-"+crypto.randomUUID()+".jpg";
+      const {error:uploadError}=await supabase.storage.from("community-tip-images").upload(path,prepared,
+        {upsert:false,contentType:"image/jpeg",cacheControl:"3600"});
       if(uploadError){failed++;continue;}
       const {error:metadataError}=await supabase.from("community_tip_photos").insert({
         post_id:created.id,image_position:index,author_id:user.id,storage_path:path,
@@ -177,6 +240,7 @@ export default function CommunityTipsFeed() {
     }
     setSaving(false);
     setPhotos([]);
+    setPhotoRights(false);
     setNotice(failed ? "投稿已送審，但 "+failed+" 張圖片上載失敗。請通知管理員。" : "投稿及圖片已送交審批，未批准前不會公開。");
     setForm({display_name:"",title:"",body:"",district:"",category:"親子工作坊",event_date:"",source_url:""});
     setComposerOpen(false);
@@ -216,10 +280,18 @@ export default function CommunityTipsFeed() {
                     !["image/jpeg","image/png","image/webp"].includes(file.type))){
                     setError("最多四張 JPG／PNG／WebP，每張不超過 3 MB。");setPhotos([]);event.target.value="";return;
                   }
-                  setPhotos(files);setError("");
+                  setPhotos(files);setPhotoRights(false);setError("");
                 }} />
               <span className="mt-2 block text-xs text-slate-500">已選 {photos.length} 張；圖片會先儲存在私人空間，Admin 審批後才公開。</span>
             </label>
+            {photos.length > 0 ? (
+              <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-6 text-amber-950">
+                <input type="checkbox" checked={photoRights} required
+                  onChange={event=>setPhotoRights(event.target.checked)}
+                  className="mt-1.5 h-4 w-4 shrink-0"/>
+                我確認自己擁有上載圖片嘅使用權或已獲授權，並已就圖片中可識別人士（尤其兒童）取得所需同意。相片將先移除附帶拍攝位置等中繼資料，再交 Admin 審批；未審批不會公開。
+              </label>
+            ) : null}
             <p className="text-xs leading-6 text-slate-600">請勿公開小朋友姓名、相片、聯絡電話等私人資料。投稿不代表活動已獲平台核實。商業廣告或不相關內容可被拒絕。</p>
             {error && <p role="alert" className="text-sm font-bold text-red-700">{error}</p>}
             <button disabled={saving} className="w-fit rounded-full bg-purple-700 px-6 py-3 text-sm font-black text-white disabled:opacity-50">{saving?"提交中...":"提交審核"}</button>
@@ -229,6 +301,17 @@ export default function CommunityTipsFeed() {
           <h3 className="text-sm font-black">我嘅投稿進度</h3>
           <div className="mt-3 grid gap-2">{mine.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-2 text-sm"><span className="max-w-xl truncate">{item.title}</span><span className="rounded-full bg-white px-3 py-1 text-xs font-bold">{item.status==="approved"?"已公開":item.status==="rejected"?"未通過審核":"待審批"}</span></div>)}</div>
         </div>}
+        {sharedPostId ? (
+          <div role="status" className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-purple-200 bg-purple-50 p-4 text-sm">
+            <span className="font-bold text-purple-900">正在查看指定報料。只有已審批公開嘅帖文可透過分享連結查閱。</span>
+            <button type="button" className="rounded-xl bg-purple-700 px-4 py-2 text-xs font-black text-white"
+              onClick={()=>{
+                window.history.replaceState(null, "", "/tips");
+                setSharedPostId(null);
+                setPage(0);
+              }}>返回全部報料</button>
+          </div>
+        ) : null}
         <div className="mt-7 grid gap-3 sm:grid-cols-3">
           <input className={textInput} aria-label="搜尋活動關鍵字" placeholder="搜尋 Workshop、STEAM、免費..." value={keyword} onChange={e=>{setPage(0);setKeyword(e.target.value)}}/>
           <select aria-label="搜尋地區" className={textInput} value={district} onChange={e=>{setPage(0);setDistrict(e.target.value)}}><option value="">全港18區</option>{districts.map(d=><option key={d}>{d}</option>)}</select>
@@ -237,9 +320,9 @@ export default function CommunityTipsFeed() {
         <div className="mt-6 flex items-center justify-between"><h3 className="text-lg font-black">最新社區分享</h3><span className="text-xs text-slate-500">{shown.length} 則分享</span></div>
         {loading && <p className="mt-4 text-sm text-slate-600">載入社區分享中...</p>}
         {!loading && loadError && <p role="status" className="mt-4 text-sm text-amber-800">{loadError}</p>}
-        {!loading && !loadError && shown.length===0 && <p className="mt-4 rounded-xl bg-slate-50 px-4 py-6 text-sm text-slate-600">暫時未有符合條件嘅分享。歡迎成為第一位報料家長！</p>}
+        {!loading && !loadError && shown.length===0 && <p className="mt-4 rounded-xl bg-slate-50 px-4 py-6 text-sm text-slate-600">{sharedPostId ? "呢則報料未公開、已被撤回或連結無效。請返回全部報料。" : "暫時未有符合條件嘅分享。歡迎成為第一位報料家長！"}</p>}
         <div className="mt-4 grid gap-4">
-          {shown.map(post=><article key={post.id} className="rounded-2xl border border-slate-200 p-5">
+          {shown.map(post=><article id={"community-post-"+post.id} key={post.id} className="rounded-2xl border border-slate-200 p-5 scroll-mt-24">
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500"><span className="font-bold text-slate-800">{post.display_name}</span><span>·</span><span>{post.district}</span><span>·</span><time dateTime={post.created_at}>{new Date(post.created_at).toLocaleDateString("zh-HK",{timeZone:"Asia/Hong_Kong"})}</time></div>
             <h4 className="mt-3 text-lg font-black text-slate-950">{post.title}</h4>
             <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-slate-700">{post.body}</p>
@@ -260,7 +343,8 @@ export default function CommunityTipsFeed() {
                 className="rounded-xl bg-rose-50 px-3 py-2 font-bold text-rose-700 disabled:opacity-50">
                 {likes[post.id]?"♥ 已讚好":"♡ 讚好"} {likeCounts[post.id]||0}
               </button>
-              <button type="button" className="text-slate-600 underline underline-offset-2" onClick={()=>navigator.clipboard?.writeText(window.location.origin+"/tips")}>分享交流區</button>
+              <button type="button" className="text-slate-600 underline underline-offset-2"
+                onClick={()=>void sharePost(post)}>分享呢則報料</button>
               <a className="text-slate-600 underline underline-offset-2" href={`mailto:info@hkfamilyfun.com?subject=${encodeURIComponent("舉報社區帖文 "+post.id)}`}>舉報</a>
             </div>
             <CommunityReplies postId={post.id}/>
