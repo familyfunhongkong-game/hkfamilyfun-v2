@@ -88,6 +88,7 @@ export default function CommunityTipsFeed() {
     let active=true;
     const ids=shown.map(post=>post.id);
     async function loadPhotosAndLikes(){
+      if (!client) return;
       const [{data:ownLikes},photoResult]=await Promise.all([
         client.from("community_tip_likes").select("post_id").in("post_id",ids),
         fetch("/api/community/photos?ids="+ids.map(encodeURIComponent).join(","),{cache:"no-store"})
