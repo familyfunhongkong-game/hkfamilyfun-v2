@@ -13,12 +13,13 @@ grant select, insert, delete on public.user_saved_events to authenticated;
 drop policy if exists "Members read own saved events" on public.user_saved_events;
 create policy "Members read own saved events" on public.user_saved_events
 for select to authenticated using ((select auth.uid()) = user_id);
-drop policy if exists "Members add own publicly visible events" on public.user_saved_events;
-create policy "Members add own publicly visible events" on public.user_saved_events
-for insert to authenticated with check (
-  (select auth.uid()) = user_id
-  and exists (select 1 from public.public_events_i18n v where v.id = event_id)
-);
+-- Foreign key ensures the event ID exists. The saved row reveals only this
+-- user's own event UUID. Public event data remains controlled by RLS and
+-- /api/saved-events, including withdrawal and past-event exclusions.
+-- Allow migration of historic bookmarks without re-publishing the event.
+drop policy if exists "Members add own event bookmark" on public.user_saved_events;
+create policy "Members add own event bookmark" on public.user_saved_events
+for insert to authenticated with check ((select auth.uid()) = user_id);
 drop policy if exists "Members remove own saved events" on public.user_saved_events;
 create policy "Members remove own saved events" on public.user_saved_events
 for delete to authenticated using ((select auth.uid()) = user_id);
