@@ -93,6 +93,8 @@ function kindLabel(kind: string) {
   if (kind === "event_submitted") return "活動待審";
   if (kind === "event_status_changed") return "活動狀態";
   if (kind === "merchant_status_changed") return "商戶狀態";
+  if (kind === "community_tip_submitted") return "新報料待審批";
+  if (kind === "community_reply_submitted") return "新留言待審批";
   return kind;
 }
 
