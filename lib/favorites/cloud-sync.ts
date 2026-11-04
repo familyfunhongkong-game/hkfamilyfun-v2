@@ -5,6 +5,7 @@ export const SAVED_CHANGED = "hkff:favorites-changed";
 const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_IDS = 500;
 const importedKey = (userId: string) => "hkff:cloud-imported:" + userId;
+const lastMemberKey = "hkff:last-cloud-member";
 
 export function readSavedIds(): string[] {
   if (typeof window === "undefined") return [];
@@ -35,6 +36,10 @@ export function synchronizeCloudFavorites(): Promise<CloudSyncResult> {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError) return { loggedIn: false, count: readSavedIds().length, error: "無法驗證會員登入" };
     if (!user) return { loggedIn: false, count: readSavedIds().length };
+    // Protect shared devices: an account switch must never import another
+    // person's offline favorites into this user's private cloud list.
+    const previousMember = localStorage.getItem(lastMemberKey);
+    if (previousMember && previousMember !== user.id) publishSavedIds([]);
     const { data: rows, error: fetchError } = await supabase.from("user_saved_events")
       .select("event_id").eq("user_id", user.id).order("created_at", { ascending: true }).limit(MAX_IDS);
     if (fetchError) return { loggedIn: true, count: readSavedIds().length, error: "雲端收藏暫時無法連線" };
@@ -54,6 +59,7 @@ export function synchronizeCloudFavorites(): Promise<CloudSyncResult> {
       }
       localStorage.setItem(importedKey(user.id), "1");
     }
+    localStorage.setItem(lastMemberKey, user.id);
     publishSavedIds(cloudIds);
     return { loggedIn: true, count: cloudIds.length };
   };
@@ -63,13 +69,24 @@ export function synchronizeCloudFavorites(): Promise<CloudSyncResult> {
 
 export async function changeSavedEvent(eventId: string, save: boolean): Promise<{ ok: boolean; error?: string }> {
   if (!idPattern.test(eventId)) return { ok: false, error: "活動 ID 無效" };
+  if (!supabase) {
+    const ids = readSavedIds();
+    const next = save ? Array.from(new Set([...ids, eventId])) : ids.filter((id) => id !== eventId);
+    if (next.length > MAX_IDS) return { ok: false, error: "收藏上限為 500 項" };
+    publishSavedIds(next);
+    return { ok: true };
+  }
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) return { ok: false, error: "登入驗證失敗，請稍後再試" };
+  // Wait for initial guest import/cloud fetch before applying any new save.
+  if (user) {
+    const synced = await synchronizeCloudFavorites();
+    if (synced.error) return { ok: false, error: synced.error };
+  }
   const previous = readSavedIds();
   const next = save ? Array.from(new Set([...previous, eventId])) : previous.filter((id) => id !== eventId);
   if (next.length > MAX_IDS) return { ok: false, error: "收藏上限為 500 項" };
   publishSavedIds(next);
-  if (!supabase) return { ok: true }; // Guest bookmark remains local.
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError) { publishSavedIds(previous); return { ok: false, error: "登入驗證失敗，已恢復原有收藏" }; }
   if (!user) return { ok: true };
   const result = save
     ? await supabase.from("user_saved_events").upsert(
@@ -85,5 +102,6 @@ export async function changeSavedEvent(eventId: string, save: boolean): Promise<
 export function forgetLocalFavoritesOnLogout() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(SAVED_EVENT_KEY);
+  localStorage.removeItem(lastMemberKey);
   window.dispatchEvent(new CustomEvent(SAVED_CHANGED));
 }
