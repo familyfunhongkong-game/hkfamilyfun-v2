@@ -87,16 +87,19 @@ export default function CommunityTipsFeed() {
     let active=true;
     const ids=shown.map(post=>post.id);
     async function loadPhotosAndLikes(){
-      const [{data:ownLikes},{data:photoRows}]=await Promise.all([
+      const [{data:ownLikes},photoResult]=await Promise.all([
         client.from("community_tip_likes").select("post_id").in("post_id",ids),
-        client.from("community_tip_photos").select("post_id,image_position").in("post_id",ids),
+        fetch("/api/community/photos?ids="+ids.map(encodeURIComponent).join(","),{cache:"no-store"})
+          .then(res=>res.ok?res.json():{photos:{}}).catch(()=>({photos:{}})),
       ]);
       if(!active)return;
       const nextLikes:Record<string,boolean>={};
       const nextPhotos:Record<string,string[]>={};
       for (const row of ownLikes||[])nextLikes[row.post_id]=true;
-      for (const row of photoRows||[]) {
-        (nextPhotos[row.post_id] ||= []).push("/api/community/photo?post="+encodeURIComponent(row.post_id)+"&position="+row.image_position);
+      for (const [postId,positions] of Object.entries(photoResult.photos || {})) {
+        if(!ids.includes(postId) || !Array.isArray(positions))continue;
+        nextPhotos[postId]=positions.slice(0,4).filter((position):position is number=>Number.isInteger(position) && position>=0 && position<=3)
+          .map(position=>"/api/community/photo?post="+encodeURIComponent(postId)+"&position="+position);
       }
       setLikes(nextLikes);setPhotoUrls(nextPhotos);
     }
