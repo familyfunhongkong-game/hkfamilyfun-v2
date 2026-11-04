@@ -101,6 +101,8 @@ export async function changeSavedEvent(eventId: string, save: boolean): Promise<
 
 export function forgetLocalFavoritesOnLogout() {
   if (typeof window === "undefined") return;
+  const previousMember = localStorage.getItem(lastMemberKey);
+  if (previousMember) localStorage.removeItem(importedKey(previousMember));
   localStorage.removeItem(SAVED_EVENT_KEY);
   localStorage.removeItem(lastMemberKey);
   window.dispatchEvent(new CustomEvent(SAVED_CHANGED));
