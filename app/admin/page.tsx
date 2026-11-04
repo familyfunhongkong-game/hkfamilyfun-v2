@@ -14,6 +14,7 @@ const groups = [
       { href: "/admin/operations", title: "Operations Hub", description: "Supabase、Google Drive、表單、同步狀態、待處理數據及營運指標集中管理。", tone: "purple" },
       { href: "/admin/reports", title: "Reports / QA", description: "集中睇活動資料缺漏、過期公開、同步錯誤、Intake backlog 同內容營運狀態。", tone: "rose" },
       { href: "/admin/notifications", title: "通知中心", description: "查看新商戶、活動建立、修改及待審通知。", tone: "amber" },
+      { href: "/admin/community", title: "報料區投稿審批", description: "審核家長會員分享、留言與圖片；只有批准內容會公開，並保留操作紀錄。", tone: "emerald" },
       { href: "/admin/change-history", title: "商戶及活動變更歷史", description: "按日期及活動查看建立、修改、提交、狀態改動及刪除紀錄。", tone: "sky" },
       { href: "/admin/events/image-qa", title: "活動圖片待辦／AI 示意圖", description: "先查原活動專屬圖片，再審核 AI 示意圖；集中修復錯誤圖示及缺圖草稿。", tone: "amber" },
       { href: "/admin/event-claim-images", title: "主辦單位補圖審批", description: "預覽及核對已認領活動海報，批准後才替換活動封面。", tone: "emerald" },
