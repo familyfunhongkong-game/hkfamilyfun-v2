@@ -18,7 +18,7 @@ for(const [name,source,tokens] of [
  ["reply moderation",adminReplies,['community_tip_replies','.eq("status","pending")','reviewed_by:user.id']],
  ["public single image",photo,['.eq("status","approved")','.eq("post_id",postId)','.eq("image_position",position)','createSignedUrl(photo.storage_path,60)','split("/")']],
  ["public photo list",photos,['.eq("status","approved")','approvedIds','"community_tip_photos"','"community_tip_likes"']],
- ["RLS",schema,['enable row level security','Member likes approved posts only','user_id=(select auth.uid())','image_position between 0 and 3','storage_path','public.is_platform_admin()','public,false']],
+ ["RLS",schema,['enable row level security','Member likes approved posts only','user_id=(select auth.uid())','image_position between 0 and 3','storage_path','public.is_platform_admin()',"'community-tip-images','community-tip-images',false"]],
  ["post moderation",posts,["status = 'approved'","status = 'pending'","is_platform_admin()"]],
  ["reply moderation schema",replySchema,["status='approved'","status='pending'","is_platform_admin()"]],
 ])for(const token of tokens) assert.ok(source.includes(token),name+" missing contract "+token);
