@@ -149,10 +149,8 @@ requireSignals("open-ended event visibility", files.visibility, [
 
 requireSignals("open-ended public data", files.publicEvents, [
   "isInternalTestEvent",
-  "function parseCalendarDate",
-  "parseCalendarDate(event.end_date)",
-  "isExpiredEvent(event)",
-  "isExplicitlyExpiredEvent(event.end_date, todayText)",
+  "isActivePublicEvent(event)",
+  "isActivePublicEvent(event)",
 ]);
 
 requireSignals("open-ended launch health", files.systemHealth, [
