@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PosterTipForm from "@/components/tips/PosterTipForm";
+import CommunityTipsFeed from "@/components/community/CommunityTipsFeed";
 import { getExtraPublicMessages } from "@/lib/i18n/public-extra-messages";
 import { getServerLocale } from "@/lib/i18n/server";
 
@@ -76,6 +77,8 @@ export default async function TipsPage() {
           </a>
         </article>
       </section>
+
+      <CommunityTipsFeed />
 
       <PosterTipForm />
 
