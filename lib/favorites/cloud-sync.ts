@@ -25,17 +25,29 @@ export function publishSavedIds(ids: string[]) {
 
 export type CloudSyncResult = { loggedIn: boolean; count: number; error?: string };
 let running: Promise<CloudSyncResult> | null = null;
+// Invalidated synchronously on sign-out or account change; a pending network
+// response must never repopulate another person's bookmark cache.
+let sessionGeneration = 0;
+export function invalidateCloudFavoriteSession() {
+  sessionGeneration += 1;
+  running = null;
+}
+
 
 /** Initial login imports guest bookmarks once, then cloud is authoritative.
  * On future sign-ins, deleted cloud bookmarks are never resurrected from a
  * stale copy on another device. On logout clear the shared browser key. */
 export function synchronizeCloudFavorites(): Promise<CloudSyncResult> {
   if (running) return running;
+  const generation = sessionGeneration;
   const task = async (): Promise<CloudSyncResult> => {
+    const cancelled = () => generation !== sessionGeneration;
+
     if (!supabase) return { loggedIn: false, count: readSavedIds().length, error: "會員資料庫未設定" };
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError) return { loggedIn: false, count: readSavedIds().length, error: "無法驗證會員登入" };
     if (!user) return { loggedIn: false, count: readSavedIds().length };
+    if (cancelled()) return { loggedIn: false, count: 0, error: "會員登入狀態已變更，請重新同步" };
     // Protect shared devices: an account switch must never import another
     // person's offline favorites into this user's private cloud list.
     const previousMember = localStorage.getItem(lastMemberKey);
@@ -43,6 +55,7 @@ export function synchronizeCloudFavorites(): Promise<CloudSyncResult> {
     const { data: rows, error: fetchError } = await supabase.from("user_saved_events")
       .select("event_id").eq("user_id", user.id).order("created_at", { ascending: true }).limit(MAX_IDS);
     if (fetchError) return { loggedIn: true, count: readSavedIds().length, error: "雲端收藏暫時無法連線" };
+    if (cancelled()) return { loggedIn: false, count: 0, error: "同步途中會員登入狀態已變更" };
     let cloudIds = (rows || []).map((row: { event_id: string }) => row.event_id).filter((id) => idPattern.test(id));
     const isFirstImport = localStorage.getItem(importedKey(user.id)) !== "1";
     if (isFirstImport) {
@@ -54,16 +67,26 @@ export function synchronizeCloudFavorites(): Promise<CloudSyncResult> {
           const { error } = await supabase.from("user_saved_events")
             .upsert(batch, { onConflict: "user_id,event_id", ignoreDuplicates: true });
           if (error) return { loggedIn: true, count: readSavedIds().length, error: "舊收藏同步失敗，已保留本機資料" };
+          if (cancelled()) return { loggedIn: false, count: 0, error: "同步途中會員登入狀態已變更" };
         }
         cloudIds = Array.from(new Set([...cloudIds, ...toAdd]));
       }
       localStorage.setItem(importedKey(user.id), "1");
     }
+    // Final identity check is necessary even when no sign-out callback fired:
+    // users can switch sessions while a remote Supabase query is pending.
+    const { data: latest } = await supabase.auth.getUser();
+    if (cancelled() || latest.user?.id !== user.id) {
+      return { loggedIn: false, count: 0, error: "同步途中會員登入狀態已變更" };
+    }
     localStorage.setItem(lastMemberKey, user.id);
     publishSavedIds(cloudIds);
     return { loggedIn: true, count: cloudIds.length };
   };
-  running = task().finally(() => { running = null; });
+  const thisRun = task().finally(() => {
+    if (running === thisRun) running = null;
+  });
+  running = thisRun;
   return running;
 }
 
@@ -82,6 +105,8 @@ export async function changeSavedEvent(eventId: string, save: boolean): Promise<
   if (user) {
     const synced = await synchronizeCloudFavorites();
     if (synced.error) return { ok: false, error: synced.error };
+    const { data: current } = await supabase.auth.getUser();
+    if (current.user?.id !== user.id) return { ok: false, error: "登入狀態已變更，請重試收藏" };
   }
   const previous = readSavedIds();
   const next = save ? Array.from(new Set([...previous, eventId])) : previous.filter((id) => id !== eventId);
@@ -101,6 +126,7 @@ export async function changeSavedEvent(eventId: string, save: boolean): Promise<
 
 export function forgetLocalFavoritesOnLogout() {
   if (typeof window === "undefined") return;
+  invalidateCloudFavoriteSession();
   const previousMember = localStorage.getItem(lastMemberKey);
   if (previousMember) localStorage.removeItem(importedKey(previousMember));
   localStorage.removeItem(SAVED_EVENT_KEY);
