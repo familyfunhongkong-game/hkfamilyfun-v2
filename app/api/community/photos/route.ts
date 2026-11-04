@@ -24,5 +24,8 @@ export async function GET(request:NextRequest){
     if(!Number.isInteger(row.image_position)||row.image_position<0||row.image_position>3)continue;
     (photos[row.post_id] ||= []).push(row.image_position);
   }
-  return NextResponse.json({photos},{headers});
+  const {data:likes}=await db.from("community_tip_likes").select("post_id").in("post_id",approvedIds);
+  const counts:Record<string,number>={};
+  for(const item of likes||[])counts[item.post_id]=(counts[item.post_id]||0)+1;
+  return NextResponse.json({photos,likeCounts:counts},{headers});
 }
