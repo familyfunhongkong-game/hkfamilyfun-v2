@@ -47,7 +47,11 @@ const db={
        const q={
          eq(field,val){assert.equal(field,"user_id");id=val;return q;},
          order(){return q;},
-         async limit(){return {data:[...(rows.get(id)||[])].map(event_id=>({event_id})),error:null}}
+         async limit(){
+           if (db.readStarted) db.readStarted();
+           if (db.blockRead) await db.blockRead;
+           return {data:[...(rows.get(id)||[])].map(event_id=>({event_id})),error:null};
+         }
        };
        return q;
      },
@@ -100,4 +104,22 @@ assert.equal((await changeSavedEvent(E1,false)).ok,true);
 assert.ok(!rows.get(U1)?.has(E1),"Unsave deletes only own row");
 assert.ok(rows.get(U2)?.has(E1),"Unsave cannot affect another user's record");
 assert.ok(notifications.includes("hkff:favorites-changed"),"Saved widgets must refresh on sync");
+// Network race: a delayed cloud response must not re-populate a user cache
+// after SIGNED_OUT on a shared browser.
+forgetLocalFavoritesOnLogout();
+user={id:U1};
+let beginRead;
+const started=new Promise(resolve=>{beginRead=resolve;});
+let release;
+db.blockRead=new Promise(resolve=>{release=resolve;});
+db.readStarted=()=>beginRead();
+const waiting=synchronizeCloudFavorites();
+await started;
+forgetLocalFavoritesOnLogout();
+user=null;
+release();
+const stale=await waiting;
+assert.ok(stale.error,"Old session must be invalidated while sync is pending");
+assert.equal(readSavedIds().length,0,"No private cached bookmarks after delayed signout response");
+db.readStarted=null;db.blockRead=null;
 console.log("[parent-membership] PASS: RLS contract, signup/auth UI, first import, account switching, logout, save and unsave");
