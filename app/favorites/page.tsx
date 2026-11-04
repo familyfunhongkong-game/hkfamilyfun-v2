@@ -10,70 +10,9 @@ import PublicEventCard from "@/components/events/PublicEventCard";
 import type { Event } from "@/lib/types";
 import { formatEventAge } from "@/lib/events/age-display";
 import { nextEventOccurrence } from "@/lib/events/recurrence";
+import { changeSavedEvent, readSavedIds, SAVED_CHANGED, synchronizeCloudFavorites } from "@/lib/favorites/cloud-sync";
 
-const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
-const EVENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-type FavoriteEvent = {
-  id: string;
-  archived?: boolean;
-  title_tc?: string | null;
-  title_sc?: string | null;
-  title_en?: string | null;
-  short_description_tc?: string | null;
-  short_description_sc?: string | null;
-  short_description_en?: string | null;
-  organizer_name?: string | null;
-  merchant_name?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  recurrence_type?: string | null;
-  recurrence_weekdays?: number[] | null;
-  recurrence_include_dates?: string[] | null;
-  recurrence_exclude_dates?: string[] | null;
-  start_time?: string | null;
-  end_time?: string | null;
-  district?: string | null;
-  mtr_station?: string | null;
-  cover_image_url?: string | null;
-  price_type?: "free" | "paid" | "mixed" | null;
-  price_display_mode?: string | null;
-  price_label?: string | null;
-  min_price?: number | string | null;
-  max_price?: number | string | null;
-  age_min?: number | null;
-  age_max?: number | null;
-  age_groups?: unknown;
-  tags?: unknown;
-  activity_category?: string | null;
-  category?: string | null;
-  is_free?: boolean | null;
-  is_sen_friendly?: boolean | null;
-  is_indoor?: boolean | null;
-  registration_url?: string | null;
-  booking_url?: string | null;
-  official_url?: string | null;
-  source_url?: string | null;
-};
-
-function readFavoriteIds(): string[] {
-  try {
-    const raw = window.localStorage.getItem(FAVORITES_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    return Array.from(
-      new Set(
-        parsed
-          .map((item) => String(item || "").trim())
-          .filter((id) => EVENT_ID_PATTERN.test(id)),
-      ),
-    );
-  } catch {
-    return [];
-  }
-}
+const readFavoriteIds = readSavedIds;
 
 function normalizeTags(value: unknown) {
   if (Array.isArray(value)) {
@@ -244,6 +183,14 @@ export default function FavoritesPage() {
   const t = (tc: string, sc: string, en: string) => translate(locale, tc, sc, en);
 
   useEffect(() => {
+    let active = true;
+    void synchronizeCloudFavorites().then((result) => {
+      if (active && result.error) setErrorText(result.error);
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     let ignore = false;
     const activeLocale = getClientLocale();
     const activeMessages = getExtraPublicMessages(activeLocale).favorites;
@@ -318,19 +265,21 @@ export default function FavoritesPage() {
       setReloadSignal((count) => count + 1);
     };
     window.addEventListener("storage", syncIds);
-    window.addEventListener("hkff:favorites-changed", syncIds);
+    window.addEventListener(SAVED_CHANGED, syncIds);
     return () => {
       ignore = true;
       window.removeEventListener("storage", syncIds);
-      window.removeEventListener("hkff:favorites-changed", syncIds);
+      window.removeEventListener(SAVED_CHANGED, syncIds);
     };
   }, [reloadSignal]);
 
-  function removeFavorite(id: string) {
-    const nextIds = readFavoriteIds().filter((item) => item !== id);
-    window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(nextIds));
-    window.dispatchEvent(new CustomEvent("hkff:favorites-changed"));
-    setSavedIds(nextIds);
+  async function removeFavorite(id: string) {
+    const result = await changeSavedEvent(id, false);
+    if (!result.ok) {
+      setErrorText(result.error || "取消收藏失敗，請重試。");
+      return;
+    }
+    setSavedIds(readSavedIds());
     setEvents((current) => current.filter((event) => event.id !== id));
   }
 
@@ -419,7 +368,7 @@ export default function FavoritesPage() {
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="text-xs font-bold">{t("無法查看", "无法查看", "Unavailable")}: {unavailableIds.length}</span>
                   {unavailableIds.map((id, index) => (
-                    <button key={id} type="button" onClick={() => removeFavorite(id)} className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-rose-700" aria-label={t("移除無法查閱的收藏", "移除无法查阅的收藏", "Remove unavailable saved event") + " " + (index + 1)}>
+                    <button key={id} type="button" onClick={() => void removeFavorite(id)} className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-rose-700" aria-label={t("移除無法查閱的收藏", "移除无法查阅的收藏", "Remove unavailable saved event") + " " + (index + 1)}>
                       {t("移除收藏", "移除收藏", "Remove")} #{index + 1}
                     </button>
                   ))}
@@ -464,7 +413,7 @@ export default function FavoritesPage() {
                 {displayed.map((event) => (
                   <div key={event.id} className="relative">
                     <PublicEventCard event={toPublicEvent(event, locale)} locale={locale} />
-                    <button type="button" onClick={() => removeFavorite(event.id)} className="absolute right-3 top-3 z-30 rounded-full bg-white px-3 py-2 text-xs font-black text-rose-700 shadow-md">
+                    <button type="button" onClick={() => void removeFavorite(event.id)} className="absolute right-3 top-3 z-30 rounded-full bg-white px-3 py-2 text-xs font-black text-rose-700 shadow-md">
                       ♥ {m.remove}
                     </button>
                   </div>
@@ -495,7 +444,7 @@ export default function FavoritesPage() {
                         {event.archived ? (
                           <button type="button" onClick={() => setExpandedPastId((value) => value === event.id ? null : event.id)} aria-expanded={expandedPastId === event.id} className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-white">{t("歷史資料", "历史资料", "Past details")}</button>
                         ) : <Link href={"/events/" + event.id} className="rounded-lg bg-purple-700 px-3 py-2 text-xs font-bold text-white">{t("詳情", "详情", "Details")}</Link>}
-                        <button type="button" onClick={() => removeFavorite(event.id)} aria-label={t("取消收藏", "取消收藏", "Remove saved event")} className="rounded-lg border border-rose-100 px-2 py-1.5 text-xs font-bold text-rose-700">{t("移除", "移除", "Remove")}</button>
+                        <button type="button" onClick={() => void removeFavorite(event.id)} aria-label={t("取消收藏", "取消收藏", "Remove saved event")} className="rounded-lg border border-rose-100 px-2 py-1.5 text-xs font-bold text-rose-700">{t("移除", "移除", "Remove")}</button>
                       </div>
                       {event.archived && expandedPastId === event.id ? (
                         <div className="basis-full rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700">
