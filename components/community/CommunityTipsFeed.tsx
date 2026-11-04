@@ -42,6 +42,7 @@ export default function CommunityTipsFeed() {
   const [saving,setSaving] = useState(false);
   const [photos,setPhotos] = useState<File[]>([]);
   const [likes,setLikes] = useState<Record<string,boolean>>({});
+  const [likeCounts,setLikeCounts] = useState<Record<string,number>>({});
   const [photoUrls,setPhotoUrls] = useState<Record<string,string[]>>({});
   const [likeBusy,setLikeBusy] = useState("");
   const [notice,setNotice] = useState("");
@@ -102,6 +103,7 @@ export default function CommunityTipsFeed() {
           .map(position=>"/api/community/photo?post="+encodeURIComponent(postId)+"&position="+position);
       }
       setLikes(nextLikes);setPhotoUrls(nextPhotos);
+      setLikeCounts(photoResult.likeCounts || {});
     }
     void loadPhotosAndLikes();
     return ()=>{active=false;};
@@ -117,7 +119,10 @@ export default function CommunityTipsFeed() {
       ? await supabase.from("community_tip_likes").delete().eq("post_id",postId).eq("user_id",user.id)
       : await supabase.from("community_tip_likes").insert({post_id:postId,user_id:user.id});
     if(likeError)setError("讚好未能儲存，請再試。");
-    else setLikes(prev=>({...prev,[postId]:!liked}));
+    else {
+      setLikes(prev=>({...prev,[postId]:!liked}));
+      setLikeCounts(prev=>({...prev,[postId]:Math.max(0,(prev[postId]||0)+(liked?-1:1))}));
+    }
     setLikeBusy("");
   }
 
@@ -252,7 +257,7 @@ export default function CommunityTipsFeed() {
               <button type="button" disabled={likeBusy===post.id} aria-pressed={!!likes[post.id]}
                 onClick={()=>void toggleLike(post.id)}
                 className="rounded-xl bg-rose-50 px-3 py-2 font-bold text-rose-700 disabled:opacity-50">
-                {likes[post.id]?"♥ 已讚好":"♡ 讚好"}
+                {likes[post.id]?"♥ 已讚好":"♡ 讚好"} {likeCounts[post.id]||0}
               </button>
               <button type="button" className="text-slate-600 underline underline-offset-2" onClick={()=>navigator.clipboard?.writeText(window.location.origin+"/tips")}>分享交流區</button>
               <a className="text-slate-600 underline underline-offset-2" href={`mailto:info@hkfamilyfun.com?subject=${encodeURIComponent("舉報社區帖文 "+post.id)}`}>舉報</a>
