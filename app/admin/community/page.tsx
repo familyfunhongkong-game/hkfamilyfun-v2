@@ -13,6 +13,7 @@ export default function AdminCommunityPage(){
   const [busy,setBusy]=useState<string|null>(null);
   const [loading,setLoading]=useState(true);
   const [message,setMessage]=useState("");
+  const [postPhotos,setPostPhotos]=useState<Record<string,string[]>>({});
   const load=useCallback(async()=>{
     if(!supabase){setMessage("無法連接資料庫。");setLoading(false);return;}
     setLoading(true);
@@ -20,6 +21,20 @@ export default function AdminCommunityPage(){
     if(filter!=="all")q=q.eq("status",filter);
     const {data,error}=await q;
     setRows((data||[]) as Tip[]);
+    // Admin can inspect pending photos in private Storage before approving
+    // a community post. The browser uses its own JWT and Storage RLS.
+    const ids=(data||[]).map(row=>row.id);
+    const photos:Record<string,string[]>={};
+    if(ids.length){
+      const {data:records}=await supabase.from("community_tip_photos")
+        .select("post_id,storage_path,image_position").in("post_id",ids).order("image_position",{ascending:true});
+      for(const record of records||[]){
+        const {data:signed}=await supabase.storage.from("community-tip-images")
+          .createSignedUrl(record.storage_path,120);
+        if(signed?.signedUrl)(photos[record.post_id] ||= []).push(signed.signedUrl);
+      }
+    }
+    setPostPhotos(photos);
     setMessage(error?"無法讀取社區投稿：請確認 Migration 及管理員權限已部署。":"");
     setLoading(false);
   },[filter]);
@@ -44,6 +59,18 @@ export default function AdminCommunityPage(){
     {loading?<p className="mt-6">載入中...</p>:rows.length===0?<p className="mt-6 rounded-2xl bg-white p-8 text-sm text-slate-600">目前沒有此類投稿。</p>:<div className="mt-6 grid gap-4">{rows.map(row=><article key={row.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500"><span className="font-black text-slate-800">{row.display_name}</span><span>· {row.district}</span><span>· {row.category}</span><span>· {new Date(row.created_at).toLocaleString("zh-HK",{timeZone:"Asia/Hong_Kong"})}</span><span className="rounded-full bg-slate-100 px-2 py-1">{tags[row.status]}</span></div>
       <h2 className="mt-3 text-lg font-black">{row.title}</h2><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-slate-700">{row.body}</p>
+      {(postPhotos[row.id]||[]).length>0 ? (
+        <section className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p className="mb-2 text-xs font-bold text-amber-900">上載圖片供管理員逐張核對；確認授權、兒童私隱及與活動關聯後方可審批。</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {(postPhotos[row.id]||[]).slice(0,4).map((url,index)=>(
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={url} src={url} alt={row.title+" 待審批圖片 "+(index+1)}
+                className="aspect-square w-full rounded-lg bg-white object-contain" />
+            ))}
+          </div>
+        </section>
+      ):null}
       <div className="mt-3 flex flex-wrap gap-3 text-sm">{row.event_date&&<span>日期：{row.event_date}</span>}{row.source_url&&<a href={row.source_url} target="_blank" rel="noopener noreferrer nofollow ugc" className="font-bold text-blue-700 underline">查看原始連結 ↗</a>}</div>
       {row.status==="pending"&&<div className="mt-5 flex flex-wrap gap-3"><button disabled={busy===row.id} type="button" onClick={()=>void review(row,"approved")} className="rounded-full bg-emerald-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">批准社區公開</button><button disabled={busy===row.id} type="button" onClick={()=>void review(row,"rejected")} className="rounded-full border border-rose-300 px-5 py-2 text-sm font-bold text-rose-700 disabled:opacity-50">拒絕</button></div>}
     </article>)}</div>}
