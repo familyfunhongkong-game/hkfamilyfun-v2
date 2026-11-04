@@ -46,7 +46,7 @@ jobs:
           const fs = require("node:fs");
           const path = require("node:path");
 
-          const allowed = new Set(["merchant-auth-e2e.mjs"]);
+          // Static regression fixtures contain a published-status example but cannot publish.\n          const allowed = new Set(["merchant-auth-e2e.mjs", "check-source-first-event-images.mjs"]);
           const offenders = [];
 
           for (const name of fs.readdirSync("scripts")) {
