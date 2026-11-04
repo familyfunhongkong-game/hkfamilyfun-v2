@@ -7,6 +7,7 @@ import LanguageSwitcher from "@/components/language-switcher";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import SiteAnalyticsTracker from "@/components/site-analytics-tracker";
 import CookiePreferences, { CookieSettingsButton } from "@/components/cookie-preferences";
+import MemberSessionSync from "@/components/auth/member-session-sync";
 import { getMessages } from "@/lib/i18n/messages";
 import { getServerLocale } from "@/lib/i18n/server";
 import { localeHtmlLang } from "@/lib/i18n/config";
@@ -392,6 +393,7 @@ export default async function RootLayout({
           {children}
         </div>
         <SiteFooter m={m} locale={locale} />
+        <MemberSessionSync />
         <CookiePreferences locale={locale} />
         <Suspense fallback={null}>
           <SiteAnalyticsTracker />
