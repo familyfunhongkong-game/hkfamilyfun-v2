@@ -20,28 +20,11 @@ import ResilientEventImage from "@/components/resilient-event-image";
 import { displayTag, tagTone } from "@/lib/events/tag-tone";
 import { formatEventCardDate } from "@/lib/events/card-date";
 import { formatWeeklyDays } from "@/lib/events/weekly-label";
+import { readSavedIds, SAVED_CHANGED, synchronizeCloudFavorites, changeSavedEvent } from "@/lib/favorites/cloud-sync";
 
 
-const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
-const FAVORITES_CHANGED_EVENT = "hkff:favorites-changed";
-
-function readFavoriteIds() {
-  if (typeof window === "undefined") return [] as string[];
-
-  try {
-    const parsed = JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) || "[]");
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeFavoriteIds(ids: string[]) {
-  localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(new Set(ids))));
-  window.dispatchEvent(new CustomEvent(FAVORITES_CHANGED_EVENT));
-}
+const FAVORITES_CHANGED_EVENT = SAVED_CHANGED;
+const readFavoriteIds = readSavedIds;
 
 function escapeIcsText(value: string) {
   return String(value || "")
@@ -245,10 +228,13 @@ export default function PublicEventCard({
   const dateText = formatEventCardDate(event.date, event.endDate, locale);
   const weeklyLabel = event.recurrenceType === "weekly" ? formatWeeklyDays(event.recurrenceWeekdays, locale) : "";
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const [favoriteError, setFavoriteError] = useState("");
 
   useEffect(() => {
     const syncFavorites = () => setFavoriteIds(readFavoriteIds());
     syncFavorites();
+    void synchronizeCloudFavorites().then((result) => { if (result.error) setFavoriteError(result.error); });
     window.addEventListener(FAVORITES_CHANGED_EVENT, syncFavorites);
     window.addEventListener("storage", syncFavorites);
     return () => {
@@ -259,12 +245,13 @@ export default function PublicEventCard({
 
   const isFavorite = favoriteIds.includes(event.id);
 
-  const toggleFavorite = () => {
-    const current = readFavoriteIds();
-    const next = current.includes(event.id)
-      ? current.filter((id) => id !== event.id)
-      : [...current, event.id];
-    writeFavoriteIds(next);
+  const toggleFavorite = async () => {
+    if (favoriteBusy) return;
+    setFavoriteBusy(true);
+    setFavoriteError("");
+    const result = await changeSavedEvent(event.id, !readFavoriteIds().includes(event.id));
+    if (!result.ok) setFavoriteError(result.error || "收藏未能儲存，請再試。");
+    setFavoriteBusy(false);
   };
 
   const addToCalendar = () => downloadCalendarEvent(event);
@@ -342,7 +329,8 @@ export default function PublicEventCard({
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
-                onClick={toggleFavorite}
+                onClick={() => void toggleFavorite()}
+                disabled={favoriteBusy}
                 aria-pressed={isFavorite}
                 aria-label={isFavorite ? text(locale, "取消收藏", "取消收藏", "Remove saved event") : text(locale, "收藏活動", "收藏活动", "Save event")}
                 className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[10px] font-black ring-1 transition ${isFavorite ? "bg-rose-50 text-rose-700 ring-rose-100" : "bg-white text-slate-600 ring-slate-200"}`}
@@ -368,6 +356,7 @@ export default function PublicEventCard({
             </div>
           </div>
         </div>
+        {favoriteError ? <p role="alert" className="px-3 pb-2 text-xs font-semibold text-rose-700">{favoriteError}</p> : null}
       </article>
     );
   }
@@ -511,7 +500,8 @@ export default function PublicEventCard({
         <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
           <button
             type="button"
-            onClick={toggleFavorite}
+            onClick={() => void toggleFavorite()}
+            disabled={favoriteBusy}
             aria-pressed={isFavorite}
             className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-black ring-1 transition ${isFavorite ? "bg-rose-50 text-rose-700 ring-rose-100" : "bg-white text-slate-700 ring-slate-200 hover:ring-rose-200 hover:text-rose-700"}`}
           >
@@ -556,6 +546,7 @@ export default function PublicEventCard({
           )}
         </div>
       </div>
+      {favoriteError ? <p role="alert" className="px-4 pb-3 text-xs font-semibold text-rose-700">{favoriteError}</p> : null}
     </article>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ParentEmailAccount from "@/components/auth/parent-email-account";
 
 export default function LoginPage() {
   return (
@@ -7,9 +8,11 @@ export default function LoginPage() {
         <p className="text-sm font-black text-purple-700">HK Family Fun</p>
         <h1 className="mt-2 text-3xl font-black text-slate-950">登入</h1>
         <p className="mt-3 text-sm leading-7 text-slate-600">
-          家長瀏覽及搜尋活動目前毋須登入。商戶／活動主辦方請使用 Merchant Portal。
+          家長可以免費註冊或使用電郵登入，跨裝置保存活動收藏及偏好；搜尋活動仍然毋須登入。
         </p>
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-6"><ParentEmailAccount /></div>
+        <p className="mt-6 text-sm font-bold text-slate-600">商戶及管理員專用入口</p>
+        <div className="mt-3 flex flex-wrap gap-3">
           <Link
             href="/merchant/login"
             className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"

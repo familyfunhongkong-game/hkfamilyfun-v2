@@ -28,6 +28,7 @@ import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 import { getEventDetailMessages } from "@/lib/i18n/event-page-messages";
 import { formatEventAge } from "@/lib/events/age-display";
 import { isActivePublicEvent } from "@/lib/events/visibility";
+import { readSavedIds, SAVED_CHANGED, synchronizeCloudFavorites, changeSavedEvent } from "@/lib/favorites/cloud-sync";
 import {
   formatEventCategory,
   normalizeEventTags,
@@ -178,7 +179,7 @@ const FALLBACK_IMAGE =
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
+
 
 function safeText(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;
@@ -678,30 +679,7 @@ function getGoogleMapEmbedUrl(event: EventRecord): string | null {
   )}&output=embed`;
 }
 
-function readFavoriteIds(): string[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(FAVORITES_STORAGE_KEY);
-    if (!raw) return [];
-
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed
-      .map((item) => String(item || "").trim())
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
-function writeFavoriteIds(ids: string[]) {
-  if (typeof window === "undefined") return;
-
-  const unique = Array.from(new Set(ids.filter(Boolean)));
-  window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(unique));
-}
+const readFavoriteIds = readSavedIds;
 
 function Badge({
   children,
@@ -806,11 +784,21 @@ export default function PublicEventDetailPage() {
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const [favoriteError, setFavoriteError] = useState("");
   const m = getEventDetailMessages(locale);
 
   useEffect(() => {
     setLocale(getClientLocale());
-    setFavoriteIds(readFavoriteIds());
+    const sync = () => setFavoriteIds(readFavoriteIds());
+    sync();
+    void synchronizeCloudFavorites().then((result) => { if (result.error) setFavoriteError(result.error); });
+    window.addEventListener(SAVED_CHANGED, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(SAVED_CHANGED, sync);
+      window.removeEventListener("storage", sync);
+    };
   }, []);
 
   useEffect(() => {
@@ -940,16 +928,13 @@ export default function PublicEventDetailPage() {
 
   const isFavorite = favoriteIds.includes(eventId);
 
-  function toggleFavorite() {
-    setFavoriteIds((current) => {
-      const exists = current.includes(eventId);
-      const next = exists
-        ? current.filter((id) => id !== eventId)
-        : [...current, eventId];
-
-      writeFavoriteIds(next);
-      return next;
-    });
+  async function toggleFavorite() {
+    if (favoriteBusy) return;
+    setFavoriteBusy(true);
+    setFavoriteError("");
+    const result = await changeSavedEvent(eventId, !readFavoriteIds().includes(eventId));
+    if (!result.ok) setFavoriteError(result.error || "收藏暫時未能儲存。");
+    setFavoriteBusy(false);
   }
 
   async function copyTextToClipboard(text: string, onSuccess: () => void) {
@@ -1169,6 +1154,7 @@ export default function PublicEventDetailPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 pb-28 lg:pb-0">
+      {favoriteError ? <p role="alert" className="mx-auto max-w-6xl rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{favoriteError}</p> : null}
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1220,7 +1206,7 @@ export default function PublicEventDetailPage() {
                 <div className="absolute right-4 top-4 flex gap-2">
                   <button
                     type="button"
-                    onClick={toggleFavorite}
+                    onClick={() => void toggleFavorite()} disabled={favoriteBusy}
                     aria-pressed={isFavorite}
                     aria-label={isFavorite ? m.saved : m.save}
                     className={[
@@ -1690,7 +1676,7 @@ export default function PublicEventDetailPage() {
               </button>
               <button
                 type="button"
-                onClick={toggleFavorite}
+                onClick={() => void toggleFavorite()} disabled={favoriteBusy}
                 aria-pressed={isFavorite}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-black text-rose-700 ring-1 ring-purple-100"
               >
@@ -1714,7 +1700,7 @@ export default function PublicEventDetailPage() {
         <div className="mx-auto flex max-w-2xl items-center gap-2">
           <button
             type="button"
-            onClick={toggleFavorite}
+            onClick={() => void toggleFavorite()} disabled={favoriteBusy}
             aria-pressed={isFavorite}
             aria-label={isFavorite ? m.saved : m.save}
             className={[
