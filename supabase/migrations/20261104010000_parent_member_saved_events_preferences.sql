@@ -8,7 +8,7 @@ create table if not exists public.user_saved_events (
 );
 create index if not exists user_saved_events_event_id_idx on public.user_saved_events(event_id);
 alter table public.user_saved_events enable row level security;
-revoke all on public.user_saved_events from anon;
+revoke all on public.user_saved_events from public, anon, authenticated;
 grant select, insert, delete on public.user_saved_events to authenticated;
 drop policy if exists "Members read own saved events" on public.user_saved_events;
 create policy "Members read own saved events" on public.user_saved_events
@@ -34,7 +34,7 @@ create table if not exists public.user_event_preferences (
   constraint preferred_category_size check (length(preferred_category) <= 80)
 );
 alter table public.user_event_preferences enable row level security;
-revoke all on public.user_event_preferences from anon;
+revoke all on public.user_event_preferences from public, anon, authenticated;
 grant select, insert, update, delete on public.user_event_preferences to authenticated;
 drop policy if exists "Members read own preferences" on public.user_event_preferences;
 create policy "Members read own preferences" on public.user_event_preferences
