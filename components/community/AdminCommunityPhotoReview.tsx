@@ -1,14 +1,17 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 
 type Photo = {image_position:number;storage_path:string};
-export default function AdminCommunityPhotoReview({postId}:{postId:string}) {
+export default function AdminCommunityPhotoReview({postId,onReady}:{postId:string;onReady:(id:string,ready:boolean)=>void}) {
+  const onReadyRef=useRef(onReady);
+  useEffect(()=>{onReadyRef.current=onReady;},[onReady]);
   const [urls,setUrls]=useState<Array<{position:number;url:string}>>([]);
   const [loading,setLoading]=useState(true);
   const [problem,setProblem]=useState("");
   useEffect(()=>{
     let alive=true;
+    onReadyRef.current(postId,false);
     async function load(){
       if(!supabase){if(alive){setProblem("未能連接圖片儲存服務。");setLoading(false);}return;}
       const {data,error}=await supabase.from("community_tip_photos").select("image_position,storage_path")
@@ -25,7 +28,7 @@ export default function AdminCommunityPhotoReview({postId}:{postId:string}) {
         }
         images.push({position:item.image_position,url:link.signedUrl});
       }
-      if(alive){setUrls(images);setLoading(false);}
+      if(alive){setUrls(images);setLoading(false);onReadyRef.current(postId,images.length===(data||[]).length);}
     }
     void load();
     return()=>{alive=false;};
