@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
+
+const source = readFileSync("lib/events/hkpl-opening-hours.ts","utf8");
+const compiled = ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const exports = {};
+runInNewContext(compiled,{exports,Date,Number,String,RegExp}, {timeout:2000});
+const {cheungChauLibraryHours,isCheungChauLibraryDisplay} = exports;
+const venue={venue:"長洲公共圖書館",recurrenceNote:"圖書館開放時間（每日不同）"};
+assert.equal(isCheungChauLibraryDisplay(venue),true);
+assert.equal(isCheungChauLibraryDisplay({venue:"其他圖書館",recurrenceNote:venue.recurrenceNote}),false);
+assert.deepEqual(JSON.parse(JSON.stringify(cheungChauLibraryHours("2026-12-01"))),{start:"09:00",end:"20:00"});
+assert.deepEqual(JSON.parse(JSON.stringify(cheungChauLibraryHours("2026-12-03"))),{start:"12:00",end:"20:00"});
+assert.deepEqual(JSON.parse(JSON.stringify(cheungChauLibraryHours("2026-12-06"))),{start:"09:00",end:"17:00"});
+assert.deepEqual(JSON.parse(JSON.stringify(cheungChauLibraryHours("2026-12-24"))),{start:"12:00",end:"17:00"});
+assert.equal(cheungChauLibraryHours("2026-12-25"),null);
+assert.equal(cheungChauLibraryHours("2026-12-26"),null);
+assert.deepEqual(JSON.parse(JSON.stringify(cheungChauLibraryHours("2026-12-31"))),{start:"12:00",end:"17:00"});
+const today = readFileSync("app/today/page.tsx","utf8"), calendar=readFileSync("app/calendar/page.tsx","utf8");
+const mapper=readFileSync("lib/supabase/events.ts","utf8");
+assert.ok(today.includes("cheungChauLibraryHours(today)"),"Today must show actual daily hours");
+assert.ok(calendar.includes("cheungChauLibraryHours(selectedDay)"),"Calendar must show actual date hours");
+assert.ok(mapper.includes("Library opening hours (varies by day)"),"Catalogue must not pretend one fixed time");
+console.log("[hkpl-opening-hours] PASS: real schedule, shortened days and Christmas closures");

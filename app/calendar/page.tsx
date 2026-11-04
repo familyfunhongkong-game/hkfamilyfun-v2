@@ -3,14 +3,11 @@ import { getPublishedEvents } from "@/lib/supabase/events";
 import { getServerLocale } from "@/lib/i18n/server";
 import { getPublicMessages } from "@/lib/i18n/public-messages";
 import { eventOccursOn, eventOccursInRange } from "@/lib/events/recurrence";
-import PublicEventCard from "@/components/events/PublicEventCard";
-import CalendarEventIcon from "@/components/events/CalendarEventIcon";
+import ResilientEventImage from "@/components/resilient-event-image";
+import { cheungChauLibraryHours, isCheungChauLibraryDisplay } from "@/lib/events/hkpl-opening-hours";
 import { getHongKongPublicHoliday, getHongKongPublicHolidayName } from "@/lib/hk-public-holidays";
 
 export const dynamic = "force-dynamic";
-
-const MOBILE_DAY_ICON_LIMIT = 1;
-const DESKTOP_DAY_ICON_LIMIT = 3;
 
 function hkToday() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -41,7 +38,7 @@ function eventTimeSortValue(time: string) {
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ month?: string }> | { month?: string };
+  searchParams?: Promise<{ month?: string; day?: string }> | { month?: string; day?: string };
 }) {
   const locale = await getServerLocale();
   const p = getPublicMessages(locale);
@@ -54,6 +51,8 @@ export default async function CalendarPage({
   const monthStart = `${selectedMonth}-01`;
   const monthEnd = `${selectedMonth}-${String(daysInMonth).padStart(2, "0")}`;
   const today = hkToday();
+  const requestedDay = resolvedSearchParams.day;
+  const selectedDay = requestedDay && /^\d{4}-\d{2}-\d{2}$/.test(requestedDay) && requestedDay.startsWith(selectedMonth + "-") && Number(requestedDay.slice(-2)) >= 1 && Number(requestedDay.slice(-2)) <= daysInMonth ? requestedDay : (today.startsWith(selectedMonth + "-") ? today : monthStart);
   const monthHolidays = Array.from({ length: daysInMonth }, (_, index) => {
     const day = index + 1;
     const date = `${selectedMonth}-${String(day).padStart(2, "0")}`;
@@ -116,6 +115,22 @@ export default async function CalendarPage({
         }),
     );
   }
+
+  const selectedEvents = eventsByDay.get(Number(selectedDay.slice(-2))) || [];
+  const recentlyPublished = [...selectedEvents].sort((a, b) => {
+    const aPost = Date.parse(a.publishedAt || a.updatedAt || "") || 0;
+    const bPost = Date.parse(b.publishedAt || b.updatedAt || "") || 0;
+    if (bPost !== aPost) return bPost - aPost;
+    return eventTimeSortValue(a.time) - eventTimeSortValue(b.time) || a.title.localeCompare(b.title, "zh-HK");
+  });
+  const tr = (tc: string, sc: string, en: string) => locale === "en" ? en : locale === "zh-Hans" ? sc : tc;
+  const selectedTime = (event: (typeof events)[number]) => {
+    if (isCheungChauLibraryDisplay(event)) {
+      const hours = cheungChauLibraryHours(selectedDay);
+      return hours ? `${hours.start}–${hours.end}` : tr("該日休館", "该日休馆", "Library closed");
+    }
+    return event.time || tr("時間待主辦方確認", "时间待主办方确认", "Time not confirmed");
+  };
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -201,11 +216,11 @@ export default async function CalendarPage({
                     ].join(" ")}
                   >
                     <Link
-                      href={`/events?date=${date}`}
+                      href={`/calendar?month=${selectedMonth}&day=${date}#day-events`}
                       aria-label={`${date} — ${dayEvents.length} ${p.eventsUnit}`}
                       className={[
                         "inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-600",
-                        isToday
+                        date === selectedDay
                           ? isRedDay
                             ? "bg-blue-600 text-white ring-2 ring-rose-400"
                             : "bg-blue-600 text-white"
@@ -223,40 +238,13 @@ export default async function CalendarPage({
                       </p>
                     ) : null}
 
-                    {dayEvents.length ? (
-                      <>
-                        <div className="mt-1 flex flex-col items-start gap-0.5 sm:hidden">
-                          {dayEvents.slice(0, MOBILE_DAY_ICON_LIMIT).map((event) => (
-                            <CalendarEventIcon key={event.id} event={event} />
-                          ))}
-                          {dayEvents.length > MOBILE_DAY_ICON_LIMIT ? (
-                            <Link
-                              href={`/events?date=${date}`}
-                              aria-label={`${date}: ${dayEvents.length - MOBILE_DAY_ICON_LIMIT} more events`}
-                              className="text-[10px] font-black text-purple-700 underline-offset-2 hover:underline"
-                            >
-                              +{dayEvents.length - MOBILE_DAY_ICON_LIMIT}
-                            </Link>
-                          ) : null}
-                        </div>
-                        <div className="mt-2 hidden sm:block">
-                          <div className="flex flex-wrap items-center gap-1">
-                            {dayEvents.slice(0, DESKTOP_DAY_ICON_LIMIT).map((event) => (
-                              <CalendarEventIcon key={event.id} event={event} />
-                            ))}
-                            {dayEvents.length > DESKTOP_DAY_ICON_LIMIT ? (
-                              <Link
-                                href={`/events?date=${date}`}
-                                aria-label={`${date}: ${dayEvents.length - DESKTOP_DAY_ICON_LIMIT} more events`}
-                                className="text-[10px] font-black text-purple-700 underline-offset-2 hover:underline"
-                              >
-                                +{dayEvents.length - DESKTOP_DAY_ICON_LIMIT}
-                              </Link>
-                            ) : null}
-                          </div>
-                        </div>
-                      </>
-                    ) : null}
+                    <Link
+                      href={`/calendar?month=${selectedMonth}&day=${date}#day-events`}
+                      aria-label={`${date}: ${dayEvents.length} ${p.eventsUnit}`}
+                      className={`mt-1 inline-flex min-h-8 items-center justify-center rounded-lg px-2 text-xs font-black tabular-nums sm:text-sm ${date === selectedDay ? "bg-purple-700 text-white" : "bg-purple-50 text-purple-800 hover:bg-purple-100"}`}
+                    >
+                      {dayEvents.length} {tr("項", "项", "events")}
+                    </Link>
                   </div>
                 );
               },
@@ -276,7 +264,7 @@ export default async function CalendarPage({
                 {monthHolidays.map((item) => (
                   <Link
                     key={item.date}
-                    href={`/events?date=${item.date}`}
+                    href={`/calendar?month=${selectedMonth}&day=${item.date}#day-events`}
                     className="flex items-start gap-2 rounded-xl bg-white/80 px-3 py-2 text-xs"
                   >
                     <span className="shrink-0 font-black text-rose-600">
@@ -298,60 +286,40 @@ export default async function CalendarPage({
                   ? "红色日期 = 香港公众假期／星期日"
                   : "紅色日期 = 香港公眾假期／星期日"}
             </span>
-            <span className="inline-flex items-center gap-2">
-              <span aria-hidden="true" className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-purple-100 text-sm">🎨</span>
-              {locale === "en"
-                ? "Event thumbnails = published events (tap for details)"
-                : locale === "zh-Hans"
-                  ? "活动图示 = 已发布活动（点击查看详情）"
-                  : "活動圖示 = 已發布活動（點擊查看詳情）"}
-            </span>
+            <span>{tr("點擊日期或活動數量，下方即顯示該日活動（最新發布優先）。", "点击日期或活动数量，下方显示当天活动（最新发布优先）。", "Select a date or count to view its events below, newest listings first.")}</span>
           </div>
         </div>
 
-        <section className="mt-8">
+        <section id="day-events" className="mt-8 scroll-mt-24" aria-live="polite">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-sm font-black text-purple-700">
-                {locale === "en"
-                  ? new Intl.DateTimeFormat("en-HK", {
-                      month: "long",
-                      year: "numeric",
-                    }).format(new Date(year, month - 1, 1))
-                  : `${year}年${month}月`}
-              </p>
-              <h2 className="mt-1 text-2xl font-black">{p.publishedEvents}</h2>
+              <p className="text-xs font-black text-purple-700">{tr("已選日期", "已选日期", "Selected date")}</p>
+              <h2 className="mt-1 text-2xl font-black">{selectedDay} · {tr("當日活動", "当日活动", "Events")}</h2>
+              <p className="mt-2 text-xs text-slate-500">{tr("最新發布排最前。點擊活動可查看完整資料及報名方式。", "最新发布排在最前。点击活动查看详情。", "Newest listings first. Open a listing for full details and booking.")}</p>
             </div>
-            <span className="rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-700">
-              {monthEvents.length} {p.eventsUnit}
-            </span>
+            <span className="rounded-full bg-purple-100 px-4 py-2 text-sm font-black text-purple-800">{recentlyPublished.length} {p.eventsUnit}</span>
           </div>
-
-          {monthEvents.length ? (
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              {monthEvents.map((event) => (
-                <PublicEventCard
-                  key={event.id}
-                  event={event}
-                  locale={locale}
-                  compact
-                />
+          {recentlyPublished.length ? (
+            <ol className="mt-5 space-y-3">
+              {recentlyPublished.map((event) => (
+                <li key={event.id}>
+                  <Link href={`/events/${event.id}`} className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 transition hover:border-purple-300 hover:shadow-md sm:gap-4">
+                    <div className="h-20 w-24 shrink-0 overflow-hidden rounded-xl bg-purple-50 sm:h-24 sm:w-36">
+                      <ResilientEventImage src={event.image} alt={event.title} compactFallback className="h-full w-full object-contain" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="line-clamp-2 text-sm font-black text-slate-900 group-hover:text-purple-700 sm:text-base">{event.title}</h3>
+                      <p className="mt-1 text-xs text-slate-600">{selectedTime(event)} · {event.district || tr("地區待確認", "地区待确认", "District TBC")}</p>
+                      <p className="mt-1 line-clamp-1 text-xs text-slate-500">{event.venue || event.organizer || ""}</p>
+                    </div>
+                    <span className="shrink-0 text-xs font-black text-purple-700">{tr("詳情 ›", "详情 ›", "Details ›")}</span>
+                  </Link>
+                </li>
               ))}
-            </div>
+            </ol>
           ) : (
-            <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
-              <p className="font-black text-slate-800">
-                {p.noMonth}
-              </p>
-              <p className="mt-2 text-sm text-slate-500">
-                {p.noMonthDesc}
-              </p>
-              <Link
-                href="/events"
-                className="mt-5 inline-flex rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white"
-              >
-                {p.viewAll}
-              </Link>
+            <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm font-bold text-slate-600">
+              {tr("該日暫時沒有已核實的活動，請選其他日期。", "该日暂时没有已核实的活动，请选择其他日期。", "No verified events on this day. Choose another date.")}
             </div>
           )}
         </section>

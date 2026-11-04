@@ -36,6 +36,9 @@ type DraftEvent = {
   google_map_embed_url: string;
   cover_image_url: string;
   gallery_image_urls: string[];
+  image_source_status: "official_candidate" | "ai_needed" | "pending";
+  image_source_url: string;
+  ai_image_prompt: string;
   organizer_name: string;
   tags: string;
   highlights: string;
@@ -82,6 +85,9 @@ const emptyDraft: DraftEvent = {
   google_map_embed_url: "",
   cover_image_url: "",
   gallery_image_urls: ["", "", "", "", ""],
+  image_source_status: "pending",
+  image_source_url: "",
+  ai_image_prompt: "",
   organizer_name: "",
   tags: "",
   highlights: "",
@@ -510,7 +516,14 @@ export default function ImportEventPage() {
       tags: draft.tags,
       highlights: draft.highlights,
       terms: draft.terms,
-      remarks: draft.remarks,
+      remarks: [
+        draft.remarks,
+        draft.image_source_status === "ai_needed"
+          ? "[IMAGE REVIEW] Official source checked: no suitable event-specific image. AI 示意圖需人工生成、標示及審批；不得自動發布。"
+          : draft.image_source_status === "official_candidate"
+            ? "[IMAGE REVIEW] Original event URL image candidate: " + draft.image_source_url + "；授權與活動關聯仍待管理員確認。"
+            : "",
+      ].filter(Boolean).join("\n"),
       updated_at: new Date().toISOString(),
     };
 
@@ -757,6 +770,27 @@ export default function ImportEventPage() {
           </FormSection>
 
           <FormSection title="6. 圖片 URL（最多 5 張）">
+            <div className="md:col-span-2 rounded-2xl border border-purple-200 bg-purple-50 p-4">
+              <p className="text-sm font-black text-purple-950">活動封面優先次序：官方活動連結 → 人工核對 → AI 示意圖</p>
+              {draft.image_source_status === "official_candidate" ? (
+                <p role="status" className="mt-2 text-sm text-emerald-800">
+                  已先搜尋並驗證來源網址圖片類型。下方已預填官方圖片候選；發布前須確認圖片與本活動相符及有使用權限。
+                </p>
+              ) : draft.image_source_status === "ai_needed" ? (
+                <div role="status" className="mt-2 space-y-3 text-sm text-amber-900">
+                  <p className="font-bold">已搜尋原活動網址，未找到合適、可讀取的專屬圖片。請勿使用網站 Logo、眼睛 Icon 或通用分類圖。</p>
+                  <p>可用以下主題 Prompt 建立原創活動封面。須有細字「AI 示意圖」，製作後上載圖片並由管理員審批，不能自動發布。</p>
+                  <textarea readOnly value={draft.ai_image_prompt} aria-label="AI 活動封面生成 Prompt"
+                    rows={5} className="w-full rounded-xl border border-amber-200 bg-white p-3 text-xs text-slate-800" />
+                  <button type="button" onClick={() => void navigator.clipboard.writeText(draft.ai_image_prompt)}
+                    className="rounded-xl bg-purple-700 px-4 py-2 text-xs font-bold text-white">
+                    複製 AI 示意圖 Prompt
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-slate-600">貼上原活動 URL 並按抽取資料，系統會先檢查原網站有沒有活動圖片。</p>
+              )}
+            </div>
             <Input label="封面圖片 URL" value={draft.cover_image_url} onChange={(value) => updateField("cover_image_url", value)} />
             {draft.gallery_image_urls.map((image, index) => (
               <Input

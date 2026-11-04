@@ -274,7 +274,7 @@ function SiteFooter({ m, locale }: { m: ReturnType<typeof getMessages>; locale: 
               className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-600 via-pink-500 to-amber-400 text-white shadow-sm transition hover:scale-105"
             >
               <img
-                src="https://cdn.simpleicons.org/instagram/FFFFFF"
+                src="/icons/instagram.svg"
                 alt=""
                 aria-hidden="true"
                 width="20"
@@ -291,7 +291,7 @@ function SiteFooter({ m, locale }: { m: ReturnType<typeof getMessages>; locale: 
               className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1877F2] text-white shadow-sm transition hover:scale-105"
             >
               <img
-                src="https://cdn.simpleicons.org/facebook/FFFFFF"
+                src="/icons/facebook.svg"
                 alt=""
                 aria-hidden="true"
                 width="20"
@@ -308,7 +308,7 @@ function SiteFooter({ m, locale }: { m: ReturnType<typeof getMessages>; locale: 
               className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black text-white shadow-sm transition hover:scale-105"
             >
               <img
-                src="https://cdn.simpleicons.org/threads/FFFFFF"
+                src="/icons/threads.svg"
                 alt=""
                 aria-hidden="true"
                 width="20"
