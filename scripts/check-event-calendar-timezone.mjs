@@ -29,10 +29,12 @@ requireSignals("shared date parser", sources.cardDate, [
   'timeZone: "UTC"',
 ]);
 
-requireSignals("public mapper calendar-date parser", sources.publicMapper, [
-  "function parseCalendarDate",
-  'value.match(/^(\\d{4})-(\\d{2})-(\\d{2})/)',
-  "timeZone: \"Asia/Hong_Kong\"",
+// Public mapper now preserves database YYYY-MM-DD text directly instead of
+// parsing calendar dates into JS Date instances. Guard that behavior and
+// retain local HH:MM formatting, without requiring removed helper functions.
+requireSignals("public mapper calendar-date contract", sources.publicMapper, [
+  "date: formatDate(event.start_date, locale)",
+  "endDate: event.end_date || undefined",
   "startTime.slice(0, 5)",
 ]);
 
