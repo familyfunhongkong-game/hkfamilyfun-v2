@@ -120,9 +120,9 @@ begin
     case when tg_table_name='community_tip_replies' then '社區有新留言待審批' else '社區有新報料待審批' end,
     case when tg_table_name='community_tip_replies'
       then '新留言等待審核，請進入社區留言審批。'
-      else left(new.title,150) end,
+      else left(coalesce(to_jsonb(new)->>'title','新社區投稿'),150) end,
     'pending','community:' || tg_table_name || ':' || new.id::text
-  ) on conflict (dedupe_key) do nothing;
+  ) on conflict do nothing;
   return new;
 end $$;
 revoke all on function public.notify_admin_community_submission() from public,anon,authenticated;
