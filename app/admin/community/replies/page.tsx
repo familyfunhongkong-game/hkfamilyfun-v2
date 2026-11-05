@@ -11,7 +11,14 @@ export default function AdminCommunityRepliesPage(){
  const [status,setStatus]=useState("pending");
  const load=useCallback(async()=>{
   if(!supabase){setMessage("未能連接資料庫");setLoading(false);return;}
-  setLoading(true);const {data,error}=await supabase.from("community_tip_replies")
+  setLoading(true);
+  // Anonymous/member accounts must never read the moderation queue.
+  const auth=await supabase.auth.getUser();
+  const check=auth.data.user ? await supabase.rpc("is_platform_admin") : {data:false};
+  if(check.data!==true){
+    setRows([]);setMessage("請先以管理員身份登入。");setLoading(false);return;
+  }
+  const {data,error}=await supabase.from("community_tip_replies")
    .select("id,post_id,display_name,body,status,created_at").eq("status",status).order("created_at",{ascending:false}).limit(100);
   setRows((data??[]) as Reply[]);setMessage(error?"未能讀取留言，請檢查管理員權限及資料庫部署。":"");setLoading(false);
  },[status]);

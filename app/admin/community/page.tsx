@@ -17,6 +17,13 @@ export default function AdminCommunityPage(){
   const load=useCallback(async()=>{
     if(!supabase){setMessage("無法連接資料庫。");setLoading(false);return;}
     setLoading(true);
+    // Reject unauthenticated/non-admin sessions BEFORE reading pending submissions.
+    const auth=await supabase.auth.getUser();
+    const check=auth.data.user ? await supabase.rpc("is_platform_admin") : {data:false};
+    if(check.data!==true){
+      setRows([]);setPostPhotos({});
+      setMessage("請先以管理員身份登入。");setLoading(false);return;
+    }
     let q=supabase.from("community_tips").select("id,display_name,title,body,district,category,event_date,source_url,status,created_at,reviewed_at").order("created_at",{ascending:false}).limit(100);
     if(filter!=="all")q=q.eq("status",filter);
     const {data,error}=await q;

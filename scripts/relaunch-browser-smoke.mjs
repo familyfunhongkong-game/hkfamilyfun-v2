@@ -38,6 +38,8 @@ for (const [name, method, path, body] of [
   ["admin system anonymous", "GET", "/api/admin/system-health", null],
   ["import anonymous", "POST", "/api/import-event", '{"url":"https://example.com"}'],
   ["translate anonymous", "POST", "/api/translate-event", '{"event_id":"00000000-0000-0000-0000-000000000000","fields":{}}'],
+  // This route only checks IDs and must never sign a private URL for unknown posts.
+
 ]) {
   const response = await fetch(new URL(path, preview), {
     method,
@@ -50,13 +52,22 @@ for (const [name, method, path, body] of [
   outcomes.push({ check: name, status: response.status === 401 ? "PASS" : "FAIL", http: response.status });
 }
 
+
+const privatePhoto = await fetch(new URL("/api/community/photo?post=00000000-0000-4000-8000-000000000000&position=0",preview),{redirect:"manual"});
+if(privatePhoto.status!==404)failures.push("Private photo route should 404 for unapproved/unknown post; got "+privatePhoto.status);
+outcomes.push({check:"approved-only private photo",status:privatePhoto.status===404?"PASS":"FAIL",http:privatePhoto.status});
+const photoList = await fetch(new URL("/api/community/photos?ids=00000000-0000-4000-8000-000000000000",preview));
+const emptyList = photoList.status===200 && Object.keys((await photoList.json()).photos||{}).length===0;
+if(!emptyList)failures.push("Unknown post photo metadata must stay empty");
+outcomes.push({check:"unapproved photo metadata hidden",status:emptyList?"PASS":"FAIL"});
+
 const browser = await chromium.launch({ headless: true });
 try {
   const profiles = [
     { name: "mobile", viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 2 },
     { name: "desktop", viewport: { width: 1440, height: 900 }, isMobile: false },
   ];
-  const routes = ["/", "/events", "/today", "/calendar", "/events/map", "/tips", "/favorites", "/login", "/merchant/account", "/admin/login", "/privacy", "/contact"];
+  const routes = ["/", "/events", "/today", "/calendar", "/events/map", "/tips", "/favorites", "/login", "/merchant/account", "/admin/login", "/admin/community", "/admin/community/replies", "/privacy", "/contact"];
   for (const profile of profiles) {
     const context = await browser.newContext({ viewport: profile.viewport, isMobile: profile.isMobile, deviceScaleFactor: profile.deviceScaleFactor || 1, locale: "zh-HK" });
     try {
@@ -66,7 +77,7 @@ try {
         page.on("pageerror", (e) => pageErrors.push(e.message));
         try {
           const response = await page.goto(new URL(path, preview).toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
-          await page.waitForTimeout(500);
+          await page.waitForTimeout(path.startsWith("/admin/community") ? 1250 : 500);
           const rendered = await page.evaluate(() => ({
             text: document.body?.innerText || "",
             width: document.documentElement.scrollWidth,
@@ -83,6 +94,7 @@ try {
           if (path === "/admin/login" && !/管理員登入|Admin Login/i.test(rendered.text)) problems.push("admin login form missing");
           if (path === "/login" && !/登入|Login|Sign in/i.test(rendered.text)) problems.push("member login form missing");
           if (path === "/tips" && !/報料|社區|Tips/i.test(rendered.text)) problems.push("community page missing");
+          if (path.startsWith("/admin/community") && !rendered.text.includes("請先以管理員身份登入。")) problems.push("unauthorized moderation UI not blocked");
           if (pageErrors.length) problems.push("browser errors: " + pageErrors.slice(0, 2).join(" | "));
           const check = profile.name + " " + path;
           outcomes.push({ check, status: problems.length ? "FAIL" : "PASS", http: status, overflow: rendered.width - rendered.viewport, problems });
