@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 18
     env:
       PREVIEW_URL: https://hkfamilyfun-v2-git-release-rebuild-v2-full-494c72-hk-family-fun.vercel.app
-      EXPECTED_BUILD_SHA: ${{ github.sha }}
+      EXPECTED_BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
