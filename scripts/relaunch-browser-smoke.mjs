@@ -64,7 +64,8 @@ const privatePhoto = await fetch(new URL("/api/community/photo?post=00000000-000
 if(privatePhoto.status!==404)failures.push("Private photo route should 404 for unapproved/unknown post; got "+privatePhoto.status);
 outcomes.push({check:"approved-only private photo",status:privatePhoto.status===404?"PASS":"FAIL",http:privatePhoto.status});
 const photoList = await fetch(new URL("/api/community/photos?ids=00000000-0000-4000-8000-000000000000",preview));
-const emptyList = photoList.status===200 && Object.keys((await photoList.json()).photos||{}).length===0;
+const emptyBody = photoList.status===200 ? await photoList.json() : {};
+const emptyList = photoList.status===200 && Object.keys(emptyBody.photos||{}).length===0 && Object.keys(emptyBody.likeCounts||{}).length===0;
 if(!emptyList)failures.push("Unknown post photo metadata must stay empty");
 outcomes.push({check:"unapproved photo metadata hidden",status:emptyList?"PASS":"FAIL"});
 
