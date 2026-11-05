@@ -53,6 +53,13 @@ for (const [name, method, path, body] of [
 }
 
 
+for (const suffix of ["", "&position=", "&position=foo", "&position=-1", "&position=4", "&position=0.0"]) {
+  const path = "/api/community/photo?post=00000000-0000-4000-8000-000000000000" + suffix;
+  const response = await fetch(new URL(path, preview), {redirect:"manual"});
+  const valid = response.status === 400;
+  outcomes.push({check:"reject malformed photo position " + (suffix || "missing"),status:valid?"PASS":"FAIL",http:response.status});
+  if (!valid) failures.push("Malformed photo position must return HTTP 400: " + path + " got " + response.status);
+}
 const privatePhoto = await fetch(new URL("/api/community/photo?post=00000000-0000-4000-8000-000000000000&position=0",preview),{redirect:"manual"});
 if(privatePhoto.status!==404)failures.push("Private photo route should 404 for unapproved/unknown post; got "+privatePhoto.status);
 outcomes.push({check:"approved-only private photo",status:privatePhoto.status===404?"PASS":"FAIL",http:privatePhoto.status});
