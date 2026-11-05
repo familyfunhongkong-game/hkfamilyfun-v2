@@ -8,7 +8,8 @@ const headers = {"Cache-Control":"private, no-store","X-Content-Type-Options":"n
 
 export async function GET(request: NextRequest) {
   const postId = request.nextUrl.searchParams.get("post") || "";
-  const position = Number(request.nextUrl.searchParams.get("position"));
+  const positionParam = request.nextUrl.searchParams.get("position");
+  const position = positionParam === null || !/^[0-3]$/.test(positionParam) ? NaN : Number(positionParam);
   if (!uuid.test(postId) || !Number.isInteger(position) || position < 0 || position > 3) {
     return NextResponse.json({error:"Invalid image"},{status:400,headers});
   }
