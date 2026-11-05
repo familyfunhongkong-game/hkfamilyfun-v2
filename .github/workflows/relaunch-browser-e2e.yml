@@ -6,7 +6,7 @@ on:
       - release/rebuild-v2-full-stack-qa-20261104
   pull_request:
     branches:
-      - main
+      - release/rebuild-v2-member-integrated-20261104
   workflow_dispatch:
 
 permissions:
