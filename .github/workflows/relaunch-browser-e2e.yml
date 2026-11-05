@@ -1,0 +1,46 @@
+name: Rebuild V2 Browser Launch Gate
+
+on:
+  push:
+    branches:
+      - release/rebuild-v2-full-stack-qa-20261104
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hkff-browser-release-gate
+  cancel-in-progress: true
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      PREVIEW_URL: https://hkfamilyfun-v2-git-release-rebuild-v2-full-494c72-hk-family-fun.vercel.app
+      EXPECTED_BUILD_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install project and browser
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --no-package-lock --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Wait for same-SHA Vercel preview
+        run: |
+          set -euo pipefail
+          for attempt in {1..48}; do
+            if curl --max-time 25 -fsSL "$PREVIEW_URL/api/health" -o /tmp/hkff-preview-health.json && node -e 'const fs=require("fs");const h=JSON.parse(fs.readFileSync("/tmp/hkff-preview-health.json","utf8"));process.exit(h.ok===true && h.buildSha===process.env.EXPECTED_BUILD_SHA ? 0 : 1)'; then
+              echo "Same-SHA preview healthy"; exit 0
+            fi
+            echo "Waiting for Vercel preview of SHA $EXPECTED_BUILD_SHA (attempt $attempt)"
+            sleep 10
+          done
+          echo "Preview unavailable or wrong SHA"; exit 1
+      - name: Mobile + desktop anonymous read-only E2E and SEO / API negative checks
+        run: node scripts/relaunch-browser-smoke.mjs
