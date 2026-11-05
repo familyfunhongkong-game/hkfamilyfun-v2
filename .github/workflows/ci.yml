@@ -2,9 +2,9 @@ name: HK Family Fun CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "release/rebuild-v2-full-stack-qa-20261104"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "release/rebuild-v2-full-stack-qa-20261104"]
   workflow_dispatch:
 
 permissions:
