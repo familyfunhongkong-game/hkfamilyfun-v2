@@ -114,7 +114,9 @@ try {
   await browser.close();
 }
 for (const item of outcomes) console.log(JSON.stringify(item));
-console.log("Release browser QA: " + (outcomes.length - failures.length) + "/" + outcomes.length + " checks without failures");
+const passed = outcomes.filter((item) => item.status === "PASS").length;
+const failed = outcomes.filter((item) => item.status === "FAIL").length;
+console.log(`Release browser QA: ${passed}/${outcomes.length} checks PASS; ${failed} checks FAIL; ${failures.length} failure messages`);
 if (failures.length) {
   console.error("Release browser QA failures:\n" + failures.join("\n"));
   process.exitCode = 1;
