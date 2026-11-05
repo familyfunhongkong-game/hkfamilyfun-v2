@@ -15,7 +15,7 @@ export async function GET(request:NextRequest){
     .in("id",ids).eq("status","approved");
   if(statusError)return NextResponse.json({error:"Unavailable"},{status:503,headers});
   const approvedIds=(approved||[]).map(post=>post.id);
-  if(!approvedIds.length)return NextResponse.json({photos:{}},{headers});
+  if(!approvedIds.length)return NextResponse.json({photos:{},likeCounts:{}},{headers});
   const {data:images,error:imageError}=await db.from("community_tip_photos")
     .select("post_id,image_position").in("post_id",approvedIds).order("image_position",{ascending:true});
   if(imageError)return NextResponse.json({error:"Unavailable"},{status:503,headers});
@@ -24,7 +24,8 @@ export async function GET(request:NextRequest){
     if(!Number.isInteger(row.image_position)||row.image_position<0||row.image_position>3)continue;
     (photos[row.post_id] ||= []).push(row.image_position);
   }
-  const {data:likes}=await db.from("community_tip_likes").select("post_id").in("post_id",approvedIds);
+  const {data:likes,error:likesError}=await db.from("community_tip_likes").select("post_id").in("post_id",approvedIds);
+  if(likesError)return NextResponse.json({error:"Unavailable"},{status:503,headers});
   const counts:Record<string,number>={};
   for(const item of likes||[])counts[item.post_id]=(counts[item.post_id]||0)+1;
   return NextResponse.json({photos,likeCounts:counts},{headers});
