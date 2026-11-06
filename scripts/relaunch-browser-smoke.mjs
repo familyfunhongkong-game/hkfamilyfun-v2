@@ -67,7 +67,7 @@ const photoList = await fetch(new URL("/api/community/photos?ids=00000000-0000-4
 const emptyBody = photoList.status===200 ? await photoList.json() : {};
 const emptyList = photoList.status===200 && Object.keys(emptyBody.photos||{}).length===0 && Object.keys(emptyBody.likeCounts||{}).length===0;
 if(!emptyList)failures.push("Unknown post photo metadata must stay empty");
-outcomes.push({check:"unapproved photo metadata hidden",status:emptyList?"PASS":"FAIL",http:photoList.status,payload:photoPayload});
+outcomes.push({check:"unapproved photo metadata hidden",status:emptyList?"PASS":"FAIL",http:photoList.status,payload:emptyBody});
 
 const browser = await chromium.launch({ headless: true });
 try {
