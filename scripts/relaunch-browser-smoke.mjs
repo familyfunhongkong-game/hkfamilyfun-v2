@@ -67,7 +67,7 @@ const photoList = await fetch(new URL("/api/community/photos?ids=00000000-0000-4
 const emptyBody = photoList.status===200 ? await photoList.json() : {};
 const emptyList = photoList.status===200 && Object.keys(emptyBody.photos||{}).length===0 && Object.keys(emptyBody.likeCounts||{}).length===0;
 if(!emptyList)failures.push("Unknown post photo metadata must stay empty");
-outcomes.push({check:"unapproved photo metadata hidden",status:emptyList?"PASS":"FAIL"});
+outcomes.push({check:"unapproved photo metadata hidden",status:emptyList?"PASS":"FAIL",http:photoList.status,payload:photoPayload});
 
 const browser = await chromium.launch({ headless: true });
 try {
@@ -85,7 +85,11 @@ try {
         page.on("pageerror", (e) => pageErrors.push(e.message));
         try {
           const response = await page.goto(new URL(path, preview).toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
-          await page.waitForTimeout(path.startsWith("/admin/community") ? 1250 : 500);
+          if(path.startsWith("/admin/community")) {
+            await page.getByRole("alert").filter({hasText:"請先以管理員身份登入。"}).waitFor({state:"visible",timeout:12000}).catch(()=>{});
+          } else {
+            await page.waitForTimeout(500);
+          }
           const rendered = await page.evaluate(() => ({
             text: document.body?.innerText || "",
             width: document.documentElement.scrollWidth,
