@@ -64,7 +64,7 @@ const privatePhoto = await fetch(new URL("/api/community/photo?post=00000000-000
 if(privatePhoto.status!==404)failures.push("Private photo route should 404 for unapproved/unknown post; got "+privatePhoto.status);
 outcomes.push({check:"approved-only private photo",status:privatePhoto.status===404?"PASS":"FAIL",http:privatePhoto.status});
 const photoList = await fetch(new URL("/api/community/photos?ids=00000000-0000-4000-8000-000000000000",preview));
-const emptyBody = photoList.status===200 ? await photoList.json() : {};
+const emptyBody = await photoList.json().catch(()=>({}));
 const emptyList = photoList.status===200 && Object.keys(emptyBody.photos||{}).length===0 && Object.keys(emptyBody.likeCounts||{}).length===0;
 if(!emptyList)failures.push("Unknown post photo metadata must stay empty");
 outcomes.push({check:"unapproved photo metadata hidden",status:emptyList?"PASS":"FAIL",http:photoList.status,payload:emptyBody});
@@ -106,7 +106,7 @@ try {
           if (path === "/admin/login" && !/管理員登入|Admin Login/i.test(rendered.text)) problems.push("admin login form missing");
           if (path === "/login" && !/登入|Login|Sign in/i.test(rendered.text)) problems.push("member login form missing");
           if (path === "/tips" && !/報料|社區|Tips/i.test(rendered.text)) problems.push("community page missing");
-          if (path.startsWith("/admin/community") && !rendered.text.includes("請先以管理員身份登入。")) problems.push("unauthorized moderation UI not blocked");
+          if (path.startsWith("/admin/community") && !rendered.text.includes("請先以管理員身份登入。")) problems.push("unauthorized moderation UI not blocked; visible alert: " + (await page.locator("[role=alert]").allTextContents()).join(" | ").slice(0,250) + "; body: " + rendered.text.slice(0,350));
           if (pageErrors.length) problems.push("browser errors: " + pageErrors.slice(0, 2).join(" | "));
           const check = profile.name + " " + path;
           outcomes.push({ check, status: problems.length ? "FAIL" : "PASS", http: status, overflow: rendered.width - rendered.viewport, problems });
