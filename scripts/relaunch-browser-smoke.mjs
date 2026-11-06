@@ -106,7 +106,7 @@ try {
           if (path === "/admin/login" && !/管理員登入|Admin Login/i.test(rendered.text)) problems.push("admin login form missing");
           if (path === "/login" && !/登入|Login|Sign in/i.test(rendered.text)) problems.push("member login form missing");
           if (path === "/tips" && !/報料|社區|Tips/i.test(rendered.text)) problems.push("community page missing");
-          if (path.startsWith("/admin/community") && !rendered.text.includes("請先以管理員身份登入。")) problems.push("unauthorized moderation UI not blocked; visible alert: " + (await page.locator("[role=alert]").allTextContents()).join(" | ").slice(0,250) + "; body: " + rendered.text.slice(0,350));
+          if (path.startsWith("/admin/community") && !/Admin 頁面已受保護|請先以管理員身份登入。/.test(rendered.text)) problems.push("unauthorized moderation UI not blocked; visible alert: " + (await page.locator("[role=alert]").allTextContents()).join(" | ").slice(0,250) + "; body: " + rendered.text.slice(0,350));
           if (pageErrors.length) problems.push("browser errors: " + pageErrors.slice(0, 2).join(" | "));
           const check = profile.name + " " + path;
           outcomes.push({ check, status: problems.length ? "FAIL" : "PASS", http: status, overflow: rendered.width - rendered.viewport, problems });
