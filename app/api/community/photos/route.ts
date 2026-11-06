@@ -13,7 +13,7 @@ export async function GET(request:NextRequest){
   if(!db){console.error("[community/photos] service client configuration unavailable");return NextResponse.json({error:"Unavailable"},{status:503,headers});}
   const {data:approved,error:statusError}=await db.from("community_tips").select("id")
     .in("id",ids).eq("status","approved");
-  if(statusError){console.error("[community/photos] approved post query failed",{code:statusError.code});return NextResponse.json({error:"Unavailable"},{status:503,headers});}
+  if(statusError){console.error("[community/photos] approved post query failed",{code:statusError.code,name:statusError.name,message:String(statusError.message||"").slice(0,180)});return NextResponse.json({error:"Unavailable"},{status:503,headers});}
   const approvedIds=(approved||[]).map(post=>post.id);
   if(!approvedIds.length)return NextResponse.json({photos:{},likeCounts:{}},{headers});
   const {data:images,error:imageError}=await db.from("community_tip_photos")
