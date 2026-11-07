@@ -117,7 +117,7 @@ async function cleanup() {
       return true;
     } catch (error) {
       failures.push(
-        `${label}: ${error instanceof Error ? error.message : String(error)}`,
+        `${label}: ${error instanceof Error ? error.message : JSON.stringify(error)}`,
       );
       return false;
     }
