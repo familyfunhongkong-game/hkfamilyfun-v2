@@ -5,12 +5,16 @@ import { chromium } from "playwright";
 const preview = process.env.PREVIEW_URL;
 const expectedSha = process.env.EXPECTED_BUILD_SHA;
 const production = "https://www.hkfamilyfun.com";
+const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+assert.ok(bypass, "Protected staging requires VERCEL_AUTOMATION_BYPASS_SECRET");
+const previewHeaders = { "x-vercel-protection-bypass": bypass };
+const previewFetch = (url, options = {}) => fetch(url, { ...options, headers: { ...options.headers, ...previewHeaders } });
 assert.ok(preview?.startsWith("https://"), "PREVIEW_URL must be HTTPS");
 assert.match(expectedSha || "", /^[a-f0-9]{40}$/);
 const outcomes = [];
 const failures = [];
 const fetchText = async (base, path) => {
-  const r = await fetch(new URL(path, base), { redirect: "follow", signal: AbortSignal.timeout(25000) });
+  const r = await (base === preview ? previewFetch : fetch)(new URL(path, base), { redirect: "follow", signal: AbortSignal.timeout(25000) });
   return { status: r.status, body: await r.text(), url: r.url };
 };
 const health = await fetchText(preview, "/api/health");
@@ -41,7 +45,7 @@ for (const [name, method, path, body] of [
   // This route only checks IDs and must never sign a private URL for unknown posts.
 
 ]) {
-  const response = await fetch(new URL(path, preview), {
+  const response = await previewFetch(new URL(path, preview), {
     method,
     headers: body ? { "Content-Type": "application/json" } : {},
     body,
@@ -55,15 +59,15 @@ for (const [name, method, path, body] of [
 
 for (const suffix of ["", "&position=", "&position=foo", "&position=-1", "&position=4", "&position=0.0"]) {
   const path = "/api/community/photo?post=00000000-0000-4000-8000-000000000000" + suffix;
-  const response = await fetch(new URL(path, preview), {redirect:"manual"});
+  const response = await previewFetch(new URL(path, preview), {redirect:"manual"});
   const valid = response.status === 400;
   outcomes.push({check:"reject malformed photo position " + (suffix || "missing"),status:valid?"PASS":"FAIL",http:response.status});
   if (!valid) failures.push("Malformed photo position must return HTTP 400: " + path + " got " + response.status);
 }
-const privatePhoto = await fetch(new URL("/api/community/photo?post=00000000-0000-4000-8000-000000000000&position=0",preview),{redirect:"manual"});
+const privatePhoto = await previewFetch(new URL("/api/community/photo?post=00000000-0000-4000-8000-000000000000&position=0",preview),{redirect:"manual"});
 if(privatePhoto.status!==404)failures.push("Private photo route should 404 for unapproved/unknown post; got "+privatePhoto.status);
 outcomes.push({check:"approved-only private photo",status:privatePhoto.status===404?"PASS":"FAIL",http:privatePhoto.status});
-const photoList = await fetch(new URL("/api/community/photos?ids=00000000-0000-4000-8000-000000000000",preview));
+const photoList = await previewFetch(new URL("/api/community/photos?ids=00000000-0000-4000-8000-000000000000",preview));
 const emptyBody = await photoList.json().catch(()=>({}));
 const emptyList = photoList.status===200 && Object.keys(emptyBody.photos||{}).length===0 && Object.keys(emptyBody.likeCounts||{}).length===0;
 if(!emptyList)failures.push("Unknown post photo metadata must stay empty");
@@ -77,7 +81,7 @@ try {
   ];
   const routes = ["/", "/events", "/today", "/calendar", "/events/map", "/tips", "/favorites", "/login", "/merchant/account", "/admin/login", "/admin/community", "/admin/community/replies", "/privacy", "/contact"];
   for (const profile of profiles) {
-    const context = await browser.newContext({ viewport: profile.viewport, isMobile: profile.isMobile, deviceScaleFactor: profile.deviceScaleFactor || 1, locale: "zh-HK" });
+    const context = await browser.newContext({ viewport: profile.viewport, isMobile: profile.isMobile, deviceScaleFactor: profile.deviceScaleFactor || 1, locale: "zh-HK", extraHTTPHeaders: previewHeaders });
     try {
       for (const path of routes) {
         const page = await context.newPage();
