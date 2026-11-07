@@ -1,16 +1,11 @@
 name: Merchant Auth E2E
 
 # This workflow creates and deletes real Auth / merchant / event rows.
-# One-time push gate scoped to this workflow file; manual reruns remain available.
+# Manual-only safety gate: never run database-mutating tests automatically.
 # Creates and cleans up rows in the dedicated Staging Supabase project.
 # Never supply Production service credentials to this workflow.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - release/rebuild-v2-full-stack-qa-20261104
-    paths:
-      - .github/workflows/merchant-auth-e2e.yml
 
 permissions:
   contents: read
