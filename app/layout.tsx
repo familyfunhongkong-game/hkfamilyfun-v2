@@ -18,6 +18,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const isCanonicalHost =
     host === "hkfamilyfun.com" || host === "www.hkfamilyfun.com";
 
+  // Maintenance pages must not be indexed even on the canonical host.
+  const shouldIndex = isCanonicalHost && process.env.MAINTENANCE_MODE !== "true";
+
   return {
     metadataBase: new URL("https://www.hkfamilyfun.com"),
     title: {
@@ -61,11 +64,11 @@ export async function generateMetadata(): Promise<Metadata> {
       images: ["/api/brand/family-fun-logo"],
     },
     robots: {
-      index: isCanonicalHost,
-      follow: isCanonicalHost,
+      index: shouldIndex,
+      follow: shouldIndex,
       googleBot: {
-        index: isCanonicalHost,
-        follow: isCanonicalHost,
+        index: shouldIndex,
+        follow: shouldIndex,
       },
     },
   };
