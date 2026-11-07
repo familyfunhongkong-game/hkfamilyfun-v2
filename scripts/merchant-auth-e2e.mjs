@@ -3,11 +3,18 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-const url = "https://uiyrbqqvgnfhfdhedmav.supabase.co";
-const publishableKey =
-  "sb_publishable_w2KLFSsWv5uKFEmUC4ABLA_DvHEAhdX";
+const url = process.env.SUPABASE_URL || "";
+const publishableKey = process.env.SUPABASE_ANON_KEY || "";
+const STAGING_PROJECT_ID = "gwoiocllrgdwuxzibcuu";
+if (new URL(url || "https://invalid.example").hostname !== `${STAGING_PROJECT_ID}.supabase.co`) {
+  throw new Error("Refusing merchant E2E: SUPABASE_URL must be isolated HK Family Fun Staging, never Production");
+}
+if (!publishableKey) throw new Error("SUPABASE_ANON_KEY is required for Staging");
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const siteUrl = process.env.SITE_URL || "https://hkfamilyfun-v2.vercel.app";
+const siteUrl = process.env.SITE_URL || "";
+if (!/^https:\/\/hkfamilyfun-staging-[a-z0-9-]+\.vercel\.app$/.test(siteUrl)) {
+  throw new Error("Refusing merchant E2E: SITE_URL must be an independent hkfamilyfun-staging preview");
+}
 const requireNotification = process.env.REQUIRE_NOTIFICATION === "true";
 
 if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
