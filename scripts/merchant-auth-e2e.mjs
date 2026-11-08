@@ -16,6 +16,8 @@ if (!/^https:\/\/hkfamilyfun-staging-[a-z0-9-]+\.vercel\.app$/.test(siteUrl)) {
   throw new Error("Refusing merchant E2E: SITE_URL must be an independent hkfamilyfun-staging preview");
 }
 const requireNotification = process.env.REQUIRE_NOTIFICATION === "true";
+const previewBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || "";
+if (!previewBypassSecret) throw new Error("Protected Staging preview requires VERCEL_AUTOMATION_BYPASS_SECRET");
 
 if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
 
@@ -423,6 +425,7 @@ async function main() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${signedIn.data.session.access_token}`,
+            "x-vercel-protection-bypass": previewBypassSecret,
           },
           body: JSON.stringify({
             action: "event_submitted",
@@ -437,7 +440,7 @@ async function main() {
 
       assert(
         notificationResponse.ok,
-        `Production notification API failed with HTTP ${notificationResponse.status}`,
+        `Staging notification API failed with HTTP ${notificationResponse.status}`,
       );
       assert(
         notificationBody.queued === true && Boolean(notificationBody.queue_id),
