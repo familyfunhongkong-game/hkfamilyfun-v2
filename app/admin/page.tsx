@@ -13,6 +13,8 @@ const groups = [
       { href: "/admin/dashboard", title: "Business Dashboard / 營運數據", description: "會員、已同意訪客、商戶、收藏可用性、活動分類、增長圖表及最新名單。", tone: "purple" },
       { href: "/admin/operations", title: "Operations Hub", description: "Supabase、Google Drive、表單、同步狀態、待處理數據及營運指標集中管理。", tone: "purple" },
       { href: "/admin/reports", title: "Reports / QA", description: "集中睇活動資料缺漏、過期公開、同步錯誤、Intake backlog 同內容營運狀態。", tone: "rose" },
+      { href: "/admin/community", title: "報料區投稿審批", description: "審核家長報料、親子好去處及來源；未批准不會公開。", tone: "emerald" },
+      { href: "/admin/community/replies", title: "報料區留言審批", description: "逐則審批會員留言，預防兒童私人資料被公開。", tone: "amber" },
       { href: "/admin/notifications", title: "通知中心", description: "查看新商戶、活動建立、修改及待審通知。", tone: "amber" },
       { href: "/admin/change-history", title: "商戶及活動變更歷史", description: "按日期及活動查看建立、修改、提交、狀態改動及刪除紀錄。", tone: "sky" },
       { href: "/admin/events/image-qa", title: "活動圖片待辦／AI 示意圖", description: "先查原活動專屬圖片，再審核 AI 示意圖；集中修復錯誤圖示及缺圖草稿。", tone: "amber" },
