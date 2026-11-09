@@ -134,12 +134,22 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
           >
             {m.merchantRegister}
           </Link>
+          <Link href="/login?mode=register" className="hidden min-h-10 items-center whitespace-nowrap rounded-full border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-black text-purple-800 transition hover:bg-purple-100 sm:inline-flex">
+            {locale === "en" ? "Free parent sign-up" : locale === "zh-Hans" ? "家长免费注册" : "家長免費註冊"}
+          </Link>
           <details className="group relative">
             <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:border-purple-300 hover:text-purple-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700 [&::-webkit-details-marker]:hidden">
               {locale === "en" ? "Sign in" : locale === "zh-Hans" ? "登录" : "登入"}
               <span aria-hidden="true" className="text-slate-400">⌄</span>
             </summary>
-            <div className="absolute right-0 top-full z-[80] mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+            <div className="absolute right-0 top-full z-[80] mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+              <Link href="/login" className="block rounded-xl bg-purple-50 px-3 py-3 text-sm font-bold text-purple-800 hover:bg-purple-100">
+                {locale === "en" ? "Parent sign in" : locale === "zh-Hans" ? "家长会员登录" : "家長會員登入"}
+              </Link>
+              <Link href="/login?mode=register" className="block rounded-xl px-3 py-3 text-sm font-semibold text-purple-800 hover:bg-purple-50">
+                {locale === "en" ? "Free parent sign-up" : locale === "zh-Hans" ? "家长免费注册" : "家長免費註冊"}
+              </Link>
+              <div className="my-1 border-t border-slate-100" />
               <Link href="/merchant/account?mode=login" className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 hover:bg-purple-50 hover:text-purple-700">
                 {locale === "en" ? "Merchant sign in" : locale === "zh-Hans" ? "商户登录" : "商戶登入"}
               </Link>
@@ -194,6 +204,12 @@ function SiteFooter({ m, locale }: { m: ReturnType<typeof getMessages>; locale: 
         <div>
           <h2 className="text-sm font-black text-slate-950">{m.parentArea}</h2>
           <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-600">
+            <Link href="/login?mode=register" className="font-bold text-purple-700">
+              {locale === "en" ? "Free parent sign-up" : locale === "zh-Hans" ? "家长免费注册" : "家長免費註冊"}
+            </Link>
+            <Link href="/login" className="hover:text-purple-700">
+              {locale === "en" ? "Parent sign in" : locale === "zh-Hans" ? "家长会员登录" : "家長會員登入"}
+            </Link>
             <Link href="/today" className="hover:text-purple-700">
               {m.navToday}
             </Link>
