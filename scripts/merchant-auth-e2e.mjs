@@ -638,6 +638,7 @@ async function main() {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${signedIn.data.session.access_token}`,
+        "x-vercel-protection-bypass": previewBypassSecret,
       },
       body: JSON.stringify({
         url: "http://127.0.0.1/",
@@ -655,6 +656,7 @@ async function main() {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${signedIn.data.session.access_token}`,
+        "x-vercel-protection-bypass": previewBypassSecret,
       },
       body: JSON.stringify({
         url: `${siteUrl}/events/${eventId}`,
@@ -689,6 +691,7 @@ async function main() {
       method: "POST",
       headers: {
         Authorization: `Bearer ${signedIn.data.session.access_token}`,
+        "x-vercel-protection-bypass": previewBypassSecret,
       },
       body: pdfForm,
     });
