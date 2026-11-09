@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   browser-e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
       PREVIEW_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-ff887b-hk-family-fun.vercel.app
