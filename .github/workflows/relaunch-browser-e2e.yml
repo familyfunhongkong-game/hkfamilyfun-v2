@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - release/rebuild-v2-full-stack-qa-20261104
+      - release/rebuild-v2-launch-candidate-20261109
   pull_request:
     branches:
       - release/rebuild-v2-member-integrated-20261104
+      - main
   workflow_dispatch:
 
 permissions:
@@ -21,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 18
     env:
-      PREVIEW_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-e120d3-hk-family-fun.vercel.app
+      PREVIEW_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-ff887b-hk-family-fun.vercel.app
       EXPECTED_BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
