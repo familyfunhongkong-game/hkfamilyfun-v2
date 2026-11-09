@@ -8,6 +8,7 @@ import MobileBottomNav from "@/components/mobile-bottom-nav";
 import SiteAnalyticsTracker from "@/components/site-analytics-tracker";
 import CookiePreferences, { CookieSettingsButton } from "@/components/cookie-preferences";
 import MemberSessionSync from "@/components/auth/member-session-sync";
+import HeaderAccountMenu from "@/components/auth/header-account-menu";
 import { getMessages } from "@/lib/i18n/messages";
 import { getServerLocale } from "@/lib/i18n/server";
 import { localeHtmlLang } from "@/lib/i18n/config";
@@ -138,31 +139,7 @@ function SiteHeader({ locale, m }: { locale: Awaited<ReturnType<typeof getServer
           >
             {m.merchantRegister}
           </Link>
-          <details className="group relative">
-            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:border-purple-300 hover:text-purple-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700 [&::-webkit-details-marker]:hidden">
-              {locale === "en" ? "Sign in" : locale === "zh-Hans" ? "登录" : "登入"}
-              <span aria-hidden="true" className="text-slate-400">⌄</span>
-            </summary>
-            <div className="absolute right-0 top-full z-[80] mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
-              <Link href="/login" className="block rounded-xl px-3 py-3 text-sm font-black text-purple-700 hover:bg-purple-50">
-                {locale === "en" ? "Parent sign in / free account" : locale === "zh-Hans" ? "家长登录／免费注册" : "家長登入／免費註冊"}
-              </Link>
-              <Link href="/account" className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 hover:bg-purple-50">
-                {locale === "en" ? "My account & preferences" : locale === "zh-Hans" ? "会员中心／偏好" : "會員中心／偏好"}
-              </Link>
-              <div className="my-1 border-t border-slate-100" />
-              <Link href="/merchant/account?mode=login" className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 hover:bg-purple-50 hover:text-purple-700">
-                {locale === "en" ? "Merchant sign in" : locale === "zh-Hans" ? "商户登录" : "商戶登入"}
-              </Link>
-              <Link href="/merchant/account?mode=register" className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 hover:bg-purple-50 hover:text-purple-700">
-                {locale === "en" ? "Free merchant registration" : locale === "zh-Hans" ? "商户免费登记" : "商戶免費登記"}
-              </Link>
-              <div className="my-1 border-t border-slate-100" />
-              <Link href="/admin/login" className="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-purple-50 hover:text-purple-700">
-                {locale === "en" ? "Admin sign in" : locale === "zh-Hans" ? "管理员登录" : "管理員登入"}
-              </Link>
-            </div>
-          </details>
+          <HeaderAccountMenu locale={locale} />
           <LanguageSwitcher locale={locale} label={m.language} />
         </div>
       </div>
