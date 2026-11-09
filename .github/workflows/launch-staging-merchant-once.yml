@@ -17,7 +17,8 @@ concurrency:
 
 jobs:
   staging-e2e:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'test(launch): run isolated staging merchant E2E')
+    if: >-
+      github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'test(launch): run isolated staging merchant E2E')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
