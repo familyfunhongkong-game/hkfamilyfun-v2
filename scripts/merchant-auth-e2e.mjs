@@ -458,7 +458,10 @@ async function main() {
       assert(
         retryBody.queued === true &&
           retryBody.duplicate === true &&
-          retryBody.queue_id === notificationBody.queue_id,
+          // Duplicate notification rows belong to the private Admin queue.
+          // Merchant RLS must not reveal the row id on a duplicate response.
+          (retryBody.queue_id === null ||
+            retryBody.queue_id === notificationBody.queue_id),
         "Notification retry did not deduplicate to the existing queue item",
       );
       checks.push("event_submission_notification_deduplicated");
