@@ -50,7 +50,9 @@ export default function ParentEmailAccount() {
           const result = await synchronizeCloudFavorites();
           setNotice(result.error ? "帳戶已建立，雲端收藏暫未同步：" + result.error : "已建立免費帳戶，收藏已同步。");
         } else {
-          setNotice("如收到確認郵件，請先開啟郵件內連結，再返回網站登入。請檢查垃圾郵件夾。");
+          // Supabase intentionally returns a successful-looking response for an
+          // already registered email. Never promise an email was actually sent.
+          setNotice("如果這是新帳戶，請查看收件箱或垃圾郵件中的確認電郵。如你曾經註冊，此操作不會建立另一個帳戶，請改用「會員登入」或「忘記密碼」。");
         }
       } else {
         const { error: failure } = await supabase.auth.signInWithPassword({
@@ -66,6 +68,33 @@ export default function ParentEmailAccount() {
         ? "登入失敗。請核對電郵、密碼及電郵確認狀態。"
         : "未能完成註冊。如已有帳戶，請直接登入。");
     } finally { setBusy(false); }
+  }
+
+  async function resendConfirmation() {
+    if (!supabase || !email.trim()) {
+      setError("請先輸入電郵地址。");
+      return;
+    }
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const { error: failure } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim().toLowerCase(),
+        options: { emailRedirectTo: window.location.origin + "/login" },
+      });
+      if (failure) {
+        setError(failure.message.toLowerCase().includes("rate limit") ||
+          failure.message.toLowerCase().includes("seconds")
+          ? "驗證郵件請求過於頻繁，請稍後再試。"
+          : "暫時無法重新發送確認電郵，請稍後再試。如帳戶已驗證，請直接登入或重設密碼。");
+      } else {
+        setNotice("如果此電郵仍有待驗證，系統會重新寄出確認連結；如已完成驗證，請直接登入。請檢查垃圾郵件。");
+      }
+    } catch {
+      setError("郵件服務暫時無法連線，請稍後再試。");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function resetPassword() {
@@ -141,11 +170,29 @@ export default function ParentEmailAccount() {
             <button type="button" disabled={busy} onClick={() => void resetPassword()}
               className="mt-3 text-sm font-bold text-purple-700 disabled:opacity-50">忘記密碼？發送重設電郵</button>
           ) : (
-            <p className="mt-3 text-xs leading-5 text-slate-500">建立會員帳戶代表同意網站服務條款及私隱政策，活動收藏只供本人帳戶使用。</p>
+            <div className="mt-4 space-y-3">
+              <p className="text-xs leading-5 text-slate-500">建立會員帳戶代表同意網站服務條款及私隱政策，活動收藏只供本人帳戶使用。</p>
+              <p className="text-xs leading-5 text-slate-600">已經註冊？請先按「會員登入」。如果未能登入，可以重設密碼；只有尚未確認的帳戶才會收到重新發送的驗證信。</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                <button type="button" disabled={busy} onClick={() => { setMode("login"); setError(""); setNotice(""); }}
+                  className="text-sm font-bold text-purple-700 underline disabled:opacity-50">返回會員登入／忘記密碼</button>
+                <button type="button" disabled={busy} onClick={() => void resendConfirmation()}
+                  className="text-sm font-bold text-slate-700 underline disabled:opacity-50">未收到信？重新發送驗證電郵</button>
+              </div>
+            </div>
           )}
         </>
       )}
-      {notice ? <p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p> : null}
+      {notice ? (
+        <div role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">
+          <p>{notice}</p>
+          {mode === "register" ? (
+            <button type="button" className="mt-2 font-bold underline" onClick={() => { setMode("login"); setNotice(""); setError(""); }}>
+              已有帳戶？轉到會員登入／忘記密碼
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {error ? <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p> : null}
     </section>
   );
