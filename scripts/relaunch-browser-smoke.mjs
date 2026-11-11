@@ -116,7 +116,7 @@ try {
           if (path === "/login" && !/登入|Login|Sign in/i.test(rendered.text)) problems.push("member login form missing");
           if ((path === "/" || path === "/events") && rendered.eventDetailHrefs.length < 4) problems.push("fewer than four real event detail links; staging content parity broken");
           if ((path === "/" || path === "/events") && rendered.text.includes("[QA]")) problems.push("staging QA fixture leaked to public event discovery");
-          if (path === "/" && !page.getByRole("search").count()) problems.push("homepage parent-first activity search missing");
+          if (path === "/" && (await page.getByRole("search").count()) === 0) problems.push("homepage parent-first activity search missing");
           if (path === "/tips" && !/報料|社區|Tips/i.test(rendered.text)) problems.push("community page missing");
           if (path.startsWith("/admin/community") && !/Admin 頁面已受保護|請先以管理員身份登入。/.test(rendered.text)) problems.push("unauthorized moderation UI not blocked; visible alert: " + (await page.locator("[role=alert]").allTextContents()).join(" | ").slice(0,250) + "; body: " + rendered.text.slice(0,350));
           if (pageErrors.length) problems.push("browser errors: " + pageErrors.slice(0, 2).join(" | "));
