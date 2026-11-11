@@ -76,7 +76,9 @@ outcomes.push({check:"unapproved photo metadata hidden",status:emptyList?"PASS":
 const browser = await chromium.launch({ headless: true });
 try {
   const profiles = [
-    { name: "mobile", viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 2 },
+    { name: "mobile-320", viewport: { width: 320, height: 720 }, isMobile: true, deviceScaleFactor: 2 },
+    { name: "mobile-375", viewport: { width: 375, height: 812 }, isMobile: true, deviceScaleFactor: 2 },
+    { name: "mobile-390", viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 2 },
     { name: "desktop", viewport: { width: 1440, height: 900 }, isMobile: false },
   ];
   const routes = ["/", "/events", "/today", "/calendar", "/events/map", "/tips", "/favorites", "/login", "/merchant/account", "/admin/login", "/admin/community", "/admin/community/replies", "/privacy", "/contact"];
@@ -99,6 +101,9 @@ try {
             width: document.documentElement.scrollWidth,
             viewport: window.innerWidth,
             metaRobots: document.querySelector('meta[name="robots"]')?.getAttribute("content") || "",
+            eventDetailHrefs: Array.from(document.querySelectorAll('a[href^="/events/"]'))
+              .map((a) => a.getAttribute("href") || "")
+              .filter((href) => /^\/events\/[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(href)),
           }));
           const status = response?.status() || 0;
           const problems = [];
@@ -109,11 +114,14 @@ try {
           if (path === "/" && !/noindex/i.test(rendered.metaRobots)) problems.push("preview missing noindex");
           if (path === "/admin/login" && !/管理員登入|Admin Login/i.test(rendered.text)) problems.push("admin login form missing");
           if (path === "/login" && !/登入|Login|Sign in/i.test(rendered.text)) problems.push("member login form missing");
+          if ((path === "/" || path === "/events") && rendered.eventDetailHrefs.length < 4) problems.push("fewer than four real event detail links; staging content parity broken");
+          if ((path === "/" || path === "/events") && rendered.text.includes("[QA]")) problems.push("staging QA fixture leaked to public event discovery");
+          if (path === "/" && !page.getByRole("search").count()) problems.push("homepage parent-first activity search missing");
           if (path === "/tips" && !/報料|社區|Tips/i.test(rendered.text)) problems.push("community page missing");
           if (path.startsWith("/admin/community") && !/Admin 頁面已受保護|請先以管理員身份登入。/.test(rendered.text)) problems.push("unauthorized moderation UI not blocked; visible alert: " + (await page.locator("[role=alert]").allTextContents()).join(" | ").slice(0,250) + "; body: " + rendered.text.slice(0,350));
           if (pageErrors.length) problems.push("browser errors: " + pageErrors.slice(0, 2).join(" | "));
           const check = profile.name + " " + path;
-          outcomes.push({ check, status: problems.length ? "FAIL" : "PASS", http: status, overflow: rendered.width - rendered.viewport, problems });
+          outcomes.push({ check, status: problems.length ? "FAIL" : "PASS", http: status, overflow: rendered.width - rendered.viewport, eventLinks: rendered.eventDetailHrefs.length, problems });
           if (problems.length) failures.push(check + ": " + problems.join("; "));
         } catch (e) {
           failures.push(profile.name + " " + path + ": " + e.message);
