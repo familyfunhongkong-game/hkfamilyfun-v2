@@ -15,7 +15,8 @@ concurrency:
 
 jobs:
   community-e2e:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'test(community): run isolated staging acceptance')
+    if: >-
+      github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'test(community): run isolated staging acceptance')
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
