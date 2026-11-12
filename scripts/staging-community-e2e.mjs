@@ -188,8 +188,17 @@ try {
       await page.goto(preview+"/login",{waitUntil:"domcontentloaded",timeout:35000});
       await page.locator('input[type="email"]').fill(user.email);
       await page.locator('input[type="password"]').fill(user.password);
-      await page.getByRole("button",{name:"登入免費會員"}).click();
-      await page.getByText("已登入："+user.email).waitFor({state:"visible",timeout:25000});
+      const submit=page.getByRole("button",{name:"登入免費會員"});
+      await submit.waitFor({state:"visible",timeout:15000});
+      await page.waitForFunction(()=>{const button=Array.from(document.querySelectorAll("button")).find(b=>b.textContent?.includes("登入免費會員"));return button && !button.disabled;},null,{timeout:20000});
+      await submit.click();
+      try {
+        await page.getByText("已登入："+user.email).waitFor({state:"visible",timeout:25000});
+      } catch (loginFailure) {
+        const signals=await page.locator('[role="alert"],[role="status"]').allTextContents();
+        await page.screenshot({path:"artifacts/hkff-community/login-failure-"+user.id.slice(0,8)+".png",fullPage:true});
+        throw new Error("Browser login not confirmed; url="+page.url()+" messages="+JSON.stringify(signals)+"; "+loginFailure.message);
+      }
     }
     await login(pageA,a);await login(pageB,b);await login(pageAdmin,mod);
     checks.push("real_browser_login_three_roles");
