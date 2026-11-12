@@ -38,4 +38,20 @@ assert.ok(crossYear.includes("2026") && crossYear.includes("2027"), "Cross-year 
 const compactCrossYear = formatEventCardDate("2026-04-23", "2027-03-10", "zh-Hant", true);
 assert.ok(compactCrossYear.includes("2026年") && compactCrossYear.includes("2027年"), "Compact cross-year range must retain both years");
 assert.equal(formatEventCardDate("invalid", "2027-03-10", "zh-Hant"), "日期待定");
-console.log("[relaunch-password-date] PASS — parent 8-char policy, untruncated mobile dates, cross-year formatting");
+const pricingSource = source("lib/supabase/events.ts");
+const beginPricing = pricingSource.indexOf("function hasConflictingPaidEvidence(");
+const endPricing = pricingSource.indexOf("function formatPrice(", beginPricing);
+assert.ok(beginPricing >= 0 && endPricing > beginPricing, "Pricing/free guard must be available");
+const pricingExports = {};
+const pricingJs = ts.transpileModule(
+  pricingSource.slice(beginPricing, endPricing) + "\nexport { hasConflictingPaidEvidence, eventIsFree };",
+  { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
+).outputText;
+runInNewContext(pricingJs, { exports: pricingExports, module: { exports: pricingExports }, Number, String });
+const conflictingPmq = { price_type: "free", is_free: false, price_label: "日票 HK$20；通行證 HK$80", price_min: null, min_price: null };
+assert.equal(pricingExports.hasConflictingPaidEvidence(conflictingPmq), true, "HK$20 must indicate a paid activity");
+assert.equal(pricingExports.eventIsFree(conflictingPmq), false, "Stale free flag cannot override paid ticket");
+assert.equal(pricingExports.eventIsFree({ price_type: "free", is_free: true, price_label: "" }), true, "Real free events remain free");
+assert.ok(search.includes("const explicitPaidPrice ="), "Search must not classify paid HK$ records as free");
+
+console.log("[relaunch-password-date] PASS — parent 8-char policy, untruncated mobile dates, cross-year formatting and paid-event truth");
