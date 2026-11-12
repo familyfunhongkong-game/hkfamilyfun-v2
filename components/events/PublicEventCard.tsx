@@ -20,28 +20,11 @@ import ResilientEventImage from "@/components/resilient-event-image";
 import { displayTag, tagTone } from "@/lib/events/tag-tone";
 import { formatEventCardDate } from "@/lib/events/card-date";
 import { formatWeeklyDays } from "@/lib/events/weekly-label";
+import { readSavedIds, SAVED_CHANGED, synchronizeCloudFavorites, changeSavedEvent } from "@/lib/favorites/cloud-sync";
 
 
-const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
-const FAVORITES_CHANGED_EVENT = "hkff:favorites-changed";
-
-function readFavoriteIds() {
-  if (typeof window === "undefined") return [] as string[];
-
-  try {
-    const parsed = JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) || "[]");
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeFavoriteIds(ids: string[]) {
-  localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(new Set(ids))));
-  window.dispatchEvent(new CustomEvent(FAVORITES_CHANGED_EVENT));
-}
+const FAVORITES_CHANGED_EVENT = SAVED_CHANGED;
+const readFavoriteIds = readSavedIds;
 
 function escapeIcsText(value: string) {
   return String(value || "")
@@ -245,10 +228,13 @@ export default function PublicEventCard({
   const dateText = formatEventCardDate(event.date, event.endDate, locale);
   const weeklyLabel = event.recurrenceType === "weekly" ? formatWeeklyDays(event.recurrenceWeekdays, locale) : "";
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const [favoriteError, setFavoriteError] = useState("");
 
   useEffect(() => {
     const syncFavorites = () => setFavoriteIds(readFavoriteIds());
     syncFavorites();
+    void synchronizeCloudFavorites().then((result) => { if (result.error) setFavoriteError(result.error); });
     window.addEventListener(FAVORITES_CHANGED_EVENT, syncFavorites);
     window.addEventListener("storage", syncFavorites);
     return () => {
@@ -259,12 +245,13 @@ export default function PublicEventCard({
 
   const isFavorite = favoriteIds.includes(event.id);
 
-  const toggleFavorite = () => {
-    const current = readFavoriteIds();
-    const next = current.includes(event.id)
-      ? current.filter((id) => id !== event.id)
-      : [...current, event.id];
-    writeFavoriteIds(next);
+  const toggleFavorite = async () => {
+    if (favoriteBusy) return;
+    setFavoriteBusy(true);
+    setFavoriteError("");
+    const result = await changeSavedEvent(event.id, !readFavoriteIds().includes(event.id));
+    if (!result.ok) setFavoriteError(result.error || "收藏未能儲存，請再試。");
+    setFavoriteBusy(false);
   };
 
   const addToCalendar = () => downloadCalendarEvent(event);
@@ -280,38 +267,28 @@ export default function PublicEventCard({
         <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-3 p-3">
           <Link
             href={`/events/${event.id}`}
-            className="relative block aspect-square overflow-hidden rounded-xl bg-slate-100"
+            className="relative isolate block aspect-square overflow-hidden rounded-xl bg-slate-100"
           >
             <ResilientEventImage
               src={event.image}
               alt={event.title}
               loading="lazy"
               compactFallback
-              className="h-full w-full object-cover transition-transform duration-300"
+              className="h-full w-full object-cover"
               style={coverCropStyle(event)}
             />
-            <span className={`absolute bottom-1.5 left-1.5 rounded-full px-2 py-1 text-[10px] font-black shadow-sm ${priceTone(event)}`}>
+            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16 bg-gradient-to-t from-slate-950/45 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-1.5 top-1.5 z-20 flex max-h-[45%] flex-wrap content-start gap-1 overflow-hidden">
+              <span className="rounded-md bg-white/95 px-1.5 py-0.5 text-[9px] font-black text-purple-800 shadow-sm">{category}</span>
+              {event.senFriendly ? <span className="rounded-md bg-fuchsia-100/95 px-1.5 py-0.5 text-[9px] font-black text-fuchsia-800">SEN</span> : null}
+              {event.indoor ? <span className="rounded-md bg-sky-100/95 px-1.5 py-0.5 text-[9px] font-black text-sky-800">{text(locale, "室內", "室内", "Indoor")}</span> : null}
+            </div>
+            <span className={`pointer-events-none absolute bottom-2 left-2 z-20 max-w-[90%] truncate rounded-full px-2 py-1 text-[10px] font-black shadow-sm ${priceTone(event)}`}>
               {price}
             </span>
           </Link>
 
           <div className="min-w-0">
-            <div className="flex flex-wrap gap-1.5">
-              <span className="rounded-full bg-purple-50 px-2 py-1 text-[10px] font-black text-purple-700">
-                {category}
-              </span>
-              {event.senFriendly ? (
-                <span className="rounded-full bg-fuchsia-50 px-2 py-1 text-[10px] font-black text-fuchsia-700">
-                  SEN 友善
-                </span>
-              ) : null}
-              {event.indoor ? (
-                <span className="rounded-full bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700">
-                  {text(locale, "室內", "室内", "Indoor")}
-                </span>
-              ) : null}
-            </div>
-
             <Link href={`/events/${event.id}`}>
               <h3 className="mt-2 line-clamp-2 text-sm font-black leading-5 text-slate-950 group-hover:text-purple-800">
                 {event.title}
@@ -352,7 +329,8 @@ export default function PublicEventCard({
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
-                onClick={toggleFavorite}
+                onClick={() => void toggleFavorite()}
+                disabled={favoriteBusy}
                 aria-pressed={isFavorite}
                 aria-label={isFavorite ? text(locale, "取消收藏", "取消收藏", "Remove saved event") : text(locale, "收藏活動", "收藏活动", "Save event")}
                 className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[10px] font-black ring-1 transition ${isFavorite ? "bg-rose-50 text-rose-700 ring-rose-100" : "bg-white text-slate-600 ring-slate-200"}`}
@@ -378,6 +356,7 @@ export default function PublicEventCard({
             </div>
           </div>
         </div>
+        {favoriteError ? <p role="alert" className="px-3 pb-2 text-xs font-semibold text-rose-700">{favoriteError}</p> : null}
       </article>
     );
   }
@@ -390,48 +369,42 @@ export default function PublicEventCard({
     >
       <Link
         href={`/events/${event.id}`}
-        className={`relative block overflow-hidden bg-gradient-to-br from-purple-50 via-white to-amber-50 ${
-          featured ? "aspect-[16/10]" : "aspect-[5/4]"
-        }`}
+        aria-label={text(locale, "查看活動詳情", "查看活动详情", "View event details") + ": " + event.title}
+        className={`relative isolate block w-full shrink-0 overflow-hidden bg-slate-100 ${featured ? "aspect-[16/10]" : "aspect-[5/4]"}`}
       >
         <ResilientEventImage
           src={event.image}
           alt={event.title}
           loading="lazy"
           compactFallback
-          className="h-full w-full object-contain transition-transform duration-500"
+          className="h-full w-full object-cover"
           style={coverCropStyle(event)}
         />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-slate-950/45 to-transparent" />
 
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/55 to-transparent" />
-
-        <div className="absolute left-3 top-3 flex max-w-[78%] flex-wrap gap-2">
+        {/* Badges float above the cover; ordinary event details stay below it. */}
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex max-h-[35%] flex-wrap content-start gap-1.5 overflow-hidden">
           {featured ? (
-            <span className="rounded-full bg-purple-700 px-3 py-1 text-[11px] font-black text-white shadow-sm">
+            <span className="rounded-full bg-purple-700 px-2.5 py-1 text-[10px] font-black text-white shadow-sm">
               {text(locale, "精選推介", "精选推介", "Featured")}
             </span>
           ) : null}
-          <span className="rounded-full bg-white/95 px-3 py-1 text-[11px] font-black text-purple-800 shadow-sm backdrop-blur">
+          <span className="rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-black text-purple-800 shadow-sm">
             {category}
           </span>
           {event.senFriendly ? (
-            <span className="rounded-full bg-fuchsia-100/95 px-3 py-1 text-[11px] font-black text-fuchsia-800 shadow-sm backdrop-blur">
+            <span className="rounded-full bg-fuchsia-100/95 px-2.5 py-1 text-[10px] font-black text-fuchsia-800 shadow-sm">
               SEN 友善
             </span>
           ) : null}
           {event.indoor ? (
-            <span className="rounded-full bg-sky-100/95 px-3 py-1 text-[11px] font-black text-sky-800 shadow-sm backdrop-blur">
+            <span className="rounded-full bg-sky-100/95 px-2.5 py-1 text-[10px] font-black text-sky-800 shadow-sm">
               {text(locale, "室內", "室内", "Indoor")}
             </span>
           ) : null}
         </div>
-
-        <span className={`absolute bottom-3 left-3 rounded-full px-3 py-1.5 text-xs font-black shadow-sm ${priceTone(event)}`}>
+        <span className={`pointer-events-none absolute bottom-3 left-3 z-20 max-w-[calc(100%-1.5rem)] truncate rounded-full px-3 py-1.5 text-xs font-black shadow-sm ${priceTone(event)}`}>
           {price}
-        </span>
-
-        <span className="absolute bottom-3 right-3 rounded-full bg-slate-950/75 px-3 py-1.5 text-[11px] font-black text-white backdrop-blur">
-          📍 {event.district}
         </span>
       </Link>
 
@@ -452,7 +425,7 @@ export default function PublicEventCard({
           </p>
         ) : null}
 
-        <div className="mt-4 grid gap-x-5 gap-y-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100 sm:gap-4 sm:p-4">
           <InfoLine
             icon={<CalendarDays size={15} />}
             label={text(locale, "日期", "日期", "Date")}
@@ -461,12 +434,14 @@ export default function PublicEventCard({
           <InfoLine
             icon={<Clock3 size={15} />}
             label={text(locale, "時間", "时间", "Time")}
-            value={event.time}
+            value={isPlaceholder(event.time) ? text(locale, "時間待確認", "时间待确认", "Time TBC") : event.time}
+            muted={isPlaceholder(event.time)}
           />
           <InfoLine
             icon={<MapPin size={15} />}
             label={text(locale, "地區", "地区", "District")}
-            value={event.district}
+            value={isPlaceholder(event.district) ? text(locale, "地區待確認", "地区待确认", "District TBC") : event.district}
+            muted={isPlaceholder(event.district)}
           />
           <InfoLine
             icon={<TrainFront size={15} />}
@@ -522,10 +497,11 @@ export default function PublicEventCard({
           </div>
         ) : null}
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
           <button
             type="button"
-            onClick={toggleFavorite}
+            onClick={() => void toggleFavorite()}
+            disabled={favoriteBusy}
             aria-pressed={isFavorite}
             className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-black ring-1 transition ${isFavorite ? "bg-rose-50 text-rose-700 ring-rose-100" : "bg-white text-slate-700 ring-slate-200 hover:ring-rose-200 hover:text-rose-700"}`}
           >
@@ -544,7 +520,7 @@ export default function PublicEventCard({
           </button>
         </div>
 
-        <div className="mt-auto grid gap-2 pt-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-2 pt-3">
           <Link
             href={`/events/${event.id}`}
             className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-purple-700 px-4 py-3 text-sm font-black text-white transition hover:bg-purple-800"
@@ -570,6 +546,7 @@ export default function PublicEventCard({
           )}
         </div>
       </div>
+      {favoriteError ? <p role="alert" className="px-4 pb-3 text-xs font-semibold text-rose-700">{favoriteError}</p> : null}
     </article>
   );
 }

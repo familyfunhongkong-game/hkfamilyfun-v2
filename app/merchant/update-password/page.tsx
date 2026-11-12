@@ -221,6 +221,11 @@ export default function MerchantUpdatePasswordPage() {
             >
               {portalContext === "admin" ? "返回 Admin 登入" : "返回商戶登入"}
             </Link>
+            {portalContext !== "admin" ? (
+              <Link href="/admin/login" className="font-semibold text-purple-700 hover:text-purple-900">
+                如你是管理員，返回 Admin 登入
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>

@@ -27,6 +27,8 @@ import { getClientLocale } from "@/lib/i18n/client";
 import { localizedText, uiText, type AppLocale } from "@/lib/i18n/config";
 import { getEventDetailMessages } from "@/lib/i18n/event-page-messages";
 import { formatEventAge } from "@/lib/events/age-display";
+import { isActivePublicEvent } from "@/lib/events/visibility";
+import { readSavedIds, SAVED_CHANGED, synchronizeCloudFavorites, changeSavedEvent } from "@/lib/favorites/cloud-sync";
 import {
   formatEventCategory,
   normalizeEventTags,
@@ -177,7 +179,7 @@ const FALLBACK_IMAGE =
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const FAVORITES_STORAGE_KEY = "hkff_favorite_event_ids";
+
 
 function safeText(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;
@@ -677,30 +679,7 @@ function getGoogleMapEmbedUrl(event: EventRecord): string | null {
   )}&output=embed`;
 }
 
-function readFavoriteIds(): string[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(FAVORITES_STORAGE_KEY);
-    if (!raw) return [];
-
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed
-      .map((item) => String(item || "").trim())
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
-function writeFavoriteIds(ids: string[]) {
-  if (typeof window === "undefined") return;
-
-  const unique = Array.from(new Set(ids.filter(Boolean)));
-  window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(unique));
-}
+const readFavoriteIds = readSavedIds;
 
 function Badge({
   children,
@@ -800,15 +779,26 @@ export default function PublicEventDetailPage() {
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
+  const [isExpiredLink, setIsExpiredLink] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const [favoriteError, setFavoriteError] = useState("");
   const m = getEventDetailMessages(locale);
 
   useEffect(() => {
     setLocale(getClientLocale());
-    setFavoriteIds(readFavoriteIds());
+    const sync = () => setFavoriteIds(readFavoriteIds());
+    sync();
+    void synchronizeCloudFavorites().then((result) => { if (result.error) setFavoriteError(result.error); });
+    window.addEventListener(SAVED_CHANGED, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(SAVED_CHANGED, sync);
+      window.removeEventListener("storage", sync);
+    };
   }, []);
 
   useEffect(() => {
@@ -819,6 +809,7 @@ export default function PublicEventDetailPage() {
       setLocale(activeLocale);
       setLoading(true);
       setErrorText("");
+      setIsExpiredLink(false);
 
       if (!eventId || !UUID_REGEX.test(eventId)) {
         setErrorText(
@@ -868,6 +859,32 @@ export default function PublicEventDetailPage() {
       }
 
       if (!data) {
+        // The anonymous catalogue correctly hides ended activities. A limited
+        // status-only endpoint distinguishes known historical links from
+        // invalid links without revealing draft/unpublished event details.
+        let ended = false;
+        try {
+          const response = await fetch("/api/events/expired-status?id=" + encodeURIComponent(eventId), {
+            cache: "no-store",
+          });
+          ended = response.ok && (await response.json()).ended === true;
+        } catch {
+          // Fallback to generic not-found; never expose private details.
+        }
+        if (ignore) return;
+        if (ended) {
+          setIsExpiredLink(true);
+          setErrorText(
+            activeLocale === "en"
+              ? "This event has ended. Booking is no longer available. See current activities instead."
+              : activeLocale === "zh-Hans"
+                ? "活动已结束／已过期，无法再报名。请查看最新活动。"
+                : "活動已結束／已過期，無法再報名。請查看最新活動。",
+          );
+          setEvent(null);
+          setLoading(false);
+          return;
+        }
         setErrorText(
           activeLocale === "en"
             ? "This event could not be found."
@@ -911,16 +928,13 @@ export default function PublicEventDetailPage() {
 
   const isFavorite = favoriteIds.includes(eventId);
 
-  function toggleFavorite() {
-    setFavoriteIds((current) => {
-      const exists = current.includes(eventId);
-      const next = exists
-        ? current.filter((id) => id !== eventId)
-        : [...current, eventId];
-
-      writeFavoriteIds(next);
-      return next;
-    });
+  async function toggleFavorite() {
+    if (favoriteBusy) return;
+    setFavoriteBusy(true);
+    setFavoriteError("");
+    const result = await changeSavedEvent(eventId, !readFavoriteIds().includes(eventId));
+    if (!result.ok) setFavoriteError(result.error || "收藏暫時未能儲存。");
+    setFavoriteBusy(false);
   }
 
   async function copyTextToClipboard(text: string, onSuccess: () => void) {
@@ -980,7 +994,7 @@ export default function PublicEventDetailPage() {
       <main className="min-h-screen bg-slate-50 px-4 py-10">
         <div className="mx-auto max-w-4xl">
           <div className="rounded-3xl border border-rose-200 bg-white p-8 shadow-sm">
-            <p className="text-sm font-extrabold text-rose-600">{m.loadFailed}</p>
+            <p className="text-sm font-extrabold text-rose-600">{isExpiredLink ? uiText(locale, "已結束活動", "已结束活动", "Event ended") : m.loadFailed}</p>
             <p className="mt-2 text-sm text-slate-600">{errorText}</p>
             <Link
               href="/events"
@@ -1099,6 +1113,7 @@ export default function PublicEventDetailPage() {
   const categoryLabel = getCategoryLabel(event, locale);
   const priceDisplay = formatPrice(event, locale);
   const ageDisplay = formatAgeRange(event, locale);
+  const eventHasFutureOccurrence = isActivePublicEvent(event);
   const dateDisplay = formatDateRange(event, locale);
   const timeDisplay = formatTimeRange(event, locale);
   const isSenFriendly = Boolean(event.is_sen_friendly);
@@ -1139,6 +1154,7 @@ export default function PublicEventDetailPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 pb-28 lg:pb-0">
+      {favoriteError ? <p role="alert" className="mx-auto max-w-6xl rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{favoriteError}</p> : null}
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1190,7 +1206,7 @@ export default function PublicEventDetailPage() {
                 <div className="absolute right-4 top-4 flex gap-2">
                   <button
                     type="button"
-                    onClick={toggleFavorite}
+                    onClick={() => void toggleFavorite()} disabled={favoriteBusy}
                     aria-pressed={isFavorite}
                     aria-label={isFavorite ? m.saved : m.save}
                     className={[
@@ -1266,6 +1282,12 @@ export default function PublicEventDetailPage() {
               <h1 className="mt-4 text-3xl font-black leading-tight tracking-tight text-slate-950 lg:text-[2.15rem]">
                 {title}
               </h1>
+              {!eventHasFutureOccurrence ? (
+                <div role="status" className="mt-4 rounded-2xl border border-slate-300 bg-slate-100 p-4 text-sm font-bold text-slate-800">
+                  <span className="block text-base font-black">{uiText(locale, "已結束／已過期", "已结束／已过期", "Event ended")}</span>
+                  <span className="mt-1 block text-xs font-semibold">{uiText(locale, "活動目前沒有任何未來有效場次，已停止報名。以下僅供查閱歷史資訊。", "活动目前没有任何未来有效场次，已停止报名。以下仅供查阅历史信息。", "No future valid sessions. Booking is unavailable; details are for reference only.")}</span>
+                </div>
+              ) : null}
 
               <p className="mt-3 text-sm font-medium leading-7 text-slate-600">
                 {shortDescription}
@@ -1317,7 +1339,7 @@ export default function PublicEventDetailPage() {
                 </div>
               </div>
 
-              {actionUrl ? (
+              {eventHasFutureOccurrence && actionUrl ? (
                 <a
                   href={actionUrl}
                   target="_blank"
@@ -1625,7 +1647,7 @@ export default function PublicEventDetailPage() {
               <Badge tone="amber">{priceDisplay}</Badge>
             </div>
 
-            {actionUrl ? (
+            {eventHasFutureOccurrence && actionUrl ? (
               <a
                 href={actionUrl}
                 target="_blank"
@@ -1654,7 +1676,7 @@ export default function PublicEventDetailPage() {
               </button>
               <button
                 type="button"
-                onClick={toggleFavorite}
+                onClick={() => void toggleFavorite()} disabled={favoriteBusy}
                 aria-pressed={isFavorite}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-black text-rose-700 ring-1 ring-purple-100"
               >
@@ -1678,7 +1700,7 @@ export default function PublicEventDetailPage() {
         <div className="mx-auto flex max-w-2xl items-center gap-2">
           <button
             type="button"
-            onClick={toggleFavorite}
+            onClick={() => void toggleFavorite()} disabled={favoriteBusy}
             aria-pressed={isFavorite}
             aria-label={isFavorite ? m.saved : m.save}
             className={[
@@ -1700,7 +1722,7 @@ export default function PublicEventDetailPage() {
             <Share2 size={18} />
           </button>
 
-          {actionUrl ? (
+          {eventHasFutureOccurrence && actionUrl ? (
             <a
               href={actionUrl}
               target="_blank"

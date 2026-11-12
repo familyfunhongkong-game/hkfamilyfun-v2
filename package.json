@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "next dev -p 3001",
+    "prebuild": "node scripts/check-saved-events.mjs && node scripts/test-saved-event-recurrence.mjs && node scripts/test-active-event-visibility.mjs && node scripts/check-admin-password-recovery.mjs && node scripts/check-event-card-contract.mjs && node scripts/check-calendar-icons.mjs && node scripts/check-cookie-consent-contract.mjs && node scripts/check-relaunch-ux.mjs && node scripts/test-hkpl-opening-hours.mjs && node scripts/check-source-first-event-images.mjs && node scripts/test-parent-membership.mjs && node scripts/test-community-moderation.mjs && node scripts/test-community-admin-notifications.mjs && node scripts/test-community-photo-consent-share.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
