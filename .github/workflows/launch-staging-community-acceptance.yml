@@ -1,0 +1,52 @@
+name: HKFF Isolated Staging Community Acceptance
+
+on:
+  push:
+    branches:
+      - release/rebuild-v2-launch-candidate-20261109
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hkff-staging-community-acceptance
+  cancel-in-progress: false
+
+jobs:
+  community-e2e:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'test(community): run isolated staging acceptance')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SUPABASE_URL: https://gwoiocllrgdwuxzibcuu.supabase.co
+      SUPABASE_ANON_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      SITE_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-ff887b-hk-family-fun.vercel.app
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install reproducible dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify Staging credentials and exact SHA of protected preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ANON_KEY"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          for attempt in {1..48}; do
+            if curl --max-time 25 -fsSL -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" "$SITE_URL/api/health" -o /tmp/hkff-health.json && node -e 'const h=require("/tmp/hkff-health.json");process.exit(h.ok===true&&h.buildSha===process.env.GITHUB_SHA?0:1)'; then
+              echo "Staging SHA and configuration verified"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Staging preview not READY at required SHA"
+          exit 1
+      - name: Real Auth plus RLS plus private photo and moderator E2E (cleanup mandatory)
+        run: node scripts/staging-community-e2e.mjs
