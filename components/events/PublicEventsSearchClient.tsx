@@ -445,7 +445,11 @@ function isFreeEvent(event: EventRecord): boolean {
   ).toLowerCase();
   const priceText = safeText(event.price_label || event.price_text).toLowerCase();
 
-  return (
+  // A ticket advertised with a positive amount must not be filtered as free,
+  // even when imported price_type was incorrectly left as "free".
+  const explicitPaidPrice = /(?:HK\s*\$|HKD|港幣)\s*[1-9]\d*/i.test(priceText) ||
+    (event.min_price != null && Number(event.min_price) > 0);
+  return !explicitPaidPrice && (
     priceMode === "free" ||
     priceText.includes("免費") ||
     priceText.includes("免费") ||
