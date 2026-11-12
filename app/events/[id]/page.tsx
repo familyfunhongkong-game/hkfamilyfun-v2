@@ -715,11 +715,13 @@ function InfoPill({
   value,
   icon,
   muted = false,
+  unclamped = false,
 }: {
   label: string;
   value: string;
   icon?: ReactNode;
   muted?: boolean;
+  unclamped?: boolean;
 }) {
   return (
     <div className="flex min-w-0 items-start gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-3 sm:gap-3 sm:rounded-2xl sm:bg-slate-50 sm:px-4 sm:ring-1 sm:ring-slate-100">
@@ -737,7 +739,7 @@ function InfoPill({
           {label}
         </p>
         <p
-          className={`mt-0.5 line-clamp-3 text-[13px] font-bold leading-5 sm:mt-1 sm:line-clamp-2 sm:text-sm sm:font-extrabold ${
+          className={`mt-0.5 text-[13px] font-bold leading-5 sm:mt-1 sm:text-sm sm:font-extrabold ${unclamped ? "whitespace-normal break-words [overflow-wrap:anywhere]" : "line-clamp-3 sm:line-clamp-2"} ${
             muted ? "text-slate-400" : "text-slate-800"
           }`}
         >
@@ -1294,16 +1296,21 @@ export default function PublicEventDetailPage() {
               </p>
 
               <div className="mt-5 grid grid-cols-2 gap-2.5">
-                <InfoPill
-                  label={m.date}
-                  value={dateDisplay}
-                  icon={<CalendarDays size={17} />}
-                />
-                <InfoPill
-                  label={m.time}
-                  value={timeDisplay}
-                  icon={<Clock3 size={17} />}
-                />
+                <div className="col-span-2 sm:col-span-1">
+                  <InfoPill
+                    label={m.date}
+                    value={dateDisplay}
+                    icon={<CalendarDays size={17} />}
+                    unclamped
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <InfoPill
+                    label={m.time}
+                    value={timeDisplay}
+                    icon={<Clock3 size={17} />}
+                  />
+                </div>
                 <div className="col-span-2 sm:col-span-1">
                   <InfoPill
                     label={uiText(locale, "適合年齡", "适合年龄", "Age")}
@@ -1610,6 +1617,7 @@ export default function PublicEventDetailPage() {
                 label={m.date}
                 value={dateDisplay}
                 icon={<CalendarDays size={16} />}
+                unclamped
               />
               <InfoPill
                 label={m.time}
