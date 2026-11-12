@@ -92,10 +92,13 @@ try {
   checks.push("pending_post_owner_only_not_anon_or_other_member");
 
   const bypassApproval=await b.client.from("community_tips").insert({
-    author_id:b.id,display_name:"QA Forbidden",title:"QA FORGED",
+    author_id:b.id,display_name:"QA Forbidden",title:"[QA] Forged status "+suffix,
     body:"Forbidden approval",district:"沙田",category:"其他",status:"approved"
-  });
-  assert.ok(bypassApproval.error,"Member may not create approved post");
+  }).select("id,status").single();
+  // Submission trigger intentionally coerces client-supplied review state to pending.
+  // An error OR a persisted pending row is safe; a published row is a P0 failure.
+  if(!bypassApproval.error && bypassApproval.data?.id)createdPosts.push(bypassApproval.data.id);
+  if(!bypassApproval.error)assert.equal(bypassApproval.data?.status,"pending","Member forced approved status was published");
   const forbiddenUpdate=await b.client.from("community_tips").update({status:"approved"}).eq("id",post.id);
   assert.ok(forbiddenUpdate.error || (forbiddenUpdate.data||[]).length===0,"Member must not approve another member's post");
   const unchanged=await ok(service.from("community_tips").select("status").eq("id",post.id).single(),"check member mutation was denied");
