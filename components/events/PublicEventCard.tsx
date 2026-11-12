@@ -189,11 +189,13 @@ function InfoLine({
   label,
   value,
   muted = false,
+  fullText = false,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
   muted?: boolean;
+  fullText?: boolean;
 }) {
   return (
     <div className="flex min-w-0 items-start gap-2.5">
@@ -207,7 +209,7 @@ function InfoLine({
           {label}
         </p>
         <p
-          className={`mt-0.5 line-clamp-2 break-words text-[13px] font-bold leading-5 ${
+          className={`mt-0.5 text-[13px] font-bold leading-5 ${fullText ? "whitespace-normal break-words [overflow-wrap:anywhere]" : "line-clamp-2 break-words"} ${
             muted ? "text-slate-400" : "text-slate-700"
           }`}
         >
@@ -295,8 +297,11 @@ export default function PublicEventCard({
               </h3>
             </Link>
 
-            <p className="mt-1 line-clamp-1 text-[11px] font-bold text-slate-500">
-              {dateText} · {event.time}
+            <p className="mt-1 whitespace-normal break-words text-[11px] font-bold leading-4 text-slate-500">
+              {dateText}
+            </p>
+            <p className="mt-0.5 line-clamp-1 text-[11px] font-bold text-slate-500">
+              {event.time}
             </p>
             {weeklyLabel ? <p className="mt-1 text-[11px] font-bold text-purple-700">{weeklyLabel}</p> : null}
             <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">
@@ -430,6 +435,7 @@ export default function PublicEventCard({
             icon={<CalendarDays size={15} />}
             label={text(locale, "日期", "日期", "Date")}
             value={dateText}
+            fullText
           />
           <InfoLine
             icon={<Clock3 size={15} />}

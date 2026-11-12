@@ -40,8 +40,8 @@ export default function ParentEmailAccount() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) { setError("會員登入服務未設定。"); return; }
-    if (password.length < 10 || password.length > 72) {
-      setError("密碼須為 10 至 72 個字元。");
+    if (!password || password.length > 72 || (mode === "register" && password.length < 8)) {
+      setError(mode === "register" ? "密碼須為 8 至 72 個字元。" : "請輸入有效密碼。");
       return;
     }
     setBusy(true); setNotice(""); setError("");
@@ -165,8 +165,8 @@ export default function ParentEmailAccount() {
                 className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-base" placeholder="name@example.com"/>
             </label>
             <label className="block text-sm font-bold text-slate-700">
-              密碼（至少 10 字元）
-              <input type="password" minLength={10} maxLength={72}
+              密碼{mode === "register" ? "（至少 8 字元）" : ""}
+              <input type="password" minLength={mode === "register" ? 8 : undefined} maxLength={72}
                 autoComplete={mode === "register" ? "new-password" : "current-password"}
                 required value={password} onChange={(event) => setPassword(event.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-base"/>
