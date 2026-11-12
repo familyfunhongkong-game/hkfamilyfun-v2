@@ -109,13 +109,25 @@ function formatTime(
 function normalizeTags(value: unknown): string[] {
   return normalizeEventTags(value, 8);
 }
-function formatPrice(event: DatabaseEvent, locale: AppLocale) {
-  const isFree =
-    event.is_free ||
-    event.price_type === "free" ||
-    event.price_display_mode === "free";
+function hasConflictingPaidEvidence(event: DatabaseEvent): boolean {
+  const label = String(event.price_label || "").trim();
+  return /(?:HK\\s*\\$|HKD|港幣)\\s*[1-9]\\d*/i.test(label) ||
+    (event.price_min !== null && Number(event.price_min) > 0) ||
+    (event.min_price != null && Number(event.min_price) > 0);
+}
 
-  if (isFree) {
+function eventIsFree(event: DatabaseEvent): boolean {
+  return !hasConflictingPaidEvidence(event) &&
+    Boolean(event.is_free || event.price_type === "free" || event.price_display_mode === "free");
+}
+
+function formatPrice(event: DatabaseEvent, locale: AppLocale) {
+  // A positive advertised HK$ price takes precedence over a stale free flag.
+  if (hasConflictingPaidEvidence(event) && event.price_label?.trim()) {
+    return event.price_label.trim();
+  }
+
+  if (eventIsFree(event)) {
     if (locale === "en") return "Free";
     if (locale === "zh-Hans") return "免费";
     return "免費";
@@ -236,9 +248,9 @@ function mapDatabaseEvent(event: DatabaseEvent, locale: AppLocale): Event {
       locale,
     ),
     priceType: (
-      event.is_free || event.price_type === "free" || event.price_display_mode === "free"
+      eventIsFree(event)
         ? "free"
-        : event.price_type || "paid"
+        : event.price_type === "free" ? "paid" : event.price_type || "paid"
     ) as PriceType,
     price: formatPrice(event, locale),
     senFriendly: Boolean(event.is_sen_friendly),
