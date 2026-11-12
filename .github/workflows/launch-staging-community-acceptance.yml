@@ -33,6 +33,8 @@ jobs:
           cache: npm
       - name: Install reproducible dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check Community E2E script syntax
+        run: node --check scripts/staging-community-e2e.mjs
       - name: Install Chromium for authenticated UI E2E
         run: |
           npm install --no-save --no-package-lock --ignore-scripts playwright@1.56.1
