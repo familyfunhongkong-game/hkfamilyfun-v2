@@ -98,6 +98,8 @@ try {
   assert.ok(bypassApproval.error,"Member may not create approved post");
   const forbiddenUpdate=await b.client.from("community_tips").update({status:"approved"}).eq("id",post.id);
   assert.ok(forbiddenUpdate.error || (forbiddenUpdate.data||[]).length===0,"Member must not approve another member's post");
+  const unchanged=await ok(service.from("community_tips").select("status").eq("id",post.id).single(),"check member mutation was denied");
+  assert.equal(unchanged.status,"pending","Member unexpectedly changed pending post status");
   checks.push("members_cannot_self_publish_or_approve_others");
 
   const path=a.id+"/"+post.id+"/qa-e2e-"+suffix+".png";
@@ -155,6 +157,8 @@ try {
   const aggAfter=await previewGet("/api/community/photos?ids="+post.id);
   const countAfter=await aggAfter.json();
   assert.ok(!countAfter.likeCounts?.[post.id],"Removed like no longer appears");
+  const replyUnchanged=await ok(service.from("community_tip_replies").select("status").eq("id",reply.id).single(),"check member reply mutation");
+  assert.equal(replyUnchanged.status,"approved","Member changed reply moderation state");
   checks.push("member_cannot_moderate_and_can_unlike");
 
   console.log(JSON.stringify({success:true,environment:"staging",checks},null,2));
