@@ -111,7 +111,7 @@ function normalizeTags(value: unknown): string[] {
 }
 function hasConflictingPaidEvidence(event: DatabaseEvent): boolean {
   const label = String(event.price_label || "").trim();
-  return /(?:HK\\s*\\$|HKD|港幣)\\s*[1-9]\\d*/i.test(label) ||
+  return /(?:HK\s*\$|HKD|港幣)\s*[1-9]\d*/i.test(label) ||
     (event.price_min !== null && Number(event.price_min) > 0) ||
     (event.min_price != null && Number(event.min_price) > 0);
 }
