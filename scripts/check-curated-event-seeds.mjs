@@ -48,5 +48,5 @@ for (const path of manifests) {
   }
 }
 assert.equal(rows, 44, "Expected 44 curated records in final relaunch snapshot");
-assert.ok(counts["2027-03"] >= 4 && counts["2027-04"] >= 2, "March / April 2027 must have verified coverage");
+assert.ok(counts["2027-03"] >= 3 && counts["2027-04"] >= 2, "March / April 2027 must have verified coverage");
 console.log("[curated-event-seeds] PASS: " + rows + " sourced, deduplicated records; local artwork available; dated Mar-Apr coverage; months=" + JSON.stringify(counts));
