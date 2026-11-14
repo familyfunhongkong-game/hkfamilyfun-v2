@@ -54,7 +54,7 @@ try {
 
   const seven=await anonymous().auth.signUp({email:email7,password:pw7});
   if(seven.data?.user?.id)createdUsers.push({id:seven.data.user.id});
-  assert.ok(seven.error,"Supabase server must reject 7-character signup, not only the frontend");
+  assert.ok(seven.error && /password|weak|short|character|minimum|length/i.test(seven.error.message),"Supabase server must reject 7-character signup for password length, not an unrelated mail/rate-limit error");
   checks.push("seven_character_signup_rejected_by_server");
 
   const aSignUp=await anonymous().auth.signUp({email:emailA,password:pw8});
@@ -80,16 +80,18 @@ try {
   const a=await login(emailA,pw8),b=await login(emailB,pwB);
   checks.push("two_real_password_sessions");
 
-  const events=ok(await service.from("events").select("id,title_tc").eq("status","published").not("cover_image_url","is",null).order("start_date",{ascending:true}).limit(1),"Select actual published event");
-  assert.ok(events.length===1,"A published Staging event required");
+  const events=ok(await service.from("events").select("id,title_tc").eq("status","published").not("cover_image_url","is",null).order("start_date",{ascending:true}).limit(2),"Select actual published events");
+  assert.ok(events.length===2,"Two distinct published Staging events required");
   const eventId=events[0].id;
   ok(await a.from("user_saved_events").insert({user_id:aId,event_id:eventId}),"A saves event");
   let own=ok(await a.from("user_saved_events").select("event_id").eq("user_id",aId),"A own save");
   assert.equal(own.length,1);
   let hidden=ok(await b.from("user_saved_events").select("event_id").eq("user_id",aId),"B cannot see A saved event");
   assert.equal(hidden.length,0);
-  const forged=await b.from("user_saved_events").insert({user_id:aId,event_id:eventId});
+  const forged=await b.from("user_saved_events").insert({user_id:aId,event_id:events[1].id});
   assert.ok(forged.error,"B must not insert A private saved event");
+  const afterForgery=ok(await service.from("user_saved_events").select("event_id").eq("user_id",aId),"Check forged bookmark never inserted");
+  assert.ok(!afterForgery.some(x=>x.event_id===events[1].id),"RLS bypass allowed B to forge a new A bookmark");
   checks.push("saved_events_cross_account_RLS");
 
   ok(await a.from("user_event_preferences").upsert({user_id:aId,favorite_district:"中西區",free_only:true,preferred_category:"文化藝術"}),"A saves preferences");
