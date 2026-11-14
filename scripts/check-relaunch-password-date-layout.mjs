@@ -58,4 +58,10 @@ assert.equal(pricingExports.eventIsFree(conflictingPmq), false, "Stale free flag
 assert.equal(pricingExports.eventIsFree({ price_type: "free", is_free: true, price_label: "" }), true, "Real free events remain free");
 assert.ok(search.includes("const explicitPaidPrice ="), "Search must not classify paid HK$ records as free");
 
-console.log("[relaunch-password-date] PASS — parent 8-char policy, untruncated mobile dates, cross-year formatting and paid-event truth");
+const merchantTest = source("scripts/merchant-auth-e2e.mjs");
+assert.ok(merchantTest.includes('const publicImportFixture ='), "Merchant E2E must have a public, pinned importer fixture");
+assert.ok(merchantTest.includes('url: publicImportFixture'), "Merchant import must not self-fetch the protected preview");
+assert.ok(!merchantTest.includes('url: `${siteUrl}/events/${eventId}`'), "Merchant test reintroduced the protected self-fetch 401");
+assert.ok(merchantTest.includes('headers: { "x-vercel-protection-bypass": previewBypassSecret }'), "Protected event page fetch requires automation bypass header");
+assert.ok(source("tests/fixtures/merchant-import-e2e.html").includes("HKFF E2E Public Import Fixture"), "Public QA fixture missing");
+console.log("[relaunch-password-date] PASS — parent 8-char policy, untruncated mobile dates, cross-year formatting and paid-event truth and protected-preview merchant E2E");
