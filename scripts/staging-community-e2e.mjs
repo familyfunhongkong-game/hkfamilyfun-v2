@@ -219,7 +219,7 @@ try {
     await pageA.getByLabel("活動標題").fill(uiTitle);
     await pageA.getByLabel("活動內容").fill("Staging browser workflow check; no child photos or personal data. Auto-deleted.");
     await pageA.getByLabel("活動地區").selectOption({label:"沙田"});
-    await pageA.locator('input[type="file"]').setInputFiles({name:"qa.png",mimeType:"image/png",buffer:png});
+    await pageA.locator('input[type="file"][multiple][accept*="image"]').setInputFiles({name:"qa.png",mimeType:"image/png",buffer:png});
     await pageA.getByRole("checkbox",{name:/我確認自己擁有/}).check();
     await pageA.getByRole("button",{name:"提交審核"}).click();
     await pageA.getByText("投稿及圖片已送交審批，未批准前不會公開。").waitFor({state:"visible",timeout:35000});
