@@ -186,6 +186,14 @@ try {
     pageAdmin.on("dialog",dialog=>void dialog.accept());
     async function login(page,user) {
       await page.goto(preview+"/login",{waitUntil:"domcontentloaded",timeout:35000});
+      // Exercise real privacy-first visitor flow; the mobile Cookie panel
+      // legitimately overlays the lower login button until dismissed.
+      const rejectCookie = page.getByRole("button",{name:"全部拒絕"});
+      if (await rejectCookie.isVisible()) {
+        await rejectCookie.click();
+        await page.getByTestId("cookie-confirm-close").click();
+        await page.getByRole("region",{name:"你的 Cookies 選擇"}).waitFor({state:"hidden",timeout:10000});
+      }
       await page.locator('input[type="email"]').fill(user.email);
       await page.locator('input[type="password"]').fill(user.password);
       const submit=page.getByRole("button",{name:"登入免費會員"});
