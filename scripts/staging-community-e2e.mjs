@@ -2,6 +2,8 @@
 // Uses temporary test users and removes all records and files in finally.
 import assert from "node:assert/strict";
 import { createClient } from "@supabase/supabase-js";
+import { chromium } from "playwright";
+import { mkdir } from "node:fs/promises";
 
 const url=process.env.SUPABASE_URL||"";
 const anonKey=process.env.SUPABASE_ANON_KEY||"";
@@ -30,6 +32,15 @@ async function cleanup() {
   async function step(label,promise) {
     try {const {error}=await promise;if(error)throw error;}
     catch(e){errors.push(label+": "+String(e?.message||e));}
+  }
+  // Account for a browser submission that succeeded just before its test assertion failed.
+  const extra=await service.from("community_tips").select("id").eq("title","[QA] Browser Community "+suffix);
+  if(extra.error)errors.push("browser post discovery: "+extra.error.message);
+  for(const row of extra.data||[])if(!createdPosts.includes(row.id))createdPosts.push(row.id);
+  if(createdPosts.length){
+    const stored=await service.from("community_tip_photos").select("storage_path").in("post_id",createdPosts);
+    if(stored.error)errors.push("photo discovery: "+stored.error.message);
+    for(const row of stored.data||[])if(!uploadedPaths.includes(row.storage_path))uploadedPaths.push(row.storage_path);
   }
   // Remove server-owned references before user deletion so identities cannot linger.
   for(const id of createdPosts) {
@@ -62,7 +73,7 @@ try {
     const client=member();
     const signed=await ok(client.auth.signInWithPassword({email,password}),"signIn "+role);
     assert.ok(signed.session?.access_token);
-    return {id,email,client};
+    return {id,email,password,client};
   }
   const a=await make("a"),b=await make("b"),mod=await make("mod");
   checks.push("three_real_password_sessions");
@@ -163,6 +174,104 @@ try {
   const replyUnchanged=await ok(service.from("community_tip_replies").select("status").eq("id",reply.id).single(),"check member reply mutation");
   assert.equal(replyUnchanged.status,"approved","Member changed reply moderation state");
   checks.push("member_cannot_moderate_and_can_unlike");
+
+  // Authentic user-facing browser clicks (not just REST acceptance).
+  const browser=await chromium.launch({headless:true});
+  await mkdir("artifacts/hkff-community",{recursive:true});
+  try {
+    const contextA=await browser.newContext({viewport:{width:390,height:844},isMobile:true,deviceScaleFactor:2,extraHTTPHeaders:{"x-vercel-protection-bypass":bypass}});
+    const contextB=await browser.newContext({viewport:{width:375,height:812},isMobile:true,deviceScaleFactor:2,extraHTTPHeaders:{"x-vercel-protection-bypass":bypass}});
+    const contextAdmin=await browser.newContext({viewport:{width:1440,height:900},extraHTTPHeaders:{"x-vercel-protection-bypass":bypass}});
+    const pageA=await contextA.newPage(),pageB=await contextB.newPage(),pageAdmin=await contextAdmin.newPage();
+    pageAdmin.on("dialog",dialog=>void dialog.accept());
+    async function login(page,user) {
+      await page.goto(preview+"/login",{waitUntil:"domcontentloaded",timeout:35000});
+      await page.locator('input[type="email"]').fill(user.email);
+      await page.locator('input[type="password"]').fill(user.password);
+      const submit=page.getByRole("button",{name:"登入免費會員"});
+      await submit.waitFor({state:"visible",timeout:15000});
+      await page.waitForFunction(()=>{const button=Array.from(document.querySelectorAll("button")).find(b=>b.textContent?.includes("登入免費會員"));return button && !button.disabled;},null,{timeout:20000});
+      await submit.click();
+      try {
+        await page.getByText("已登入："+user.email).waitFor({state:"visible",timeout:25000});
+      } catch (loginFailure) {
+        const signals=await page.locator('[role="alert"],[role="status"]').allTextContents();
+        await page.screenshot({path:"artifacts/hkff-community/login-failure-"+user.id.slice(0,8)+".png",fullPage:true});
+        throw new Error("Browser login not confirmed; url="+page.url()+" messages="+JSON.stringify(signals)+"; "+loginFailure.message);
+      }
+    }
+    await login(pageA,a);await login(pageB,b);await login(pageAdmin,mod);
+    checks.push("real_browser_login_three_roles");
+    await pageA.goto(preview+"/tips",{waitUntil:"domcontentloaded",timeout:35000});
+    await pageA.getByRole("button",{name:"＋ 分享活動"}).click();
+    const uiTitle="[QA] Browser Community "+suffix;
+    await pageA.getByLabel("顯示名稱").fill("QA Browser Member");
+    await pageA.getByLabel("活動標題").fill(uiTitle);
+    await pageA.getByLabel("活動內容").fill("Staging browser workflow check; no child photos or personal data. Auto-deleted.");
+    await pageA.getByLabel("活動地區").selectOption({label:"沙田"});
+    await pageA.locator('input[type="file"]').setInputFiles({name:"qa.png",mimeType:"image/png",buffer:png});
+    await pageA.getByRole("checkbox",{name:/我確認自己擁有/}).check();
+    await pageA.getByRole("button",{name:"提交審核"}).click();
+    await pageA.getByText("投稿及圖片已送交審批，未批准前不會公開。").waitFor({state:"visible",timeout:35000});
+    const uiPost=await ok(service.from("community_tips").select("id,status").eq("title",uiTitle).single(),"Browser post exists");
+    createdPosts.push(uiPost.id);
+    assert.equal(uiPost.status,"pending");
+    const imageMeta=await ok(service.from("community_tip_photos").select("storage_path").eq("post_id",uiPost.id),"Browser image metadata");
+    assert.equal(imageMeta.length,1,"Browser must create one actual uploaded photo");
+    uploadedPaths.push(imageMeta[0].storage_path);
+    await pageA.screenshot({path:"artifacts/hkff-community/01-member-submit-mobile.png",fullPage:true});
+    checks.push("real_mobile_browser_photo_submit_pending");
+
+    await pageAdmin.goto(preview+"/admin/community",{waitUntil:"domcontentloaded",timeout:35000});
+    const pendingArticle=pageAdmin.locator("article").filter({hasText:uiTitle});
+    await pendingArticle.waitFor({state:"visible",timeout:25000});
+    await pendingArticle.locator("img").first().waitFor({state:"visible",timeout:20000});
+    await pageAdmin.screenshot({path:"artifacts/hkff-community/02-admin-pending-desktop.png",fullPage:true});
+    await pendingArticle.getByRole("button",{name:"批准社區公開"}).click();
+    await pendingArticle.waitFor({state:"detached",timeout:20000});
+    const livePost=await ok(service.from("community_tips").select("status").eq("id",uiPost.id).single(),"Admin browser approval");
+    assert.equal(livePost.status,"approved");
+    checks.push("real_desktop_browser_admin_review_and_approve");
+
+    await pageB.goto(preview+"/tips?post="+uiPost.id,{waitUntil:"domcontentloaded",timeout:35000});
+    const article=pageB.locator("#community-post-"+uiPost.id);
+    await article.waitFor({state:"visible",timeout:25000});
+    await article.locator("img").first().waitFor({state:"visible",timeout:20000});
+    await article.getByRole("button",{name:/讚好/}).click();
+    const ownLike=await ok(b.client.from("community_tip_likes").select("post_id").eq("post_id",uiPost.id),"Browser like saved");
+    assert.equal(ownLike.length,1);
+    await article.getByRole("button",{name:"查看留言／回覆"}).click();
+    await article.getByLabel("留言者名稱").fill("QA Browser Reply");
+    const replyText="QA mobile browser reply "+suffix;
+    await article.getByLabel("留言內容").fill(replyText);
+    await article.getByRole("button",{name:"提交留言"}).click();
+    await article.getByText("留言已提交，審核後會公開。").waitFor({state:"visible",timeout:25000});
+    const uiReplies=await ok(service.from("community_tip_replies").select("status").eq("post_id",uiPost.id),"Browser reply persisted");
+    assert.equal(uiReplies.length,1);assert.equal(uiReplies[0].status,"pending");
+    await pageB.screenshot({path:"artifacts/hkff-community/03-member-like-reply-mobile.png",fullPage:true});
+    checks.push("real_mobile_browser_like_and_pending_reply");
+
+    await pageAdmin.goto(preview+"/admin/community/replies",{waitUntil:"domcontentloaded",timeout:35000});
+    const replyArticle=pageAdmin.locator("article").filter({hasText:replyText});
+    await replyArticle.waitFor({state:"visible",timeout:25000});
+    await replyArticle.getByRole("button",{name:"批准公開"}).click();
+    await replyArticle.waitFor({state:"detached",timeout:20000});
+    await pageB.reload({waitUntil:"domcontentloaded"});
+    const publicArticle=pageB.locator("#community-post-"+uiPost.id);
+    await publicArticle.getByRole("button",{name:"查看留言／回覆"}).click();
+    await publicArticle.getByText(replyText).waitFor({state:"visible",timeout:22000});
+    await pageB.screenshot({path:"artifacts/hkff-community/04-approved-reply-visible.png",fullPage:true});
+    checks.push("real_desktop_moderation_and_member_reply_visible");
+
+    for(const page of [pageA,pageB,pageAdmin]){
+      const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
+      assert.ok(overflow<=8,"Browser horizontal overflow "+overflow);
+    }
+    checks.push("browser_mobile_desktop_no_overflow");
+    await Promise.all([contextA.close(),contextB.close(),contextAdmin.close()]);
+  } finally {
+    await browser.close();
+  }
 
   console.log(JSON.stringify({success:true,environment:"staging",checks},null,2));
 } finally {
