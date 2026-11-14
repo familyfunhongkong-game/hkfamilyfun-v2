@@ -144,3 +144,57 @@ jobs:
           path: artifacts/hkff-community/
           if-no-files-found: ignore
           retention-days: 7
+
+  parent-isolated-staging-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SUPABASE_URL: https://gwoiocllrgdwuxzibcuu.supabase.co
+      SUPABASE_ANON_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      SITE_URL: https://hkfamilyfun-staging-git-fix-relaunch-passw-d0f1c7-hk-family-fun.vercel.app
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - name: Checkout exact candidate SHA
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check Parent test syntax
+        run: node --check scripts/staging-parent-auth-e2e.mjs
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Verify same-SHA Staging preview before creating users
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ANON_KEY"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          for attempt in {1..48}; do
+            if curl --max-time 25 -fsSL -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" "$SITE_URL/api/health" -o /tmp/hkff-health.json && node -e 'const h=require("/tmp/hkff-health.json"); process.exit(h.ok===true&&h.buildSha===process.env.GITHUB_SHA?0:1)'; then
+              echo "Parent E2E exact Staging SHA confirmed"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Staging SHA mismatch; parent identities not created"
+          exit 1
+      - name: 7 versus 8-character signup, 2-account isolation and mobile real login
+        run: node scripts/staging-parent-auth-e2e.mjs
+      - name: Parent browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hkff-relaunch-parent-${{ github.sha }}
+          path: artifacts/hkff-parent/
+          if-no-files-found: ignore
+          retention-days: 7
