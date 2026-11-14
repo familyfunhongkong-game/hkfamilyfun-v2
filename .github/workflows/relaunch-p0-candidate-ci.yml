@@ -1,0 +1,49 @@
+name: HKFF Relaunch P0 Candidate CI
+
+on:
+  push:
+    branches:
+      - fix/relaunch-password8-full-dates-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hkff-relaunch-p0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Checkout exact candidate SHA
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Use Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Password, date, price and source seeding regression
+        run: |
+          node scripts/check-relaunch-password-date-layout.mjs
+          node scripts/check-curated-event-seeds.mjs
+      - name: Lint
+        run: npm run lint
+      - name: TypeScript
+        run: npm run type-check
+      - name: Event content, mobile, Auth isolation and data contracts
+        run: |
+          npm run check:event-detail
+          npm run check:event-data
+          npm run check:event-mobile-content
+          npm run check:public-event-auth-isolation
+          npm run check:launch-docs
+          npm run check:production-e2e
+      - name: Build same commit with prebuild contracts
+        run: npm run build
