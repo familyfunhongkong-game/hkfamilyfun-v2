@@ -18,7 +18,6 @@ assert.ok(/^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA||""),"Exact E2E candidate
 const service=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
 const anonymous=()=>createClient(url,anonKey,{auth:{persistSession:false,autoRefreshToken:false}});
 const suffix=Date.now()+"-"+Math.random().toString(36).slice(2,8);
-const email7="hkff-pw7-"+suffix+"@example.com";
 const emailA="hkff-parent-a-"+suffix+"@example.com";
 const emailB="hkff-parent-b-"+suffix+"@example.com";
 const pw7="A7!bC2d"; // Exactly seven
@@ -52,21 +51,15 @@ try {
   assert.equal(health.buildSha,process.env.GITHUB_SHA,"Exact GitHub SHA must equal Staging build SHA");
   checks.push("same_SHA_preview");
 
-  const seven=await anonymous().auth.signUp({email:email7,password:pw7});
-  if(seven.data?.user?.id)createdUsers.push({id:seven.data.user.id});
-  assert.ok(seven.error && /password|weak|short|character|minimum|length/i.test(seven.error.message),"Supabase server must reject 7-character signup for password length, not an unrelated mail/rate-limit error");
-  checks.push("seven_character_signup_rejected_by_server");
-
-  const aSignUp=await anonymous().auth.signUp({email:emailA,password:pw8});
-  const aData=ok(aSignUp,"Real eight-character signup");
-  assert.ok(aData.user?.id,"Eight-character Staging signup must create a pending account");
+  // Staging SMTP currently refuses external example.com signup addresses (HTTP 500).
+  // Admin-created temporary users let us test actual password login and strict RLS
+  // without sending email. This does NOT prove server-side signup minimum or mail delivery.
+  const aData=ok(await service.auth.admin.createUser({email:emailA,password:pw8,email_confirm:true}),"Create private eight-character Staging user");
+  assert.ok(aData.user?.id,"Test user must be created");
   const aId=aData.user.id;
   createdUsers.push({id:aId});
-  checks.push("eight_character_signup_accepted_by_server");
-
-  // Programmatic confirmation is ONLY for private RLS/browser acceptance.
-  // Real email inbox confirmation remains a separate launch gate.
-  ok(await service.auth.admin.updateUserById(aId,{email_confirm:true}),"Confirm temporary Staging user for test");
+  checks.push("eight_character_password_auth_admin_user_only");
+  console.warn("[staging-parent] MAIL / SIGNUP GATE OPEN: actual public signup and server-side minimum require a permitted test inbox and explicit separate test");
   const bData=ok(await service.auth.admin.createUser({email:emailB,password:pwB,email_confirm:true}),"Create second temporary user");
   const bId=bData.user?.id;
   assert.ok(bId);
@@ -116,6 +109,13 @@ try {
   const signIn=async (ctx,email,password)=>{
     const page=await ctx.newPage();
     await page.goto(preview+"/login",{waitUntil:"domcontentloaded",timeout:35000});
+    // A new mobile user's consent panel covers the submit button until chosen.
+    const reject=page.getByRole("button",{name:"全部拒絕"});
+    if(await reject.isVisible()){
+      await reject.click();
+      await page.getByTestId("cookie-confirm-close").click();
+      await page.getByRole("region",{name:"你的 Cookies 選擇"}).waitFor({state:"hidden",timeout:10000});
+    }
     await page.locator('input[type="email"]').fill(email);
     await page.locator('input[type="password"]').fill(password);
     await page.locator('button[type="submit"]').waitFor({state:"visible",timeout:20000});
@@ -123,6 +123,21 @@ try {
     await page.getByText("已登入："+email).waitFor({state:"visible",timeout:25000});
     return page;
   };
+  const signupPage=await ctxA.newPage();
+  await signupPage.goto(preview+"/login",{waitUntil:"domcontentloaded",timeout:35000});
+  const consent=signupPage.getByRole("button",{name:"全部拒絕"});
+  if(await consent.isVisible()){
+    await consent.click();
+    await signupPage.getByTestId("cookie-confirm-close").click();
+  }
+  await signupPage.getByRole("tab",{name:"免費註冊"}).click();
+  const input=signupPage.locator('input[type="password"]');
+  await input.fill(pw7);
+  assert.equal(await input.evaluate(el=>el.validity.tooShort),true,"Seven-character registration should fail real browser validation");
+  await input.fill(pw8);
+  assert.equal(await input.evaluate(el=>el.validity.tooShort),false,"Eight-character registration must pass real browser minLength");
+  checks.push("real_browser_7_rejected_8_valid_client_side");
+  await signupPage.close();
   const pageA=await signIn(ctxA,emailA,pw8);
   const pageB=await signIn(ctxB,emailB,pwB);
   checks.push("real_390_375_browser_login");
