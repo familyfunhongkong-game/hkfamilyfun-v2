@@ -198,3 +198,29 @@ jobs:
           path: artifacts/hkff-parent/
           if-no-files-found: ignore
           retention-days: 7
+
+  anonymous-mobile-desktop-browser-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      PREVIEW_URL: https://hkfamilyfun-staging-git-fix-relaunch-passw-d0f1c7-hk-family-fun.vercel.app
+      EXPECTED_BUILD_SHA: ${{ github.sha }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - name: Checkout same SHA
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Anonymous mobile 320/375/390 and desktop 1440, real event links and maintenance checks
+        run: node scripts/relaunch-browser-smoke.mjs
