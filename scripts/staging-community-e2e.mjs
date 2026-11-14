@@ -18,7 +18,7 @@ const member=()=>createClient(url,anonKey,{auth:{persistSession:false,autoRefres
 const suffix=Date.now()+"-"+Math.random().toString(36).slice(2,8);
 const users=[],createdPosts=[],uploadedPaths=[],checks=[];
 let adminRowId="";
-const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+hBB0AAAAASUVORK5CYII=","base64");
+const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGNMWRXFQApgIkn1qIZRDUNKAwCABgGIMWy/UQAAAABJRU5ErkJggg==","base64");
 async function ok(query,label) {
   const {data,error}=await query;
   if(error)throw new Error(label+": "+error.message);
@@ -222,7 +222,14 @@ try {
     await pageA.locator('input[type="file"][multiple][accept*="image"]').setInputFiles({name:"qa.png",mimeType:"image/png",buffer:png});
     await pageA.getByRole("checkbox",{name:/我確認自己擁有/}).check();
     await pageA.getByRole("button",{name:"提交審核"}).click();
-    await pageA.getByText("投稿及圖片已送交審批，未批准前不會公開。").waitFor({state:"visible",timeout:35000});
+    try {
+      await pageA.getByText("投稿及圖片已送交審批，未批准前不會公開。").waitFor({state:"visible",timeout:35000});
+    } catch(error) {
+      const visibleAlerts=await pageA.locator('[role="alert"], [role="status"]').allTextContents().catch(()=>[]);
+      const possiblePost=await service.from("community_tips").select("id,status").eq("title",uiTitle);
+      await pageA.screenshot({path:"artifacts/hkff-community/post-submit-failure.png",fullPage:true}).catch(()=>{});
+      throw new Error("Community browser submit failed to confirm complete photo upload. Alerts="+JSON.stringify(visibleAlerts)+" database="+JSON.stringify(possiblePost.data)+" original="+String(error?.message||error));
+    }
     const uiPost=await ok(service.from("community_tips").select("id,status").eq("title",uiTitle).single(),"Browser post exists");
     createdPosts.push(uiPost.id);
     assert.equal(uiPost.status,"pending");
