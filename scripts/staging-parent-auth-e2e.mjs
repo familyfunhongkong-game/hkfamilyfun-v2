@@ -110,11 +110,13 @@ try {
     const page=await ctx.newPage();
     await page.goto(preview+"/login",{waitUntil:"domcontentloaded",timeout:35000});
     // A new mobile user's consent panel covers the submit button until chosen.
-    const reject=page.getByRole("button",{name:"全部拒絕"});
-    if(await reject.isVisible()){
+    const consentAlreadyStored=await page.evaluate(()=>document.cookie.split(";").some(x=>x.trim().startsWith("hkff_cookie_preferences=")));
+    if(!consentAlreadyStored){
+      const reject=page.getByRole("button",{name:"全部拒絕"});
+      await reject.waitFor({state:"visible",timeout:12000});
       await reject.click();
       await page.getByTestId("cookie-confirm-close").click();
-      await page.getByRole("region",{name:"你的 Cookies 選擇"}).waitFor({state:"hidden",timeout:10000});
+      await page.getByRole("region",{name:"你的 Cookies 選擇"}).waitFor({state:"hidden",timeout:12000});
     }
     await page.locator('input[type="email"]').fill(email);
     await page.locator('input[type="password"]').fill(password);
