@@ -14,6 +14,10 @@ assert.ok(parent.includes('mode === "register" && password.length < 8'), "Parent
 assert.ok(parent.includes('minLength={mode === "register" ? 8 : undefined}'), "Login must not reject existing short passwords before Auth");
 assert.ok(parent.includes("（至少 8 字元）"), "Parent UI must show 8-character policy");
 assert.ok(!parent.includes("password.length < 10"), "Old 10-character parent policy returned");
+assert.ok(parent.includes('const [interactive, setInteractive] = useState(false)'), "Hydration guard state must not regress");
+assert.ok(parent.includes('queueMicrotask(() => { if (live) setInteractive(true); })'), "SSR form must only activate after React hydration");
+assert.ok(parent.includes('disabled={busy || !interactive}'), "Pre-hydration submit must remain disabled");
+
 assert.ok(reset.includes("password.length < 8"), "Reset must allow 8-character passwords");
 assert.equal((reset.match(/minLength=\{8\}/g) || []).length, 2, "Reset/confirm fields must both use 8");
 assert.ok(!reset.includes("minLength={10}"), "Old reset minLength returned");
