@@ -255,8 +255,19 @@ try {
     await article.waitFor({state:"visible",timeout:25000});
     await article.locator("img").first().waitFor({state:"visible",timeout:20000});
     await article.getByRole("button",{name:/讚好/}).click();
-    const ownLike=await ok(b.client.from("community_tip_likes").select("post_id").eq("post_id",uiPost.id),"Browser like saved");
-    assert.equal(ownLike.length,1);
+    // React handler persists the like asynchronously; do not inspect the DB
+    // in the same microtask as the click and misdiagnose an eventual write.
+    let ownLike=[];
+    for(let attempt=0;attempt<40;attempt++){
+      ownLike=await ok(b.client.from("community_tip_likes").select("post_id").eq("post_id",uiPost.id),"Browser like saved");
+      if(ownLike.length===1)break;
+      await pageB.waitForTimeout(250);
+    }
+    if(ownLike.length!==1){
+      const alerts=await pageB.locator('[role="alert"]').allTextContents().catch(()=>[]);
+      await pageB.screenshot({path:"artifacts/hkff-community/like-persist-failure.png",fullPage:true}).catch(()=>{});
+      throw new Error("Browser like not persisted after 10 seconds; alerts="+JSON.stringify(alerts)+" matches="+ownLike.length);
+    }
     await article.getByRole("button",{name:"查看留言／回覆"}).click();
     await article.getByLabel("留言者名稱").fill("QA Browser Reply");
     const replyText="QA mobile browser reply "+suffix;
