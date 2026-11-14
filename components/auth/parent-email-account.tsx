@@ -12,8 +12,16 @@ export default function ParentEmailAccount() {
   const [password, setPassword] = useState("");
   const [memberEmail, setMemberEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  // SSR forms must not submit before hydration attaches React handlers.
+  const [interactive, setInteractive] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    queueMicrotask(() => { if (live) setInteractive(true); });
+    return () => { live = false; };
+  }, []);
 
   useEffect(() => {
     if (!supabase) return;
@@ -162,7 +170,7 @@ export default function ParentEmailAccount() {
                 required value={password} onChange={(event) => setPassword(event.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-base"/>
             </label>
-            <button type="submit" disabled={busy} className="w-full rounded-xl bg-purple-700 px-4 py-3 text-sm font-black text-white disabled:opacity-50">
+            <button type="submit" disabled={busy || !interactive} className="w-full rounded-xl bg-purple-700 px-4 py-3 text-sm font-black text-white disabled:opacity-50">
               {busy ? "處理中…" : mode === "login" ? "登入免費會員" : "建立免費帳戶"}
             </button>
           </form>
