@@ -128,10 +128,10 @@ try {
   const signupPage=await ctxA.newPage();
   await signupPage.goto(preview+"/login",{waitUntil:"domcontentloaded",timeout:35000});
   const consent=signupPage.getByRole("button",{name:"全部拒絕"});
-  if(await consent.isVisible()){
-    await consent.click();
-    await signupPage.getByTestId("cookie-confirm-close").click();
-  }
+  await consent.waitFor({state:"visible",timeout:12000});
+  await consent.click();
+  await signupPage.getByTestId("cookie-confirm-close").click();
+  await signupPage.getByRole("region",{name:"你的 Cookies 選擇"}).waitFor({state:"hidden",timeout:12000});
   await signupPage.getByRole("tab",{name:"免費註冊"}).click();
   const input=signupPage.locator('input[type="password"]');
   await input.fill(pw7);
