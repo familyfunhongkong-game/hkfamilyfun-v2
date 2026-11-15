@@ -51,4 +51,13 @@ for(const r of manifest.records){
 const replacement=manifest.records.find(r=>r.key==="hkpl-tst-story-dec19");
 assert.ok(replacement&&replacement.source_url.endsWith("/307234/storytelling-for-children-cantonese")&&replacement.start_date==="2026-12-19");
 assert.ok(!manifest.records.some(r=>r.key==="hkpl-poonroad-wonders-space"),"Unverifiable display must stay removed");
+// Verified official HKPM special hours: closed Mon 2026-11-30, open Tue 2026-12-01.
+const palace=manifest.records.filter(r=>r.key.startsWith("palace-"));
+assert.equal(palace.length,4,"Expected 4 curated HK Palace Museum exhibitions");
+for(const r of palace){
+ assert.deepEqual(r.recurrence_exclude_dates,["2026-11-30"],"HKPM special closure required "+r.key);
+ assert.deepEqual(r.recurrence_include_dates,["2026-12-01"],"HKPM special Tuesday opening required "+r.key);
+ assert.deepEqual(byKey.get(r.key).recurrence_exclude_dates,r.recurrence_exclude_dates,"HKPM raw and consolidated closure drift");
+ assert.deepEqual(byKey.get(r.key).recurrence_include_dates,r.recurrence_include_dates,"HKPM raw and consolidated special opening drift");
+}
 console.log("[official-50-addendum] PASS: 50 source-matched, valid, deduplicated sessions; original image fallback; exact 2026-11-16 to 2027-04-01 window");
