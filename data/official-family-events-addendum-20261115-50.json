@@ -1179,7 +1179,7 @@
       "price_label": "入場須購買博物館適用展覽門票；6歲及以下免費，12歲以下須成人陪同",
       "short_description_tc": "探索清代宮廷四季生活及文化。",
       "start_time": null,
-      "notes": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準",
+      "notes": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準 2026年11月30日（星期一）特別閉館；12月1日（星期二）特別開館10:00–18:00，請以香港故宮文化博物館公告為準。",
       "recurrence_type": "weekly",
       "recurrence_weekdays": [
         0,
@@ -1202,7 +1202,7 @@
       "is_free": false,
       "is_sen_friendly": false,
       "is_featured": false,
-      "recurrence_note": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準",
+      "recurrence_note": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準 2026年11月30日（星期一）特別閉館；12月1日（星期二）特別開館10:00–18:00，請以香港故宮文化博物館公告為準。",
       "language_available": [
         "tc"
       ],
@@ -1210,6 +1210,12 @@
       "booking_url": null,
       "age_groups": [
         "主辦方未註明"
+      ],
+      "recurrence_include_dates": [
+        "2026-12-01"
+      ],
+      "recurrence_exclude_dates": [
+        "2026-11-30"
       ]
     },
     {
@@ -1226,7 +1232,7 @@
       "price_label": "入場須購買博物館適用展覽門票；6歲及以下免費，12歲以下須成人陪同",
       "short_description_tc": "了解清宮造辦處的工藝設計與作品。",
       "start_time": null,
-      "notes": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準",
+      "notes": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準 2026年11月30日（星期一）特別閉館；12月1日（星期二）特別開館10:00–18:00，請以香港故宮文化博物館公告為準。",
       "recurrence_type": "weekly",
       "recurrence_weekdays": [
         0,
@@ -1249,7 +1255,7 @@
       "is_free": false,
       "is_sen_friendly": false,
       "is_featured": false,
-      "recurrence_note": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準",
+      "recurrence_note": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準 2026年11月30日（星期一）特別閉館；12月1日（星期二）特別開館10:00–18:00，請以香港故宮文化博物館公告為準。",
       "language_available": [
         "tc"
       ],
@@ -1257,6 +1263,12 @@
       "booking_url": null,
       "age_groups": [
         "主辦方未註明"
+      ],
+      "recurrence_include_dates": [
+        "2026-12-01"
+      ],
+      "recurrence_exclude_dates": [
+        "2026-11-30"
       ]
     },
     {
@@ -1273,7 +1285,7 @@
       "price_label": "入場須購買博物館適用展覽門票；6歲及以下免費，12歲以下須成人陪同",
       "short_description_tc": "透過不同時代物件與文化視角探索城市生活。",
       "start_time": null,
-      "notes": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準",
+      "notes": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準 2026年11月30日（星期一）特別閉館；12月1日（星期二）特別開館10:00–18:00，請以香港故宮文化博物館公告為準。",
       "recurrence_type": "weekly",
       "recurrence_weekdays": [
         0,
@@ -1296,7 +1308,7 @@
       "is_free": false,
       "is_sen_friendly": false,
       "is_featured": false,
-      "recurrence_note": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準",
+      "recurrence_note": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準 2026年11月30日（星期一）特別閉館；12月1日（星期二）特別開館10:00–18:00，請以香港故宮文化博物館公告為準。",
       "language_available": [
         "tc"
       ],
@@ -1304,6 +1316,12 @@
       "booking_url": null,
       "age_groups": [
         "主辦方未註明"
+      ],
+      "recurrence_include_dates": [
+        "2026-12-01"
+      ],
+      "recurrence_exclude_dates": [
+        "2026-11-30"
       ]
     },
     {
@@ -1320,7 +1338,7 @@
       "price_label": "入場須購買博物館適用展覽門票；6歲及以下免費，12歲以下須成人陪同",
       "short_description_tc": "欣賞故宮收藏的馬匹主題文化藝術珍品。",
       "start_time": null,
-      "notes": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準",
+      "notes": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準 2026年11月30日（星期一）特別閉館；12月1日（星期二）特別開館10:00–18:00，請以香港故宮文化博物館公告為準。",
       "recurrence_type": "weekly",
       "recurrence_weekdays": [
         0,
@@ -1343,7 +1361,7 @@
       "is_free": false,
       "is_sen_friendly": false,
       "is_featured": false,
-      "recurrence_note": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準",
+      "recurrence_note": "博物館一般逢星期二休館（公眾假期例外）；個別日期及展廳票務以官網為準 2026年11月30日（星期一）特別閉館；12月1日（星期二）特別開館10:00–18:00，請以香港故宮文化博物館公告為準。",
       "language_available": [
         "tc"
       ],
@@ -1351,6 +1369,12 @@
       "booking_url": null,
       "age_groups": [
         "主辦方未註明"
+      ],
+      "recurrence_include_dates": [
+        "2026-12-01"
+      ],
+      "recurrence_exclude_dates": [
+        "2026-11-30"
       ]
     },
     {
