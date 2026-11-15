@@ -21,6 +21,10 @@ export default function ResilientEventImage({
   compactFallback?: boolean;
 }) {
   const normalizedSrc = String(src || "").trim();
+  // Only images deliberately saved under the approved AI-cover namespaces are
+  // labelled AI. Never infer AI origin for an external organiser photo.
+  const aiIllustration = /^\/images\/ai-event-covers\/[^?#]+/i.test(normalizedSrc)
+    || /\/storage\/v1\/object\/public\/hkff-ai-event-covers\//i.test(normalizedSrc);
   const [failedSrc, setFailedSrc] = useState("");
   const [loadedSrc, setLoadedSrc] = useState("");
   const imageFailed = !normalizedSrc || failedSrc === normalizedSrc;
@@ -52,6 +56,11 @@ export default function ResilientEventImage({
         onLoad={() => setLoadedSrc(normalizedSrc)}
         onError={() => setFailedSrc(normalizedSrc)}
       />
+      {aiIllustration && imageLoaded ? (
+        <span role="note" data-testid="ai-event-cover-disclosure" className="pointer-events-none absolute bottom-2 right-2 z-30 rounded-md bg-slate-950/90 px-2.5 py-1 text-[11px] font-extrabold leading-4 text-white shadow-sm">
+          AI 示意圖 · 非活動實景
+        </span>
+      ) : null}
     </div>
   );
 }
