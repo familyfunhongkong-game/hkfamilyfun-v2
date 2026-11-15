@@ -213,8 +213,18 @@ try {
     await login(pageA,a);await login(pageB,b);await login(pageAdmin,mod);
     checks.push("real_browser_login_three_roles");
     await pageA.goto(preview+"/tips",{waitUntil:"domcontentloaded",timeout:35000});
-    await pageA.getByRole("button",{name:"＋ 分享活動"}).click();
+    const shareButton=pageA.getByRole("button",{name:"＋ 分享活動"});
+    await shareButton.waitFor({state:"visible",timeout:20000});
+    await pageA.waitForFunction(()=>{const b=Array.from(document.querySelectorAll("button")).find(x=>x.textContent?.includes("＋ 分享活動"));return b&&!b.disabled;},null,{timeout:25000});
+    await shareButton.click();
     const uiTitle="[QA] Browser Community "+suffix;
+    try {
+      await pageA.getByLabel("顯示名稱").waitFor({state:"visible",timeout:12000});
+    } catch(error) {
+      await pageA.screenshot({path:"artifacts/hkff-community/share-composer-not-open.png",fullPage:true}).catch(()=>{});
+      const signals=await pageA.locator("[role=alert],[role=status]").allTextContents().catch(()=>[]);
+      throw new Error("Community composer did not open after hydrated button click. url="+pageA.url()+" status="+JSON.stringify(signals)+" reason="+String(error?.message||error));
+    }
     await pageA.getByLabel("顯示名稱").fill("QA Browser Member");
     await pageA.getByLabel("活動標題").fill(uiTitle);
     await pageA.getByLabel("活動內容").fill("Staging browser workflow check; no child photos or personal data. Auto-deleted.");
