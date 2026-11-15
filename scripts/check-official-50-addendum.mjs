@@ -40,8 +40,15 @@ for(const r of manifest.records){
  assert.ok(r.price_label.trim().length>=2,"Price conditions missing "+r.key);
  assert.equal(r.is_free,r.price_type==="free","Incorrect free label "+r.key);
  assert.ok(!(r.price_type==="free"&&/HK\$\s*[1-9]/i.test(r.price_label)),"Free/paid mismatch "+r.key);
- assert.equal(r.cover_image_url,"/images/verified-event-placeholder.svg","Organizer images may not be used without rights review");
- assert.ok(r.image_provenance.includes("non-AI"),"Do not claim fallback is AI-generated artwork");
+ const theme=["科學探索","天文科學","互動體驗"].includes(r.category)?"science":r.category==="親子活動"?"festive":"arts";
+ const cover="/images/ai-event-covers/hkff-"+theme+".svg";
+ assert.equal(r.cover_image_url,cover,"Every newly curated event must use its first-party AI thematic cover");
+ assert.ok(existsSync("public"+cover),"AI category asset must exist for "+r.key);
+ const art=readFileSync("public"+cover,"utf8");
+ assert.ok(art.includes("AI 示意圖 · 非活動實景"),"AI cover must permanently disclose illustration origin");
+ assert.ok(!/<script|foreignObject|<image/i.test(art),"No external image loads or executable contents allowed in AI cover");
+ assert.ok(r.image_provenance.includes("AI-generated"),"AI image provenance metadata required");
+
  assert.ok(r.recurrence_type==="none"||r.recurrence_type==="weekly","Invalid recurrence "+r.key);
  if(r.recurrence_type==="weekly")assert.ok(Array.isArray(r.recurrence_weekdays)&&r.recurrence_weekdays.length>0,"Missing regular weekdays");
  const triple=[r.title_tc,r.start_date,r.venue_name].join("|").toLowerCase();
@@ -60,4 +67,4 @@ for(const r of palace){
  assert.deepEqual(byKey.get(r.key).recurrence_exclude_dates,r.recurrence_exclude_dates,"HKPM raw and consolidated closure drift");
  assert.deepEqual(byKey.get(r.key).recurrence_include_dates,r.recurrence_include_dates,"HKPM raw and consolidated special opening drift");
 }
-console.log("[official-50-addendum] PASS: 50 source-matched, valid, deduplicated sessions; original image fallback; exact 2026-11-16 to 2027-04-01 window");
+console.log("[official-50-addendum] PASS: 50 source-matched, valid, deduplicated sessions; licensed first-party AI disclosure covers; exact 2026-11-16 to 2027-04-01 window");
