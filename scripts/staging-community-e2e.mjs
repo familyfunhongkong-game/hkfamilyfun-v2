@@ -18,7 +18,7 @@ const member=()=>createClient(url,anonKey,{auth:{persistSession:false,autoRefres
 const suffix=Date.now()+"-"+Math.random().toString(36).slice(2,8);
 const users=[],createdPosts=[],uploadedPaths=[],checks=[];
 let adminRowId="";
-const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+hBB0AAAAASUVORK5CYII=","base64");
+const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGNMWRXFQApgIkn1qIZRDUNKAwCABgGIMWy/UQAAAABJRU5ErkJggg==","base64");
 async function ok(query,label) {
   const {data,error}=await query;
   if(error)throw new Error(label+": "+error.message);
@@ -186,6 +186,16 @@ try {
     pageAdmin.on("dialog",dialog=>void dialog.accept());
     async function login(page,user) {
       await page.goto(preview+"/login",{waitUntil:"domcontentloaded",timeout:35000});
+      // Exercise real privacy-first visitor flow; the mobile Cookie panel
+      // legitimately overlays the lower login button until dismissed.
+      const hasConsent=await page.evaluate(()=>document.cookie.split(";").some(x=>x.trim().startsWith("hkff_cookie_preferences=")));
+      if (!hasConsent) {
+        const rejectCookie=page.getByRole("button",{name:"全部拒絕"});
+        await rejectCookie.waitFor({state:"visible",timeout:12000});
+        await rejectCookie.click();
+        await page.getByTestId("cookie-confirm-close").click();
+        await page.getByRole("region",{name:"你的 Cookies 選擇"}).waitFor({state:"hidden",timeout:12000});
+      }
       await page.locator('input[type="email"]').fill(user.email);
       await page.locator('input[type="password"]').fill(user.password);
       const submit=page.getByRole("button",{name:"登入免費會員"});
@@ -203,16 +213,33 @@ try {
     await login(pageA,a);await login(pageB,b);await login(pageAdmin,mod);
     checks.push("real_browser_login_three_roles");
     await pageA.goto(preview+"/tips",{waitUntil:"domcontentloaded",timeout:35000});
-    await pageA.getByRole("button",{name:"＋ 分享活動"}).click();
+    const shareButton=pageA.getByRole("button",{name:"＋ 分享活動"});
+    await shareButton.waitFor({state:"visible",timeout:20000});
+    await pageA.waitForFunction(()=>{const b=Array.from(document.querySelectorAll("button")).find(x=>x.textContent?.includes("＋ 分享活動"));return b&&!b.disabled;},null,{timeout:25000});
+    await shareButton.click();
     const uiTitle="[QA] Browser Community "+suffix;
+    try {
+      await pageA.getByLabel("顯示名稱").waitFor({state:"visible",timeout:12000});
+    } catch(error) {
+      await pageA.screenshot({path:"artifacts/hkff-community/share-composer-not-open.png",fullPage:true}).catch(()=>{});
+      const signals=await pageA.locator("[role=alert],[role=status]").allTextContents().catch(()=>[]);
+      throw new Error("Community composer did not open after hydrated button click. url="+pageA.url()+" status="+JSON.stringify(signals)+" reason="+String(error?.message||error));
+    }
     await pageA.getByLabel("顯示名稱").fill("QA Browser Member");
     await pageA.getByLabel("活動標題").fill(uiTitle);
     await pageA.getByLabel("活動內容").fill("Staging browser workflow check; no child photos or personal data. Auto-deleted.");
     await pageA.getByLabel("活動地區").selectOption({label:"沙田"});
-    await pageA.locator('input[type="file"]').setInputFiles({name:"qa.png",mimeType:"image/png",buffer:png});
+    await pageA.locator('input[type="file"][multiple][accept*="image"]').setInputFiles({name:"qa.png",mimeType:"image/png",buffer:png});
     await pageA.getByRole("checkbox",{name:/我確認自己擁有/}).check();
     await pageA.getByRole("button",{name:"提交審核"}).click();
-    await pageA.getByText("投稿及圖片已送交審批，未批准前不會公開。").waitFor({state:"visible",timeout:35000});
+    try {
+      await pageA.getByText("投稿及圖片已送交審批，未批准前不會公開。").waitFor({state:"visible",timeout:35000});
+    } catch(error) {
+      const visibleAlerts=await pageA.locator('[role="alert"], [role="status"]').allTextContents().catch(()=>[]);
+      const possiblePost=await service.from("community_tips").select("id,status").eq("title",uiTitle);
+      await pageA.screenshot({path:"artifacts/hkff-community/post-submit-failure.png",fullPage:true}).catch(()=>{});
+      throw new Error("Community browser submit failed to confirm complete photo upload. Alerts="+JSON.stringify(visibleAlerts)+" database="+JSON.stringify(possiblePost.data)+" original="+String(error?.message||error));
+    }
     const uiPost=await ok(service.from("community_tips").select("id,status").eq("title",uiTitle).single(),"Browser post exists");
     createdPosts.push(uiPost.id);
     assert.equal(uiPost.status,"pending");
@@ -238,8 +265,19 @@ try {
     await article.waitFor({state:"visible",timeout:25000});
     await article.locator("img").first().waitFor({state:"visible",timeout:20000});
     await article.getByRole("button",{name:/讚好/}).click();
-    const ownLike=await ok(b.client.from("community_tip_likes").select("post_id").eq("post_id",uiPost.id),"Browser like saved");
-    assert.equal(ownLike.length,1);
+    // React handler persists the like asynchronously; do not inspect the DB
+    // in the same microtask as the click and misdiagnose an eventual write.
+    let ownLike=[];
+    for(let attempt=0;attempt<40;attempt++){
+      ownLike=await ok(b.client.from("community_tip_likes").select("post_id").eq("post_id",uiPost.id),"Browser like saved");
+      if(ownLike.length===1)break;
+      await pageB.waitForTimeout(250);
+    }
+    if(ownLike.length!==1){
+      const alerts=await pageB.locator('[role="alert"]').allTextContents().catch(()=>[]);
+      await pageB.screenshot({path:"artifacts/hkff-community/like-persist-failure.png",fullPage:true}).catch(()=>{});
+      throw new Error("Browser like not persisted after 10 seconds; alerts="+JSON.stringify(alerts)+" matches="+ownLike.length);
+    }
     await article.getByRole("button",{name:"查看留言／回覆"}).click();
     await article.getByLabel("留言者名稱").fill("QA Browser Reply");
     const replyText="QA mobile browser reply "+suffix;

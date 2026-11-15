@@ -18,6 +18,12 @@ if (!/^https:\/\/hkfamilyfun-staging-[a-z0-9-]+\.vercel\.app$/.test(siteUrl)) {
 const requireNotification = process.env.REQUIRE_NOTIFICATION === "true";
 const previewBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || "";
 if (!previewBypassSecret) throw new Error("Protected Staging preview requires VERCEL_AUTOMATION_BYPASS_SECRET");
+// Pin import fixture to the same exact GitHub Actions SHA as the deployed Staging app.
+const candidateSha = process.env.GITHUB_SHA || "";
+if (!/^[0-9a-f]{40}$/.test(candidateSha)) {
+  throw new Error("Merchant E2E must run with an exact candidate GITHUB_SHA");
+}
+const publicImportFixture = `https://raw.githubusercontent.com/familyfunhongkong-game/hkfamilyfun-v2/${candidateSha}/tests/fixtures/merchant-import-e2e.html`;
 
 if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
 
@@ -626,6 +632,7 @@ async function main() {
 
     const publicPageResponse = await fetch(`${siteUrl}/events/${eventId}`, {
       redirect: "follow",
+      headers: { "x-vercel-protection-bypass": previewBypassSecret },
     });
     assert(
       publicPageResponse.ok,
@@ -659,7 +666,9 @@ async function main() {
         "x-vercel-protection-bypass": previewBypassSecret,
       },
       body: JSON.stringify({
-        url: `${siteUrl}/events/${eventId}`,
+        // Import a public static fixture rather than self-fetching a protected
+        // Preview URL (which correctly returns HTTP 401 without the bypass).
+        url: publicImportFixture,
       }),
     });
 
@@ -672,8 +681,8 @@ async function main() {
       }`,
     );
     assert(
-      Boolean(urlImportBody.event?.title_tc),
-      "URL import did not extract an event title",
+      String(urlImportBody.event?.title_tc || "").includes("HKFF E2E Public Import Fixture"),
+      "URL import did not extract the deterministic public fixture title",
     );
     checks.push("authenticated_url_import_returns_editable_draft_data");
 

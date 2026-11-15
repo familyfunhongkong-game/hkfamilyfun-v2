@@ -28,8 +28,8 @@ export default function ParentResetPasswordPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !authenticated) { setError("重設連結未通過驗證。請重新申請密碼重設電郵。"); return; }
-    if (password.length < 10 || password.length > 72 || password !== confirm) {
-      setError("密碼須為 10–72 個字元，而且兩次輸入必須相同。");
+    if (password.length < 8 || password.length > 72 || password !== confirm) {
+      setError("密碼須為 8–72 個字元，而且兩次輸入必須相同。");
       return;
     }
     setBusy(true); setError(""); setNotice("");
@@ -47,12 +47,12 @@ export default function ParentResetPasswordPage() {
         {authenticated ? (
           <form onSubmit={(event) => void submit(event)} className="mt-5 space-y-4">
             <label className="block text-sm font-bold">新密碼
-              <input required type="password" autoComplete="new-password" minLength={10} maxLength={72}
+              <input required type="password" autoComplete="new-password" minLength={8} maxLength={72}
                 value={password} onChange={(event) => setPassword(event.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-300 p-3"/>
             </label>
             <label className="block text-sm font-bold">確認新密碼
-              <input required type="password" autoComplete="new-password" minLength={10} maxLength={72}
+              <input required type="password" autoComplete="new-password" minLength={8} maxLength={72}
                 value={confirm} onChange={(event) => setConfirm(event.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-300 p-3"/>
             </label>

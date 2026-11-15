@@ -66,6 +66,9 @@ export default function CommunityTipsFeed() {
   const pageSize=20;
   const [loadError,setLoadError] = useState("");
   const [composerOpen,setComposerOpen] = useState(false);
+  // Guard the SSR button until React event handlers are attached. Without this,
+  // a fast mobile tap before hydration is silently lost and the form never opens.
+  const [composerInteractive,setComposerInteractive] = useState(false);
   const [authorId,setAuthorId] = useState<string | null>(null);
   const [form,setForm] = useState({display_name:"",title:"",body:"",district:"",category:"親子工作坊",event_date:"",source_url:""});
   const [saving,setSaving] = useState(false);
@@ -78,6 +81,12 @@ export default function CommunityTipsFeed() {
   const [likeBusy,setLikeBusy] = useState("");
   const [notice,setNotice] = useState("");
   const [error,setError] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    queueMicrotask(() => { if (live) setComposerInteractive(true); });
+    return () => { live = false; };
+  }, []);
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("post");
@@ -254,7 +263,7 @@ export default function CommunityTipsFeed() {
             <h2 id="community-title" className="mt-1 text-2xl font-black">親子活動交流區</h2>
             <p className="mt-2 text-sm text-slate-600">家長同主辦方都可以分享 Workshop、免費活動及親子好去處。</p>
           </div>
-          <button type="button" onClick={()=>setComposerOpen(!composerOpen)} className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800">
+          <button type="button" disabled={!composerInteractive} onClick={()=>setComposerOpen(!composerOpen)} className="rounded-full bg-purple-700 px-5 py-3 text-sm font-black text-white hover:bg-purple-800 disabled:cursor-wait disabled:opacity-60">
             {composerOpen?"收起投稿":"＋ 分享活動"}
           </button>
         </div>

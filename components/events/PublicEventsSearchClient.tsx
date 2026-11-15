@@ -445,7 +445,11 @@ function isFreeEvent(event: EventRecord): boolean {
   ).toLowerCase();
   const priceText = safeText(event.price_label || event.price_text).toLowerCase();
 
-  return (
+  // A ticket advertised with a positive amount must not be filtered as free,
+  // even when imported price_type was incorrectly left as "free".
+  const explicitPaidPrice = /(?:HK\s*\$|HKD|港幣)\s*[1-9]\d*/i.test(priceText) ||
+    (event.min_price != null && Number(event.min_price) > 0);
+  return !explicitPaidPrice && (
     priceMode === "free" ||
     priceText.includes("免費") ||
     priceText.includes("免费") ||
@@ -1062,13 +1066,13 @@ function EventCard({
         </p>
 
         <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 rounded-xl bg-slate-50 p-3 text-xs ring-1 ring-slate-100">
-          <div className="min-w-0">
+          <div className="col-span-2 min-w-0">
             <p className="font-bold text-slate-400">{m.date}</p>
-            <p className="mt-0.5 line-clamp-2 font-extrabold leading-4 text-slate-800">{formatDateRange(event, locale)}</p>
+            <p className="mt-0.5 whitespace-normal break-words font-extrabold leading-4 text-slate-800 [overflow-wrap:anywhere]">{formatDateRange(event, locale)}</p>
           </div>
-          <div className="min-w-0">
+          <div className="col-span-2 min-w-0">
             <p className="font-bold text-slate-400">{m.time}</p>
-            <p className="mt-0.5 line-clamp-2 font-extrabold leading-4 text-slate-800">{formatTimeRange(event, locale)}</p>
+            <p className="mt-0.5 whitespace-normal break-words font-extrabold leading-4 text-slate-800">{formatTimeRange(event, locale)}</p>
           </div>
           <div className="col-span-2 min-w-0 border-t border-slate-200/80 pt-2">
             <p className="font-bold text-slate-400">{m.venue} · {m.district}</p>

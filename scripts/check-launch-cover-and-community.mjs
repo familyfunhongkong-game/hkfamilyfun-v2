@@ -1,0 +1,15 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const component=readFileSync("components/resilient-event-image.tsx","utf8");
+const community=readFileSync("components/community/CommunityTipsFeed.tsx","utf8");
+const browser=readFileSync("scripts/staging-community-e2e.mjs","utf8");
+assert.match(component,/AI 示意圖 · 非活動實景/,"AI disclosure text must stay visible");
+assert.match(component,/data-testid="ai-event-cover-disclosure"/,"AI disclosure needs stable browser test hook");
+assert.match(component,/\/images\\\/ai-event-covers/,"AI path classifier missing");
+assert.match(component,/hkff-ai-event-covers/,"AI bucket classifier missing");
+assert.match(component,/aiIllustration && imageLoaded/,"Do not advertise a generated image that failed to load");
+assert.match(community,/const \[composerInteractive,setComposerInteractive\] = useState\(false\)/,"SSR-safe share composer state missing");
+assert.match(community,/disabled=\{!composerInteractive\}/,"Do not allow unhydrated Community submit");
+assert.match(browser,/share-composer-not-open\.png/,"Failed mobile composer must produce diagnostic screenshot");
+assert.match(browser,/shareButton\.click\(\)/,"Community E2E must click hydrated CTA");
+console.log("[launch-cover-and-community] PASS: AI image disclosure and Community hydration protection");
