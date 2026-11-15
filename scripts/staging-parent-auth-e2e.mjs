@@ -73,6 +73,19 @@ try {
   const a=await login(emailA,pw8),b=await login(emailB,pwB);
   checks.push("two_real_password_sessions");
 
+  // A normal signed-in parent must never access privileged SECURITY DEFINER
+  // Event Claim moderation RPCs. Missing claims are NOT a sufficient rejection:
+  // require the authorization guard to reject before any record lookup.
+  for(const [rpc,args] of [
+    ["review_event_claim",{p_claim_id:"00000000-0000-4000-8000-000000000000",p_approve:true,p_review_note:"QA deny"}],
+    ["review_event_claim_image",{p_id:"00000000-0000-4000-8000-000000000000",p_approve:true,p_note:"QA deny"}],
+  ]){
+    const {error}=await b.rpc(rpc,args);
+    assert.ok(error,rpc+" must reject a valid non-admin member");
+    assert.match(error.message,/Not authorized|permission denied/i,rpc+" must reject for authorization, not merely because record is absent");
+  }
+  checks.push("non_admin_cannot_invoke_claim_moderation_definer_RPCs");
+
   const events=ok(await service.from("events").select("id,title_tc").eq("status","published").not("cover_image_url","is",null).order("start_date",{ascending:true}).limit(2),"Select actual published events");
   assert.ok(events.length===2,"Two distinct published Staging events required");
   const eventId=events[0].id;
