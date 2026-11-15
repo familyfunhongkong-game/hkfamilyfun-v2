@@ -67,4 +67,8 @@ for(const r of palace){
  assert.deepEqual(byKey.get(r.key).recurrence_exclude_dates,r.recurrence_exclude_dates,"HKPM raw and consolidated closure drift");
  assert.deepEqual(byKey.get(r.key).recurrence_include_dates,r.recurrence_include_dates,"HKPM raw and consolidated special opening drift");
 }
+const nutcracker=manifest.records.find(r=>r.key==="ballet-nutcracker");
+assert.ok(nutcracker,"Missing 2026 HK Ballet Nutcracker");
+assert.deepEqual(nutcracker.recurrence_exclude_dates,["2026-12-14","2026-12-21","2026-12-22","2026-12-23"],"Never claim a Nutcracker show on absent official performance dates");
+assert.deepEqual(byKey.get(nutcracker.key).recurrence_exclude_dates,nutcracker.recurrence_exclude_dates,"Nutcracker source batch must match curated manifestation");
 console.log("[official-50-addendum] PASS: 50 source-matched, valid, deduplicated sessions; licensed first-party AI disclosure covers; exact 2026-11-16 to 2027-04-01 window");
