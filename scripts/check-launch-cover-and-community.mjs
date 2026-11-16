@@ -5,7 +5,10 @@ const community=readFileSync("components/community/CommunityTipsFeed.tsx","utf8"
 const browser=readFileSync("scripts/staging-community-e2e.mjs","utf8");
 assert.match(component,/AI 示意圖 · 非活動實景/,"AI disclosure text must stay visible");
 assert.match(component,/data-testid="ai-event-cover-disclosure"/,"AI disclosure needs stable browser test hook");
-assert.match(component,/\/images\\\/ai-event-covers/,"AI path classifier missing");
+assert.ok(component.includes('const ORIGINAL_AI_PREFIX = "/images/ai-event-covers/";'),"Original AI cover prefix constant missing");
+assert.ok(component.includes("normalizedSrc.startsWith(ORIGINAL_AI_PREFIX)"),"AI source path must be recognized through declared prefix");
+assert.ok(component.includes('const PHOTO_PREFIX = "/images/realistic-event-covers/";'),"Realistic first-party path prefix missing");
+assert.ok(component.includes("normalizedSrc.startsWith(PHOTO_PREFIX)"),"Realistic cover must retain AI-generated disclosure");
 assert.match(component,/hkff-ai-event-covers/,"AI bucket classifier missing");
 assert.match(component,/aiIllustration && imageLoaded/,"Do not advertise a generated image that failed to load");
 assert.match(community,/const \[composerInteractive,setComposerInteractive\] = useState\(false\)/,"SSR-safe share composer state missing");
