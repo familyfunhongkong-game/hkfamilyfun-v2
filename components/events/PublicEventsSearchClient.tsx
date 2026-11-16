@@ -103,6 +103,13 @@ function isHttpUrl(value: unknown): boolean {
   return /^https?:\/\//i.test(value.trim());
 }
 
+function isSafeImageSrc(value: string): boolean {
+  // Database-supplied paths are restricted to first-party image assets.
+  // Never allow arbitrary root-relative URLs to become <img> sources.
+  return /^https?:\/\//i.test(value)
+    || /^\/images\/(?!.*\.\.\/)[a-z0-9/_-]+\.(?:svg|png|jpe?g|webp)(?:\?[a-z0-9=&_-]+)?$/i.test(value);
+}
+
 function normalizeImageArray(value: unknown): string[] {
   if (!value) return [];
 
@@ -132,7 +139,7 @@ function normalizeImageArray(value: unknown): string[] {
         return "";
       })
       .map((item) => item.trim())
-      .filter((item) => /^https?:\/\//i.test(item));
+      .filter((item) => isSafeImageSrc(item));
   }
 
   if (typeof value === "string") {
@@ -140,7 +147,7 @@ function normalizeImageArray(value: unknown): string[] {
 
     if (!trimmed) return [];
 
-    if (/^https?:\/\//i.test(trimmed)) {
+    if (isSafeImageSrc(trimmed)) {
       return [trimmed];
     }
 
@@ -151,7 +158,7 @@ function normalizeImageArray(value: unknown): string[] {
       return trimmed
         .split(/[,\n，、]/)
         .map((item) => item.trim())
-        .filter((item) => /^https?:\/\//i.test(item));
+        .filter((item) => isSafeImageSrc(item));
     }
   }
 
@@ -164,7 +171,7 @@ function uniqueImages(input: string[]): string[] {
 
   for (const raw of input) {
     const url = raw.trim();
-    if (!/^https?:\/\//i.test(url)) continue;
+    if (!isSafeImageSrc(url)) continue;
 
     const key = url.toLowerCase();
     if (seen.has(key)) continue;
@@ -179,7 +186,7 @@ function uniqueImages(input: string[]): string[] {
 function getGalleryImages(event: EventRecord): GalleryImage[] {
   const cover =
     typeof event.cover_image_url === "string" &&
-    /^https?:\/\//i.test(event.cover_image_url.trim())
+    isSafeImageSrc(event.cover_image_url.trim())
       ? event.cover_image_url.trim()
       : "";
 
@@ -949,6 +956,7 @@ function EventCard({
 
         <ResilientEventImage
           src={isFallback ? null : hero}
+          category={category}
           alt={title}
           loading="lazy"
           compactFallback
