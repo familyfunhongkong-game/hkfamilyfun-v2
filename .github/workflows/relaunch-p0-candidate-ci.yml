@@ -3,7 +3,7 @@ name: HKFF Relaunch P0 Candidate CI
 on:
   push:
     branches:
-      - fix/relaunch-password8-full-dates-20261112
+      - release/rebuild-v2-launch-candidate-20261109
   workflow_dispatch:
 
 permissions:
@@ -15,6 +15,9 @@ concurrency:
 
 jobs:
   verify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message, 'test(launch): run final P0 suite')
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     steps:
@@ -49,13 +52,16 @@ jobs:
         run: npm run build
 
   merchant-isolated-staging-e2e:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message, 'test(launch): run final P0 suite')
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
       SUPABASE_URL: https://gwoiocllrgdwuxzibcuu.supabase.co
       SUPABASE_ANON_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
-      SITE_URL: https://hkfamilyfun-staging-git-fix-relaunch-passw-d0f1c7-hk-family-fun.vercel.app
+      SITE_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-ff887b-hk-family-fun.vercel.app
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       REQUIRE_NOTIFICATION: "false"
     steps:
@@ -92,13 +98,16 @@ jobs:
         run: node scripts/merchant-auth-e2e.mjs
 
   community-isolated-staging-e2e:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message, 'test(launch): run final P0 suite')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       SUPABASE_URL: https://gwoiocllrgdwuxzibcuu.supabase.co
       SUPABASE_ANON_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
-      SITE_URL: https://hkfamilyfun-staging-git-fix-relaunch-passw-d0f1c7-hk-family-fun.vercel.app
+      SITE_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-ff887b-hk-family-fun.vercel.app
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
       - name: Checkout exact candidate SHA
@@ -146,13 +155,16 @@ jobs:
           retention-days: 7
 
   parent-isolated-staging-e2e:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message, 'test(launch): run final P0 suite')
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
       SUPABASE_URL: https://gwoiocllrgdwuxzibcuu.supabase.co
       SUPABASE_ANON_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
-      SITE_URL: https://hkfamilyfun-staging-git-fix-relaunch-passw-d0f1c7-hk-family-fun.vercel.app
+      SITE_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-ff887b-hk-family-fun.vercel.app
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
       - name: Checkout exact candidate SHA
@@ -200,10 +212,13 @@ jobs:
           retention-days: 7
 
   anonymous-mobile-desktop-browser-e2e:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message, 'test(launch): run final P0 suite')
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
-      PREVIEW_URL: https://hkfamilyfun-staging-git-fix-relaunch-passw-d0f1c7-hk-family-fun.vercel.app
+      PREVIEW_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-ff887b-hk-family-fun.vercel.app
       EXPECTED_BUILD_SHA: ${{ github.sha }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
