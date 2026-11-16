@@ -1,4 +1,5 @@
 import { publicSupabase as supabase } from "@/lib/supabase/public-client";
+import { isActivePublicEvent } from "@/lib/events/visibility";
 
 export type JsonValue =
   | string
@@ -128,5 +129,5 @@ export async function getPublicEventRecords(): Promise<EventRecord[]> {
     return [];
   }
 
-  return (data || []) as EventRecord[];
+  return ((data || []) as EventRecord[]).filter((event) => isActivePublicEvent(event));
 }

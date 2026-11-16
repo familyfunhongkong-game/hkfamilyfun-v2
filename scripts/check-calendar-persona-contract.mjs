@@ -45,7 +45,7 @@ requireSignals("calendar red-day behavior", calendarSource, [
 ]);
 
 requireSignals("Today chronological order", todaySource, [
-  "groupTodaySchedule(todayEvents)",
+  "groupTodaySchedule(scheduledEvents)",
   "eventOccursOn(",
   "timeZone: \"Asia/Hong_Kong\"",
 ]);

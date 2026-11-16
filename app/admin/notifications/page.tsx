@@ -93,6 +93,8 @@ function kindLabel(kind: string) {
   if (kind === "event_submitted") return "活動待審";
   if (kind === "event_status_changed") return "活動狀態";
   if (kind === "merchant_status_changed") return "商戶狀態";
+  if (kind === "community_tip_submitted") return "新報料待審批";
+  if (kind === "community_reply_submitted") return "新留言待審批";
   return kind;
 }
 
@@ -182,6 +184,8 @@ export default function AdminNotificationsPage() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [reviewMessage, setReviewMessage] = useState("");
+  const [pendingCommunityPosts,setPendingCommunityPosts] = useState(0);
+  const [pendingCommunityReplies,setPendingCommunityReplies] = useState(0);
 
 
   const displayedRows = useMemo(() => rows
@@ -228,6 +232,15 @@ export default function AdminNotificationsPage() {
       setLoading(false);
       return;
     }
+
+    // Community moderation is an independent queue. Query counts rather than
+    // exposing unapproved parent submissions in public notification tables.
+    const [postCount,replyCount] = await Promise.all([
+      supabase.from("community_tips").select("id",{count:"exact",head:true}).eq("status","pending"),
+      supabase.from("community_tip_replies").select("id",{count:"exact",head:true}).eq("status","pending"),
+    ]);
+    setPendingCommunityPosts(postCount.error ? 0 : postCount.count || 0);
+    setPendingCommunityReplies(replyCount.error ? 0 : replyCount.count || 0);
 
     const { data, error } = await supabase
       .from("platform_notifications")
@@ -397,6 +410,10 @@ export default function AdminNotificationsPage() {
 
   useEffect(() => {
     void loadNotifications();
+    // Poll when this page is open; no paid email/queue provider needed.
+    // This is an in-app moderation alert, not proof of email delivery.
+    const interval=window.setInterval(() => { void loadNotifications(); },60000);
+    return () => window.clearInterval(interval);
   }, []);
 
   return (
@@ -436,6 +453,14 @@ export default function AdminNotificationsPage() {
             </div>
           </div>
 
+          <div className="mt-5 flex flex-wrap gap-3" aria-label="社區報料待審通知">
+            <Link href="/admin/community" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
+              家長新報料待審：{pendingCommunityPosts}
+            </Link>
+            <Link href="/admin/community/replies" className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm font-bold text-purple-800">
+              新留言待審：{pendingCommunityReplies}
+            </Link>
+          </div>
           <div className="mt-6 flex flex-wrap gap-2">
             <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-black text-purple-800">
               未讀 {unreadCount}

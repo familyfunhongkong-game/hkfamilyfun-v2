@@ -1,0 +1,241 @@
+name: HKFF Relaunch P0 Candidate CI
+
+on:
+  push:
+    branches:
+      - release/rebuild-v2-launch-candidate-20261109
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hkff-relaunch-p0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message, 'test(launch): run final P0 suite')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Checkout exact candidate SHA
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Use Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Password, date, price and source seeding regression
+        run: |
+          node scripts/check-relaunch-password-date-layout.mjs
+          node scripts/check-curated-event-seeds.mjs
+      - name: Lint
+        run: npm run lint
+      - name: TypeScript
+        run: npm run type-check
+      - name: Event content, mobile, Auth isolation and data contracts
+        run: |
+          npm run check:event-detail
+          npm run check:event-data
+          npm run check:event-mobile-content
+          npm run check:public-event-auth-isolation
+          npm run check:launch-docs
+          npm run check:production-e2e
+      - name: Build same commit with prebuild contracts
+        run: npm run build
+
+  merchant-isolated-staging-e2e:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message, 'test(launch): run final P0 suite')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SUPABASE_URL: https://gwoiocllrgdwuxzibcuu.supabase.co
+      SUPABASE_ANON_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      SITE_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-ff887b-hk-family-fun.vercel.app
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      REQUIRE_NOTIFICATION: "false"
+    steps:
+      - name: Checkout exact candidate SHA
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install required dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Merchant E2E script syntax
+        run: node --check scripts/merchant-auth-e2e.mjs
+      - name: Verify protected Staging preview is the exact commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ANON_KEY"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          for attempt in {1..48}; do
+            if curl --max-time 25 -fsSL -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" "$SITE_URL/api/health" -o /tmp/hkff-health.json && node -e 'const h=require("/tmp/hkff-health.json"); process.exit(h.ok===true&&h.buildSha===process.env.GITHUB_SHA?0:1)'; then
+              echo "Protected Staging preview has exact workflow SHA"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Exact-SHA protected preview unavailable. E2E not attempted."
+          exit 1
+      - name: Merchant Auth, event upload, Admin approval, notifications, PDF and URL import with cleanup
+        run: node scripts/merchant-auth-e2e.mjs
+
+  community-isolated-staging-e2e:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message, 'test(launch): run final P0 suite')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: https://gwoiocllrgdwuxzibcuu.supabase.co
+      SUPABASE_ANON_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      SITE_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-ff887b-hk-family-fun.vercel.app
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - name: Checkout exact candidate SHA
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify isolated test syntax
+        run: node --check scripts/staging-community-e2e.mjs
+      - name: Install browser for Community UI E2E
+        run: |
+          npm install --no-save --no-package-lock --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Wait for matching protected Preview SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ANON_KEY"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          for attempt in {1..48}; do
+            if curl --max-time 25 -fsSL -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" "$SITE_URL/api/health" -o /tmp/hkff-health.json && node -e 'const h=require("/tmp/hkff-health.json"); process.exit(h.ok===true&&h.buildSha===process.env.GITHUB_SHA?0:1)'; then
+              echo "Community preview SHA confirmed"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Preview not ready at exact candidate SHA"
+          exit 1
+      - name: Community member/Admin authenticated browser and RLS E2E
+        run: node scripts/staging-community-e2e.mjs
+      - name: Preserve isolated Community browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hkff-relaunch-community-${{ github.sha }}
+          path: artifacts/hkff-community/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  parent-isolated-staging-e2e:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message, 'test(launch): run final P0 suite')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SUPABASE_URL: https://gwoiocllrgdwuxzibcuu.supabase.co
+      SUPABASE_ANON_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      SITE_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-ff887b-hk-family-fun.vercel.app
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - name: Checkout exact candidate SHA
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check Parent test syntax
+        run: node --check scripts/staging-parent-auth-e2e.mjs
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Verify same-SHA Staging preview before creating users
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ANON_KEY"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          for attempt in {1..48}; do
+            if curl --max-time 25 -fsSL -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" "$SITE_URL/api/health" -o /tmp/hkff-health.json && node -e 'const h=require("/tmp/hkff-health.json"); process.exit(h.ok===true&&h.buildSha===process.env.GITHUB_SHA?0:1)'; then
+              echo "Parent E2E exact Staging SHA confirmed"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Staging SHA mismatch; parent identities not created"
+          exit 1
+      - name: 7 versus 8-character signup, 2-account isolation and mobile real login
+        run: node scripts/staging-parent-auth-e2e.mjs
+      - name: Parent browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hkff-relaunch-parent-${{ github.sha }}
+          path: artifacts/hkff-parent/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  anonymous-mobile-desktop-browser-e2e:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message, 'test(launch): run final P0 suite')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      PREVIEW_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-ff887b-hk-family-fun.vercel.app
+      EXPECTED_BUILD_SHA: ${{ github.sha }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - name: Checkout same SHA
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Anonymous mobile 320/375/390 and desktop 1440, real event links and maintenance checks
+        run: node scripts/relaunch-browser-smoke.mjs

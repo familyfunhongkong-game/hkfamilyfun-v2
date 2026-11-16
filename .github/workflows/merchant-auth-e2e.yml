@@ -1,7 +1,9 @@
 name: Merchant Auth E2E
 
 # This workflow creates and deletes real Auth / merchant / event rows.
-# Keep it manual until HK Family Fun has a dedicated Supabase test project.
+# Manual-only safety gate: never run database-mutating tests automatically.
+# Creates and cleans up rows in the dedicated Staging Supabase project.
+# Never supply Production service credentials to this workflow.
 on:
   workflow_dispatch:
 
@@ -25,6 +27,19 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Run authenticated merchant workflow E2E
         env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: https://gwoiocllrgdwuxzibcuu.supabase.co
+          SUPABASE_ANON_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.HKFF_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+          SITE_URL: https://hkfamilyfun-staging-git-release-rebuild-v2-e120d3-hk-family-fun.vercel.app
           REQUIRE_NOTIFICATION: "false"
-        run: node scripts/merchant-auth-e2e.mjs
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          if [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Staging-only secrets HKFF_STAGING_SUPABASE_ANON_KEY and HKFF_STAGING_SUPABASE_SERVICE_ROLE_KEY are required"
+            exit 1
+          fi
+          if [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            echo "::error::Protected staging preview bypass secret is missing"
+            exit 1
+          fi
+          node scripts/merchant-auth-e2e.mjs
