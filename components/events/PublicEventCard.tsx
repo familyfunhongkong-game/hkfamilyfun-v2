@@ -273,6 +273,7 @@ export default function PublicEventCard({
           >
             <ResilientEventImage
               src={event.image}
+              category={event.category}
               alt={event.title}
               loading="lazy"
               compactFallback
@@ -379,6 +380,7 @@ export default function PublicEventCard({
       >
         <ResilientEventImage
           src={event.image}
+              category={event.category}
           alt={event.title}
           loading="lazy"
           compactFallback
