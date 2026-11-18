@@ -40,6 +40,9 @@ jobs:
       - name: Verify Admin approval email routing and fail-closed safeguards
         run: node scripts/test-approval-recipient.mjs
 
+      - name: Verify branded merchant emails and secure admin deep links
+        run: node scripts/test-merchant-email-contract.mjs
+
       - name: Enforce legacy automation review boundary
         run: |
           node - <<'NODE'

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { merchantNotificationEmailHtml } from "@/lib/merchant-notification-email";
 
 export const runtime = "nodejs";
 
@@ -9,12 +10,24 @@ const SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   "";
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
+// Server-only key: used ONLY after the authenticated owner/admin checks below.
+// Never expose this key to a browser or NEXT_PUBLIC_ environment variable.
+const SERVER_DB_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SECRET_KEY ||
+  "";
+const auditClient =
+  SUPABASE_URL && SERVER_DB_KEY
+    ? createClient(SUPABASE_URL, SERVER_DB_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+    : null;
 const APPROVAL_EMAIL = process.env.APPROVAL_EMAIL || "info@hkfamilyfun.com";
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
   process.env.SITE_URL ||
-  "https://hkfamilyfun-v2.vercel.app";
+  "https://www.hkfamilyfun.com";
 
 type Action =
   | "merchant_registered"
@@ -31,6 +44,7 @@ async function sendMail(
   subject: string,
   text: string,
   idempotencyKey: string,
+  html?: string,
 ) {
   if (!RESEND_API_KEY) {
     return { sent: false, reason: "RESEND_API_KEY not configured" };
@@ -49,6 +63,7 @@ async function sendMail(
       reply_to: "info@hkfamilyfun.com",
       subject,
       text,
+      ...(html ? { html } : {}),
     }),
   });
 
@@ -131,14 +146,20 @@ export async function POST(request: NextRequest) {
     result: { sent: boolean; reason?: string },
   ) {
     if (!queueId) return;
-
-    await client
+    // A merchant is allowed to enqueue an admin notification, but not to
+    // UPDATE it under RLS. Use a server-only privileged client for audit.
+    if (!auditClient) {
+      console.warn("Email send result could not be audited: server DB key missing.");
+      return;
+    }
+    const { error } = await auditClient
       .from("platform_notifications")
       .update({
         email_sent: result.sent,
         email_error: result.sent ? null : result.reason || "Email was not sent",
       })
       .eq("id", queueId);
+    if (error) console.error("Email audit update failed:", error.message);
   }
 
   const { data: userData, error: userError } = await client.auth.getUser(token);
@@ -173,17 +194,39 @@ export async function POST(request: NextRequest) {
       return json({ error: "Merchant is unavailable or not pending." }, 403);
     }
 
-    const subject = `HK Family Fun｜新商戶待審批：${merchant.business_name || "未命名商戶"}`;
+    const businessName = String(merchant.business_name || "未命名商戶")
+      .replace(/[\r\n]/g, " ").trim().slice(0, 120);
+    const adminUrl = new URL("/admin/merchants", SITE_URL);
+    adminUrl.searchParams.set("merchant_id", merchant.id);
+    const merchantUrl = new URL("/merchant/dashboard", SITE_URL).toString();
+    const version = merchant.updated_at || merchant.created_at || "unknown";
+    const subject = `🔔【HK Family Fun】新商戶待審批：${businessName}`;
     const message = [
-      "有新商戶完成註冊並等待平台審批。",
+      "有新商戶完成登記，請登入 Admin 審核申請。",
       "",
-      `商戶：${merchant.business_name || "未命名商戶"}`,
+      `商戶：${businessName}`,
       merchant.contact_name ? `聯絡人：${merchant.contact_name}` : "",
-      merchant.contact_email ? `Email：${merchant.contact_email}` : "",
+      merchant.contact_email ? `電郵：${merchant.contact_email}` : "",
+      "狀態：待審批",
       "",
-      `Admin：${SITE_URL}/admin/merchants`,
+      `查看及審批：${adminUrl.toString()}`,
+      "此連結只會開啟受權限保護的商戶紀錄，不會自動批准。",
     ].filter(Boolean).join("\n");
+    const adminHtml = merchantNotificationEmailHtml({
+      heading: "🔔 有新商戶等你審批",
+      intro: "有新商戶完成登記，請核對商戶資料、條款及私隱同意紀錄，再決定是否批准。",
+      details: [
+        { label: "商戶名稱", value: businessName },
+        { label: "聯絡人", value: merchant.contact_name || "" },
+        { label: "聯絡電郵", value: merchant.contact_email || "" },
+        { label: "狀態", value: "待審批" },
+      ],
+      actionLabel: "🔐 查看及審批商戶",
+      actionUrl: adminUrl.toString(),
+      note: "需要 HK Family Fun Admin 登入。撳連結唔會自動批准，所有決定仍須管理員確認。",
+    });
 
+    const adminKey = `merchant-review-${merchant.id}-${version}`;
     const queued = await queueNotification({
       kind: action,
       recipient_scope: "admin",
@@ -194,7 +237,7 @@ export async function POST(request: NextRequest) {
       message,
       status_snapshot: merchant.status,
       email_to: APPROVAL_EMAIL,
-      dedupe_key: `merchant-review-${merchant.id}-${merchant.updated_at || merchant.created_at || "unknown"}`,
+      dedupe_key: adminKey,
     });
 
     if (!queued.queued) {
@@ -203,24 +246,110 @@ export async function POST(request: NextRequest) {
         500,
       );
     }
-
     if (queued.duplicate) {
-      return json({ queued: true, queue_id: queued.queue_id, duplicate: true, sent: false, reason: "Already queued; duplicate email suppressed" });
+      return json({
+        queued: true,
+        queue_id: queued.queue_id,
+        duplicate: true,
+        sent: false,
+        reason: "Already queued; duplicate email suppressed",
+      });
     }
 
-    const result = await sendMail(
+    const adminResult = await sendMail(
       APPROVAL_EMAIL,
       subject,
       message,
-      `merchant-review-${merchant.id}-${merchant.updated_at || merchant.created_at || "unknown"}`,
+      adminKey,
+      adminHtml,
     );
-    await markEmailResult(queued.queue_id, result);
+    await markEmailResult(queued.queue_id, adminResult);
+
+    // A social-login security notice is sent by Google, not by our app.
+    // Send a separate HK Family Fun receipt to the signed-in merchant's
+    // verified email, never to an arbitrary address from request JSON.
+    let merchantReceipt: { sent: boolean; reason?: string } = {
+      sent: false,
+      reason: "Merchant email not verified or differs from account email",
+    };
+    const merchantEmail = String(user.email || "").trim().toLowerCase();
+    const contactEmail = String(merchant.contact_email || "").trim().toLowerCase();
+    if (merchantEmail && merchantEmail === contactEmail) {
+      const receiptSubject = "🎉【HK Family Fun】已收到你嘅商戶申請｜審批中";
+      const receiptMessage = [
+        `${merchant.contact_name || "商戶"}，你好！`,
+        "",
+        "🎉 多謝你登記 HK Family Fun！我哋已收到你嘅商戶申請。",
+        `商戶：${businessName}`,
+        "申請狀態：審批中",
+        "✅ 唔需要重複提交申請。平台完成審批後會再以電郵通知你。",
+        "",
+        `查看商戶中心：${merchantUrl}`,
+      ].join("\n");
+      const receiptHtml = merchantNotificationEmailHtml({
+        heading: "🎉 商戶申請已收到！",
+        intro: "多謝你登記 HK Family Fun！我哋已收到你嘅商戶資料，正等待平台審批。完成審批後會再以電郵通知你。",
+        details: [
+          { label: "商戶名稱", value: businessName },
+          { label: "申請狀態", value: "✅ 已收到 · 審批中" },
+        ],
+        actionLabel: "查看商戶中心",
+        actionUrl: merchantUrl,
+        note: "暫時唔需要重複登記。平台批准前，活動唔會自動公開。",
+      });
+      const receiptKey = `merchant-receipt-${merchant.id}-${version}`;
+      let receiptQueueId: string | null = null;
+      let receiptCanSend = true;
+
+      if (auditClient) {
+        const { data: receiptQueue, error: receiptQueueError } = await auditClient
+          .from("platform_notifications")
+          .insert({
+            kind: action,
+            recipient_scope: "merchant",
+            actor_user_id: user.id,
+            merchant_id: merchant.id,
+            event_id: null,
+            title: receiptSubject,
+            message: receiptMessage,
+            status_snapshot: merchant.status,
+            email_to: merchantEmail,
+            dedupe_key: receiptKey,
+          })
+          .select("id")
+          .single();
+
+        if (receiptQueueError) {
+          receiptCanSend = false;
+          merchantReceipt = {
+            sent: false,
+            reason: receiptQueueError.code === "23505"
+              ? "Merchant receipt already queued; duplicate suppressed"
+              : "Merchant receipt queue failed",
+          };
+        } else {
+          receiptQueueId = receiptQueue?.id || null;
+        }
+      }
+      if (receiptCanSend) {
+        merchantReceipt = await sendMail(
+          merchantEmail,
+          receiptSubject,
+          receiptMessage,
+          receiptKey,
+          receiptHtml,
+        );
+        await markEmailResult(receiptQueueId, merchantReceipt);
+      }
+    }
 
     return json({
-      ...result,
+      ...adminResult,
       queued: true,
       queue_id: queued.queue_id,
-      duplicate: queued.duplicate,
+      duplicate: false,
+      merchant_receipt_sent: merchantReceipt.sent,
+      merchant_receipt_reason: merchantReceipt.reason || null,
     });
   }
 

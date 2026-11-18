@@ -25,6 +25,13 @@ export default function AdminLayout({
   const [accessState, setAccessState] =
     useState<AccessState>("checking");
   const [currentEmail, setCurrentEmail] = useState("");
+  const [loginReturnTo, setLoginReturnTo] = useState("/admin");
+
+  useEffect(() => {
+    if (!isPublicAdminAuthRoute) {
+      setLoginReturnTo(window.location.pathname + window.location.search);
+    }
+  }, [pathname, isPublicAdminAuthRoute]);
 
   useEffect(() => {
     if (isPublicAdminAuthRoute) {
@@ -126,7 +133,7 @@ export default function AdminLayout({
             </p>
             <div className="mt-6 flex gap-3">
               <Link
-                href="/admin/login"
+                href={`/admin/login?next=${encodeURIComponent(loginReturnTo)}`}
                 className="rounded-2xl bg-purple-700 px-5 py-3 text-sm font-black text-white"
               >
                 Admin 登入

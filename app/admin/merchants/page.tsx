@@ -78,6 +78,13 @@ export default function AdminMerchantsPage() {
     void loadMerchants();
   }, []);
 
+  // Email deep links open the exact merchant after admin authorization.
+  useEffect(() => {
+    if (loading || !selectedMerchantId) return;
+    document.getElementById(`merchant-${selectedMerchantId}`)
+      ?.scrollIntoView({ block: "center", behavior: "auto" });
+  }, [loading, selectedMerchantId]);
+
   async function updateMerchantStatus(
     merchant: Merchant,
     status: Status,
@@ -257,8 +264,9 @@ export default function AdminMerchantsPage() {
           <div className="mt-6 space-y-4">
             {filtered.map((merchant) => (
               <article
+                id={`merchant-${merchant.id}`}
                 key={merchant.id}
-                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+                className={`rounded-3xl border bg-white p-5 shadow-sm ${selectedMerchantId === merchant.id ? "border-purple-500 ring-2 ring-purple-200" : "border-slate-200"}`}
               >
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                   <div className="min-w-0">
