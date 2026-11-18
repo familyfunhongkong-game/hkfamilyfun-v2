@@ -5,6 +5,21 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 
+function safeAdminReturnUrl(): string {
+  const target = new URLSearchParams(window.location.search).get("next") || "";
+  // Only internal admin routes may be used as a post-login destination.
+  // This prevents an open redirect from a forged email/link.
+  if (
+    target.startsWith("/admin/") &&
+    !target.startsWith("//") &&
+    !target.includes("\\\\") &&
+    !target.includes("#")
+  ) {
+    return target;
+  }
+  return "/admin";
+}
+
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -38,7 +53,7 @@ export default function AdminLoginPage() {
       if (ignore) return;
 
       if (isAdmin === true) {
-        router.replace("/admin");
+        router.replace(safeAdminReturnUrl());
         return;
       }
 
@@ -93,7 +108,7 @@ export default function AdminLoginPage() {
       return;
     }
 
-    router.replace("/admin");
+    router.replace(safeAdminReturnUrl());
     router.refresh();
   }
 
