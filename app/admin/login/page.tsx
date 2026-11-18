@@ -12,7 +12,7 @@ function safeAdminReturnUrl(): string {
   if (
     target.startsWith("/admin/") &&
     !target.startsWith("//") &&
-    !target.includes("\\\\") &&
+    !target.includes("\\") &&
     !target.includes("#")
   ) {
     return target;
