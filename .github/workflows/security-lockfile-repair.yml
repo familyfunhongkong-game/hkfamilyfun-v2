@@ -5,6 +5,9 @@ on:
       - fix/security-dependency-audit-20261120
     paths:
       - .github/workflows/security-lockfile-repair.yml
+  pull_request:
+    branches:
+      - fix/merchant-branded-email-admin-deeplink-20261118
   workflow_dispatch:
 permissions:
   contents: write
