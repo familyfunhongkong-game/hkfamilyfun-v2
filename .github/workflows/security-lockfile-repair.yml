@@ -27,7 +27,7 @@ jobs:
       - name: Repair lockfile without running dependency scripts
         run: |
           npm install --package-lock-only --ignore-scripts --no-fund --save-exact next@16.4.6
-          npm install --package-lock-only --ignore-scripts --no-fund --save-dev --save-exact @typescript-eslint/eslint-plugin@8.73.0 @typescript-eslint/parser@8.73.0
+          npm install --package-lock-only --ignore-scripts --no-fund --save-dev --save-exact @typescript-eslint/eslint-plugin@8.73.0 @typescript-eslint/parser@8.73.0 eslint-config-next@16.4.6 typescript-eslint@8.73.0
           npm audit fix --package-lock-only --ignore-scripts --no-fund
           npm ci --ignore-scripts --no-audit --no-fund
           npm audit --omit=dev --audit-level=high
