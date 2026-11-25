@@ -73,8 +73,42 @@ const emptyList = photoList.status===200 && Object.keys(emptyBody.photos||{}).le
 if(!emptyList)failures.push("Unknown post photo metadata must stay empty");
 outcomes.push({check:"unapproved photo metadata hidden",status:emptyList?"PASS":"FAIL",http:photoList.status,payload:emptyBody});
 
+// Test actual bytes served by the exact preview, not just repository filenames.
+for (const theme of ["nature","science","arts","culture","festive","performance"]) {
+  const path = "/images/realistic-event-covers/hkff-" + theme + "-photorealistic.webp";
+  const response = await previewFetch(new URL(path, preview), {redirect:"error",signal:AbortSignal.timeout(25000)});
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const ok = response.status === 200 && /^image\/webp\b/i.test(response.headers.get("content-type") || "") && bytes.subarray(0,4).toString("ascii") === "RIFF" && bytes.subarray(8,12).toString("ascii") === "WEBP";
+  outcomes.push({check:"deployed WebP "+theme,status:ok?"PASS":"FAIL",http:response.status,bytes:bytes.length});
+  if (!ok) failures.push("Missing or invalid deployed WebP: "+theme);
+}
 const browser = await chromium.launch({ headless: true });
 try {
+  // Exercise a real public card with generated photography on mobile and desktop.
+  for (const viewport of [{width:390,height:844},{width:1440,height:900}]) {
+    const context = await browser.newContext({viewport,locale:"zh-HK",serviceWorkers:"block"});
+    await context.route("**/*", async route => {
+      const req = route.request();
+      if (new URL(req.url()).origin === new URL(preview).origin) {
+        await route.continue({headers:{...req.headers(),...previewHeaders}});
+      } else {
+        await route.continue();
+      }
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(new URL("/events",preview).toString(),{waitUntil:"domcontentloaded",timeout:30000});
+      const photo = page.locator('img[src^="/images/realistic-event-covers/"]').first();
+      await photo.waitFor({state:"attached",timeout:15000});
+      await photo.scrollIntoViewIfNeeded();
+      await photo.evaluate(img => { img.loading="eager"; });
+      await page.waitForFunction(() => Array.from(document.querySelectorAll('img[src^="/images/realistic-event-covers/"]')).some(img => img.complete && img.naturalWidth > 0 && img.parentElement?.querySelector('[data-testid="ai-event-cover-disclosure"]')?.textContent?.includes("AI 示意圖")),null,{timeout:15000});
+      outcomes.push({check:"rendered realistic card and AI disclosure "+viewport.width,status:"PASS"});
+    } catch(e) {
+      failures.push("realistic card "+viewport.width+": "+e.message);
+      outcomes.push({check:"rendered realistic card and AI disclosure "+viewport.width,status:"FAIL"});
+    } finally { await context.close(); }
+  }
   const profiles = [
     { name: "mobile-320", viewport: { width: 320, height: 720 }, isMobile: true, deviceScaleFactor: 2 },
     { name: "mobile-375", viewport: { width: 375, height: 812 }, isMobile: true, deviceScaleFactor: 2 },
