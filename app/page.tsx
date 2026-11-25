@@ -139,6 +139,12 @@ export default async function HomePage() {
     ? homeTopBanners
     : [fallbackBanner];
 
+  const discovery = locale === "en"
+    ? { eyebrow: "Find your next family day out", title: "Discover family fun in Hong Kong", hint: "Search activities, workshops or organisers", button: "Find activities", today: "Today", weekend: "This weekend", free: "Free activities", sen: "SEN-friendly" }
+    : locale === "zh-Hans"
+      ? { eyebrow: "为一家大小找好去处", title: "轻松发现香港亲子活动", hint: "搜索活动、工作坊或主办机构", button: "搜索活动", today: "今日活动", weekend: "今个周末", free: "免费活动", sen: "SEN 友善" }
+      : { eyebrow: "一家大細，玩得開心", title: "輕鬆搵到香港親子好去處", hint: "搜尋活動、工作坊或主辦機構", button: "搜尋活動", today: "今日活動", weekend: "今個週末", free: "免費活動", sen: "SEN 友善" };
+
   const labels =
     locale === "en"
       ? {
@@ -173,20 +179,42 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
-      {/* Highest-priority homepage inventory: Admin-managed horizontal ad banner. */}
+      <section aria-labelledby="home-discovery-title" className="bg-gradient-to-br from-purple-50 via-white to-amber-50">
+        <div className="mx-auto max-w-7xl px-4 py-9 sm:px-6 sm:py-12 lg:px-8">
+          <p className="text-sm font-extrabold text-purple-700">{discovery.eyebrow}</p>
+          <h1 id="home-discovery-title" className="mt-2 max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">{discovery.title}</h1>
+          <form action="/events" method="get" role="search" className="mt-6 flex max-w-4xl flex-col gap-3 rounded-2xl border border-purple-100 bg-white p-3 shadow-lg shadow-purple-950/5 sm:flex-row">
+            <label htmlFor="home-activity-search" className="sr-only">{discovery.hint}</label>
+            <input id="home-activity-search" name="q" type="search" placeholder={discovery.hint} className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-200 px-4 text-base text-slate-950 outline-none focus-visible:border-purple-600 focus-visible:ring-2 focus-visible:ring-purple-200" />
+            <button type="submit" className="min-h-12 rounded-xl bg-purple-700 px-7 text-base font-extrabold text-white transition hover:bg-purple-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-700">{discovery.button}</button>
+          </form>
+          <nav aria-label={discovery.eyebrow} className="mt-5 flex flex-wrap gap-2">
+            {[
+              { label: discovery.today, href: "/events?date=today" },
+              { label: discovery.weekend, href: "/events?date=weekend" },
+              { label: discovery.free, href: "/events?price=free" },
+              { label: discovery.sen, href: "/events?sen=true" },
+            ].map((item) => (
+              <Link key={item.href} href={item.href} className="rounded-full border border-purple-200 bg-white px-4 py-2.5 text-sm font-bold text-purple-800 transition hover:border-purple-400 hover:bg-purple-50 focus-visible:outline-2 focus-visible:outline-purple-700">{item.label}</Link>
+            ))}
+          </nav>
+        </div>
+      </section>
+
       <div className="border-b border-slate-100 bg-white">
         <PromotionSlot banners={topBanners} variant="horizontal" />
       </div>
 
+      {featuredEvents.length > 0 ? (
       <section className="mx-auto max-w-7xl px-4 pb-8 pt-6 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm font-black text-purple-700">
               {labels.featuredKicker}
             </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
               {labels.featuredTitle}
-            </h1>
+            </h2>
           </div>
 
           <Link
@@ -197,18 +225,13 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        {featuredEvents.length ? (
-          <div className={featuredGridClass}>
-            {featuredEvents.map((event) => (
-              <FeaturedEditorialCard key={event.id} event={event} locale={locale} />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm font-semibold text-slate-500">
-            {labels.featuredEmpty}
-          </div>
-        )}
+        <div className={featuredGridClass}>
+          {featuredEvents.map((event) => (
+            <FeaturedEditorialCard key={event.id} event={event} locale={locale} />
+          ))}
+        </div>
       </section>
+      ) : null}
 
       <section className="border-y border-slate-100 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">

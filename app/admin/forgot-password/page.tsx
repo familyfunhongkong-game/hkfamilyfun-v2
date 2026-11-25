@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 
 export default function AdminForgotPasswordPage() {
@@ -10,8 +10,18 @@ export default function AdminForgotPasswordPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [isStaging, setIsStaging] = useState(false);
+
+  useEffect(() => {
+    setIsStaging(
+      window.location.hostname.startsWith("hkfamilyfun-staging") ||
+      (process.env.NEXT_PUBLIC_SITE_URL || "").includes("hkfamilyfun-staging"),
+    );
+  }, []);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
     setErrorMessage("");
     setSuccessMessage("");
 
@@ -22,27 +32,42 @@ export default function AdminForgotPasswordPage() {
     }
 
     setIsSubmitting(true);
-
-    // Keep using the already-tested recovery endpoint so the existing
-    // Supabase redirect allowlist continues to apply. The return context
-    // only changes portal branding/navigation after recovery.
-    const redirectTo =
-      window.location.origin + "/merchant/update-password?return=admin";
-
-    const { error } = await client.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo,
-    });
-
-    setIsSubmitting(false);
-
-    if (error) {
-      setErrorMessage("暫時未能發送重設密碼電郵，請稍後再試。");
-      return;
+    try {
+      // A stable environment URL, not the random Vercel Preview hostname:
+      // recovery URLs must be present in the Auth redirect allowlist.
+      const configuredSite = (process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+      const base = isStaging
+        ? "https://hkfamilyfun-staging.vercel.app"
+        : configuredSite.startsWith("https://")
+          ? new URL(configuredSite).origin
+          : window.location.origin;
+      // Do not append "?return=admin" here: exact redirect allowlists can
+      // reject the extra query string and silently fall back to Site URL.
+      const redirectTo = base + "/merchant/update-password";
+      const { error } = await client.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        { redirectTo },
+      );
+      if (error) {
+        if (error.code === "email_address_not_authorized") {
+          setErrorMessage("電郵服務未授權寄送至此地址，請管理員檢查 Supabase SMTP 設定。");
+        } else if (error.status === 429) {
+          setErrorMessage("重設申請太頻密，請稍後再試。");
+        } else {
+          setErrorMessage("暫時無法完成重設密碼申請，請稍後再試或聯絡管理員。");
+        }
+        return;
+      }
+      // Supabase deliberately returns success for unknown addresses.
+      // Do not claim email delivery was verified from this response.
+      setSuccessMessage(
+        "申請已提交。如這個環境已有對應的登入帳戶，而且郵件服務正常，便會收到重設密碼連結。請檢查收件箱及垃圾郵件。",
+      );
+    } catch {
+      setErrorMessage("連線發生問題，請重新整理頁面後再試。");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setSuccessMessage(
-      "如帳戶存在，我們已發送重設密碼連結到你的電郵。請檢查收件箱及垃圾郵件。",
-    );
   }
 
   return (
@@ -57,6 +82,13 @@ export default function AdminForgotPasswordPage() {
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs font-semibold leading-6 text-slate-600">
             Admin Portal 仍然只使用電郵 + 密碼登入；重設密碼不會啟用 QR Code 或雙重認證。
           </div>
+          {isStaging ? (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold leading-6 text-amber-900">
+              你正在使用 Staging 測試環境。測試環境與正式網站的登入帳戶完全分開；
+              如果尚未在 Staging Supabase Auth 建立管理員測試帳戶，按「發送」亦不會收到重設郵件。
+              請先由授權管理員建立測試帳戶及核對電郵設定。
+            </div>
+          ) : null}
 
           {errorMessage ? (
             <div role="alert" className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">

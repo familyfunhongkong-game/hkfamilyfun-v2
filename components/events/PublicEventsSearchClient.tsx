@@ -22,6 +22,7 @@ import {
 } from "@/lib/events/display-normalization";
 import type { EventRecord } from "@/lib/events/public-event-records";
 import { displayTag, tagTone } from "@/lib/events/tag-tone";
+import { isActivePublicEvent, nextPublicEventDate } from "@/lib/events/visibility";
 
 type GalleryImage = {
   url: string;
@@ -102,6 +103,13 @@ function isHttpUrl(value: unknown): boolean {
   return /^https?:\/\//i.test(value.trim());
 }
 
+function isSafeImageSrc(value: string): boolean {
+  // Database-supplied paths are restricted to first-party image assets.
+  // Never allow arbitrary root-relative URLs to become <img> sources.
+  return /^https?:\/\//i.test(value)
+    || /^\/images\/(?!.*\.\.\/)[a-z0-9/_-]+\.(?:svg|png|jpe?g|webp)(?:\?[a-z0-9=&_-]+)?$/i.test(value);
+}
+
 function normalizeImageArray(value: unknown): string[] {
   if (!value) return [];
 
@@ -131,7 +139,7 @@ function normalizeImageArray(value: unknown): string[] {
         return "";
       })
       .map((item) => item.trim())
-      .filter((item) => /^https?:\/\//i.test(item));
+      .filter((item) => isSafeImageSrc(item));
   }
 
   if (typeof value === "string") {
@@ -139,7 +147,7 @@ function normalizeImageArray(value: unknown): string[] {
 
     if (!trimmed) return [];
 
-    if (/^https?:\/\//i.test(trimmed)) {
+    if (isSafeImageSrc(trimmed)) {
       return [trimmed];
     }
 
@@ -150,7 +158,7 @@ function normalizeImageArray(value: unknown): string[] {
       return trimmed
         .split(/[,\n，、]/)
         .map((item) => item.trim())
-        .filter((item) => /^https?:\/\//i.test(item));
+        .filter((item) => isSafeImageSrc(item));
     }
   }
 
@@ -163,7 +171,7 @@ function uniqueImages(input: string[]): string[] {
 
   for (const raw of input) {
     const url = raw.trim();
-    if (!/^https?:\/\//i.test(url)) continue;
+    if (!isSafeImageSrc(url)) continue;
 
     const key = url.toLowerCase();
     if (seen.has(key)) continue;
@@ -178,7 +186,7 @@ function uniqueImages(input: string[]): string[] {
 function getGalleryImages(event: EventRecord): GalleryImage[] {
   const cover =
     typeof event.cover_image_url === "string" &&
-    /^https?:\/\//i.test(event.cover_image_url.trim())
+    isSafeImageSrc(event.cover_image_url.trim())
       ? event.cover_image_url.trim()
       : "";
 
@@ -435,7 +443,7 @@ function normalizedStatus(event: EventRecord): string {
 function canShowPublic(event: EventRecord): boolean {
   // Supabase public_events 已經按 Asia/Hong_Kong 過濾過期活動。
   // 前端不可再用訪客裝置本地日期判斷，否則海外用戶會早一日／遲一日。
-  return normalizedStatus(event) === "published";
+  return normalizedStatus(event) === "published" && isActivePublicEvent(event);
 }
 
 function isFreeEvent(event: EventRecord): boolean {
@@ -444,7 +452,11 @@ function isFreeEvent(event: EventRecord): boolean {
   ).toLowerCase();
   const priceText = safeText(event.price_label || event.price_text).toLowerCase();
 
-  return (
+  // A ticket advertised with a positive amount must not be filtered as free,
+  // even when imported price_type was incorrectly left as "free".
+  const explicitPaidPrice = /(?:HK\s*\$|HKD|港幣)\s*[1-9]\d*/i.test(priceText) ||
+    (event.min_price != null && Number(event.min_price) > 0);
+  return !explicitPaidPrice && (
     priceMode === "free" ||
     priceText.includes("免費") ||
     priceText.includes("免费") ||
@@ -944,6 +956,7 @@ function EventCard({
 
         <ResilientEventImage
           src={isFallback ? null : hero}
+          category={category}
           alt={title}
           loading="lazy"
           compactFallback
@@ -1061,13 +1074,13 @@ function EventCard({
         </p>
 
         <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 rounded-xl bg-slate-50 p-3 text-xs ring-1 ring-slate-100">
-          <div className="min-w-0">
+          <div className="col-span-2 min-w-0">
             <p className="font-bold text-slate-400">{m.date}</p>
-            <p className="mt-0.5 line-clamp-2 font-extrabold leading-4 text-slate-800">{formatDateRange(event, locale)}</p>
+            <p className="mt-0.5 whitespace-normal break-words font-extrabold leading-4 text-slate-800 [overflow-wrap:anywhere]">{formatDateRange(event, locale)}</p>
           </div>
-          <div className="min-w-0">
+          <div className="col-span-2 min-w-0">
             <p className="font-bold text-slate-400">{m.time}</p>
-            <p className="mt-0.5 line-clamp-2 font-extrabold leading-4 text-slate-800">{formatTimeRange(event, locale)}</p>
+            <p className="mt-0.5 whitespace-normal break-words font-extrabold leading-4 text-slate-800">{formatTimeRange(event, locale)}</p>
           </div>
           <div className="col-span-2 min-w-0 border-t border-slate-200/80 pt-2">
             <p className="font-bold text-slate-400">{m.venue} · {m.district}</p>
@@ -1310,7 +1323,8 @@ export default function PublicEventsSearchClient({
   const filteredEvents = useMemo(() => {
     const text = keyword.trim().toLowerCase();
 
-    let next = [...events];
+    const today = getHongKongToday();
+    let next = events.filter((event) => isActivePublicEvent(event, today));
 
     if (text) {
       next = next.filter((event) => {
@@ -1421,24 +1435,24 @@ export default function PublicEventsSearchClient({
 
         if (scoreDiff !== 0) return scoreDiff;
 
-        const aDate = parseDateOnly(a.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
-        const bDate = parseDateOnly(b.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const aDate = parseDateOnly(nextPublicEventDate(a, today))?.getTime() || Number.MAX_SAFE_INTEGER;
+        const bDate = parseDateOnly(nextPublicEventDate(b, today))?.getTime() || Number.MAX_SAFE_INTEGER;
         return aDate - bDate;
       });
     }
 
     if (sortMode === "date_asc") {
       next.sort((a, b) => {
-        const aTime = parseDateOnly(a.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
-        const bTime = parseDateOnly(b.start_date)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const aTime = parseDateOnly(nextPublicEventDate(a, today))?.getTime() || Number.MAX_SAFE_INTEGER;
+        const bTime = parseDateOnly(nextPublicEventDate(b, today))?.getTime() || Number.MAX_SAFE_INTEGER;
         return aTime - bTime;
       });
     }
 
     if (sortMode === "date_desc") {
       next.sort((a, b) => {
-        const aTime = parseDateOnly(a.start_date)?.getTime() || 0;
-        const bTime = parseDateOnly(b.start_date)?.getTime() || 0;
+        const aTime = parseDateOnly(nextPublicEventDate(a, today))?.getTime() || 0;
+        const bTime = parseDateOnly(nextPublicEventDate(b, today))?.getTime() || 0;
         return bTime - aTime;
       });
     }

@@ -1,0 +1,41 @@
+name: HKFF Auth Email Branding - Manual Only
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Supabase target
+        required: true
+        type: choice
+        options: [staging, production]
+      action:
+        description: Verify current templates or apply approved branding
+        required: true
+        type: choice
+        options: [verify, apply]
+
+permissions:
+  contents: read
+
+jobs:
+  sync-supabase-auth-templates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    environment: ${{ inputs.target == 'production' && 'hkff-auth-email-production' || 'hkff-auth-email-staging' }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.HKFF_SUPABASE_MANAGEMENT_TOKEN }}
+      HKFF_AUTH_TARGET: ${{ inputs.target }}
+      HKFF_AUTH_EMAIL_APPLY: ${{ inputs.action == 'apply' }}
+      HKFF_AUTH_EMAIL_PRODUCTION_APPROVED: ${{ vars.HKFF_AUTH_EMAIL_PRODUCTION_APPROVED }}
+    steps:
+      - name: Checkout approved commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Validate email HTML templates and logo contract
+        run: node scripts/check-auth-email-branding.mjs
+      - name: Verify / apply hosted Supabase Auth HTML templates
+        run: node scripts/sync-auth-email-templates.mjs

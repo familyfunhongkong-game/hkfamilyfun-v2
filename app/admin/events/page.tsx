@@ -7,6 +7,8 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { evaluateEventReadiness } from "@/lib/events/readiness";
 import { normalizeAgeGroups } from "@/lib/events/age-display";
+import { nextEventOccurrence } from "@/lib/events/recurrence";
+import { hongKongToday } from "@/lib/events/visibility";
 
 type JsonValue =
   | string
@@ -65,6 +67,8 @@ type EventRecord = {
   end_time?: string | null;
   recurrence_type?: string | null;
   recurrence_weekdays?: number[] | null;
+  recurrence_include_dates?: string[] | null;
+  recurrence_exclude_dates?: string[] | null;
 
   venue_name?: string | null;
   venue_name_tc?: string | null;
@@ -1071,6 +1075,17 @@ export default function AdminEventsPage() {
             {filteredEvents.map((event) => {
               const images = getGalleryImages(event);
               const status = normalizedStatus(event);
+              // Editorial status remains untouched. This label reflects
+              // real event availability, including cancelled future sessions.
+              const hasFutureSession = nextEventOccurrence({
+                startDate: event.start_date,
+                endDate: event.end_date,
+                recurrenceType: event.recurrence_type,
+                recurrenceWeekdays: event.recurrence_weekdays,
+                recurrenceIncludeDates: event.recurrence_include_dates,
+                recurrenceExcludeDates: event.recurrence_exclude_dates,
+              }, hongKongToday()) !== null;
+              const isEnded = Boolean(event.start_date) && !hasFutureSession;
               const tone = getStatusTone(status);
               const title = safeText(event.title_tc || event.title, "未命名活動");
               const shortDescription = safeText(
@@ -1142,6 +1157,7 @@ export default function AdminEventsPage() {
 
                       <div className="absolute left-3 top-3 flex flex-wrap gap-2">
                         <Badge tone={tone}>{getStatusLabel(event)}</Badge>
+                        {isEnded ? <Badge tone="slate">已結束／已過期</Badge> : null}
                         <Badge tone={languageReady === 3 ? "green" : "amber"}>
                           語言 {languageReady}/3
                         </Badge>
@@ -1169,7 +1185,7 @@ export default function AdminEventsPage() {
                         {eventReadiness.googleEventReady ? (
                           <Badge tone="green">Google Event Ready</Badge>
                         ) : null}
-                        {ready ? (
+                        {ready && !isEnded ? (
                           <Badge tone="green">可發布</Badge>
                         ) : (
                           <Badge tone="rose">需檢查</Badge>

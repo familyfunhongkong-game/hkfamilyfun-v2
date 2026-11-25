@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const source = readFileSync("app/favorites/page.tsx", "utf8");
+const savedModule = readFileSync("lib/favorites/cloud-sync.ts", "utf8");
+assert.ok(savedModule.includes('hkff_favorite_event_ids'), "Shared cloud module must preserve existing guest bookmarks");
+assert.ok(source.includes('synchronizeCloudFavorites()'), "Saved page must hydrate member cloud bookmarks");
+assert.ok(source.includes('changeSavedEvent(id, false)'), "Removing a bookmark must update private cloud");
 for (const feature of [
-  "hkff_favorite_event_ids",
   "readFavoriteIds()",
   "getEventStatus(event, today)",
   "Asia/Hong_Kong",
@@ -22,3 +25,25 @@ for (const feature of [
 }
 assert.ok(!source.includes(".from(\"events\")"), "Saved events must only read public event view");
 console.log("[saved-events] PASS: search, filters, sort, compact view, expiry, removal and public visibility.");
+
+assert.ok(source.includes("formatToParts(new Date())"), "Hong Kong date must not rely on locale-specific formatting");
+
+const api = readFileSync("app/api/saved-events/route.ts", "utf8");
+for (const required of [
+  "serviceClient()", 'eq("status", "published")', 'not("published_at", "is", null)',
+  "hidden_pending_confirmation", "lastDate < today", "ids.length > 100",
+  "private, no-store", "archived: true",
+]) {
+  assert.ok(api.includes(required), "Archive API security condition missing: " + required);
+}
+assert.ok(!api.includes('select("*")'), "Archive API must not expose internal columns");
+assert.ok(source.includes('fetch("/api/saved-events"'), "Missing safe archive lookup");
+assert.ok(source.includes('event.archived ? ('), "Expired history must render without dead detail links");
+assert.ok(source.includes('if (event.archived) return "expired"'), "Archived listings must be past events");
+
+assert.ok(api.includes('event.recurrence_type === "weekly" && !event.end_date'), "Open-ended weekly records must not be mislabeled past");
+
+assert.ok(!api.includes('.in("status", ["archived", "published"])'), "Never re-expose editorially archived event details");
+assert.ok(source.includes("unavailableIds"), "Saved bookmarks must survive an event being withdrawn");
+assert.ok(source.includes("為保護私隱"), "Show privacy-preserving unavailable message");
+assert.ok(source.includes("removeFavorite(id)"), "User can remove an unavailable bookmark");
