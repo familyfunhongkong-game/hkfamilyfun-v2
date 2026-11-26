@@ -1,0 +1,50 @@
+name: Security dependency lockfile repair (isolated)
+on:
+  push:
+    branches:
+      - fix/security-dependency-audit-20261120
+    paths:
+      - .github/workflows/security-lockfile-repair.yml
+  pull_request:
+    branches:
+      - fix/merchant-branded-email-admin-deeplink-20261118
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: true
+          ref: fix/security-dependency-audit-20261120
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Repair lockfile without running dependency scripts
+        run: |
+          npm pkg set 'dependencies.next=16.4.6' 'devDependencies.eslint-config-next=16.4.6' 'devDependencies.@typescript-eslint/eslint-plugin=8.73.0' 'devDependencies.@typescript-eslint/parser=8.73.0' 'devDependencies.typescript-eslint=8.73.0'
+          cp package-lock.json /tmp/original-package-lock.json
+          if ! npm install --package-lock-only --ignore-scripts --no-fund --no-audit; then
+            rm package-lock.json
+            npm install --package-lock-only --ignore-scripts --no-fund --no-audit
+          fi
+          npm audit fix --package-lock-only --ignore-scripts --no-fund --audit-level=high
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm audit --audit-level=high
+          npm run lint
+          npm run type-check
+      - name: Commit verified lockfile repair to isolated branch only
+        run: |
+          if git diff --quiet -- package.json package-lock.json; then
+            echo 'No dependency changes needed'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json
+          git commit -m 'fix(security): update audited dependency lockfile'
+          git push origin HEAD:fix/security-dependency-audit-20261120
